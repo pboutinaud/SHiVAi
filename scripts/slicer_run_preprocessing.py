@@ -112,15 +112,15 @@ def main():
     wf = genWorkflow(**wfargs)
     wf.base_dir = out_dir
     wf.get_node('dataGrabber').inputs.base_directory = data_dir
-    wf.get_node('dataGrabber').inputs.template = args.glob
+    wf.get_node('dataGrabber').inputs.template = args.glob  # TODO: A CHANGER !!!!!
     wf.get_node('dataGrabber').inputs.template_args = {'main': [['subject_id']]}
     wf.get_node('conform').inputs.dimensions = (256, 256, 256),
-    wf.get_node('conform').inputs.voxel_size = tuple(slicerdb),
+    wf.get_node('conform').inputs.voxel_size = tuple(slicerdb['parameters']['voxels_size']),
     wf.get_node('conform').inputs.orientation = 'RAS'
-    wf.get_node('crop').inputs.final_dimension = tuple(args.final_dimensions)
-    wf.get_node('normalization').inputs.percentile = args.percentile
+    wf.get_node('crop').inputs.final_dimension = tuple(slicerdb['parameters']['final_dimensions'])
+    wf.get_node('normalization').inputs.percentile = slicerdb['parameters']['percentile']
     # Predictor model descriptor file (JSON)
-    wf.get_node('brain_mask_2').inputs.descriptor = args.model
+    wf.get_node('brain_mask_2').inputs.descriptor = slicerdb['parameters']['brainmask_model']
     # singularity container bind mounts (so that folders of 
     # the host appear inside the container)
     # gcc, cuda libs, model directory and source data dir on the host
@@ -131,7 +131,7 @@ def main():
         ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
         ('/homes_unix/boutinaud/ReferenceModels', '/mnt/model', 'ro')]
     wf.get_node('brain_mask_2').inputs.model = '/mnt/model'
-    wf.get_node('brain_mask_2').inputs.snglrt_image = args.simg
+    wf.get_node('brain_mask_2').inputs.snglrt_image = args.simg  # TODO: A CHANGER  !!!!!
     wf.get_node('brain_mask_2').inputs.out_filename = os.path.join(['mnt', 'data', 'brain_mask.nii.gz'])
 
     wf.run(plugin='Linear')
