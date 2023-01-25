@@ -49,7 +49,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(datagrabber, 'main', conform, 'img')
 
 
-    normalization = Node(Normalization()), name="intensity_normalization")
+    normalization = Node(Normalization(), name="intensity_normalization")
     workflow.connect(conform, 'resampled', normalization, 'input_image')
 
     brain_mask = Node(Threshold(threshold=0.4, binarize=True), name="brain_mask")

@@ -11,7 +11,7 @@ from shivautils.interfaces.image import (Threshold, Normalization,
                             Conform, Crop)
 
 
-dummy_args = {'SUBJECT_LIST': ['BIOMIST::SUBJECT_LIST'],
+dummy_args = {'FILE_LIST': ['BIOMIST::SUBJECT_LIST'],
               'BASE_DIR': os.path.normpath(os.path.expanduser('~'))}
 
 
@@ -21,35 +21,25 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow("preprocessing")
+    workflow = Workflow("slicer_predictor_preprocessing")
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
-    subjectList = Node(IdentityInterface(
-                            fields=['subject_id'],
+    fileList = Node(IdentityInterface(
+                            fields=['filepath'],
                             mandatory_inputs=True),
-                            name="subjectList")
-    subjectList.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
+                            name="fileList")
+    fileList.iterables = ('filepath', kwargs['FILE_LIST'])
 
-    # file selection
-    datagrabber = Node(DataGrabber(infields=['subject_id'],
-                                   outfields=['main']),
-                       name='dataGrabber')
-    datagrabber.inputs.base_directory = kwargs['BASE_DIR']
-    datagrabber.inputs.raise_on_empty = True
-    datagrabber.inputs.sort_filelist = True
-    datagrabber.inputs.template = '%s/%s/*nii*'
-    datagrabber.inputs.template_args = {'main': [['subject_id', 'main']]}
-
-    workflow.connect(subjectList, 'subject_id', datagrabber, 'subject_id')
+    
 
 
     conform = Node(Conform(),
                    name="conform")
-    workflow.connect(datagrabber, 'main', conform, 'img')
+    workflow.connect(fileList, 'filepath', conform, 'img')
 
 
-    normalization = Node(Normalization()), name="intensity_normalization")
+    normalization = Node(Normalization(), name="intensity_normalization")
     workflow.connect(conform, 'resampled', normalization, 'input_image')
 
     brain_mask = Node(Threshold(threshold=0.4, binarize=True), name="brain_mask")
@@ -68,7 +58,7 @@ def genWorkflow(**kwargs) -> Workflow:
                      brain_mask_2, 't1')
 
     hard_brain_mask = Node(Threshold(threshold=0.2, binarize=True), name="hard_brain_mask")
-    workflow.connect(brain_mask2, 'segmentation', hard_brain_mask, 'img')
+    workflow.connect(brain_mask_2, 'segmentation', hard_brain_mask, 'img')
     
     
     crop_2 = Node(Crop(),
