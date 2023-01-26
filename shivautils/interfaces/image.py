@@ -3,11 +3,10 @@ other preliminary tasks"""
 import os
 import nibabel.processing as nip
 import nibabel as nb
-import tensorflow as tf
 from nipype.interfaces.base import BaseInterface, \
     BaseInterfaceInputSpec, traits, TraitedSpec
 from nipype.utils.filemanip import split_filename
-from shivautils.image import normalization, crop, threshold, apply_mask
+from shivautils.image import normalization, crop, threshold
 
 
 class ConformInputSpec(BaseInterfaceInputSpec):
@@ -388,7 +387,8 @@ class ApplyMask(BaseInterface):
         fname = self.inputs.apply_to
         apply_to = nb.load(fname)
         model = self.inputs.model
-        brain_mask = apply_mask(apply_to, model)
+        # brain_mask = apply_mask(apply_to, model)
+        brain_mask = None
 
         # Save it for later use in _list_outputs
         _, base, _ = split_filename(fname)

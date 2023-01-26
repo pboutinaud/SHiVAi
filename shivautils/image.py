@@ -5,7 +5,6 @@ import nibabel.processing as nip
 import nibabel as nb
 import numpy as np
 from scipy import ndimage
-import tensorflow as tf
 
 from shivautils.stats import histogram
 
@@ -201,6 +200,7 @@ def crop(roi_mask: nb.Nifti1Image,
     return cropped, cdg_ijk, bbox1, bbox2
 
 
+'''
 def apply_mask(apply_to: nb.Nifti1Image,
                model: tf.keras.Model):
 
@@ -216,5 +216,6 @@ def apply_mask(apply_to: nb.Nifti1Image,
     brain_mask = nip.Nifti1Image(brain_mask_array, apply_to.affine)
 
     return brain_mask
+'''
                
                

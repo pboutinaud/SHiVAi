@@ -96,30 +96,27 @@ def main():
     # the path from which the images to be preprocessed come
     # the preprocessed image destination path
     with open(args.input, 'r') as json_in:
-        slicerdb = json.load(os.path.normpath(json_in))
+        slicerdb = json.load(json_in)
     
-    out_dir = os.path.abspath(os.path.normpath(json_in))
-    wfargs = {'SUBJECT_LIST': list(slicerdb['all_files'].keys()),
-              'BASE_DIR': slicerdb['out_dir']}
+    out_dir = os.path.abspath(slicerdb['parameters']['out_dir'])
+    wfargs = {'FILES_LIST': [os.path.join(slicerdb['files_dir'], elt['raw'])
+                             for elt in slicerdb['all_files'].values()],
+              'BASE_DIR': out_dir}
 
     if not (os.path.exists(out_dir) and os.path.isdir(out_dir)):
         os.makedirs(out_dir)
     print(f'Working directory set to: {out_dir}')
 
-    data_dir = os.path.abspath(os.path.dirname(os.path.normpath(
-                    slicerdb['files_dir'])))
-
     wf = genWorkflow(**wfargs)
     wf.base_dir = out_dir
-    wf.get_node('dataGrabber').inputs.base_directory = data_dir
-    wf.get_node('dataGrabber').inputs.template = args.glob  # TODO: A CHANGER !!!!!
-    wf.get_node('dataGrabber').inputs.template_args = {'main': [['subject_id']]}
-    wf.get_node('conform').inputs.dimensions = (256, 256, 256),
-    wf.get_node('conform').inputs.voxel_size = tuple(slicerdb['parameters']['voxels_size']),
+
+    wf.get_node('conform').inputs.dimensions = (256, 256, 256)
+    wf.get_node('conform').inputs.voxel_size = tuple(slicerdb['parameters']['voxels_size'])
     wf.get_node('conform').inputs.orientation = 'RAS'
-    wf.get_node('crop').inputs.final_dimension = tuple(slicerdb['parameters']['final_dimensions'])
-    wf.get_node('normalization').inputs.percentile = slicerdb['parameters']['percentile']
+    wf.get_node('crop').inputs.final_dimensions = tuple(slicerdb['parameters']['final_dimensions'])
+    wf.get_node('intensity_normalization').inputs.percentile = slicerdb['parameters']['percentile']
     # Predictor model descriptor file (JSON)
+    wf.get_node('brain_mask_2').plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
     wf.get_node('brain_mask_2').inputs.descriptor = slicerdb['parameters']['brainmask_model']
     # singularity container bind mounts (so that folders of 
     # the host appear inside the container)
@@ -131,11 +128,10 @@ def main():
         ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
         ('/homes_unix/boutinaud/ReferenceModels', '/mnt/model', 'ro')]
     wf.get_node('brain_mask_2').inputs.model = '/mnt/model'
-    wf.get_node('brain_mask_2').inputs.snglrt_image = args.simg  # TODO: A CHANGER  !!!!!
-    wf.get_node('brain_mask_2').inputs.out_filename = os.path.join(['mnt', 'data', 'brain_mask.nii.gz'])
+    wf.get_node('brain_mask_2').inputs.snglrt_image = '/homes_unix/yrio/singularity/predict.sif'
+    wf.get_node('brain_mask_2').inputs.out_filename = '/mnt/data/brain_mask.nii.gz'
 
-    wf.run(plugin='Linear')
-    wf.run(plugin='Linear')
+    wf.run(plugin='SLURM')
 
 
 if __name__ == "__main__":

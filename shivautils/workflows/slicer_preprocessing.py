@@ -11,7 +11,7 @@ from shivautils.interfaces.image import (Threshold, Normalization,
                             Conform, Crop)
 
 
-dummy_args = {'FILE_LIST': ['BIOMIST::SUBJECT_LIST'],
+dummy_args = {'FILES_LIST': ['BIOMIST::SUBJECT_LIST'],
               'BASE_DIR': os.path.normpath(os.path.expanduser('~'))}
 
 
@@ -29,7 +29,7 @@ def genWorkflow(**kwargs) -> Workflow:
                             fields=['filepath'],
                             mandatory_inputs=True),
                             name="fileList")
-    fileList.iterables = ('filepath', kwargs['FILE_LIST'])
+    fileList.iterables = ('filepath', kwargs['FILES_LIST'])
 
     
 
