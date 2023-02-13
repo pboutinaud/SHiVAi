@@ -99,7 +99,8 @@ def main():
         slicerdb = json.load(json_in)
     
     out_dir = os.path.abspath(slicerdb['parameters']['out_dir'])
-    wfargs = {'FILES_LIST': [os.path.join(slicerdb['files_dir'], elt['raw'])
+    wfargs = {'FILES_LIST': [(os.path.join(slicerdb['files_dir'], elt['raw']), 
+                              os.path.join(slicerdb['files_dir'], elt['seg']))
                              for elt in slicerdb['all_files'].values()],
               'BASE_DIR': out_dir}
 
@@ -109,12 +110,18 @@ def main():
 
     wf = genWorkflow(**wfargs)
     wf.base_dir = out_dir
-
+    
     wf.get_node('conform').inputs.dimensions = (256, 256, 256)
     wf.get_node('conform').inputs.voxel_size = tuple(slicerdb['parameters']['voxels_size'])
     wf.get_node('conform').inputs.orientation = 'RAS'
+    wf.get_node('conform_seg').inputs.dimensions = (256, 256, 256)
+    wf.get_node('conform_seg').inputs.voxel_size = tuple(slicerdb['parameters']['voxels_size'])
+    wf.get_node('conform_seg').inputs.orientation = 'RAS'
     wf.get_node('crop').inputs.final_dimensions = tuple(slicerdb['parameters']['final_dimensions'])
+    wf.get_node('crop_seg').inputs.final_dimensions = tuple(slicerdb['parameters']['final_dimensions'])
+    wf.get_node('crop_2').inputs.final_dimensions = tuple(slicerdb['parameters']['final_dimensions'])
     wf.get_node('intensity_normalization').inputs.percentile = slicerdb['parameters']['percentile']
+    wf.get_node('intensity_normalization_2').inputs.percentile = slicerdb['parameters']['percentile']
     # Predictor model descriptor file (JSON)
     wf.get_node('brain_mask_2').plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
     wf.get_node('brain_mask_2').inputs.descriptor = slicerdb['parameters']['brainmask_model']

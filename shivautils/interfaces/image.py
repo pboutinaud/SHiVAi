@@ -28,6 +28,10 @@ class ConformInputSpec(BaseInterfaceInputSpec):
                               'LAP', 'RAP',
                               desc="orientation of image volume brain",
                               use_default=True)
+    order = traits.Int(3,
+                       desc="orientation of image volume brain",
+                       usedefault=True,
+                       )
 
 
 class ConformOutputSpec(TraitedSpec):
@@ -69,7 +73,8 @@ class Conform(BaseInterface):
         fname = self.inputs.img
         img = nb.load(fname)
         resampled = nip.conform(img, out_shape=self.inputs.dimensions,
-                                voxel_size=self.inputs.voxel_size, order=3,
+                                voxel_size=self.inputs.voxel_size, 
+                                order=self.inputs.order,
                                 cval=0.0,
                                 orientation=self.inputs.orientation,
                                 out_class=None)

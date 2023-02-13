@@ -3,8 +3,8 @@
 import os
 
 from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces.io import DataGrabber, DataSink
-from nipype.interfaces.utility import IdentityInterface
+from nipype.interfaces.io import DataSink
+from nipype.interfaces.utility import IdentityInterface, Function
 from pyplm.interfaces.shiva import Predict
 
 from shivautils.interfaces.image import (Threshold, Normalization,
@@ -13,6 +13,10 @@ from shivautils.interfaces.image import (Threshold, Normalization,
 
 dummy_args = {'FILES_LIST': ['BIOMIST::SUBJECT_LIST'],
               'BASE_DIR': os.path.normpath(os.path.expanduser('~'))}
+
+
+def split_pair(tup: tuple):
+    return tup
 
 
 def genWorkflow(**kwargs) -> Workflow:
@@ -31,12 +35,20 @@ def genWorkflow(**kwargs) -> Workflow:
                             name="fileList")
     fileList.iterables = ('filepath', kwargs['FILES_LIST'])
 
+    split = Node(Function(input_names=['tup'],
+                          output_names=['anat','seg'],
+                          function=split_pair),
+                          name='split')
     
-
+    workflow.connect(fileList, 'filepath', split, 'tup')
 
     conform = Node(Conform(),
                    name="conform")
-    workflow.connect(fileList, 'filepath', conform, 'img')
+    workflow.connect(split, 'anat', conform, 'img')
+
+    conformSeg = Node(Conform(order=0),
+                      name="conform_seg")
+    workflow.connect(split, 'seg', conformSeg, 'img')
 
 
     normalization = Node(Normalization(), name="intensity_normalization")
@@ -52,6 +64,13 @@ def genWorkflow(**kwargs) -> Workflow:
                      crop, 'roi_mask')
     workflow.connect(normalization, 'intensity_normalized',
                      crop, 'apply_to')
+    
+    cropSeg = Node(Crop(),
+                   name="crop_seg")
+    workflow.connect(brain_mask, 'thresholded',
+                     cropSeg, 'roi_mask')
+    workflow.connect(conformSeg, 'resampled',
+                     cropSeg, 'apply_to')
 
     brain_mask_2 = Node(Predict(), "brain_mask_2")
     workflow.connect(crop, 'cropped',
@@ -63,12 +82,10 @@ def genWorkflow(**kwargs) -> Workflow:
     
     crop_2 = Node(Crop(),
     		      name="crop_2")
-    workflow.connect(hard_brain_mask, 'thresholded',
+    workflow.connect(brain_mask, 'thresholded',
     		         crop_2, 'roi_mask')
     workflow.connect(conform, 'resampled', 
     		         crop_2, 'apply_to') 
-    workflow.connect(crop, 'cdg_ijk',
-    		         crop_2, 'cdg_ijk')
     
     
     normalization_2 = Node(Normalization(), name="intensity_normalization_2")

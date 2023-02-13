@@ -25,9 +25,6 @@ def normalization(img: nb.Nifti1Image,
     """
     if not isinstance(img, nb.nifti1.Nifti1Image):
         raise TypeError("Only Nifti images are supported")
-    required_ndim = 3
-    if img.ndim != required_ndim:
-        raise ValueError("Only 3D images are supported.")
 
     # We suppress values above the 99th percentile to avoid hot spots
     array = img.get_fdata()
@@ -38,7 +35,7 @@ def normalization(img: nb.Nifti1Image,
         value_percentile = np.percentile(array_b, percentile)
     else: 
         brain_mask_array = brain_mask.get_fdata()
-        value_percentile = np.percentile(array_b[brain_mask_array != 0], percentile)
+        value_percentile = np.percentile(array_b[np.squeeze(brain_mask_array) != 0], percentile)
 
     array += array.min()
     # scaling the array with the percentile value
@@ -81,9 +78,6 @@ def threshold(img: nb.Nifti1Image,
         raise TypeError("Only Nifti images are supported")
     if not isinstance(thr, float):
         raise TypeError("'thr' must be a float")
-    required_ndim = 3
-    if img.ndim != required_ndim:
-        raise ValueError("Only 3D images are supported.")
 
     array = img.get_fdata()
     if sign == '+' and not binarize:
@@ -125,12 +119,6 @@ def crop(roi_mask: nb.Nifti1Image,
     if not isinstance(apply_to, nb.nifti1.Nifti1Image):
         raise TypeError("apply_to: only Nifti images are supported")
 
-    required_ndim = 3
-    if roi_mask.ndim != required_ndim:
-        raise ValueError("Only 3D images are supported.")
-    if len(dimensions) != required_ndim:
-        raise ValueError(f"`dimensions` must have {required_ndim} values")
- 
     # Calculation of the center of gravity of the mask, we round and convert
     # to integers
     if not cdg_ijk:
