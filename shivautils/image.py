@@ -34,7 +34,7 @@ def normalization(img: nb.Nifti1Image,
     if not brain_mask:
         value_percentile = np.percentile(array_b, percentile)
     else: 
-        brain_mask_array = brain_mask.get_fdata()
+        brain_mask_array = np.squeeze(brain_mask.get_fdata())
         value_percentile = np.percentile(array_b[np.squeeze(brain_mask_array) != 0], percentile)
 
     array += array.min()
@@ -100,9 +100,17 @@ def threshold(img: nb.Nifti1Image,
 def crop(roi_mask: nb.Nifti1Image,
 	     apply_to: nb.Nifti1Image,
          dimensions: Tuple[int, int, int],
-         cdg_ijk: np.ndarray[int] = None
-         ) -> nb.Nifti1Image:
+         cdg_ijk: np.ndarray = None
+         ) -> Tuple[nb.Nifti1Image, 
+                    Tuple[int, int, int],
+                    Tuple[int, int, int],
+                    Tuple[int, int, int]]:
     """Adjust the real-world referential and crop image.
+
+    If a mask is supplied, the procedure uses the center of mass of the mask as a crop center.
+
+    If no mask is supplied, the procedure computes the ijk coordiantes of the affine
+    referential coordiantes origin.
 
     Args:
         roi_mask (nb.Nifti1Image): mask used to define the center
@@ -110,20 +118,39 @@ def crop(roi_mask: nb.Nifti1Image,
         apply_to (nb.Nifti1Image): image to crop
         dimensions (Tuple[int, int, int], optional): volume dimensions.
                                                      Defaults to (256 , 256 , 256).
+        cdg_ijk: arbitrary crop center ijk coordinates
 
     Returns:
         nb.Nifti1Image: preprocessed image
+        crop center ijk coordiantes
+        bouding box top left ijk coordiantes
+        bounding box bottom right coordinates
     """
-    if not isinstance(roi_mask, nb.nifti1.Nifti1Image):
-        raise TypeError("roi_mask: only Nifti images are supported")
     if not isinstance(apply_to, nb.nifti1.Nifti1Image):
         raise TypeError("apply_to: only Nifti images are supported")
 
+    if roi_mask and not isinstance(roi_mask, nb.nifti1.Nifti1Image):
+        raise TypeError("roi_mask: only Nifti images are supported")
+    elif not roi_mask and not cdg_ijk:
+        # get cropping center from xyz origin  
+        cdg_ijk =  np.linalg.inv(apply_to.affine) @ np.array([0.0, 0.0, 0.0, 1.0])
+        cdg_ijk = np.ceil(cdg_ijk).astype(int)[:3]
+    elif roi_mask and not cdg_ijk:
+        # get CoG from mask as center
+        required_ndim = 3
+        if roi_mask.ndim != required_ndim:
+            raise ValueError("Only 3D images are supported.")
+        if len(dimensions) != required_ndim:
+            raise ValueError(f"`dimensions` must have {required_ndim} values")
+        cdg_ijk = np.ceil(np.array(
+                            ndimage.center_of_mass(
+		                        roi_mask.get_fdata()))).astype(int)
+        
+
+
     # Calculation of the center of gravity of the mask, we round and convert
     # to integers
-    if not cdg_ijk:
-        cdg_ijk = np.ceil(np.array(ndimage.center_of_mass(
-		roi_mask.get_fdata()))).astype(int)
+    
  
     # We will center the block on the center of gravity, so we cut the size in
     # 2
@@ -154,15 +181,15 @@ def crop(roi_mask: nb.Nifti1Image,
             bbox2 = (bbox2[0], bbox2[1] + padding, bbox2[2])
     # We extract the box i1 -> i2, j1 -> j2, k1 -> k2 (we "slice")
             array_out = padding_data[
-                bbox1[0]:bbox2[0],
-                bbox1[1]:bbox2[1],
-                bbox1[2]:bbox2[2]]
+                            bbox1[0]:bbox2[0],
+                            bbox1[1]:bbox2[1],
+                            bbox1[2]:bbox2[2]]
 
         else:
             array_out = apply_to.get_fdata()[
-                        bbox1[0]:bbox2[0],
-                        bbox1[1]:bbox2[1],
-                        bbox1[2]:bbox2[2]]
+                                bbox1[0]:bbox2[0],
+                                bbox1[1]:bbox2[1],
+                                bbox1[2]:bbox2[2]]
 
     # We correct the coordinates, so first we have to convert ijk to xyz for
     # half block size and centroid
@@ -186,24 +213,3 @@ def crop(roi_mask: nb.Nifti1Image,
     cropped = nip.Nifti1Image(array_out, affine_out)
 
     return cropped, cdg_ijk, bbox1, bbox2
-
-
-'''
-def apply_mask(apply_to: nb.Nifti1Image,
-               model: tf.keras.Model):
-
-    image_tensor = tf.expand_dims(apply_to.get_fdata(), axis=0)
-    brain_mask_array = image_tensor.numpy()
-    prediction = model.predict(image_tensor)
-       
-    mask = prediction <= 0.5
-    brain_mask_array = np.squeeze(brain_mask_array)
-    mask = np.squeeze(mask)
-    brain_mask_array[mask] = 0
-
-    brain_mask = nip.Nifti1Image(brain_mask_array, apply_to.affine)
-
-    return brain_mask
-'''
-               
-               

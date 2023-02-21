@@ -3,8 +3,10 @@ other preliminary tasks"""
 import os
 import nibabel.processing as nip
 import nibabel as nb
+import numpy as np
 from nipype.interfaces.base import BaseInterface, \
     BaseInterfaceInputSpec, traits, TraitedSpec
+from nipype.interfaces.base import isdefined
 from nipype.utils.filemanip import split_filename
 from shivautils.image import normalization, crop, threshold
 
@@ -20,18 +22,20 @@ class ConformInputSpec(BaseInterfaceInputSpec):
                               usedefault=True,
                               desc='The minimal array dimensions for the'
                               'intermediate conformed image.')
+    
+    order = traits.Int(3, desc="Order of spline interpolation", usedefault=True)
 
     voxel_size = traits.Tuple(float, float, float,
-                              desc='<please fill me>')
+                              desc='resampled voxel size',
+                              mandatory=False)
 
-    orientation = traits.Enum('RAS', 'LAS', 'RPS', 'LPS', 'RAI', 'LPI', 'RPI',
-                              'LAP', 'RAP',
+    orientation = traits.Enum('RAS', 'LAS',
+                              'RPS', 'LPS', 
+                              'RAI', 'LPI', 
+                              'RPI', 'LAP',
+                              'RAP',
                               desc="orientation of image volume brain",
-                              use_default=True)
-    order = traits.Int(3,
-                       desc="orientation of image volume brain",
-                       usedefault=True,
-                       )
+                              usedefault=True)
 
 
 class ConformOutputSpec(TraitedSpec):
@@ -72,8 +76,16 @@ class Conform(BaseInterface):
         """
         fname = self.inputs.img
         img = nb.load(fname)
-        resampled = nip.conform(img, out_shape=self.inputs.dimensions,
-                                voxel_size=self.inputs.voxel_size, 
+        if not (isdefined(self.inputs.voxel_size)):
+            # resample so as to keep FOV
+            voxel_size = np.divide(np.multiply(img.header['dim'][1:4], img.header['pixdim'][1:4]),
+                                   self.inputs.dimensions)
+        else:
+            voxel_size = self.inputs.voxel_size
+
+        resampled = nip.conform(img, 
+                                out_shape=self.inputs.dimensions,
+                                voxel_size=voxel_size, 
                                 order=self.inputs.order,
                                 cval=0.0,
                                 orientation=self.inputs.orientation,
@@ -81,7 +93,7 @@ class Conform(BaseInterface):
 
         # Save it for later use in _list_outputs
         _, base, _ = split_filename(fname)
-        nb.save(resampled, base + 'resampled.nii')
+        nb.save(resampled, base + 'resampled.nii.gz')
 
         return runtime
 
@@ -91,7 +103,7 @@ class Conform(BaseInterface):
         fname = self.inputs.img
         _, base, _ = split_filename(fname)
         outputs["resampled"] = os.path.abspath(base +
-                                               'resampled.nii')
+                                               'resampled.nii.gz')
         return outputs
 
 
@@ -164,7 +176,7 @@ class Normalization(BaseInterface):
         with open('report.html', 'w', encoding='utf-8') as fid:
             fid.write(report)
         _, base, _ = split_filename(fname)
-        nb.save(img_normalized, base + '_img_normalized.nii')
+        nb.save(img_normalized, base + '_img_normalized.nii.gz')
 
         return runtime
 
@@ -176,7 +188,7 @@ class Normalization(BaseInterface):
         _, base, _ = split_filename(fname)
         outputs['mode'] = getattr(self, 'mode_attr')
         outputs["intensity_normalized"] = os.path.abspath(base +
-                                                          '_img_normalized.nii'
+                                                          '_img_normalized.nii.gz'
                                                           )
         return outputs
 
@@ -262,7 +274,7 @@ class CropInputSpec(BaseInterfaceInputSpec):
     nifti image"""
     roi_mask = traits.File(exists=True,
                            desc='Mask for computation of center of gravity and'
-                           'cropping coordinates', mandatory=True)
+                           'cropping coordinates', mandatory=False)
 
     apply_to = traits.File(exists=True, 
                            desc='Image to crop', mandatory=True)
@@ -310,7 +322,15 @@ class Crop(BaseInterface):
         Return: runtime
         """
         # load images
-        mask = nb.load(self.inputs.roi_mask)
+        if  isdefined(self.inputs.roi_mask):
+            mask = nb.load(self.inputs.roi_mask)
+        else:
+            # get from ijk
+            mask = None
+        if not isdefined(self.inputs.cdg_ijk):
+            cdg_ijk = None
+        else: 
+            cdg_ijk = self.inputs.cdg_ijk
         target = nb.load(self.inputs.apply_to)
 
         # process
@@ -318,8 +338,7 @@ class Crop(BaseInterface):
             mask,
             target,
             self.inputs.final_dimensions,
-            self.inputs.cdg_ijk
-            )
+            cdg_ijk)
         cdg_ijk = tuple([cdg_ijk[0], cdg_ijk[1], cdg_ijk[2]])
         bbox1 = tuple([bbox1[0], bbox1[1], bbox1[2]])
         bbox2 = tuple([bbox2[0], bbox2[1], bbox2[2]])
@@ -400,7 +419,6 @@ class ApplyMask(BaseInterface):
         nb.save(brain_mask, base + '_brain_mask.nii.gz')
 
         return runtime
-
 
     def _list_outputs(self):
         """Get the absolute path to the output brain mask file."""
