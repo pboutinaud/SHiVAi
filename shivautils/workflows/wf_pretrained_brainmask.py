@@ -43,18 +43,15 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(subjectList, 'subject_id', datagrabber, 'subject_id')
 
-
     conform = Node(Conform(),
                    name="conform")
     workflow.connect(datagrabber, 'main', conform, 'img')
-
 
     normalization = Node(Normalization(), name="intensity_normalization")
     workflow.connect(conform, 'resampled', normalization, 'input_image')
 
     brain_mask = Node(Threshold(threshold=0.4, binarize=True), name="brain_mask")
     workflow.connect(normalization, 'intensity_normalized', brain_mask, 'img')
-
 
     crop = Node(Crop(),
                 name="crop")
@@ -68,9 +65,8 @@ def genWorkflow(**kwargs) -> Workflow:
                      brain_mask_2, 't1')
 
     hard_brain_mask = Node(Threshold(threshold=0.2, binarize=True), name="hard_brain_mask")
-    workflow.connect(brain_mask2, 'segmentation', hard_brain_mask, 'img')
-    
-    
+    workflow.connect(brain_mask_2, 'segmentation', hard_brain_mask, 'img')
+     
     crop_2 = Node(Crop(),
     		      name="crop_2")
     workflow.connect(hard_brain_mask, 'thresholded',
@@ -79,8 +75,7 @@ def genWorkflow(**kwargs) -> Workflow:
     		         crop_2, 'apply_to') 
     workflow.connect(crop, 'cdg_ijk',
     		         crop_2, 'cdg_ijk')
-    
-    
+
     normalization_2 = Node(Normalization(), name="intensity_normalization_2")
     workflow.connect(crop_2, 'cropped',
     		         normalization_2, 'input_image')
