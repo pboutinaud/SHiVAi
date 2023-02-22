@@ -198,7 +198,7 @@ class ThresholdInputSpec(BaseInterfaceInputSpec):
     nifti image"""
     img = traits.File(exists=True, desc='file img Nifti', mandatory=True)
 
-    threshold = traits.Float(0.5, exists=True, type=float, mandatory=True,
+    threshold = traits.Float(0.5, exists=True, mandatory=True,
                              desc='Value of the treshold to apply to the image'
                             )
     
@@ -206,8 +206,8 @@ class ThresholdInputSpec(BaseInterfaceInputSpec):
                        usedefault=True,
                        desc='Whether to keep data above threshold or below threshold.')
 
-    binarize = traits.Float(False,exists=True, type=bool,
-                            desc='Binarized intensities voxel of brain_mask')
+    binarize = traits.Bool(False, exists=True,
+                            desc='Binarize image')
 
 
 class ThresholdOutputSpec(TraitedSpec):
