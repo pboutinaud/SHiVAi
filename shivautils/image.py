@@ -100,7 +100,8 @@ def threshold(img: nb.Nifti1Image,
 def crop(roi_mask: nb.Nifti1Image,
 	     apply_to: nb.Nifti1Image,
          dimensions: Tuple[int, int, int],
-         cdg_ijk: np.ndarray = None
+         cdg_ijk: np.ndarray = None,
+         default: str = 'ijk'
          ) -> Tuple[nb.Nifti1Image, 
                     Tuple[int, int, int],
                     Tuple[int, int, int],
@@ -109,8 +110,8 @@ def crop(roi_mask: nb.Nifti1Image,
 
     If a mask is supplied, the procedure uses the center of mass of the mask as a crop center.
 
-    If no mask is supplied, the procedure computes the ijk coordiantes of the affine
-    referential coordiantes origin.
+    If no mask is supplied, and default is set to 'xyz' the procedure computes the ijk coordiantes of the affine
+    referential coordiantes origin. If set to 'ijk', the middle of the image is used.
 
     Args:
         roi_mask (nb.Nifti1Image): mask used to define the center
@@ -132,9 +133,14 @@ def crop(roi_mask: nb.Nifti1Image,
     if roi_mask and not isinstance(roi_mask, nb.nifti1.Nifti1Image):
         raise TypeError("roi_mask: only Nifti images are supported")
     elif not roi_mask and not cdg_ijk:
-        # get cropping center from xyz origin  
-        cdg_ijk =  np.linalg.inv(apply_to.affine) @ np.array([0.0, 0.0, 0.0, 1.0])
-        cdg_ijk = np.ceil(cdg_ijk).astype(int)[:3]
+        if default == 'xyz':
+            # get cropping center from xyz origin  
+            cdg_ijk =  np.linalg.inv(apply_to.affine) @ np.array([0.0, 0.0, 0.0, 1.0])
+            cdg_ijk = np.ceil(cdg_ijk).astype(int)[:3]
+        elif default == "ijk":
+            cdg_ijk  = np.ceil(apply_to.shape / 2)
+        else:
+            raise ValueError(f"argument 'default' value {default} not valid")
     elif roi_mask and not cdg_ijk:
         # get CoG from mask as center
         required_ndim = 3

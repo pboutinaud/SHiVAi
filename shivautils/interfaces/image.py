@@ -287,6 +287,8 @@ class CropInputSpec(BaseInterfaceInputSpec):
     cdg_ijk = traits.Tuple(traits.Int, traits.Int, traits.Int,
     			           desc='center of gravity of nifti image cropped with first' 
     			           'voxel intensities normalization', mandatory=False)
+    
+    default = traits.Enum("ijk", "xyz", usedefault=True, desc="Default crop center strategy (voxels or world).")
 
 
 class CropOutputSpec(TraitedSpec):
@@ -338,7 +340,8 @@ class Crop(BaseInterface):
             mask,
             target,
             self.inputs.final_dimensions,
-            cdg_ijk)
+            cdg_ijk,
+            self.inputs.default)
         cdg_ijk = tuple([cdg_ijk[0], cdg_ijk[1], cdg_ijk[2]])
         bbox1 = tuple([bbox1[0], bbox1[1], bbox1[2]])
         bbox2 = tuple([bbox2[0], bbox2[1], bbox2[2]])
