@@ -1,29 +1,32 @@
-"""Nipype workflow for image conformation and preparation before deep
-   learning, with accessory image coregistation (through ANTS).
-   
-   Equivalent to wf_pretrained_brainmask.py with two input images.
+"""Nipype workflow for DICOM to NII image conversion, conformation and preparation before deep
+   learning, with accessory image coregistation to cropped space (through ANTS),
+   and defacing of native and final images. This also handles back-registration from
+   conformed-crop to main.
    """
 import os
 
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces import ants
+from nipype.interfaces.utility import Function
 from nipype.interfaces.io import DataGrabber
 from nipype.interfaces.dcm2nii import Dcm2nii
 from nipype.interfaces.utility import IdentityInterface
 from pyplm.interfaces.shiva import Predict
+from nipype.interfaces.quickshear import Quickshear
 
 from shivautils.interfaces.image import (Threshold, Normalization,
                             Conform, Crop)
 
 
-dummy_args = {'SUBJECT_LIST': ['test_subject'],
-              'BASE_DIR': os.path.normpath(
-                            os.path.expanduser('/bigdata/pyherve/test'))}
+dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
+              "BASE_DIR": os.path.normpath(os.path.expanduser('~')),
+              "DESCRIPTOR": os.path.normpath(os.path.join(os.path.expanduser('~'),'.swomed', 'default_config.ini'))
+}
 
 
 def as_list(input):
     return [input]
-
+    
 
 def genWorkflow(**kwargs) -> Workflow:
     """Generate a nipype workflow
@@ -93,102 +96,209 @@ def genWorkflow(**kwargs) -> Workflow:
     conform.inputs.orientation = 'RAS'
 
     workflow.connect(dicom2nifti_main, 'reoriented_files', conform, 'img')
-
-    # crop main centered on xyz origin (affine matrix)
-    crop = Node(Crop(final_dimensions=(160, 214, 176)),
-                name="crop")
-    workflow.connect(conform, 'resampled',
-                     crop, 'apply_to')
     
-    # normalize intenisties between 0 and 1 for Tensorflow
-    prenormalization = Node(Normalization(percentile = 99), name="pre_intensity_normalization")
-    workflow.connect(crop, 'cropped',
-                     prenormalization, 'input_image')
+    # preconform main to 1 mm isotropic, freesurfer-style
+    preconform = Node(Conform(),
+                   name="preconform")
+    preconform.inputs.dimensions = (160, 214, 176)
+    preconform.inputs.orientation = 'RAS'
+
+    workflow.connect(dicom2nifti_main, 'reoriented_files', preconform, 'img')
+
+    
+    # normalize intensities between 0 and 1 for Tensorflow initial brain mask extraction:
+    # identify brain to define image cropping region.
+    preconf_normalization = Node(Normalization(percentile = 99), name="preconform_intensity_normalization")
+    workflow.connect(preconform, 'resampled',
+                     preconf_normalization, 'input_image')
 
     # brain mask from tensorflow
-    brain_mask = Node(Predict(), "brain_mask")
-    brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
-    brain_mask.inputs.snglrt_bind =  [
+    pre_brain_mask = Node(Predict(), "pre_brain_mask")
+    pre_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
+    pre_brain_mask.inputs.snglrt_bind =  [
         (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
         ('`pwd`','/mnt/data','rw'),
         ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
         ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
         ('/homes_unix/boutinaud/ReferenceModels', '/mnt/model', 'ro')]
-    brain_mask.inputs.model = '/mnt/model'
-    brain_mask.inputs.snglrt_enable_nvidia = True
-    brain_mask.inputs.descriptor = "/bigdata/pyherve/test/model_info.json"
-    brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
-    brain_mask.inputs.out_filename = '/mnt/data/brain_mask.nii.gz'
-    workflow.connect(prenormalization, 'intensity_normalized',
-                     brain_mask, 't1')
+    pre_brain_mask.inputs.model = '/mnt/model'
+    pre_brain_mask.inputs.snglrt_enable_nvidia = True
+    pre_brain_mask.inputs.descriptor = kwargs['DESCRIPTOR']
+    pre_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
+    pre_brain_mask.inputs.out_filename = '/mnt/data/pre_brain_mask.nii.gz'
+    workflow.connect(preconf_normalization, 'intensity_normalized',
+                     pre_brain_mask, 't1')
+                     
+    
+    # send mask from preconformed space to 
+    # conformed space 256 256 256 , same as anatomical conformed image
+    unconform = Node(Conform(),
+                name="unpreconform")
+    unconform.inputs.dimensions = (256, 256, 256)
+    unconform.inputs.voxel_size = (1.0, 1.0, 1.0)
+    unconform.inputs.orientation = 'RAS'
 
-    # binarize brain mask
+    workflow.connect(pre_brain_mask, 'segmentation', unconform, 'img')
+          
+    # binarize unpreconformed brain mask
     hard_brain_mask = Node(Threshold(threshold=0.5, binarize=True), name="hard_brain_mask")
-    workflow.connect(brain_mask, 'segmentation', hard_brain_mask, 'img')
-
-    # non-uniformity correct within brain mask
-    nuc_main = Node(ants.N4BiasFieldCorrection(), name="nuc_main")
-    workflow.connect(crop, 'cropped',
-                     nuc_main, 'input_image')
+    workflow.connect(unconform, 'resampled', hard_brain_mask, 'img')
+    
+    # normalize intensities between 0 and 1 for Tensorflow
+    post_normalization = Node(Normalization(percentile = 100), name="post_intensity_normalization")
+    workflow.connect(conform, 'resampled',
+                     post_normalization, 'input_image')
     workflow.connect(hard_brain_mask, 'thresholded',
-                     nuc_main, 'mask_image')
-
-    # renormalize intensities of cropped image for tensorflow, 
-    # this time within brain mask (ENDPOINT 1)
-    normalization = Node(Normalization(percentile = 99), name="post_intensity_normalization")
-    workflow.connect(nuc_main, 'output_image',
-    		         normalization, 'input_image')
+    	 	         post_normalization, 'brain_mask')
+    
+    # crop main centered on xyz origin (affine matrix)
+    crop_normalized = Node(Crop(final_dimensions=(160, 214, 176)),
+                name="crop_normalized")
+    workflow.connect(post_normalization, 'intensity_normalized',
+                     crop_normalized, 'apply_to')
     workflow.connect(hard_brain_mask, 'thresholded',
-    	 	         normalization, 'brain_mask')
+                     crop_normalized, 'roi_mask')
+                     
+    # crop raw
+    # crop main centered on xyz origin (affine matrix)
+    crop = Node(Crop(final_dimensions=(160, 214, 176)),
+                name="crop")
+    workflow.connect(conform, 'resampled',
+                     crop, 'apply_to')
+    workflow.connect(hard_brain_mask, 'thresholded',
+                     crop, 'roi_mask')
+                     
+    # brain mask from tensorflow
+    post_brain_mask = Node(Predict(), "post_brain_mask")
+    post_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
+    post_brain_mask.inputs.snglrt_bind =  [
+        (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
+        ('`pwd`','/mnt/data','rw'),
+        ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
+        ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
+        ('/homes_unix/boutinaud/ReferenceModels', '/mnt/model', 'ro')]
+    post_brain_mask.inputs.model = '/mnt/model'
+    post_brain_mask.inputs.snglrt_enable_nvidia = True
+    post_brain_mask.inputs.descriptor = kwargs['DESCRIPTOR']
+    post_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
+    post_brain_mask.inputs.out_filename = '/mnt/data/post_brain_mask.nii.gz'
+    workflow.connect(crop_normalized, 'cropped',
+                     post_brain_mask, 't1')
+
+    # binarize post brain mask
+    hard_post_brain_mask = Node(Threshold(threshold=0.5, binarize=True), name="hard_post_brain_mask")
+    workflow.connect(post_brain_mask, 'segmentation', hard_post_brain_mask, 'img')
 
     # compute 6-dof coregistration parameters of accessory scan 
-    # to cropped nuc normalized main image
+    # to cropped  main image
     coreg = Node(ants.AI(),
                  name='coregister')
-    coreg.inputs.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 4'}
+    coreg.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 4'}
     coreg.inputs.transform = ('Rigid',
-                              0.1)
+                               0.2)
     coreg.inputs.metric = ('Mattes', 128,
-                           'Regular', 1)
+                           'Regular', 0.5)
     coreg.inputs.search_factor = (10, 0.1)
     coreg.inputs.num_threads = 4
+    coreg.inputs.output_transform = "acc_to_main_affine.mat" 
     coreg.inputs.verbose = True
     workflow.connect(dicom2nifti_acc, 'reoriented_files',
                      coreg, 'moving_image')
-    workflow.connect(normalization,
-                     'intensity_normalized',
-                     coreg,
-                     'fixed_image')
-    workflow.connect(hard_brain_mask,
-                     'thresholded',
-                     coreg,
-                     'fixed_image_mask')
+    workflow.connect(crop, 'cropped',
+                     coreg, 'fixed_image')
+    workflow.connect(hard_post_brain_mask, 'thresholded',
+                     coreg, 'fixed_image_mask')
+                
+    # compute 6-dof coregistration parameters of cropped to native main
+    crop_to_main = Node(ants.AI(),
+                 name='crop_to_main')
+    crop_to_main.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 12'}
+    crop_to_main.inputs.transform = ('Rigid', 0.2)
+    crop_to_main.inputs.metric = ('GC',2,
+                                  'Regular', 0.5)
+    crop_to_main.inputs.search_factor =  (20, 0.12)
+    crop_to_main.inputs.num_threads = 12
+    crop_to_main.inputs.verbose = True
+    crop_to_main.inputs.output_transform = "crop_to_main_affine.mat" 
+    workflow.connect(dicom2nifti_main, 'reoriented_files',
+                     crop_to_main, 'fixed_image')
+    workflow.connect(crop, 'cropped',
+                     crop_to_main, 'moving_image')
 
-    # write coregistered image
+    # write coregistered acc image to cropped space
     apply_coreg = Node(ants.ApplyTransforms(), name="apply_coreg")
     apply_coreg.inputs.interpolation = 'LanczosWindowedSinc'
     workflow.connect(coreg, ('output_transform', as_list), apply_coreg, 'transforms' )
     workflow.connect(dicom2nifti_acc, 'reoriented_files', apply_coreg, 'input_image')
-    workflow.connect(normalization, 'intensity_normalized', apply_coreg, 'reference_image')
+    workflow.connect(crop, 'cropped', apply_coreg, 'reference_image')
 
-    # NUC coregistered image within brain mask
-    nuc_acc = Node(ants.N4BiasFieldCorrection(), name="nuc_acc")
-    workflow.connect(apply_coreg, 'output_image',
-                     nuc_acc, "input_image")
-    workflow.connect(hard_brain_mask, 'thresholded',
-                     nuc_acc, 'mask_image')
-
-    # Intensity normalize coregisterd image for tensorflow (ENDPOINT 2)
-    coreg_norm =  Node(Normalization(percentile = 99), name="coreg_intensity_normalization")
-    workflow.connect(nuc_acc, 'output_image',
-    		         coreg_norm, 'input_image')
-    workflow.connect(hard_brain_mask, 'thresholded',
-    	 	         coreg_norm, 'brain_mask')
+    # write brain seg on main in native space
+    mask_to_main = Node(ants.ApplyTransforms(), name="mask_to_main")
+    mask_to_main.inputs.interpolation = 'NearestNeighbor'
+    workflow.connect(crop_to_main, ('output_transform', as_list), mask_to_main, 'transforms' )
+    workflow.connect(hard_post_brain_mask, 'thresholded', mask_to_main, 'input_image')
+    workflow.connect(dicom2nifti_main, 'reoriented_files', mask_to_main, 'reference_image')
     
+    # write mask to acc in native space
+    mask_to_acc = Node(ants.ApplyTransforms(), name="mask_to_acc")
+    mask_to_acc.inputs.interpolation = 'NearestNeighbor'
+    mask_to_acc.inputs.invert_transform_flags = [True]
+    
+    workflow.connect(coreg, ('output_transform', as_list),
+                     mask_to_acc, 'transforms')
+    workflow.connect(hard_post_brain_mask, 'thresholded',
+                     mask_to_acc, 'input_image')
+    workflow.connect(dicom2nifti_acc, 'reoriented_files',
+                     mask_to_acc, 'reference_image')
+
+    # Intensity normalize coregistered image for tensorflow (ENDPOINT 1)
+    main_norm =  Node(Normalization(percentile = 99), name="main_final_intensity_normalization")
+    workflow.connect(crop, 'cropped',
+    		         main_norm, 'input_image')
+    workflow.connect(hard_post_brain_mask, 'thresholded',
+    	 	         main_norm, 'brain_mask')
+
+    # Intensity normalize coregistered image for tensorflow (ENDPOINT 2)
+    acc_norm =  Node(Normalization(percentile = 99), name="acc_final_intensity_normalization")
+    workflow.connect(apply_coreg, 'output_image',
+    		         acc_norm, 'input_image')
+    workflow.connect(hard_post_brain_mask, 'thresholded',
+    	 	         acc_norm, 'brain_mask')
+ 	         
+    # defaced native main image (ENDPOINT 3)
+    deface_main = Node(Quickshear(), name='deface_native_main')
+    workflow.connect([
+        (dicom2nifti_main, deface_main, [('reoriented_files', 'in_file')]),
+        (mask_to_main, deface_main, [('output_image', 'mask_file')]),
+        ])
+
+    # defaced native acc image (ENDPOINT 4)
+    deface_acc = Node(Quickshear(), name='deface_native_acc')
+    workflow.connect([
+        (dicom2nifti_acc, deface_acc, [('reoriented_files', 'in_file')]),
+        (mask_to_acc, deface_acc, [('output_image', 'mask_file')]),
+        ])
+        
+    # defaced cropped main image (ENDPOINT 5)
+    deface_cropped_main = Node(Quickshear(), name='deface_final_norm_cropped_main')
+    workflow.connect([
+        (main_norm, deface_cropped_main, [('intensity_normalized', 'in_file')]),
+        (hard_post_brain_mask, deface_cropped_main, [('thresholded', 'mask_file')]),
+        ])
+
+    # defaced cropped acc image (ENDPOINT 6)
+    deface_cropped_acc = Node(Quickshear(), name='deface_final_norm_cropped_acc')
+    workflow.connect([
+        (acc_norm, deface_cropped_acc, 
+                        [('intensity_normalized', 'in_file')]),
+        (hard_post_brain_mask, deface_cropped_acc,
+                        [('thresholded', 'mask_file')]),
+        ])
+
     return workflow
 
 
 if __name__ == '__main__':
     wf = genWorkflow(**dummy_args)
     wf.config['execution']['remove_unnecessary_outputs'] = False
-    wf.run(plugin='Linear',plugin_args={'sbatch_args':'-p all'})
+    wf.run(plugin='SLURM')

@@ -138,7 +138,7 @@ def crop(roi_mask: nb.Nifti1Image,
             cdg_ijk =  np.linalg.inv(apply_to.affine) @ np.array([0.0, 0.0, 0.0, 1.0])
             cdg_ijk = np.ceil(cdg_ijk).astype(int)[:3]
         elif default == "ijk":
-            cdg_ijk  = np.ceil(apply_to.shape / 2)
+            cdg_ijk  = np.ceil(np.array(apply_to.shape) / 2).astype(int)
         else:
             raise ValueError(f"argument 'default' value {default} not valid")
     elif roi_mask and not cdg_ijk:

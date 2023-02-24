@@ -75,14 +75,13 @@ class Conform(BaseInterface):
         Return: runtime
         """
         fname = self.inputs.img
-        img = nb.load(fname)
+        img = nb.funcs.squeeze_image(nb.load(fname))
         if not (isdefined(self.inputs.voxel_size)):
             # resample so as to keep FOV
-            voxel_size = np.divide(np.multiply(img.header['dim'][1:4], img.header['pixdim'][1:4]),
+            voxel_size = np.divide(np.multiply(img.header['dim'][1:4], img.header['pixdim'][1:4]).astype(np.double),
                                    self.inputs.dimensions)
         else:
             voxel_size = self.inputs.voxel_size
-
         resampled = nip.conform(img, 
                                 out_shape=self.inputs.dimensions,
                                 voxel_size=voxel_size, 
@@ -245,7 +244,7 @@ class Threshold(BaseInterface):
         Return: runtime
         """
         fname = self.inputs.img
-        img = nb.load(fname)
+        img = nb.funcs.squeeze_image(nb.load(fname))
         thresholded = threshold(img,
                                 self.inputs.threshold,
                                 sign=self.inputs.sign,
