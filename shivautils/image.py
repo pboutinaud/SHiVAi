@@ -219,3 +219,24 @@ def crop(roi_mask: nb.Nifti1Image,
     cropped = nip.Nifti1Image(array_out, affine_out)
 
     return cropped, cdg_ijk, bbox1, bbox2
+
+
+def reverse_crop(original_img: nb.Nifti1Image, 
+                 apply_to: nb.Nifti1Image,
+                 bbox1: Tuple[int, int, int],
+                 bbox2: Tuple[int, int, int]):
+    """
+    Re-modifies the dimensions of the cropped 
+    image in the original space
+    """
+    conform_array = original_img.get_fdata()
+    array_apply_to = apply_to.get_fdata()
+    reverse_crop_array = np.zeros_like(conform_array)
+    reverse_crop_array[bbox1[0]:bbox2[0], bbox1[1]:bbox2[1], bbox1[2]:bbox2[2]] = array_apply_to
+    reverse_img = nip.Nifti1Image(reverse_crop_array, original_img.affine)
+    return reverse_img
+
+
+
+
+    

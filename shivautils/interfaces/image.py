@@ -6,9 +6,10 @@ import nibabel as nb
 import numpy as np
 from nipype.interfaces.base import BaseInterface, \
     BaseInterfaceInputSpec, traits, TraitedSpec
+from nipype.interfaces.io import DataGrabber
 from nipype.interfaces.base import isdefined
 from nipype.utils.filemanip import split_filename
-from shivautils.image import normalization, crop, threshold
+from shivautils.image import normalization, crop, threshold, reverse_crop
 
 
 class ConformInputSpec(BaseInterfaceInputSpec):
@@ -429,4 +430,128 @@ class ApplyMask(BaseInterface):
         _, base, _ = split_filename(fname)
         outputs["brain_mask"] = os.path.abspath(base + '_brain_mask.nii.gz')
 
-        return outputs        
+        return outputs   
+
+
+class ReverseCropInputSpec(BaseInterfaceInputSpec):
+    """Input parameter to apply reverse cropping to the
+    nifti cropped image"""
+    original_img = traits.File(exists=True,
+                               desc='reference image in the original space to modify the cropped image', 
+                               mandatory=False)
+
+    apply_to = traits.File(exists=True, 
+                           desc='Image to move in the original shape ', mandatory=True)
+
+    bbox1 = traits.Tuple(traits.Int, traits.Int, traits.Int,
+                         desc='bounding box first point')
+
+    bbox2 = traits.Tuple(traits.Int, traits.Int, traits.Int,
+                         desc='bounding box second point')
+
+
+class ReverseCropOutputSpec(TraitedSpec):
+    """Output class
+
+    Args:
+        img_crop (nb.Nifti1Image): Cropped image
+    """
+    reverse_crop = traits.File(exists=True,
+                               desc='nb.Nifti1Image: image cropped in the original space')
+
+
+
+class ReverseCrop(BaseInterface):
+    """Re-transform an image into the originel dimensions."""
+    input_spec = CropInputSpec
+    output_spec = CropOutputSpec
+
+    def _run_interface(self, runtime):
+        """Run reverse crop function
+
+        Args:
+            runtime (_type_): time to execute the
+            function
+        Return: runtime
+        """
+        # load images
+        original_img = nb.load(self.inputs.original_img)
+        apply_to = nb.load(self.inputs.apply_to)
+
+        # process
+        reverse_img = reverse_crop(
+            original_img,
+            apply_to,
+            self.inputs.bbox1,
+            self.inputs.bbox2)
+
+        # Save it for later use in _list_outputs
+        _, base, _ = split_filename(self.inputs.apply_to)
+        nb.save(reverse_img, base + '_reverse_img.nii.gz')
+
+
+    def _list_outputs(self):
+        """Fill in the output structure."""
+        outputs = self.output_spec().get()
+        fname = self.inputs.apply_to
+        _, base, _ = split_filename(fname)
+        outputs["reverse_img"] = os.path.abspath(base + '_reverse_img.nii.gz')
+
+        return outputs     
+
+
+
+
+class DataGrabberSlicerInputSpec(BaseInterfaceInputSpec):
+    """Input parameter to datagrabber for 3D slicer workflow"""
+    args = traits.Any(desc='dictionary with arguments for workflow',
+                      mandatory=False
+                     )
+
+    subject = traits.String(desc='name of subject')
+
+
+class DataGrabberSlicerOutputSpec(TraitedSpec):
+    """Output class
+
+    Args:
+        raw (str): path of raw image
+        seg (str): path of segmentation brain mask image
+    """
+    raw = traits.File(exists=True,
+                      desc='path for raw image')
+    seg = traits.File(exists=True,
+                      desc='path for segmentation brain mask image')
+
+
+
+class DataGrabberSlicer(BaseInterface):
+    """DataGrabber to handle corresponding image for 3D slicer workflow"""
+    input_spec = DataGrabberSlicerInputSpec
+    output_spec = DataGrabberSlicerOutputSpec
+
+    def _run_interface(self, runtime):
+        """Run DataGrabber 3D Slicer
+
+        Args:
+            runtime (_type_): time to execute the
+            function
+        Return: runtime
+        """
+        # load images
+        args = self.inputs.args
+        subject = self.inputs.subject
+        raw = os.path.join(args['files_dir'], args['all_files'][subject]['raw'])
+        seg = os.path.join(args['files_dir'], args['all_files'][subject]['seg'])
+        setattr(self, 'raw', raw)
+        setattr(self, 'seg', seg)
+
+
+
+    def _list_outputs(self):
+        """Fill in the output structure."""
+        outputs = self.output_spec().get()
+        outputs['raw'] = getattr(self, 'raw')
+        outputs['seg'] = getattr(self, 'seg')
+
+        return outputs  

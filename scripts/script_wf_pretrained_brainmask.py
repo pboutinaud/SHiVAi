@@ -54,7 +54,7 @@ def build_args_parser():
                         type=str,
                         help='data grabber pattern, between quotes',
                         metavar='%s/*nii',
-                        default='%s/*nii'
+                        default='%s/*nii',
                         required=True)
 
     parser.add_argument('--percentile',

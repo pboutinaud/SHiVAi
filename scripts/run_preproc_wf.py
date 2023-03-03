@@ -53,6 +53,8 @@ def main():
     output_dir = args.output
     subject_list = os.listdir(data_dir)
     type(subject_list)
+    print(subject_list)
+    print(data_dir)
 
     # This value of percentile is adapted to CMBDOU cohort and GIN
     # preprocessing, to have a percentile adapted to another cohort

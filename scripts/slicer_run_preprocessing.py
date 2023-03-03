@@ -2,6 +2,7 @@
 import os
 import argparse
 import json
+from pathlib import Path
 
 from shivautils.workflows.slicer_preprocessing import genWorkflow
 
@@ -97,12 +98,13 @@ def main():
     # the preprocessed image destination path
     with open(args.input, 'r') as json_in:
         slicerdb = json.load(json_in)
+
+    subject_list = list(slicerdb['all_files'].keys())
     
     out_dir = os.path.abspath(slicerdb['parameters']['out_dir'])
-    wfargs = {'FILES_LIST': [(os.path.join(slicerdb['files_dir'], elt['raw']), 
-                              os.path.join(slicerdb['files_dir'], elt['seg']))
-                             for elt in slicerdb['all_files'].values()],
-              'BASE_DIR': out_dir}
+    wfargs = {'FILES_LIST': subject_list,
+              'ARGS': slicerdb,
+              'BASE_DIR': slicerdb['files_dir']}
 
     if not (os.path.exists(out_dir) and os.path.isdir(out_dir)):
         os.makedirs(out_dir)
@@ -124,7 +126,9 @@ def main():
     wf.get_node('intensity_normalization_2').inputs.percentile = slicerdb['parameters']['percentile']
     # Predictor model descriptor file (JSON)
     wf.get_node('brain_mask_2').plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
+    
     wf.get_node('brain_mask_2').inputs.descriptor = slicerdb['parameters']['brainmask_model']
+    
     # singularity container bind mounts (so that folders of 
     # the host appear inside the container)
     # gcc, cuda libs, model directory and source data dir on the host
@@ -133,12 +137,16 @@ def main():
         ('`pwd`','/mnt/data','rw'),
         ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
         ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
-        ('/homes_unix/boutinaud/ReferenceModels', '/mnt/model', 'ro')]
+        ('/homes_unix/boutinaud/ReferenceModels', '/mnt/model', 'ro'),
+        ('/homes_unix/yrio/Documents/data/BORCMB15/test2img/model_info', '/homes_unix/yrio/mnt/descriptor', 'ro')]
+    wf.get_node('brain_mask_2').inputs.descriptor = '/homes_unix/yrio/mnt/descriptor/model_info.json'
     wf.get_node('brain_mask_2').inputs.model = '/mnt/model'
     wf.get_node('brain_mask_2').inputs.snglrt_image = '/homes_unix/yrio/singularity/predict.sif'
     wf.get_node('brain_mask_2').inputs.out_filename = '/mnt/data/brain_mask.nii.gz'
 
-    wf.run(plugin='SLURM')
+
+    wf.run(plugin='Linear')
+    #SLURM
 
 
 if __name__ == "__main__":

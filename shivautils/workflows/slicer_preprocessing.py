@@ -3,20 +3,17 @@
 import os
 
 from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces.io import DataSink
+from nipype.interfaces.io import DataGrabber, DataSink
 from nipype.interfaces.utility import IdentityInterface, Function
 from pyplm.interfaces.shiva import Predict
 
 from shivautils.interfaces.image import (Threshold, Normalization,
-                            Conform, Crop)
+                            Conform, Crop, DataGrabberSlicer)
 
 
 dummy_args = {'FILES_LIST': ['BIOMIST::SUBJECT_LIST'],
               'BASE_DIR': os.path.normpath(os.path.expanduser('~'))}
 
-
-def split_pair(tup: tuple):
-    return tup
 
 
 def genWorkflow(**kwargs) -> Workflow:
@@ -30,25 +27,25 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # get a list of subjects to iterate on
     fileList = Node(IdentityInterface(
-                            fields=['filepath'],
+                            fields=['fileList'],
                             mandatory_inputs=True),
                             name="fileList")
-    fileList.iterables = ('filepath', kwargs['FILES_LIST'])
 
-    split = Node(Function(input_names=['tup'],
-                          output_names=['anat','seg'],
-                          function=split_pair),
-                          name='split')
-    
-    workflow.connect(fileList, 'filepath', split, 'tup')
+    fileList.iterables = ('fileList', kwargs['FILES_LIST'])
+
+    # file selection
+    datagrabberslicer = Node(DataGrabberSlicer(args=kwargs['ARGS'], subject='subject_id'),
+                             name='dataGrabber')
+
+    workflow.connect(fileList, 'fileList', datagrabberslicer, 'subject')
 
     conform = Node(Conform(),
                    name="conform")
-    workflow.connect(split, 'anat', conform, 'img')
+    workflow.connect(datagrabberslicer, 'raw', conform, 'img')
 
     conformSeg = Node(Conform(order=0),
                       name="conform_seg")
-    workflow.connect(split, 'seg', conformSeg, 'img')
+    workflow.connect(datagrabberslicer, 'seg', conformSeg, 'img')
 
 
     normalization = Node(Normalization(), name="intensity_normalization")
