@@ -27,7 +27,7 @@ setup(name='shivautils',
             "importlib",
             "argparse>=1.1",
             "nipype>=1.7.0",
-            "networkx==2.8.7",
+            "networkx>=2.8.7",
             "bokeh",
             ],
 
