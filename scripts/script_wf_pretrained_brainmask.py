@@ -97,43 +97,48 @@ def main():
     # the path from which the images to be preprocessed come
     # the preprocessed image destination path
     with open(args.input, 'r') as json_in:
-        subject_dict = json.load(os.path.normpath(json_in))
+        subject_dict = json.load(json_in)
     
-    out_dir = os.path.abspath(os.path.normpath(json_in))
-    wfargs = {'SUBJECT_LIST': list(subject_dict.keys()),
+    out_dir = subject_dict['parameters']['out_dir']
+    wfargs = {'SUBJECT_LIST': list(subject_dict['all_files'].keys()),
+              'ARGS': subject_dict,
               'BASE_DIR': out_dir}
 
     if not (os.path.exists(out_dir) and os.path.isdir(out_dir)):
         os.makedirs(out_dir)
     print(f'Working directory set to: {out_dir}')
 
-    data_dir = os.path.abspath(os.path.dirname(os.path.normpath(
-                    list(subject_dict.values())[0])))
+    data_dir = subject_dict['files_dir']
 
     wf = genWorkflow(**wfargs)
     wf.base_dir = out_dir
     wf.get_node('dataGrabber').inputs.base_directory = data_dir
-    wf.get_node('dataGrabber').inputs.template = args.glob
+    wf.get_node('dataGrabber').inputs.template = args.grab_pattern
     wf.get_node('dataGrabber').inputs.template_args = {'main': [['subject_id']]}
-    wf.get_node('conform').inputs.dimensions = (256, 256, 256),
-    wf.get_node('conform').inputs.voxel_size = tuple(args.voxel_size),
+    wf.get_node('conform').inputs.dimensions = (256, 256, 256)
+    wf.get_node('conform').inputs.voxel_size = tuple(args.voxel_size)
     wf.get_node('conform').inputs.orientation = 'RAS'
-    wf.get_node('crop').inputs.final_dimension = tuple(args.final_dimensions)
-    wf.get_node('normalization').inputs.percentile = args.percentile
+    wf.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
+    wf.get_node('crop_2').inputs.final_dimensions = tuple(args.final_dimensions)
+    wf.get_node('intensity_normalization').inputs.percentile = args.percentile
+    wf.get_node('intensity_normalization_2').inputs.percentile = subject_dict['parameters']['percentile']
     # Predictor model descriptor file (JSON)
     wf.get_node('brain_mask_2').inputs.descriptor = args.model
     # singularity container bind mounts (so that folders of 
     # the host appear inside the container)
     # gcc, cuda libs, model directory and source data dir on the host
     wf.get_node('brain_mask_2').inputs.snglrt_bind =  [
-        (out_dir,out_dir,'rw'),
+        (out_dir, out_dir,'rw'),
         ('`pwd`','/mnt/data','rw'),
         ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
         ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
-        ('/homes_unix/boutinaud/ReferenceModels', '/mnt/model', 'ro')]
+        ('/homes_unix/boutinaud/ReferenceModels', '/mnt/model', 'ro'),
+        ('/homes_unix/yrio/Documents/modele/ReferenceModels/model_info/brainmask', '/homes_unix/yrio/mnt/descriptor', 'ro')]
+    wf.get_node('brain_mask_2').inputs.snglrt_working_directory = out_dir
+    wf.get_node('brain_mask_2').inputs.descriptor = '/homes_unix/yrio/mnt/descriptor/model_info.json'
     wf.get_node('brain_mask_2').inputs.model = '/mnt/model'
     wf.get_node('brain_mask_2').inputs.snglrt_image = args.simg
-    wf.get_node('brain_mask_2').inputs.out_filename = os.path.join(['mnt', 'data', 'brain_mask.nii.gz'])
+    wf.get_node('brain_mask_2').inputs.out_filename = '/mnt/data/brain_mask.nii.gz'
 
     wf.run(plugin='Linear')
 
