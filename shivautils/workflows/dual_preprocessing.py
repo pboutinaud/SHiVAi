@@ -33,7 +33,7 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow("preprocessing")
+    workflow = Workflow("shiva_predictor_preprocessing_dual")
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
@@ -144,13 +144,13 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(unconform, 'resampled', hard_brain_mask, 'img')
     
     # normalize intensities between 0 and 1 for Tensorflow
-    post_normalization = Node(Normalization(percentile = 100), name="post_intensity_normalization")
+    post_normalization = Node(Normalization(percentile = 99), name="post_intensity_normalization")
     workflow.connect(conform, 'resampled',
                      post_normalization, 'input_image')
     workflow.connect(hard_brain_mask, 'thresholded',
     	 	         post_normalization, 'brain_mask')
     
-    # crop main centered on xyz origin (affine matrix)
+    # crop main centered on mask origin
     crop_normalized = Node(Crop(final_dimensions=(160, 214, 176)),
                 name="crop_normalized")
     workflow.connect(post_normalization, 'intensity_normalized',
@@ -159,7 +159,7 @@ def genWorkflow(**kwargs) -> Workflow:
                      crop_normalized, 'roi_mask')
                      
     # crop raw
-    # crop main centered on xyz origin (affine matrix)
+    # crop main centered on mask
     crop = Node(Crop(final_dimensions=(160, 214, 176)),
                 name="crop")
     workflow.connect(conform, 'resampled',
