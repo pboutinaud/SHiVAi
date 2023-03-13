@@ -5,6 +5,7 @@ import nibabel.processing as nip
 import nibabel as nb
 import numpy as np
 from scipy import ndimage
+from nibabel.orientations import axcodes2ornt, io_orientation, ornt_transform
 
 from shivautils.stats import histogram
 
@@ -127,6 +128,12 @@ def crop(roi_mask: nb.Nifti1Image,
         bouding box top left ijk coordiantes
         bounding box bottom right coordinates
     """
+    start_ornt = io_orientation(apply_to.affine)
+    end_ornt = axcodes2ornt("RAS")
+    transform = ornt_transform(start_ornt, end_ornt)
+
+    # Reorient first to ensure shape matches expectations
+    apply_to = apply_to.as_reoriented(transform)
     if not isinstance(apply_to, nb.nifti1.Nifti1Image):
         raise TypeError("apply_to: only Nifti images are supported")
 
@@ -143,6 +150,12 @@ def crop(roi_mask: nb.Nifti1Image,
             raise ValueError(f"argument 'default' value {default} not valid")
     elif roi_mask and not cdg_ijk:
         # get CoG from mask as center
+        start_ornt = io_orientation(roi_mask.affine)
+        end_ornt = axcodes2ornt("RAS")
+        transform = ornt_transform(start_ornt, end_ornt)
+
+        # Reorient first to ensure shape matches expectations
+        roi_mask = roi_mask.as_reoriented(transform)
         required_ndim = 3
         if roi_mask.ndim != required_ndim:
             raise ValueError("Only 3D images are supported.")
@@ -165,44 +178,39 @@ def crop(roi_mask: nb.Nifti1Image,
     halfs = halfs.astype(int)
 
     # the ijk of the lowest voxel in the box
-    bbox1 = (cdg_ijk[0] - halfs[0], cdg_ijk[1] - halfs[1],
-             cdg_ijk[2] - halfs[2])
+    bbox1 = cdg_ijk - halfs
     # the highest ijk voxel of the bounding box
     bbox2 = halfs + cdg_ijk
 
-    # Check if value are negative shift the bounding box
-    negative_shift = False
-    for i in bbox1:
-        padding_ijk = [0, 3, 0]
-        if i < 0:
-            negative_shift = True
-            padding = abs(i)
-            padding_ijk[bbox1.index(i)] = padding
-            padding_data = np.zeros((apply_to.shape[0],
-                                     apply_to.shape[1] + 2 * padding,
-                                     apply_to.shape[2]))
-            padding_data[:, padding:-padding, :] = apply_to.get_fdata()
-
-            bbox1 = (bbox1[0], bbox1[1] + padding, bbox1[2])
-            bbox2 = (bbox2[0], bbox2[1] + padding, bbox2[2])
-    # We extract the box i1 -> i2, j1 -> j2, k1 -> k2 (we "slice")
-            array_out = padding_data[
-                            bbox1[0]:bbox2[0],
-                            bbox1[1]:bbox2[1],
-                            bbox1[2]:bbox2[2]]
-
-        else:
-            array_out = apply_to.get_fdata()[
+    array_out = np.empty(dimensions, dtype = apply_to.header.get_data_dtype())
+    print(f"bbox1: {bbox1}")
+    print(f"bbox2: {bbox2}")
+    offset_ijk = abs(bbox1) * abs(np.uint8(bbox1 < 0))
+    bbox1[bbox1 < 0] = 0
+    for i in range(3):
+        if bbox2[i] > apply_to.shape[i]:
+            bbox2[i] = apply_to.shape[i]
+    span = bbox2 - bbox1
+    print(f"span: {span}")
+    print(f"offset: {offset_ijk}")
+    print(f"reworked bbox1: {bbox1}")
+    print(f"reworked bbox2: {bbox2}")
+    array_out[offset_ijk[0]:offset_ijk[0] + span[0],
+              offset_ijk[1]:offset_ijk[1] + span[1],
+              offset_ijk[2]:offset_ijk[2] + span[2]] = apply_to.get_fdata()[
                                 bbox1[0]:bbox2[0],
                                 bbox1[1]:bbox2[1],
                                 bbox1[2]:bbox2[2]]
-
+    
     # We correct the coordinates, so first we have to convert ijk to xyz for
     # half block size and centroid
     cdg_xyz = apply_to.affine @ np.append(cdg_ijk, 1)
-    halfs_xyz = apply_to.affine @ np.append(halfs, 1)
-    padding_xyz = apply_to.affine @ np.append(tuple(padding_ijk), 1)
+    halfs_xyz = apply_to.affine @ np.append(cdg_ijk - bbox1, 1)
+    padding_xyz = apply_to.affine @ np.append(tuple(offset_ijk), 1)
     offset_padding = apply_to.affine[:,3] - padding_xyz
+    print(f"padding: {padding_xyz}")
+    print(f"padding offset: {offset_padding}")
+    print(f"halfs xyz: {halfs_xyz}")
 
     # on recopie la matrice affine de l'image, on va la modifier
     affine_out = deepcopy(apply_to.affine)
@@ -210,10 +218,9 @@ def crop(roi_mask: nb.Nifti1Image,
     # We shift the center of the image reference frame because we start from
     # less far (image is smaller)
     # And the center is no longer quite the same
-    if negative_shift:
-        affine_out[:, 3] = affine_out[:, 3] + (cdg_xyz - halfs_xyz) - offset_padding
-    else:
-        affine_out[:, 3] = affine_out[:, 3] + (cdg_xyz - halfs_xyz)
+
+    affine_out[:, 3] = affine_out[:, 3] + (cdg_xyz - halfs_xyz) + offset_padding
+
 
     # We write the result image
     cropped = nip.Nifti1Image(array_out, affine_out)
