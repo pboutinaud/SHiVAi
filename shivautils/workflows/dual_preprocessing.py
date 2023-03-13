@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """Nipype workflow for DICOM to NII image conversion, conformation and preparation before deep
    learning, with accessory image coregistation to cropped space (through ANTS),
    and defacing of native and final images. This also handles back-registration from
@@ -214,8 +215,8 @@ def genWorkflow(**kwargs) -> Workflow:
                      coreg, 'moving_image')
     workflow.connect(crop, 'cropped',
                      coreg, 'fixed_image')
-    workflow.connect(hard_post_brain_mask, 'thresholded',
-                     coreg, 'fixed_image_mask')
+    workflow.connect(hard_post_brain_mask, ('thresholded', as_list),
+                     coreg, 'fixed_image_masks')
                 
     # compute 3-dof (translations) coregistration parameters of cropped to native main
     crop_to_main = Node(ants.Registration(),
@@ -237,7 +238,6 @@ def genWorkflow(**kwargs) -> Workflow:
     crop_to_main.inputs.verbose = True
     crop_to_main.inputs.winsorize_lower_quantile = 0.0
     crop_to_main.inputs.winsorize_upper_quantile = 1.0
-    crop_to_main.inputs.output_transform = "crop_to_main_affine.mat"
 
     workflow.connect(dicom2nifti_main, 'reoriented_files',
                      crop_to_main, 'fixed_image')
@@ -315,4 +315,4 @@ def genWorkflow(**kwargs) -> Workflow:
 if __name__ == '__main__':
     wf = genWorkflow(**dummy_args)
     wf.config['execution']['remove_unnecessary_outputs'] = False
-    wf.run(plugin='SLURM')
+    wf.run(plugin='Linear')
