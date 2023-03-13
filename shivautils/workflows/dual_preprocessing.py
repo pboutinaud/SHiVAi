@@ -191,17 +191,26 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # compute 6-dof coregistration parameters of accessory scan 
     # to cropped  main image
-    coreg = Node(ants.AI(),
+    coreg = Node(ants.Registration(),
                  name='coregister')
-    coreg.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 4'}
-    coreg.inputs.transform = ('Rigid',
-                               0.2)
-    coreg.inputs.metric = ('Mattes', 128,
-                           'Regular', 0.5)
-    coreg.inputs.search_factor = (10, 0.1)
-    coreg.inputs.num_threads = 4
-    coreg.inputs.output_transform = "acc_to_main_affine.mat" 
+    coreg.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}
+    coreg.inputs.transforms = ['Rigid']
+    coreg.inputs.transform_parameters = [(0.1,)]
+    coreg.inputs.metric = ['MI']
+    coreg.inputs.radius_or_number_of_bins = [64]
+    coreg.inputs.interpolation = 'WelchWindowedSinc'
+    coreg.inputs.shrink_factors = [[8,4,2,1]]
+    coreg.inputs.output_warped_image = True
+    coreg.inputs.smoothing_sigmas = [[3,2,1,0]]
+    coreg.inputs.num_threads = 8
+    coreg.inputs.number_of_iterations = [[1000,500,250,125]]
+    coreg.inputs.sampling_strategy = ['Regular']
+    coreg.inputs.sampling_percentage = [0.25]
+    coreg.inputs.output_transform_prefix = "main_to_acc_"
     coreg.inputs.verbose = True
+    coreg.inputs.winsorize_lower_quantile = 0.005
+    coreg.inputs.winsorize_upper_quantile = 0.995
+
     workflow.connect(dicom2nifti_acc, 'reoriented_files',
                      coreg, 'moving_image')
     workflow.connect(crop, 'cropped',
@@ -209,28 +218,34 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      coreg, 'fixed_image_mask')
                 
-    # compute 6-dof coregistration parameters of cropped to native main
-    crop_to_main = Node(ants.AI(),
+    # compute 3-dof (translations) coregistration parameters of cropped to native main
+    crop_to_main = Node(ants.Registration(),
                  name='crop_to_main')
-    crop_to_main.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 12'}
-    crop_to_main.inputs.transform = ('Rigid', 0.2)
-    crop_to_main.inputs.metric = ('GC',2,
-                                  'Regular', 0.5)
-    crop_to_main.inputs.search_factor =  (20, 0.12)
-    crop_to_main.inputs.num_threads = 12
+    crop_to_main.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}
+    crop_to_main.inputs.transforms = ['Rigid']
+    crop_to_main.inputs.restrict_deformation=[[1,0,0,],[1,0,0,],[1,0,0]]
+    crop_to_main.inputs.transform_parameters = [(0.1,)]
+    crop_to_main.inputs.metric = ['MI']
+    crop_to_main.inputs.radius_or_number_of_bins = [64]
+    crop_to_main.inputs.shrink_factors = [[8,4,2,1]]
+    crop_to_main.inputs.output_warped_image = False
+    crop_to_main.inputs.smoothing_sigmas = [[3,2,1,0]]
+    crop_to_main.inputs.num_threads = 8
+    crop_to_main.inputs.number_of_iterations = [[1000,500,250,125]]
+    crop_to_main.inputs.sampling_strategy = ['Regular']
+    crop_to_main.inputs.sampling_percentage = [0.25]
+    crop_to_main.inputs.output_transform_prefix = "cropped_to_source_"
     crop_to_main.inputs.verbose = True
-    crop_to_main.inputs.output_transform = "crop_to_main_affine.mat" 
+    crop_to_main.inputs.winsorize_lower_quantile = 0.0
+    crop_to_main.inputs.winsorize_upper_quantile = 1.0
+    crop_to_main.inputs.output_transform = "crop_to_main_affine.mat"
+
     workflow.connect(dicom2nifti_main, 'reoriented_files',
                      crop_to_main, 'fixed_image')
     workflow.connect(crop, 'cropped',
                      crop_to_main, 'moving_image')
 
-    # write coregistered acc image to cropped space
-    apply_coreg = Node(ants.ApplyTransforms(), name="apply_coreg")
-    apply_coreg.inputs.interpolation = 'LanczosWindowedSinc'
-    workflow.connect(coreg, ('output_transform', as_list), apply_coreg, 'transforms' )
-    workflow.connect(dicom2nifti_acc, 'reoriented_files', apply_coreg, 'input_image')
-    workflow.connect(crop, 'cropped', apply_coreg, 'reference_image')
+    
 
     # write brain seg on main in native space
     mask_to_main = Node(ants.ApplyTransforms(), name="mask_to_main")
@@ -260,7 +275,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # Intensity normalize coregistered image for tensorflow (ENDPOINT 2)
     acc_norm =  Node(Normalization(percentile = 99), name="acc_final_intensity_normalization")
-    workflow.connect(apply_coreg, 'output_image',
+    workflow.connect(coreg, 'warped_image',
     		         acc_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
     	 	         acc_norm, 'brain_mask')
