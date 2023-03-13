@@ -7,7 +7,6 @@ import os
 
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces import ants
-from nipype.interfaces.utility import Function
 from nipype.interfaces.io import DataGrabber
 from nipype.interfaces.dcm2nii import Dcm2nii
 from nipype.interfaces.utility import IdentityInterface
@@ -250,7 +249,7 @@ def genWorkflow(**kwargs) -> Workflow:
     # write brain seg on main in native space
     mask_to_main = Node(ants.ApplyTransforms(), name="mask_to_main")
     mask_to_main.inputs.interpolation = 'NearestNeighbor'
-    workflow.connect(crop_to_main, ('output_transform', as_list), mask_to_main, 'transforms' )
+    workflow.connect(crop_to_main, 'forward_transforms', mask_to_main, 'transforms' )
     workflow.connect(hard_post_brain_mask, 'thresholded', mask_to_main, 'input_image')
     workflow.connect(dicom2nifti_main, 'reoriented_files', mask_to_main, 'reference_image')
     
@@ -259,7 +258,7 @@ def genWorkflow(**kwargs) -> Workflow:
     mask_to_acc.inputs.interpolation = 'NearestNeighbor'
     mask_to_acc.inputs.invert_transform_flags = [True]
     
-    workflow.connect(coreg, ('output_transform', as_list),
+    workflow.connect(coreg, 'forward_transforms',
                      mask_to_acc, 'transforms')
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      mask_to_acc, 'input_image')
