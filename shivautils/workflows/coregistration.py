@@ -13,13 +13,10 @@ from nipype.interfaces.quickshear import Quickshear
 from shivautils.interfaces.image import Normalization, Crop, Conform
 
 
-dummy_args = {"SUBJECT_LIST": ['SSU_LEOPOLD_SHIVA_002_0126_JF_M0'],
-              "BASE_DIR": "/scratch/biomist_user/scratch/pherve/9dd99e49-597d-4230-a67f-0c31c2306370"
+dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
+              "BASE_DIR": os.path.normpath(os.path.expanduser('~')),
 }
 
-
-def as_list(input):
-    return [input]
 
 def genWorkflow(**kwargs) -> Workflow:
     """Generate a nipype workflow
@@ -27,7 +24,7 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow("shiva_coregister_normalize")
+    workflow = Workflow("shiva_coregister_normalize_t2gre")
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
@@ -96,8 +93,6 @@ def genWorkflow(**kwargs) -> Workflow:
                      coreg, 'moving_image')
     workflow.connect(datagrabber, "target",
                      coreg, 'fixed_image')
-    workflow.connect(datagrabber, ('brainmask', as_list),
-                     coreg, 'fixed_image_masks')
 
     # conform main to 1 mm isotropic, freesurfer-style
     conform = Node(Conform(),
