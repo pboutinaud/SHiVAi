@@ -80,9 +80,10 @@ def genWorkflow(**kwargs) -> Workflow:
     coreg.inputs.output_warped_image = True
     coreg.inputs.smoothing_sigmas = [[3,2,1,0]]
     coreg.inputs.num_threads = 8
+    coreg.inputs.sigma_units = ['mm']
     coreg.inputs.number_of_iterations = [[1000,500,250,125]]
     coreg.inputs.sampling_strategy = ['Regular']
-    coreg.inputs.sampling_percentage = [0.25]
+    coreg.inputs.sampling_percentage = [0.5]
     coreg.inputs.output_transform_prefix = "source_to_cropped_main_"
     coreg.inputs.verbose = True
     coreg.inputs.winsorize_lower_quantile = 0.005
