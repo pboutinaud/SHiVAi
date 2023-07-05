@@ -1,10 +1,20 @@
 from statistics import mean
 import numpy as np
-import nibabel as nb
 from bokeh.plotting import figure
 from bokeh.embed import file_html
 from bokeh.resources import CDN
 from jinja2 import Template
+import base64
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from os import listdir
+import os
+import csv
+from statistics import median
+
+from shivautils.metrics import get_clusters_and_filter_image
+from shivautils.quantification_WMH_Ventricals_Maps import create_distance_map
 
 def get_mode(hist: np.array,
              edges: np.array,
@@ -130,3 +140,164 @@ def histogram(array, percentile, bins):
     template_hist = tm.render(pa=html, percentile=percentile, mode=mode)
 
     return template_hist, mode
+
+
+def save_histogram(img_normalized: str,
+                   bins=100):
+    
+    import nibabel as nb
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import os.path as op
+
+    img = nb.load(img_normalized)
+    array = img.get_fdata()
+    x = array.reshape(-1)
+    hist, edges = np.histogram(x, bins=bins)
+
+    fig, ax = plt.subplots()
+    ax.hist(x, bins=edges, color=(0.3, 0.5, 0.8))
+    ax.set_yscale('log')
+    ax.set_title("Histogram of intensities voxel values")
+    ax.set_xlabel("Voxel Intensity")
+    ax.set_ylabel("Number of Voxels")
+
+    histogram = 'hist.png' 
+    plt.savefig('hist.png')
+    return (op.abspath(histogram))
+
+
+
+def metrics_prediction(array_img):
+    """Get metrics on array Nifti prediction file
+
+    Args:
+        array_img (array): array Nifti prediction file
+
+    Returns:
+        tuple: sum voxel segmented, mean size cluster, 
+        median size cluster, min size cluster, max size cluster
+    """
+
+    if len(array_img.shape) > 3:
+        array_img = array_img.squeeze()
+    cluster_img = get_clusters_and_filter_image(array_img)
+    number_of_cluster = cluster_img[2]
+    size_cluster = list(np.unique(cluster_img[1], return_counts=True)[1])
+    if len(size_cluster) != 1:
+        del size_cluster[0]
+    else:
+        size_cluster[0] = 0
+    sum_voxel_segmented = sum(size_cluster)
+    mean_size_cluster = np.mean(size_cluster)
+    median_size_cluster = float(median(size_cluster))
+    min_size_cluster = min(size_cluster)
+    max_size_cluster = max(size_cluster)
+
+    return sum_voxel_segmented, number_of_cluster, mean_size_cluster, median_size_cluster, min_size_cluster, max_size_cluster
+
+
+def get_mask_regions(img, list_labels_regions):
+
+    import nibabel as nb
+    import numpy as np
+
+    pred_img_array = img.get_fdata()
+    mask = np.isin(pred_img_array, list_labels_regions).astype(int)
+    mask_regions = nb.Nifti1Image(mask, img.affine, img.header)
+
+    return mask_regions
+
+#img = "/homes_unix/yrio/Documents/test_report_fonctionnalities/_subject_id_subject_21/synthseg/segmentation_regions.nii.gz"
+#list_labels_regions = [4, 5, 43, 44]
+#mask_regions(img, list_labels_regions)
+
+        
+def make_report(histogram_intensity_path, isocontour_slides_path, metrics_clusters_path, metrics_clusters_2_path=None):
+    """
+
+    Args:
+        histogram_intensity ():
+        isocontour_slides ():
+        metrics_clusters (pandas array):
+    """
+    try:
+        from PIL import Image
+        image = Image.open(isocontour_slides_path)
+
+    except:
+        isocontour_slides_path = None
+
+    metrics_clusters = pd.read_csv(metrics_clusters_path)
+    columns = metrics_clusters.columns.tolist()
+
+    if metrics_clusters_2_path:
+        metrics_clusters_2 = pd.read_csv(metrics_clusters_2_path)
+        columns = metrics_clusters_2.columns.tolist()
+    else:
+        metrics_clusters_2 = None
+
+    tm = Template(
+            """<!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Report</title>
+                </head>
+                <body>
+                <div class="test">
+                    <h1>Report Summary</h1>
+                    <h2>T1 final intensity normalization step</h2>
+                    <img src = {{ hist_intensity }} width="400" height="400"></img>
+                    {% if isocontour_slides %}
+                    <h2>Isocontour Slides for coregistration FLAIR on T1</h2>
+                    <img src = {{ isocontour_slides }} width="800" "height="400"></img>
+                    {% endif %}
+                </div>
+                <div>
+                    <h2>Metrics Prediction clusters PVS</h2>
+                    <table>
+                        <tr>
+                            {% for col in columns %}
+                            <th>{{ col }}</th>
+                            {% endfor %}
+                        </tr>
+                        {% for _, row in metrics_clusters.iterrows() %}
+                        <tr>
+                            {% for col in columns %}
+                            <td>{{ row[col] }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+                <div>
+                    {% if metrics_clusters_2 is defined and metrics_clusters_2 is not none %}
+                    <h2>Metrics Prediction clusters WMH</h2>
+                    <table>
+                        <tr>
+                            {% for col in columns %}
+                            <th>{{ col }}</th>
+                            {% endfor %}
+                        </tr>
+                        {% for _, row in metrics_clusters_2.iterrows() %}
+                        <tr>
+                            {% for col in columns %}
+                            <td>{{ row[col] }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </table>
+                    {% endif %}
+                </div>
+                </body>
+                </html>"""
+                )
+
+    template_report = tm.render(hist_intensity=histogram_intensity_path, 
+                                isocontour_slides=isocontour_slides_path, 
+                                metrics_clusters= metrics_clusters,
+                                columns=columns,
+                                metrics_clusters_2=metrics_clusters_2)
+
+    return template_report
