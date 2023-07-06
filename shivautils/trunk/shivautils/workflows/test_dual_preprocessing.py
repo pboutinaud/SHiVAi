@@ -15,7 +15,9 @@ from nipype.interfaces.ants import ApplyTransforms
 from shivautils.interfaces.shiva import Predict, SynthSeg
 from shivautils.interfaces.image import (Threshold, Normalization,
                             Conform, Crop, ApplyMask, MetricsPredictions, 
-                            JoinMetricsPredictions, SummaryReport)
+                            JoinMetricsPredictions, SummaryReport, MaskRegions,
+                            QuantificationWMHVentricals)
+from shivautils.interfaces.interfaces_post_processing import MakeDistanceVentricleMap
 from shivautils.isocontour_board import create_edges
 from shivautils.stats import save_histogram
 
@@ -48,7 +50,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # file selection
     datagrabber = Node(DataGrabber(infields=['subject_id'],
-                                   outfields=['T1_Axial', 'FLAIR']),
+                                   outfields=['T1', 'FLAIR']),
                        name='dataGrabber')
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
@@ -63,7 +65,7 @@ def genWorkflow(**kwargs) -> Workflow:
     conform.inputs.voxel_size = (1.0, 1.0, 1.0)
     conform.inputs.orientation = 'RAS'
 
-    workflow.connect(datagrabber, "T1_Axial", conform, 'img')
+    workflow.connect(datagrabber, "T1", conform, 'img')
     
     # preconform main to 1 mm isotropic, freesurfer-style
     preconform = Node(Conform(),
@@ -71,7 +73,7 @@ def genWorkflow(**kwargs) -> Workflow:
     preconform.inputs.dimensions = (160, 214, 176)
     preconform.inputs.orientation = 'RAS'
 
-    workflow.connect(datagrabber, "T1_Axial", preconform, 'img')
+    workflow.connect(datagrabber, "T1", preconform, 'img')
 
     
     # normalize intensities between 0 and 1 for Tensorflow initial brain mask extraction:
@@ -212,7 +214,7 @@ def genWorkflow(**kwargs) -> Workflow:
     crop_to_main.inputs.winsorize_lower_quantile = 0.0
     crop_to_main.inputs.winsorize_upper_quantile = 1.0
 
-    workflow.connect(datagrabber, "T1_Axial",
+    workflow.connect(datagrabber, "T1",
                      crop_to_main, 'fixed_image')
     workflow.connect(crop, 'cropped',
                      crop_to_main, 'moving_image')
@@ -224,7 +226,7 @@ def genWorkflow(**kwargs) -> Workflow:
     mask_to_main.inputs.interpolation = 'NearestNeighbor'
     workflow.connect(crop_to_main, 'forward_transforms', mask_to_main, 'transforms' )
     workflow.connect(hard_post_brain_mask, 'thresholded', mask_to_main, 'input_image')
-    workflow.connect(datagrabber, "T1_Axial", mask_to_main, 'reference_image')
+    workflow.connect(datagrabber, "T1", mask_to_main, 'reference_image')
     
     # write mask to acc in native space
     mask_to_acc = Node(ants.ApplyTransforms(), name="mask_to_acc")
@@ -238,9 +240,26 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(datagrabber, "FLAIR",
                      mask_to_acc, 'reference_image')
 
+    # write original image into main crop space
+    main_to_mask = Node(ants.ApplyTransforms(), name="main_to_mask")
+    main_to_mask.inputs.invert_transform_flags = [True]
+    main_to_mask.inputs.interpolation = 'HammingWindowedSinc'
+
+    workflow.connect(crop_to_main, 'forward_transforms', main_to_mask, 'transforms')
+    workflow.connect(datagrabber, "T1", main_to_mask, 'input_image')
+    workflow.connect(hard_post_brain_mask, 'thresholded', main_to_mask, 'reference_image')
+
+    # write original image into acc crop space
+    acc_to_mask = Node(ants.ApplyTransforms(), name="acc_to_mask")
+    acc_to_mask.inputs.interpolation = 'HammingWindowedSinc'
+
+    workflow.connect(coreg, 'forward_transforms', acc_to_mask, 'transforms')
+    workflow.connect(datagrabber, "FLAIR", acc_to_mask, 'input_image')
+    workflow.connect(hard_post_brain_mask, 'thresholded', acc_to_mask, 'reference_image')
+
     # Intensity normalize coregistered image for tensorflow (ENDPOINT 1)
     main_norm =  Node(Normalization(percentile = 99), name="main_final_intensity_normalization")
-    workflow.connect(crop, 'cropped',
+    workflow.connect(main_to_mask, 'output_image',
     		         main_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
     	 	         main_norm, 'brain_mask')
@@ -250,6 +269,7 @@ def genWorkflow(**kwargs) -> Workflow:
     
     workflow.connect(main_norm, 'intensity_normalized', save_hist_final, 'img_normalized')
 
+    
     # Intensity normalize coregistered image for tensorflow (ENDPOINT 2)
     acc_norm =  Node(Normalization(percentile = 99), name="acc_final_intensity_normalization")
     workflow.connect(coreg, 'warped_image',
@@ -301,7 +321,7 @@ def genWorkflow(**kwargs) -> Workflow:
                      pvs_seg_to_native, 'transforms')
     workflow.connect(predict_pvs, 'segmentation',
                      pvs_seg_to_native, 'input_image')
-    workflow.connect(datagrabber, 'T1_Axial',
+    workflow.connect(datagrabber, 'T1',
                      pvs_seg_to_native, 'reference_image')
 
 
@@ -336,6 +356,21 @@ def genWorkflow(**kwargs) -> Workflow:
         synthseg.inputs.out_filename = 'segmentation_regions.nii.gz'
         workflow.connect(main_norm, 'intensity_normalized', synthseg, 'i')
 
+        mask_Latventrical_regions = Node(MaskRegions(), name='mask_Latventrical_regions')
+        mask_Latventrical_regions.inputs.list_labels_regions = [4, 5, 43, 44]
+        workflow.connect(synthseg, 'segmentation', mask_Latventrical_regions, 'img')
+
+        # Creating a distance map for each ventricle mask
+        MakeDistanceLeventricalMap_ = Node(MakeDistanceVentricleMap(), name="MakeDistanceVentricleMap")                
+        MakeDistanceLeventricalMap_.inputs.out_file = 'distance_map.nii.gz'
+        workflow.connect(mask_Latventrical_regions, 'mask_regions', MakeDistanceLeventricalMap_ , "im_file")
+
+        WMH_Quantification_Leventrical = Node(QuantificationWMHVentricals(), name='WMH_Quantification_Leventrical')
+        workflow.connect(predict_wmh, 'segmentation', WMH_Quantification_Leventrical, 'WMH')
+        workflow.connect(MakeDistanceLeventricalMap_, 'out_file', WMH_Quantification_Leventrical, 'Leventrical_distance_maps')
+        workflow.connect(subject_list, 'subject_id', WMH_Quantification_Leventrical, 'subject_id')
+
+
     metrics_predictions_wmh = Node(MetricsPredictions(),
                                    name="metrics_predictions_wmh")
 
@@ -363,6 +398,8 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(post_brain_mask, 'segmentation', datasink, 'brain_mask')
     workflow.connect(main_norm, 'intensity_normalized', datasink, 'T1_cropped_normalize')
     workflow.connect(acc_norm, 'intensity_normalized', datasink, 'FLAIR_cropped_normalize')
+    if kwargs['SYNTHSEG']:
+        workflow.connect(WMH_Quantification_Leventrical, 'csv_clusters_localization', datasink, 'csv_clusters_localization')
     workflow.connect(summary_report, "summary_report", datasink, "summary_report")
     workflow.connect(summary_report, 'summary', datasink, 'summary_pdf')
 

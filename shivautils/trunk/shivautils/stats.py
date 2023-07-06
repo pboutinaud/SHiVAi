@@ -168,7 +168,7 @@ def save_histogram(img_normalized: str,
 
 
 
-def metrics_prediction(array_img):
+def metrics_prediction(array_img, threshold):
     """Get metrics on array Nifti prediction file
 
     Args:
@@ -181,7 +181,9 @@ def metrics_prediction(array_img):
 
     if len(array_img.shape) > 3:
         array_img = array_img.squeeze()
-    cluster_img = get_clusters_and_filter_image(array_img)
+    # Il faut bien faire un seuillage avant de calculer les clusters
+    threshold_img = array_img > threshold
+    cluster_img = get_clusters_and_filter_image(threshold_img)
     number_of_cluster = cluster_img[2]
     size_cluster = list(np.unique(cluster_img[1], return_counts=True)[1])
     if len(size_cluster) != 1:

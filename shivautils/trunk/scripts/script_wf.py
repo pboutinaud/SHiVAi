@@ -4,7 +4,7 @@ import os
 import argparse
 import json
 
-from shivautils.workflows.dual_preprocessing import genWorkflow
+from shivautils.workflows.dual_full_processing import genWorkflow
 from shivautils.workflows.SWI_preprocessing import swiWorkflow
 
 

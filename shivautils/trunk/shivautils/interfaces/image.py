@@ -351,7 +351,8 @@ class Crop(BaseInterface):
             target,
             self.inputs.final_dimensions,
             cdg_ijk,
-            self.inputs.default)
+            self.inputs.default,
+            safety_marger=5)
         cdg_ijk = tuple([cdg_ijk[0], cdg_ijk[1], cdg_ijk[2]])
         bbox1 = tuple([bbox1[0], bbox1[1], bbox1[2]])
         bbox2 = tuple([bbox2[0], bbox2[1], bbox2[2]])
@@ -682,7 +683,7 @@ class MetricsPredictions(BaseInterface):
 
             img = nb.load(path_images)
             array_img = img.get_fdata()
-            results = metrics_prediction(array_img)
+            results = metrics_prediction(array_img, 0.5)
             # results = (sum_voxel_segmented, number_of_cluster, mean_size_cluster, 
             #            median_size_cluster, min_size_cluster, max_size_cluster)
 
@@ -842,9 +843,13 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
                       desc='histogram of final voxels intensity', 
                       mandatory=False)
     
-    isocontour_slides = traits.File(False,
+    isocontour_slides_FLAIR_T1 = traits.File(False,
                           mandatory=False,
-                          desc="quality control of coregistration isocontour slides")
+                          desc="quality control of coregistration isocontour slides FLAIR on T1")
+    
+    isocontour_slides_brainmask_T1 = traits.File(False,
+                          mandatory=False,
+                          desc="quality control of coregistration isocontour slides brainmask on T1")
     
     metrics_clusters = traits.File(desc="pandas array of metrics clusters")
 
@@ -882,7 +887,8 @@ class SummaryReport(BaseInterface):
         Return: runtime
         """
         histogram_intensity = self.inputs.histogram_intensity
-        isocontour_slides = self.inputs.isocontour_slides
+        isocontour_slides_FLAIR_T1 = self.inputs.isocontour_slides_FLAIR_T1
+        isocontour_slides_brainmask_T1 = self.inputs.isocontour_slides_brainmask_T1
         metrics_clusters = self.inputs.metrics_clusters
         metrics_clusters_2 = None
         if self.inputs.metrics_clusters_2:
@@ -890,7 +896,8 @@ class SummaryReport(BaseInterface):
         
         # process
         summary_report = make_report(histogram_intensity, 
-                                     isocontour_slides, 
+                                     isocontour_slides_FLAIR_T1,
+                                     isocontour_slides_brainmask_T1, 
                                      metrics_clusters,
                                      metrics_clusters_2)
 

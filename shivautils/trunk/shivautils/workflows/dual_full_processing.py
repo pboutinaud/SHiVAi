@@ -12,9 +12,9 @@ from nipype.interfaces.io import DataGrabber, DataSink
 from nipype.interfaces.utility import IdentityInterface
 from nipype.interfaces.ants import ApplyTransforms
 
-from shivautils.interfaces.shiva import Predict, SynthSeg
+from shivautils.interfaces.shiva import PredictDirect, SynthSeg
 from shivautils.interfaces.image import (Threshold, Normalization,
-                            Conform, Crop, ApplyMask, MetricsPredictions, 
+                            Conform, Crop, ApplyMask, MetricsPredictions,
                             JoinMetricsPredictions, SummaryReport, MaskRegions,
                             QuantificationWMHVentricals)
 from shivautils.interfaces.interfaces_post_processing import MakeDistanceVentricleMap
@@ -38,7 +38,7 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow("test_preprocessing_Nagahama_dual")
+    workflow = Workflow("shiva_predictor_preprocessing_dual")
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
@@ -87,20 +87,13 @@ def genWorkflow(**kwargs) -> Workflow:
     
     workflow.connect(preconf_normalization, 'intensity_normalized', save_hist, 'img_normalized')
 
+
     # brain mask from tensorflow
-    pre_brain_mask = Node(Predict(), "pre_brain_mask")
-    pre_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 4 --gpus 1'}
-    pre_brain_mask.inputs.snglrt_bind =  [
-        (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
-        ('`pwd`','/mnt/data','rw'),
-        ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
-        ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
-        (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
-    pre_brain_mask.inputs.model = '/mnt/model'
-    pre_brain_mask.inputs.snglrt_enable_nvidia = True
+    pre_brain_mask = Node(PredictDirect(), name="pre_brain_mask")
+    pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
     pre_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
-    pre_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict_2.sif'
-    pre_brain_mask.inputs.out_filename = 'pre_brain_mask.nii.gz'
+    pre_brain_mask.inputs.out_filename = 'brain_mask_map.nii.gz'
+
     workflow.connect(preconf_normalization, 'intensity_normalized',
                      pre_brain_mask, 't1')
                      
@@ -144,19 +137,10 @@ def genWorkflow(**kwargs) -> Workflow:
                      crop, 'roi_mask')
                      
     # brain mask from tensorflow
-    post_brain_mask = Node(Predict(), "post_brain_mask")
-    post_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 4 --gpus 1'}
-    post_brain_mask.inputs.snglrt_bind =  [
-        (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
-        ('`pwd`','/mnt/data','rw'),
-        ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
-        ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
-        (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
-    post_brain_mask.inputs.model = '/mnt/model'
-    post_brain_mask.inputs.snglrt_enable_nvidia = True
+    post_brain_mask = Node(PredictDirect(), "post_brain_mask")
+    post_brain_mask.inputs.model = kwargs['MODELS_PATH']
     post_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
-    post_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict_2.sif'
-    post_brain_mask.inputs.out_filename = 'post_brain_mask.nii.gz'
+    post_brain_mask.inputs.out_filename = 'brain_mask_map.nii.gz'
     workflow.connect(crop_normalized, 'cropped',
                      post_brain_mask, 't1')
 
@@ -190,8 +174,8 @@ def genWorkflow(**kwargs) -> Workflow:
                      coreg, 'moving_image')
     workflow.connect(crop, 'cropped',
                      coreg, 'fixed_image')
-    #workflow.connect(hard_post_brain_mask, ('thresholded', as_list),
-                     #coreg, 'fixed_image_masks')
+    workflow.connect(hard_post_brain_mask, ('thresholded', as_list),
+                     coreg, 'fixed_image_masks')
                 
     # compute 3-dof (translations) coregistration parameters of cropped to native main
     crop_to_main = Node(ants.Registration(),
@@ -239,10 +223,19 @@ def genWorkflow(**kwargs) -> Workflow:
                      mask_to_acc, 'input_image')
     workflow.connect(datagrabber, "FLAIR",
                      mask_to_acc, 'reference_image')
+    
+   # write original image into main crop space
+    main_to_mask = Node(ants.ApplyTransforms(), name="main_to_mask")
+    main_to_mask.inputs.invert_transform_flags = [True]
+    main_to_mask.inputs.interpolation = 'WelchWindowedSinc'
+
+    workflow.connect(crop_to_main, 'forward_transforms', main_to_mask, 'transforms')
+    workflow.connect(datagrabber, "T1", main_to_mask, 'input_image')
+    workflow.connect(hard_post_brain_mask, 'thresholded', main_to_mask, 'reference_image')
 
     # Intensity normalize coregistered image for tensorflow (ENDPOINT 1)
     main_norm =  Node(Normalization(percentile = 99), name="main_final_intensity_normalization")
-    workflow.connect(crop, 'cropped',
+    workflow.connect(main_to_mask, 'output_image',
     		         main_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
     	 	         main_norm, 'brain_mask')
@@ -258,40 +251,34 @@ def genWorkflow(**kwargs) -> Workflow:
     		         acc_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
     	 	         acc_norm, 'brain_mask')
+    
+    predict_wmh = Node(PredictDirect(), name="predict_wmh")
+    predict_wmh.inputs.model = kwargs['MODELS_PATH']
+    predict_wmh.inputs.descriptor = kwargs['WMH_DESCRIPTOR']
+    predict_wmh.inputs.out_filename = 'wmh_map.nii.gz'
 
-    predict_pvs = Node(Predict(), "predict_pvs")
-    predict_pvs.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 4 --gpus 1'}
-    predict_pvs.inputs.snglrt_bind =  [
-        (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
-        ('`pwd`','/mnt/data','rw'),
-        ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
-        ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
-        (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
-    predict_pvs.inputs.model = '/mnt/model'
-    predict_pvs.inputs.snglrt_enable_nvidia = True
+    workflow.connect(main_norm, "intensity_normalized", predict_wmh, "t1")
+    workflow.connect(acc_norm, "intensity_normalized", predict_wmh, "flair")
+
+    predict_pvs = Node(PredictDirect(), name="predict_pvs")
+    predict_pvs.inputs.model = kwargs['MODELS_PATH']
     predict_pvs.inputs.descriptor = kwargs['PVS_DESCRIPTOR']
-    predict_pvs.inputs.snglrt_image = '/bigdata/yrio/singularity/predict_2.sif'
     predict_pvs.inputs.out_filename = 'pvs_map.nii.gz'
 
     workflow.connect(main_norm, "intensity_normalized", predict_pvs, "t1")
     workflow.connect(acc_norm, "intensity_normalized", predict_pvs, "flair")
 
-    predict_wmh = Node(Predict(), "predict_wmh")
-    predict_wmh.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 4 --gpus 1'}
-    predict_wmh.inputs.snglrt_bind =  [
-        (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
-        ('`pwd`','/mnt/data','rw'),
-        ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
-        ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
-        (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
-    predict_wmh.inputs.model = '/mnt/model'
-    predict_wmh.inputs.snglrt_enable_nvidia = True
-    predict_wmh.inputs.descriptor = kwargs['WMH_DESCRIPTOR']
-    predict_wmh.inputs.snglrt_image = '/bigdata/yrio/singularity/predict_2.sif'
-    predict_wmh.inputs.out_filename = 'wmh_map.nii.gz'
+    # warp back on seg_WMH native space
+    wmh_seg_to_native = Node(ApplyTransforms(), name="wmh_seg_to_native")
+    wmh_seg_to_native.inputs.interpolation = 'NearestNeighbor'
+    wmh_seg_to_native.inputs.invert_transform_flags = [True]
 
-    workflow.connect(main_norm, "intensity_normalized", predict_wmh, "t1")
-    workflow.connect(acc_norm, "intensity_normalized", predict_wmh, "flair")
+    workflow.connect(crop_to_main, 'forward_transforms',
+                     wmh_seg_to_native, 'transforms')
+    workflow.connect(predict_wmh, 'segmentation',
+                     wmh_seg_to_native, 'input_image')
+    workflow.connect(datagrabber, 'T1',
+                     wmh_seg_to_native, 'reference_image')
     
     # warp back on seg_PVS native space
     pvs_seg_to_native = Node(ApplyTransforms(), name="pvs_seg_to_native")
@@ -305,38 +292,32 @@ def genWorkflow(**kwargs) -> Workflow:
                      pvs_seg_to_native, 'input_image')
     workflow.connect(datagrabber, 'T1',
                      pvs_seg_to_native, 'reference_image')
+    
+    mask_on_pred_wmh = Node(ApplyMask(), name='mask_on_pred_wmh')
 
+    workflow.connect(predict_wmh, 'segmentation', mask_on_pred_wmh, 'segmentation')
+    workflow.connect(hard_post_brain_mask, 'thresholded', mask_on_pred_wmh, 'brainmask')
 
     mask_on_pred_pvs = Node(ApplyMask(), name='mask_on_pred_pvs')
 
     workflow.connect(predict_pvs, 'segmentation', mask_on_pred_pvs, 'segmentation')
     workflow.connect(hard_post_brain_mask, 'thresholded', mask_on_pred_pvs, 'brainmask')
 
-    mask_on_pred_wmh = Node(ApplyMask(), name='mask_on_pred_wmh')
-
-    workflow.connect(predict_wmh, 'segmentation', mask_on_pred_wmh, 'segmentation')
-    workflow.connect(hard_post_brain_mask, 'thresholded', mask_on_pred_wmh, 'brainmask')
-
-    qc_coreg_FLAIR_T1 = Node(Function(input_names=['path_image', 'path_ref_image', 'path_brainmask','nb_of_slices'],
-                             output_names=['qc_coreg'], function=create_edges), name='qc_coreg_FLAIR_T1')
+    qc_coreg = Node(Function(input_names=['path_image', 'path_ref_image', 'path_brainmask','nb_of_slices'],
+                             output_names=['qc_coreg'], function=create_edges), name='qc_coreg')
     # Default number of slices - 8
-    qc_coreg_FLAIR_T1.inputs.nb_of_slices = 8
+    qc_coreg.inputs.nb_of_slices =  8
                     
-    # connecting image, ref_image and brainmask to create_edges function
-    workflow.connect(coreg, 'warped_image', qc_coreg_FLAIR_T1, 'path_image')
-    workflow.connect(crop, 'cropped', qc_coreg_FLAIR_T1, 'path_ref_image')
-    workflow.connect(hard_post_brain_mask, 'thresholded', qc_coreg_FLAIR_T1, 'path_brainmask')
+    # connecting image, ref_image and brainmas to create_edges function
+    workflow.connect(coreg, 'warped_image', qc_coreg, 'path_image')
+    workflow.connect(crop, 'cropped', qc_coreg, 'path_ref_image')
+    workflow.connect(hard_post_brain_mask, 'thresholded', qc_coreg, 'path_brainmask')
 
-    qc_coreg_brainmask_T1 = Node(Function(input_names=['path_image', 'path_ref_image', 'path_brainmask','nb_of_slices'],
-                             output_names=['qc_coreg'], function=create_edges), name='qc_coreg_brainmask_T1')
-    # Default number of slices - 8
-    qc_coreg_brainmask_T1.inputs.nb_of_slices = 8
-                    
-    # connecting image, ref_image and brainmask to create_edges function
-    workflow.connect(hard_post_brain_mask, 'thresholded', qc_coreg_FLAIR_T1, 'path_brainmask')
-    workflow.connect(crop, 'cropped', qc_coreg_FLAIR_T1, 'path_ref_image')
-    workflow.connect(hard_post_brain_mask, 'thresholded', qc_coreg_FLAIR_T1, 'path_brainmask')
+    metrics_predictions_wmh = Node(MetricsPredictions(),
+                                   name="metrics_predictions_wmh")
 
+    workflow.connect(subject_list, 'subject_id', metrics_predictions_wmh, 'subject_id')
+    workflow.connect(mask_on_pred_wmh, 'segmentation_filtered', metrics_predictions_wmh, 'img')
 
 
     metrics_predictions_pvs = Node(MetricsPredictions(),
@@ -364,7 +345,6 @@ def genWorkflow(**kwargs) -> Workflow:
         workflow.connect(MakeDistanceLeventricalMap_, 'out_file', WMH_Quantification_Leventrical, 'Leventrical_distance_maps')
         workflow.connect(subject_list, 'subject_id', WMH_Quantification_Leventrical, 'subject_id')
 
-
     metrics_predictions_wmh = Node(MetricsPredictions(),
                                    name="metrics_predictions_wmh")
 
@@ -376,8 +356,7 @@ def genWorkflow(**kwargs) -> Workflow:
     summary_report = Node(SummaryReport(), name="summary_report")
 
     workflow.connect(save_hist_final, 'hist', summary_report, 'histogram_intensity')
-    workflow.connect(qc_coreg_FLAIR_T1, 'qc_coreg', summary_report, 'isocontour_slides_FLAIR_T1')
-    workflow.connect(qc_coreg_brainmask_T1, 'qc_coreg', summary_report, 'isocontour_slides_brainmask_T1')
+    workflow.connect(qc_coreg, 'qc_coreg', summary_report, 'isocontour_slides')
     workflow.connect(metrics_predictions_pvs, 'metrics_predictions_csv', summary_report, 'metrics_clusters')
     workflow.connect(metrics_predictions_wmh, 'metrics_predictions_csv', summary_report, 'metrics_clusters_2')
 
@@ -386,9 +365,12 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(save_hist_final, 'hist', datasink, 'img_histogram')
     workflow.connect(preconf_normalization, 'report', datasink, 'report_preconf_normalization')
     workflow.connect(main_norm, 'report', datasink, 'report_main_final_normalization')
-    workflow.connect(qc_coreg_FLAIR_T1, 'qc_coreg', datasink, 'qc_coreg')
-    workflow.connect(metrics_predictions_pvs, 'metrics_predictions_csv', datasink, 'metrics_predictions')
+    workflow.connect(qc_coreg, 'qc_coreg', datasink, 'qc_coreg')
+    workflow.connect(metrics_predictions_pvs, 'metrics_predictions_csv', datasink, 'metrics_prediction_wmh')
+    workflow.connect(metrics_predictions_pvs, 'metrics_predictions_csv', datasink, 'metrics_predictions_pvs')
+    workflow.connect(predict_wmh, 'segmentation', datasink, 'segmentation_wmh')
     workflow.connect(predict_pvs, 'segmentation', datasink, 'segmentation_pvs')
+    workflow.connect(wmh_seg_to_native, 'output_image', datasink, 'segmentation_wmh_original_space')
     workflow.connect(pvs_seg_to_native, 'output_image', datasink, 'segmentation_pvs_original_space')
     workflow.connect(post_brain_mask, 'segmentation', datasink, 'brain_mask')
     workflow.connect(main_norm, 'intensity_normalized', datasink, 'T1_cropped_normalize')
@@ -419,4 +401,4 @@ def genWorkflow(**kwargs) -> Workflow:
 if __name__ == '__main__':
     wf = genWorkflow(**dummy_args)
     wf.config['execution']['remove_unnecessary_outputs'] = False
-    wf.run(plugin='SLURM')
+    wf.run(plugin='Linear')

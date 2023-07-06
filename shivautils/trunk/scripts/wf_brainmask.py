@@ -114,7 +114,7 @@ def main():
     wf.get_node('dataGrabber').inputs.template_args = {'T1': [['subject_id', 'T1']],
                                                        'GIN': [['subject_id', 'GIN']]}
     
-    wf.run(plugin='SLURM')
+    wf.run(plugin='Linear')
 
 
 if __name__ == "__main__":
