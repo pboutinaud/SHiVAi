@@ -1,0 +1,12 @@
+Metadata-Version: 2.1
+Name: shivautils
+Version: 0.0.1
+Summary: Basic processing tools on MRI images
+Author: Yann Rio
+Author-email: yrio@fealinx.com
+Classifier: Programming Language :: Python
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Scientific/Engineering
