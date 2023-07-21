@@ -4,7 +4,7 @@ from nipype.pipeline.engine import Node, Workflow, JoinNode
 from nipype.interfaces.io import DataGrabber, DataSink
 from nipype.interfaces.utility import IdentityInterface, Function
 
-from shivautils.interfaces.image import Normalization, Conform
+from shivautils.interfaces.image import Normalization, Threshold, Conform
 
 
 dummy_args = {'SUBJECT_LIST': ['BIOMIST::SUBJECT_LIST'],
@@ -17,7 +17,7 @@ def genParamWf(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow("wf_parametre")
+    workflow = Workflow("test_report_normalization")
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
@@ -44,8 +44,11 @@ def genParamWf(**kwargs) -> Workflow:
 
     workflow.connect(datagrabber, 'main', conform, 'img')
 
-    normalization = Node(Normalization(), name="normalization")
-    normalization.iterables = ("percentile", kwargs['percentiles'])
+    brain_mask = Node(Threshold(threshold=0.5, binarize=True), name="brain_mask")
+    workflow.connect(conform, 'resampled', brain_mask, 'img')
+
+    normalization = Node(Normalization(percentile = 99), name="normalization")
     workflow.connect(conform, 'resampled', normalization, 'input_image')
+    #workflow.connect(brain_mask, 'thresholded', normalization, 'brain_mask')
 
     return workflow

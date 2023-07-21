@@ -4,6 +4,8 @@ from copy import deepcopy
 import nibabel.processing as nip
 import nibabel as nb
 import numpy as np
+import random
+import csv
 from scipy import ndimage
 from nibabel.orientations import axcodes2ornt, io_orientation, ornt_transform
 
@@ -29,6 +31,7 @@ def normalization(img: nb.Nifti1Image,
 
     # We suppress values above the 99th percentile to avoid hot spots
     array = img.get_fdata()
+    print(np.max(array))
     array_b = array
     array_b[array_b < 0] = 0
     # calculate percentile 
@@ -41,6 +44,7 @@ def normalization(img: nb.Nifti1Image,
     array += array.min()
     # scaling the array with the percentile value
     array /= value_percentile
+
     # anything values less than 0 are set to 0 and we set to 1.3 the values greater than 1.3
     array = np.clip(array, 0, 1.3)
 
@@ -48,7 +52,7 @@ def normalization(img: nb.Nifti1Image,
     array_normalized = (array - array.min()) / (array.max() - array.min())
 
     # Normalization information
-    report, mode = histogram(array_normalized, percentile, bins=100)
+    report, mode = histogram(array_normalized, percentile, bins=64)
 
     img_nifti_normalized = nip.Nifti1Image(array_normalized, img.affine)
 
@@ -102,7 +106,8 @@ def crop(roi_mask: nb.Nifti1Image,
 	     apply_to: nb.Nifti1Image,
          dimensions: Tuple[int, int, int],
          cdg_ijk: np.ndarray = None,
-         default: str = 'ijk'
+         default: str = 'ijk',
+         safety_marger: int = 5
          ) -> Tuple[nb.Nifti1Image, 
                     Tuple[int, int, int],
                     Tuple[int, int, int],
@@ -121,6 +126,7 @@ def crop(roi_mask: nb.Nifti1Image,
         dimensions (Tuple[int, int, int], optional): volume dimensions.
                                                      Defaults to (256 , 256 , 256).
         cdg_ijk: arbitrary crop center ijk coordinates
+        safety_marger (int): added deviation from the top of the image if the brain mask is offset
 
     Returns:
         nb.Nifti1Image: preprocessed image
@@ -185,6 +191,7 @@ def crop(roi_mask: nb.Nifti1Image,
     array_out = np.empty(dimensions, dtype = apply_to.header.get_data_dtype())
     print(f"bbox1: {bbox1}")
     print(f"bbox2: {bbox2}")
+    print(f"cdg_ijk: {cdg_ijk}")
     offset_ijk = abs(bbox1) * abs(np.uint8(bbox1 < 0))
     bbox1[bbox1 < 0] = 0
     for i in range(3):
@@ -193,8 +200,22 @@ def crop(roi_mask: nb.Nifti1Image,
     span = bbox2 - bbox1
     print(f"span: {span}")
     print(f"offset: {offset_ijk}")
-    print(f"reworked bbox1: {bbox1}")
-    print(f"reworked bbox2: {bbox2}")
+
+    vec = np.sum(roi_mask.get_fdata(), axis=(0, 1))
+    top_mask_slice_index = np.where(np.squeeze(vec != 0))[0].tolist()[-1]
+
+    if bbox2[2] <= top_mask_slice_index:
+
+        # we are too low, we nned to move the crop box up
+        # (because brain mask is wrong and includes stuff in the neck and shoulders)
+        
+        delta = top_mask_slice_index - bbox2[2] + safety_marger
+        bbox1[2] = bbox1[2] + delta
+        bbox2[2] = bbox2[2] + delta
+        cdg_ijk[2] = cdg_ijk[2] + delta 
+        print(f"reworked bbox1: {bbox1}")
+        print(f"reworked bbox2: {bbox2}")
+
     array_out[offset_ijk[0]:offset_ijk[0] + span[0],
               offset_ijk[1]:offset_ijk[1] + span[1],
               offset_ijk[2]:offset_ijk[2] + span[2]] = apply_to.get_fdata()[
@@ -244,6 +265,65 @@ def reverse_crop(original_img: nb.Nifti1Image,
     return reverse_img
 
 
+def make_offset(img: nb.Nifti1Image, offset: tuple = False):
+    """Make a random offset of array volume in image space
+
+    Args:
+        img (nb.Nifti1Image): image to apply offset
+
+    """
+    if offset == False:
+        offset_number = []
+        for _ in range(3):
+            number = random.randint(-3, 3)
+            offset_number.append(number)
+    else:
+        offset_number = offset
+
+    print(offset_number)
+    offset_xyz = img.affine @ np.append(offset_number, 1)
+    offset_number = tuple(offset_number)
+
+    array_img = img.get_fdata()
+    array_img = np.squeeze(array_img)
+    padded_array = np.pad(array_img, pad_width=3, mode='constant')
+    shifted_array_img = np.roll(padded_array, offset_number, axis=(0, 1, 2))
+
+    coord_center_img = [int(array_img.shape[0]/2), int(array_img.shape[1]/2), int(array_img.shape[2]/2)]
+    new_coord_center_img = [coord_center_img[0] + offset_number[0], coord_center_img[1] + offset_number[1], coord_center_img[2] + offset_number[2]]
+
+    halfs = np.array(array_img.shape)/2
+    # we need integers because it is used for indices of the "array of voxels"
+    halfs = (int(halfs[0]), int(halfs[1]), int(halfs[2]))
+    # the ijk of the lowest voxel in the box
+    bbox1 = (new_coord_center_img[0] - halfs[0] + 3, new_coord_center_img[1] - halfs[1] + 3, new_coord_center_img[2] - halfs[2] + 3)
+    # the highest ijk voxel of the bounding box
+    bbox2 = (new_coord_center_img[0] + halfs[0] + 3, new_coord_center_img[1] + halfs[1] + 3, new_coord_center_img[2] + halfs[2] + 3)
+
+    # cropping image
+    new_array = shifted_array_img[bbox1[0]:bbox2[0], bbox1[1]:bbox2[1], bbox1[2]:bbox2[2]]
+
+    affine_out = img.affine
+    affine_out[:, 3] = affine_out[:, 3] - (offset_xyz - affine_out[:, 3])
+
+    shifted_img = nb.Nifti1Image(new_array, affine_out, img.header)
+
+    return shifted_img, offset_number
 
 
+def apply_mask(file_prediction: nb.Nifti1Image,
+               brainmask: nb.Nifti1Image):
     
+    array_prediction = file_prediction.get_fdata()
+    array_brainmask = brainmask.get_fdata()
+    
+    if len(array_prediction.shape) == 4:
+        array_prediction = array_prediction.squeeze()
+    if len(array_brainmask.shape) == 4:
+        array_brainmask = array_brainmask.squeeze()
+
+    masked_prediction = array_prediction * array_brainmask
+
+    masked_prediction_Nifti = nb.Nifti1Image(masked_prediction, file_prediction.affine, file_prediction.header)
+
+    return masked_prediction_Nifti

@@ -122,9 +122,11 @@ def main():
 
     # intensity normalization
     img_normalized, report, mode = normalization(resampled, 99)
+    nb.loadsave.save(img_normalized, os.path.join(args.output, 'img_normalized.nii.gz'))
     thresholded = threshold(img_normalized,
                             thr=args.threshold,
                             binarize=True)
+    nb.loadsave.save(thresholded, os.path.join(args.output, 'brainmask.nii.gz'))
     cropped = crop(roi_mask=thresholded,
                    apply_to=img_normalized,
                    dimensions=final_dimensions,
@@ -132,7 +134,7 @@ def main():
 
     # save the image to the desired path
     nb.loadsave.save(cropped[0],
-                     args.output)
+                     os.path.join(args.output, 'preproc.nii.gz'))
 
 
 if __name__ == "__main__":

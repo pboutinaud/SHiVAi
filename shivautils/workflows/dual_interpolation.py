@@ -1,23 +1,19 @@
 #!/usr/bin/env python
-"""Nipype workflow for DICOM to NII image conversion, conformation and preparation before deep
-   learning, with accessory image coregistation to cropped space (through ANTS),
-   and defacing of native and final images. This also handles back-registration from
-   conformed-crop to main.
+"""Nipype workflow for conformation and preparation before deep
+   learning, with accessory image coregistation to cropped space (through ANTS). 
+   This also handles back-registration from conformed-crop to main.
    """
 import os
 
 from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces.utility import Function
 from nipype.interfaces import ants
 from nipype.interfaces.io import DataGrabber, DataSink
-from nipype.interfaces.dcm2nii import Dcm2nii
 from nipype.interfaces.utility import IdentityInterface
-from pyplm.interfaces.shiva import Predict
-from nipype.interfaces.quickshear import Quickshear
+from nipype.interfaces.ants import ApplyTransforms
 
+from shivautils.interfaces.shiva import PredictDirect
 from shivautils.interfaces.image import (Threshold, Normalization,
                             Conform, Crop)
-from shivautils.stats import save_histogram, bounding_crop
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
@@ -36,26 +32,26 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow("shiva_preprocessing_dual")
+    workflow = Workflow("shiva_predictor_Nagahama_dual_interpolation")
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
     subject_list = Node(IdentityInterface(
                             fields=['subject_id'],
                             mandatory_inputs=True),
-                            name="subject_list")
+                        name="subject_list")
     subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
     # file selection
     datagrabber = Node(DataGrabber(infields=['subject_id'],
-                                   outfields=['main', 'acc']),
+                                   outfields=['T1', 'FLAIR']),
                        name='dataGrabber')
     datagrabber.inputs.base_directory = kwargs['BASE_DIR']
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
     datagrabber.inputs.template = '%s/%s/*'
-    datagrabber.inputs.template_args = {'main': [['subject_id', 'main']],
-                                        'acc': [['subject_id', 'acc']]}
+    datagrabber.inputs.template_args = {'T1': [['subject_id', 'T1']],
+                                        'FLAIR': [['subject_id', 'FLAIR']]}
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
 
@@ -67,7 +63,7 @@ def genWorkflow(**kwargs) -> Workflow:
     conform.inputs.voxel_size = (1.0, 1.0, 1.0)
     conform.inputs.orientation = 'RAS'
 
-    workflow.connect(datagrabber, "main", conform, 'img')
+    workflow.connect(datagrabber, "T1", conform, 'img')
     
     # preconform main to 1 mm isotropic, freesurfer-style
     preconform = Node(Conform(),
@@ -75,7 +71,7 @@ def genWorkflow(**kwargs) -> Workflow:
     preconform.inputs.dimensions = (160, 214, 176)
     preconform.inputs.orientation = 'RAS'
 
-    workflow.connect(datagrabber, "main", preconform, 'img')
+    workflow.connect(datagrabber, "T1", preconform, 'img')
 
     
     # normalize intensities between 0 and 1 for Tensorflow initial brain mask extraction:
@@ -85,19 +81,11 @@ def genWorkflow(**kwargs) -> Workflow:
                      preconf_normalization, 'input_image')
 
     # brain mask from tensorflow
-    pre_brain_mask = Node(Predict(), "pre_brain_mask")
-    pre_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
-    pre_brain_mask.inputs.snglrt_bind =  [
-        (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
-        ('`pwd`','/mnt/data','rw'),
-        ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
-        ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
-        (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
-    pre_brain_mask.inputs.model = '/mnt/model'
-    pre_brain_mask.inputs.snglrt_enable_nvidia = True
+    pre_brain_mask = Node(PredictDirect(), name="pre_brain_mask")
+    pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
     pre_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
-    pre_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
-    pre_brain_mask.inputs.out_filename = '/mnt/data/pre_brain_mask.nii.gz'
+    pre_brain_mask.inputs.out_filename = 'brain_mask_map.nii.gz'
+
     workflow.connect(preconf_normalization, 'intensity_normalized',
                      pre_brain_mask, 't1')
                      
@@ -139,21 +127,12 @@ def genWorkflow(**kwargs) -> Workflow:
                      crop, 'apply_to')
     workflow.connect(hard_brain_mask, 'thresholded',
                      crop, 'roi_mask')
-
+                     
     # brain mask from tensorflow
-    post_brain_mask = Node(Predict(), "post_brain_mask")
-    post_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
-    post_brain_mask.inputs.snglrt_bind =  [
-        (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
-        ('`pwd`','/mnt/data','rw'),
-        ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
-        ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
-        (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
-    post_brain_mask.inputs.model = '/mnt/model'
-    post_brain_mask.inputs.snglrt_enable_nvidia = True
+    post_brain_mask = Node(PredictDirect(), "post_brain_mask")
+    post_brain_mask.inputs.model = kwargs['MODELS_PATH']
     post_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
-    post_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
-    post_brain_mask.inputs.out_filename = '/mnt/data/post_brain_mask.nii.gz'
+    post_brain_mask.inputs.out_filename = 'brain_mask_map.nii.gz'
     workflow.connect(crop_normalized, 'cropped',
                      post_brain_mask, 't1')
 
@@ -183,12 +162,10 @@ def genWorkflow(**kwargs) -> Workflow:
     coreg.inputs.winsorize_lower_quantile = 0.005
     coreg.inputs.winsorize_upper_quantile = 0.995
 
-    workflow.connect(datagrabber, "acc",
+    workflow.connect(datagrabber, "FLAIR",
                      coreg, 'moving_image')
     workflow.connect(crop, 'cropped',
                      coreg, 'fixed_image')
-    workflow.connect(hard_post_brain_mask, ('thresholded', as_list),
-                     coreg, 'fixed_image_masks')
                 
     # compute 3-dof (translations) coregistration parameters of cropped to native main
     crop_to_main = Node(ants.Registration(),
@@ -211,7 +188,7 @@ def genWorkflow(**kwargs) -> Workflow:
     crop_to_main.inputs.winsorize_lower_quantile = 0.0
     crop_to_main.inputs.winsorize_upper_quantile = 1.0
 
-    workflow.connect(datagrabber, "main",
+    workflow.connect(datagrabber, "T1",
                      crop_to_main, 'fixed_image')
     workflow.connect(crop, 'cropped',
                      crop_to_main, 'moving_image')
@@ -223,7 +200,7 @@ def genWorkflow(**kwargs) -> Workflow:
     mask_to_main.inputs.interpolation = 'NearestNeighbor'
     workflow.connect(crop_to_main, 'forward_transforms', mask_to_main, 'transforms' )
     workflow.connect(hard_post_brain_mask, 'thresholded', mask_to_main, 'input_image')
-    workflow.connect(datagrabber, "main", mask_to_main, 'reference_image')
+    workflow.connect(datagrabber, "T1", mask_to_main, 'reference_image')
     
     # write mask to acc in native space
     mask_to_acc = Node(ants.ApplyTransforms(), name="mask_to_acc")
@@ -234,18 +211,26 @@ def genWorkflow(**kwargs) -> Workflow:
                      mask_to_acc, 'transforms')
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      mask_to_acc, 'input_image')
-    workflow.connect(datagrabber, 'acc',
+    workflow.connect(datagrabber, "FLAIR",
                      mask_to_acc, 'reference_image')
     
     # write original image into main crop space
     main_to_mask = Node(ants.ApplyTransforms(), name="main_to_mask")
     main_to_mask.inputs.invert_transform_flags = [True]
-    main_to_mask.inputs.interpolation = kwargs['INTERPOLATION']
+    # itere value
+    main_to_mask.iterables = ('interpolation', ['Linear', 'HammingWindowedSinc'])
 
     workflow.connect(crop_to_main, 'forward_transforms', main_to_mask, 'transforms')
-    workflow.connect(datagrabber, "main", main_to_mask, 'input_image')
+    workflow.connect(datagrabber, "T1", main_to_mask, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded', main_to_mask, 'reference_image')
 
+    # write original image into acc crop space
+    acc_to_mask = Node(ants.ApplyTransforms(), name="acc_to_mask")
+    acc_to_mask.inputs.interpolation = 'Linear'
+
+    workflow.connect(coreg, 'forward_transforms', acc_to_mask, 'transforms')
+    workflow.connect(datagrabber, "FLAIR", acc_to_mask, 'input_image')
+    workflow.connect(hard_post_brain_mask, 'thresholded', acc_to_mask, 'reference_image')
 
     # Intensity normalize coregistered image for tensorflow (ENDPOINT 1)
     main_norm =  Node(Normalization(percentile = 99), name="main_final_intensity_normalization")
@@ -256,13 +241,64 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # Intensity normalize coregistered image for tensorflow (ENDPOINT 2)
     acc_norm =  Node(Normalization(percentile = 99), name="acc_final_intensity_normalization")
-    workflow.connect(coreg, 'warped_image',
+    workflow.connect(acc_to_mask, 'output_image',
     		         acc_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
     	 	         acc_norm, 'brain_mask')
     
-    workflow.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
+    #predict_wmh = Node(PredictDirect(), name="predict_wmh")
+    #predict_wmh.inputs.model = kwargs['MODELS_PATH']
+    #predict_wmh.inputs.descriptor = kwargs['WMH_DESCRIPTOR']
+    #predict_wmh.inputs.out_filename = 'wmh_map.nii.gz'
+
+    #workflow.connect(main_norm, "intensity_normalized", predict_wmh, "t1")
+    #workflow.connect(acc_norm, "intensity_normalized", predict_wmh, "flair")
+
+    predict_pvs = Node(PredictDirect(), name="predict_pvs")
+    predict_pvs.inputs.model = kwargs['MODELS_PATH']
+    predict_pvs.inputs.descriptor = kwargs['PVS_DESCRIPTOR']
+    predict_pvs.inputs.out_filename = 'pvs_map.nii.gz'
+
+    workflow.connect(main_norm, "intensity_normalized", predict_pvs, "t1")
+    workflow.connect(acc_norm, "intensity_normalized", predict_pvs, "flair")
+
+    # warp back on seg_WMH native space
+    #wmh_seg_to_native = Node(ApplyTransforms(), name="wmh_seg_to_native")
+    #wmh_seg_to_native.inputs.interpolation = 'NearestNeighbor'
+    #wmh_seg_to_native.inputs.invert_transform_flags = [True]
+
+    #workflow.connect(crop_to_main, 'forward_transforms',
+                     #wmh_seg_to_native, 'transforms')
+    #workflow.connect(predict_wmh, 'segmentation',
+                     #wmh_seg_to_native, 'input_image')
+    #workflow.connect(datagrabber, 't1',
+                     #wmh_seg_to_native, 'reference_image')
     
+    # warp back on seg_PVS native space
+    pvs_seg_to_native = Node(ApplyTransforms(), name="pvs_seg_to_native")
+    pvs_seg_to_native.inputs.interpolation = 'NearestNeighbor'
+    pvs_seg_to_native.inputs.invert_transform_flags = [True]
+
+
+    workflow.connect(crop_to_main, 'forward_transforms',
+                     pvs_seg_to_native, 'transforms')
+    workflow.connect(predict_pvs, 'segmentation',
+                     pvs_seg_to_native, 'input_image')
+    workflow.connect(datagrabber, 'T1',
+                     pvs_seg_to_native, 'reference_image')
+
+
+    datasink = Node(DataSink(), name='sink')
+    datasink.inputs.base_directory = 'output'
+    #workflow.connect(predict_wmh, 'segmentation', datasink, 'segmentation_wmh')
+    workflow.connect(predict_pvs, 'segmentation', datasink, 'segmentation_pvs')
+    #workflow.connect(wmh_seg_to_native, 'output_image', datasink, 'segmentation_wmh_original_space')
+    workflow.connect(pvs_seg_to_native, 'output_image', datasink, 'segmentation_pvs_original_space')
+    workflow.connect(post_brain_mask, 'segmentation', datasink, 'brain_mask')
+    workflow.connect(main_norm, 'intensity_normalized', datasink, 'T1_cropped_normalize')
+    workflow.connect(acc_norm, 'intensity_normalized', datasink, 'FLAIR_cropped_normalize')
+
+
     return workflow
 
 
