@@ -17,7 +17,6 @@ from nipype.interfaces.quickshear import Quickshear
 from shivautils.interfaces.image import (Threshold, Normalization,
                             Conform, Crop)
 from shivautils.interfaces.shiva import PredictSingularity, Predict
-from shivautils.stats import save_histogram, bounding_crop
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],

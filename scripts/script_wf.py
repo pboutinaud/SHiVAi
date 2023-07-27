@@ -5,6 +5,8 @@ import argparse
 import json
 import sys
 sys.path.append('/mnt/devt')
+from nipype import config
+config.enable_provenance()
 
 from shivautils.workflows.dual_preprocessing import genWorkflow
 from shivautils.workflows.dual_predict import genWorkflow as genWorkflowPredict

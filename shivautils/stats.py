@@ -4,14 +4,9 @@ from bokeh.plotting import figure
 from bokeh.embed import file_html
 from bokeh.resources import CDN
 from jinja2 import Template
-import base64
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
+import nibabel as nb
 
-from os import listdir
-import os
-import csv
 from statistics import median
 
 from shivautils.metrics import get_clusters_and_filter_image
@@ -74,8 +69,6 @@ def set_percentile(list_node: list,
     for i in mode_by_percentile:
         mode_by_percentile[mode_by_percentile.index(i)] = mean(i)
 
-    print(mode_by_percentile)
-
     list_array_cohort = []
     for i in list_img_cohort:
         list_array_cohort.append(i.get_fdata().reshape(-1))
@@ -86,10 +79,8 @@ def set_percentile(list_node: list,
         mode = get_mode(hist, edges, bins)
         list_mode_cohort.append(mode)
     mode_mean_cohort = mean(list_mode_cohort)
-    print(mode_mean_cohort)
 
     mode_fit = mode_by_percentile[min(range(len(mode_by_percentile)), key = lambda i: abs(mode_by_percentile[i]-mode_mean_cohort))]
-    print(mode_fit)
     percentile_fit = list_percentile[mode_by_percentile.index(mode_fit)]
 
     return percentile_fit
@@ -142,8 +133,17 @@ def histogram(array, percentile, bins):
     return template_hist, mode
 
 
-def save_histogram(img_normalized,
-                   bins=64):
+def save_histogram(img_normalized: nb.Nifti1Image,
+                   bins: int=64):
+    """Save histogram of intensity normalization voxels on the disk
+
+    Args:
+        img_normalized (nb.Nifti1Image): intensity normalize images to obtain histogram
+        bins (int, optional): Number of element on histogram file. Defaults to 64.
+
+    Returns:
+        path: file path of histogram intensity voxels
+    """
     
     import nibabel as nb
     import matplotlib.pyplot as plt
@@ -166,12 +166,25 @@ def save_histogram(img_normalized,
     return (op.abspath(histogram))
 
 
-def bounding_crop(img_apply_to,
-                  brainmask,
-                  bbox1,
-                  bbox2,
-                  cdg_ijk):
-    
+def bounding_crop(img_apply_to: nb.Nifti1Image,
+                  brainmask: nb.Nifti1Image,
+                  bbox1: tuple,
+                  bbox2: tuple,
+                  cdg_ijk: tuple):
+    """Overlay of brainmask over nifti images
+
+    Args:
+        img_apply_to (nb.Nifti1Image): main nifti images overlay with brainmask and crop box
+        brainmask (nb.Nifti1Image): nifti brainmask file
+        bbox1 (tuple): first coordoninates point of cropping box
+        bbox2 (tuple): second coordonaites point of cropping box
+        cdg_ijk (tuple): main nifti image center of mass used to calculate cropping box
+
+    Returns:
+        svg: svg file of cropping box with overlay brainmask
+    """
+
+
     import os.path as op
     import matplotlib.pyplot as plt
     import numpy as np
@@ -194,8 +207,6 @@ def bounding_crop(img_apply_to,
     # Affichage dans les trois axes
     fig, ax = plt.subplots(1, 3, figsize=(12, 4))
     #fig.patch.set_facecolor('k')
-
-    # Gestion de la transparence pour les images superposées
     alpha = 0.7
 
     cmap = plt.cm.Reds
@@ -229,7 +240,17 @@ def bounding_crop(img_apply_to,
     return (op.abspath('bounding_crop.svg'))
 
 
-def overlay_brainmask(img_ref, brainmask):
+def overlay_brainmask(img_ref, 
+                      brainmask):
+    """Overlay brainmask on main images for 40 slices
+
+    Args:
+        img_ref (nb.Nifti1Image): main nifti images overlay with brainmask
+        brainmask (nb.Nifti1Image): brainmask file to overlay with main nifti file
+
+    Returns:
+        png: png file with 40 slices of overlay brainmask on main nifti file
+    """
 
     import nibabel as nb
     from scipy import ndimage
@@ -294,9 +315,11 @@ def metrics_prediction(array_img, threshold, cluster_filter):
 
     Args:
         array_img (array): array Nifti prediction file
+        threshold (float): Threshold to compute clusters metrics
+        cluster_filter (int): number of voxels above which the cluster is counted
 
     Returns:
-        tuple: sum voxel segmented, mean size cluster, 
+        tuple: sum voxel segmented, number of cluster, mean size cluster, 
         median size cluster, min size cluster, max size cluster
     """
 
@@ -320,7 +343,18 @@ def metrics_prediction(array_img, threshold, cluster_filter):
     return sum_voxel_segmented, number_of_cluster, mean_size_cluster, median_size_cluster, min_size_cluster, max_size_cluster
 
 
-def get_mask_regions(img, list_labels_regions):
+def get_mask_regions(img:nb.Nifti1Image, 
+                     list_labels_regions: list):
+    """Filter in a regions segmented images regions of interest specified
+    in 'list_labels_regions'
+
+    Args:
+        img (nb.Nifti1Image): image segmented by regions 
+        list_labels_regions (list): list of int corresponding Fresurfer numerotation
+
+    Returns:
+        nb.Nifti1Image:segmented image with specific regions
+    """
 
     import nibabel as nb
     import numpy as np
@@ -331,32 +365,60 @@ def get_mask_regions(img, list_labels_regions):
 
     return mask_regions
 
-        
-def make_report(img_normalized,
-                brainmask,
-                bbox1,
-                bbox2,
-                cdg_ijk,
-                isocontour_slides_path_FLAIR_T1, 
-                qc_overlay_brainmask_main,
-                metrics_clusters_path,
-                subject_id=None, 
-                image_size=(160, 214, 176),
-                resolution=(1.0, 1.0, 1.0),
-                percentile=99,
-                threshold=0.5,
-                sum_workflow_path=None, 
-                metrics_clusters_2_path=None,
-                clusters_bg_pvs_path=None,
-                predictions_latventricles_DWMH_path=None,
-                swi='False'):
+
+def make_report(img_normalized: nb.Nifti1Image,
+                brainmask: nb.Nifti1Image,
+                bbox1: tuple,
+                bbox2: tuple,
+                cdg_ijk: tuple,
+                isocontour_slides_path_FLAIR_T1: str, 
+                qc_overlay_brainmask_main: str,
+                metrics_clusters_path: str,
+                subject_id: int = None, 
+                image_size:tuple=(160, 214, 176),
+                resolution:tuple=(1.0, 1.0, 1.0),
+                percentile:int=99,
+                threshold:float=0.5,
+                sum_workflow_path:str=None, 
+                metrics_clusters_2_path:str=None,
+                clusters_bg_pvs_path:str=None,
+                predictions_latventricles_DWMH_path:str=None,
+                swi:bool='False'):
     """
+    Individual HTML report:
+
+    - Summary of metrics clusters per subject
+    - Histogram of voxel intensity during main normalization
+    - Display of the cropping region on the conformed image
+    - T1 on FLAIR isocontour slides 
+    - Overlay of final brainmask over cropped main images
+    - Preprocessing workflow diagram
 
     Args:
-        histogram_intensity ():
-        isocontour_slides ():
-        metrics_clusters (pandas array):
+        img_normalized (nb.Nifti1Image): main nifti file to compute histogram voxels intensity
+        brainmask (nb.Nifti1Image): brainmask nifti file 
+        bbox1 (tuple): first coordoninates point of cropping box
+        bbox2 (tuple): second coordonaites point of cropping box
+        cdg_ijk (tuple): main nifti image center of mass used to calculate cropping box
+        isocontour_slides_path_FLAIR_T1 (path): PNG file with the reference image in the background and the edges of the given image on top
+        qc_overlay_brainmask_main (path): svg file of cropping box with overlay brainmask
+        metrics_clusters_path (str): csv file about predictions results and clusters metrics (for PVS or CMB)
+        subject_id (int): identified number of subject report
+        image_size (tuple): Final image array size in i, j, k in tuple 
+        resolution (tuple): Voxel size of the final image in tuple
+        percentile (int): value to threshold above this percentile
+        threshold (float): Value of the treshold to apply to the image for brainmask
+        sum_worflow (path): summary of preprocessing step in a svg file
+        metrics_clusters_2_path (path): csv file about predictions results and clusters metrics (for WMH)
+        clusters_bg_pvs_path (path): csv file about predictions results in basal ganglia and deep white matter
+        predictions_latventricles_DWMH_path (path): csv file about predictions results in lateral ventricles and deep white matter hyperintensities
+        swi (bool): boolean value to indicate if the report is about cmb clusters predictions or not
+
+    Returns:
+        html file with completed report
     """
+
+
     from PIL import Image
     import base64
 

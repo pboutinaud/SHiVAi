@@ -270,6 +270,7 @@ def make_offset(img: nb.Nifti1Image, offset: tuple = False):
 
     Args:
         img (nb.Nifti1Image): image to apply offset
+        offset (tuple): axis offset apply to nifti image
 
     """
     if offset == False:
@@ -280,7 +281,6 @@ def make_offset(img: nb.Nifti1Image, offset: tuple = False):
     else:
         offset_number = offset
 
-    print(offset_number)
     offset_xyz = img.affine @ np.append(offset_number, 1)
     offset_number = tuple(offset_number)
 
@@ -313,6 +313,15 @@ def make_offset(img: nb.Nifti1Image, offset: tuple = False):
 
 def apply_mask(file_prediction: nb.Nifti1Image,
                brainmask: nb.Nifti1Image):
+    """Apply brainmask on prediction file to avoid prediction out of brain image
+
+    Args:
+        file_prediction (nb.Nifti1Image): nifti prediction file
+        brainmask (nb.Nifti1Image): nifti brainmask file
+
+    Returns:
+        masked_prediction_Nifti: file with all prediction out of brain deleted
+    """
     
     array_prediction = file_prediction.get_fdata()
     array_brainmask = brainmask.get_fdata()

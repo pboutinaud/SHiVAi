@@ -1,0 +1,29 @@
+Bootstrap: docker
+From: tensorflow/tensorflow:2.7.1-gpu
+Stage: build
+
+%files
+    /homes_unix/yrio/Documents/utils_python/shivautils /usr/local/src/shivautils
+
+%environment
+    PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/ants-2.4.3/bin
+    export PATH
+
+%post
+    apt update && apt-get install -y build-essential weasyprint
+    apt-get install -y libpangocairo-1.0-0
+    pip install build virtualenv
+    pip install pybids nibabel scipy pandas scikit-image pydot pydotplus matplotlib nipype weasyprint
+    chmod 755 /usr/local/src/shivautils/scripts/*
+    cd /usr/local/src/shivautils
+    python -m build --wheel
+    apt-get -y install wget unzip
+    pip install dist/shivautils-0.0.1-py3-none-any.whl
+    cd /opt
+    wget https://github.com/ANTsX/ANTs/releases/download/v2.4.3/ants-2.4.3-ubuntu-20.04-X64-gcc.zip 
+    unzip ants-2.4.3-ubuntu-20.04-X64-gcc.zip
+    rm ants-2.4.3-ubuntu-20.04-X64-gcc.zip
+    mkdir -p /mnt/model
+    cd /root
+    apt-get -y install graphviz
+
