@@ -649,6 +649,9 @@ class MetricsPredictionsInputSpec(BaseInterfaceInputSpec):
                        desc='image use to shifted with a random offset', 
                        mandatory=False)
     
+    threshold_clusters = traits.Float(exists=True,
+                                     desc='Threshold to compute clusters metrics')
+    
     pvs = traits.Bool(False, exists=True,
                       desc='pvs Nifti prediction file or not')
 
@@ -680,12 +683,12 @@ class MetricsPredictions(BaseInterface):
         path_images = self.inputs.img
 
         # Création du fichier CSV dans le Sink
-        with open("metrics_predictions.csv", mode='w', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
+        with open("metrics_predictions.csv", mode='w', encoding='utf-8') as file:
+            writer = csv.writer(file, delimiter =',')
 
             img = nb.load(path_images)
             array_img = img.get_fdata()
-            thr_cluster = 0.5
+            thr_cluster = self.inputs.threshold_clusters
             if self.inputs.pvs == True:
                 cluster_filter = 6
             else:
@@ -855,6 +858,9 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
     """Make summary report file in pdf format"""
     subject_id = traits.Any(desc="id for each subject")
 
+    swi = traits.Str(default='False', 
+                      desc='Specified if report is about SWI or T1-FLAIR')
+
     cdg_ijk = traits.File(exists=True,
                            desc='center of gravity brain_mask in txt file')
 
@@ -879,7 +885,7 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
                           mandatory=False,
                           desc="quality control of coregistration isocontour slides FLAIR on T1")
     
-    qc_overlay_brainmask_T1 = traits.File(False,
+    qc_overlay_brainmask_main = traits.File(False,
                           mandatory=False,
                           desc="quality control of coregistration isocontour slides brainmask on T1")
     
@@ -953,13 +959,17 @@ class SummaryReport(BaseInterface):
             subject_id = None
         else:
             subject_id = self.inputs.subject_id
+        if self.inputs.swi == 'True':
+            swi = self.inputs.swi
+        else:
+            swi = 'False'
         img_normalized = nb.load(self.inputs.img_normalized)
         brainmask = nb.load(self.inputs.brainmask)
         bbox1 = self.inputs.bbox1
         bbox2 = self.inputs.bbox2
         cdg_ijk = self.inputs.cdg_ijk
         isocontour_slides_FLAIR_T1 = self.inputs.isocontour_slides_FLAIR_T1
-        qc_overlay_brainmask_T1 = self.inputs.qc_overlay_brainmask_T1
+        qc_overlay_brainmask_main = self.inputs.qc_overlay_brainmask_main
         metrics_clusters = self.inputs.metrics_clusters
         metrics_clusters_2 = None
         if self.inputs.metrics_clusters_2:
@@ -970,30 +980,33 @@ class SummaryReport(BaseInterface):
         predictions_latventricles_DWMH = None
         if self.inputs.predictions_latventricles_DWMH:
             predictions_latventricles_DWMH = self.inputs.predictions_latventricles_DWMH
-        sum_workflow = self.inputs.sum_workflow
+        sum_workflow = None
+        if self.inputs.sum_workflow:
+            sum_workflow = self.inputs.sum_workflow
         percentile = self.inputs.percentile
         threshold = self.inputs.threshold
         image_size = self.inputs.image_size
         resolution = self.inputs.resolution
         
         # process
-        summary_report = make_report(img_normalized,
-                                     brainmask,
-                                     bbox1,
-                                     bbox2,
-                                     cdg_ijk,
-                                     isocontour_slides_FLAIR_T1,
-                                     qc_overlay_brainmask_T1,
-                                     sum_workflow, 
-                                     metrics_clusters,
-                                     subject_id,
-                                     image_size,
-                                     resolution,
-                                     percentile,
-                                     threshold,
-                                     metrics_clusters_2,
-                                     metrics_bg_pvs,
-                                     predictions_latventricles_DWMH
+        summary_report = make_report(img_normalized=img_normalized,
+                                     brainmask=brainmask,
+                                     bbox1=bbox1,
+                                     bbox2=bbox2,
+                                     cdg_ijk=cdg_ijk,
+                                     isocontour_slides_path_FLAIR_T1=isocontour_slides_FLAIR_T1,
+                                     qc_overlay_brainmask_main=qc_overlay_brainmask_main, 
+                                     metrics_clusters_path=metrics_clusters,
+                                     subject_id=subject_id,
+                                     image_size=image_size,
+                                     resolution=resolution,
+                                     percentile=percentile,
+                                     threshold=threshold,
+                                     sum_workflow_path=sum_workflow,
+                                     metrics_clusters_2_path=metrics_clusters_2,
+                                     clusters_bg_pvs_path=metrics_bg_pvs,
+                                     predictions_latventricles_DWMH_path=predictions_latventricles_DWMH,
+                                     swi=swi
                                      )
 
         with open('summary_report.html', 'w', encoding='utf-8') as fid:
@@ -1080,6 +1093,9 @@ class QuantificationWMHLatVentriclesInputSpec(BaseInterfaceInputSpec):
     wmh = traits.File(exists=True,
                       desc='Nifti file prediction', 
                       mandatory=False)
+    
+    threshold_clusters = traits.Float(exists=True,
+                                     desc='Threshold to compute clusters metrics')
 
     subject_id = traits.Any(desc="id for each subject")
     
@@ -1118,6 +1134,7 @@ class QuantificationWMHLatVentricles(BaseInterface):
         wmh = nb.load(self.inputs.wmh)
         latventricles_distance_maps = nb.load(self.inputs.latventricles_distance_maps)
         subject_id = self.inputs.subject_id
+        threshold_clusters = self.inputs.threshold_clusters
         
         # process
         (dataframe_clusters_localization, 
@@ -1125,7 +1142,10 @@ class QuantificationWMHLatVentricles(BaseInterface):
         nb_clusters_DWMH, 
         nb_voxels_latventricles,
         nb_voxels_DWMH,
-        threshold) = metrics_clusters_latventricles(latventricles_distance_maps, wmh, subject_id)     
+        threshold) = metrics_clusters_latventricles(latventricles_distance_maps, 
+                                                    wmh, 
+                                                    subject_id,
+                                                    threshold=threshold_clusters)     
 
         out_csv = 'WMH_clusters_localization.csv'
         with open(out_csv, 'w') as f:
@@ -1223,6 +1243,9 @@ class PVSQuantificationBGInputSpec(BaseInterfaceInputSpec):
     """Compute metrics clusters and voxels about regions Basal Ganglia and deep white matter"""
     img = traits.File(exists=True,
                       desc='Nifti prediction pvs file')
+    
+    threshold_clusters = traits.Float(exists=True,
+                                     desc='Threshold to compute clusters metrics')
 
     bg_mask = traits.File(exists=True,
                       desc='Basal Ganglions mask Nifti file', 
@@ -1254,7 +1277,7 @@ class PVSQuantificationBG(BaseInterface):
         # load images
         img = nb.load(self.inputs.img)
         bg_mask = nb.load(self.inputs.bg_mask)
-        thr = 0.5
+        thr = self.inputs.threshold_clusters
         cl_filter = 6
         # process
         metrics_bg_pvs = quantify_clusters(img, bg_mask, thr, cl_filter)

@@ -9,7 +9,6 @@ from nipype.interfaces import ants
 from nipype.interfaces.io import DataGrabber, DataSink
 from nipype.interfaces.utility import IdentityInterface
 
-from shivautils.interfaces.shiva import SynthSeg
 from shivautils.interfaces.image import (ApplyMask, MetricsPredictions, 
                             JoinMetricsPredictions, SummaryReport, MaskRegions,
                             QuantificationWMHLatVentricles, BGMask, PVSQuantificationBG)
@@ -86,33 +85,6 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(datagrabber, 'brainmask', qc_overlay_brainmask, 'brainmask')
     workflow.connect(datagrabber, 'T1_cropped', qc_overlay_brainmask, 'img_ref')
 
-    synthseg = Node(SynthSeg(), name='synthseg')
-    synthseg.inputs.out_filename = 'segmentation_regions.nii.gz'
-    workflow.connect(datagrabber, 'T1_cropped', synthseg, 'i')
-
-    mask_latventricles_regions = Node(MaskRegions(), name='mask_latventricles_regions')
-    mask_latventricles_regions.inputs.list_labels_regions = [4, 5, 43, 44]
-    workflow.connect(synthseg, 'segmentation', mask_latventricles_regions, 'img')
-
-    bg_mask = Node(BGMask(), name="bg_mask")
-    workflow.connect(synthseg, "segmentation", bg_mask, "segmented_regions")
-
-    # Creating a distance map for each ventricle mask
-    make_distance_latventricles_map = Node(MakeDistanceMap(), name="make_distance_latventricles_map")                
-    make_distance_latventricles_map.inputs.out_file = 'distance_map.nii.gz'
-    workflow.connect(mask_latventricles_regions, 'mask_regions', make_distance_latventricles_map , "in_file")
-
-    wmh_quantification_latventricles = Node(QuantificationWMHLatVentricles(), name='wmh_quantification_latventricles')
-    wmh_quantification_latventricles.inputs.threshold_clusters = kwargs['THRESHOLD_CLUSTERS']
-    workflow.connect(datagrabber, 'segmentation_wmh', wmh_quantification_latventricles, 'wmh')
-    workflow.connect(make_distance_latventricles_map, 'out_file', wmh_quantification_latventricles, 'latventricles_distance_maps')
-    workflow.connect(subject_list, 'subject_id', wmh_quantification_latventricles, 'subject_id')
-
-    pvs_quantification_bg = Node(PVSQuantificationBG(), name="pvs_quantification_bg")
-    pvs_quantification_bg.inputs.threshold_clusters = kwargs['THRESHOLD_CLUSTERS']
-    workflow.connect(datagrabber, 'segmentation_pvs', pvs_quantification_bg, "img")
-    workflow.connect(bg_mask, 'bg_mask', pvs_quantification_bg, "bg_mask")
-
     metrics_predictions_wmh = Node(MetricsPredictions(),
                                    name="metrics_predictions_wmh")
     metrics_predictions_wmh.inputs.threshold_clusters = kwargs['THRESHOLD_CLUSTERS']
@@ -144,8 +116,6 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(qc_overlay_brainmask, 'qc_overlay_brainmask_main', summary_report, 'qc_overlay_brainmask_main')
     workflow.connect(metrics_predictions_pvs, 'metrics_predictions_csv', summary_report, 'metrics_clusters')
     workflow.connect(metrics_predictions_wmh, 'metrics_predictions_csv', summary_report, 'metrics_clusters_2')
-    workflow.connect(pvs_quantification_bg, 'metrics_bg_pvs', summary_report, 'metrics_bg_pvs')
-    workflow.connect(wmh_quantification_latventricles, 'predictions_latventricles_DWMH', summary_report, 'predictions_latventricles_DWMH')
 
     metrics_predictions_pvs_generale = JoinNode(JoinMetricsPredictions(),
                                    joinsource = 'subject_list',

@@ -17,11 +17,9 @@ from nipype.interfaces.ants import ApplyTransforms
 from shivautils.interfaces.shiva import PredictDirect, SynthSeg
 from shivautils.interfaces.image import (Threshold, Normalization,
                             Conform, Crop, ApplyMask, MetricsPredictions,
-                            JoinMetricsPredictions, SummaryReport, MaskRegions,
-                            QuantificationWMHVentricals)
-from shivautils.interfaces.interfaces_post_processing import MakeDistanceVentricleMap
+                            JoinMetricsPredictions, SummaryReport)
 from shivautils.isocontour_board import create_edges
-from shivautils.stats import save_histogram
+from shivautils.stats import save_histogram, overlay_brainmask
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
@@ -40,7 +38,7 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow("shiva_predictor_preprocessing_dual")
+    workflow = Workflow("shiva_predictor_processing_dual")
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
@@ -83,12 +81,6 @@ def genWorkflow(**kwargs) -> Workflow:
     preconf_normalization = Node(Normalization(percentile = 99), name="preconform_intensity_normalization")
     workflow.connect(preconform, 'resampled',
                      preconf_normalization, 'input_image')
-    
-    save_hist = Node(Function(input_names=['img_normalized'],
-                             output_names=['hist'], function=save_histogram), name='save_hist')
-    
-    workflow.connect(preconf_normalization, 'intensity_normalized', save_hist, 'img_normalized')
-
 
     # brain mask from tensorflow
     pre_brain_mask = Node(PredictDirect(), name="pre_brain_mask")
@@ -176,8 +168,6 @@ def genWorkflow(**kwargs) -> Workflow:
                      coreg, 'moving_image')
     workflow.connect(crop, 'cropped',
                      coreg, 'fixed_image')
-    #workflow.connect(hard_post_brain_mask, ('thresholded', as_list),
-                     #coreg, 'fixed_image_masks')
                 
     # compute 3-dof (translations) coregistration parameters of cropped to native main
     crop_to_main = Node(ants.Registration(),
@@ -316,54 +306,39 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(hard_post_brain_mask, 'thresholded', qc_coreg_FLAIR_T1, 'path_brainmask')
 
 
-    qc_coreg_brainmask_T1 = Node(Function(input_names=['path_image', 'path_ref_image', 'path_brainmask','nb_of_slices'],
-                             output_names=['qc_coreg'], function=create_edges), name='qc_coreg_brainmask_T1')
-    # Default number of slices - 8
-    qc_coreg_brainmask_T1.inputs.nb_of_slices =  5
+    qc_overlay_brainmask = Node(Function(input_names=['img_ref', 'brainmask'],
+                             output_names=['qc_overlay_brainmask_T1'], function=overlay_brainmask), name='overlay_brainmask')
                     
-    # connecting image, ref_image and brainmas to create_edges function
-    workflow.connect(hard_post_brain_mask, 'thresholded', qc_coreg_brainmask_T1, 'path_image')
-    workflow.connect(crop, 'cropped', qc_coreg_brainmask_T1, 'path_ref_image')
-    workflow.connect(hard_post_brain_mask, 'thresholded', qc_coreg_brainmask_T1, 'path_brainmask')
-
-    if kwargs['SYNTHSEG']:
-        synthseg = Node(SynthSeg(), name='synthseg')
-        synthseg.inputs.out_filename = 'segmentation_regions.nii.gz'
-        workflow.connect(main_norm, 'intensity_normalized', synthseg, 'i')
-
-        mask_Latventrical_regions = Node(MaskRegions(), name='mask_Latventrical_regions')
-        mask_Latventrical_regions.inputs.list_labels_regions = [4, 5, 43, 44]
-        workflow.connect(synthseg, 'segmentation', mask_Latventrical_regions, 'img')
-
-        # Creating a distance map for each ventricle mask
-        MakeDistanceLeventricalMap_ = Node(MakeDistanceVentricleMap(), name="MakeDistanceVentricleMap")                
-        MakeDistanceLeventricalMap_.inputs.out_file = 'distance_map.nii.gz'
-        workflow.connect(mask_Latventrical_regions, 'mask_regions', MakeDistanceLeventricalMap_ , "im_file")
-
-        WMH_Quantification_Leventrical = Node(QuantificationWMHVentricals(), name='WMH_Quantification_Leventrical')
-        workflow.connect(predict_wmh, 'segmentation', WMH_Quantification_Leventrical, 'WMH')
-        workflow.connect(MakeDistanceLeventricalMap_, 'out_file', WMH_Quantification_Leventrical, 'Leventrical_distance_maps')
-        workflow.connect(subject_list, 'subject_id', WMH_Quantification_Leventrical, 'subject_id')
+    # connecting image, ref_image and brainmask to create_edges function
+    workflow.connect(hard_post_brain_mask, 'thresholded', qc_overlay_brainmask, 'brainmask')
+    workflow.connect(main_norm, 'intensity_normalized', qc_overlay_brainmask, 'img_ref')
 
     metrics_predictions_wmh = Node(MetricsPredictions(),
                                    name="metrics_predictions_wmh")
 
-    workflow.connect(subject_list, 'subject_id', metrics_predictions_wmh, 'subject_id')
     workflow.connect(mask_on_pred_wmh, 'segmentation_filtered', metrics_predictions_wmh, 'img')
-    if kwargs['SYNTHSEG']:
-        workflow.connect(WMH_Quantification_Leventrical, 'nb_latventricles_clusters', metrics_predictions_wmh, 'nb_latventricles_clusters')
 
     metrics_predictions_pvs = Node(MetricsPredictions(),
                                    name="metrics_predictions_pvs")
 
-    workflow.connect(subject_list, 'subject_id', metrics_predictions_pvs, 'subject_id')
+    metrics_predictions_pvs.pvs = True
     workflow.connect(mask_on_pred_pvs, 'segmentation_filtered', metrics_predictions_pvs, 'img')
 
     summary_report = Node(SummaryReport(), name="summary_report")
+    summary_report.inputs.anonymized = kwargs['ANONYMIZED']
+    summary_report.inputs.percentile = kwargs['PERCENTILE']
+    summary_report.inputs.threshold = kwargs['THRESHOLD']
+    summary_report.inputs.image_size = kwargs['IMAGE_SIZE']
+    summary_report.inputs.resolution = kwargs['RESOLUTION']
 
-    workflow.connect(save_hist_final, 'hist', summary_report, 'histogram_intensity')
+    workflow.connect(crop, 'bbox1', summary_report, 'bbox1')
+    workflow.connect(crop, 'bbox2', summary_report, 'bbox2')
+    workflow.connect(crop, 'cdg_ijk', summary_report, 'cdg_ijk')
+    workflow.connect(conform, 'resampled', summary_report, 'img_normalized')
+    workflow.connect(hard_brain_mask, 'thresholded', summary_report, 'brainmask')
+    workflow.connect(subject_list, 'subject_id', summary_report, 'subject_id')
     workflow.connect(qc_coreg_FLAIR_T1, 'qc_coreg', summary_report, 'isocontour_slides_FLAIR_T1')
-    workflow.connect(qc_coreg_brainmask_T1, 'qc_coreg', summary_report, 'isocontour_slides_brainmask_T1')
+    workflow.connect(qc_overlay_brainmask, 'qc_overlay_brainmask_T1', summary_report, 'qc_overlay_brainmask_T1')
     workflow.connect(metrics_predictions_pvs, 'metrics_predictions_csv', summary_report, 'metrics_clusters')
     workflow.connect(metrics_predictions_wmh, 'metrics_predictions_csv', summary_report, 'metrics_clusters_2')
 
@@ -382,8 +357,6 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(post_brain_mask, 'segmentation', datasink, 'brain_mask')
     workflow.connect(main_norm, 'intensity_normalized', datasink, 'T1_cropped_normalize')
     workflow.connect(acc_norm, 'intensity_normalized', datasink, 'FLAIR_cropped_normalize')
-    if kwargs['SYNTHSEG']:
-        workflow.connect(WMH_Quantification_Leventrical, 'csv_clusters_localization', datasink, 'csv_clusters_localization')
     workflow.connect(summary_report, "summary_report", datasink, "summary_report")
     workflow.connect(summary_report, 'summary', datasink, 'summary_pdf')
 

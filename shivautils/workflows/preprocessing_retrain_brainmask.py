@@ -9,11 +9,11 @@ from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces import ants
 from nipype.interfaces.io import DataGrabber, DataSink
 from nipype.interfaces.utility import IdentityInterface
-from nipype.interfaces.ants import ApplyTransforms
+from nipype.interfaces.ants import N4BiasFieldCorrection
+from nipype.interfaces.fsl import BET
 
-from shivautils.interfaces.shiva import PredictDirect
 from shivautils.interfaces.image import (Threshold, Normalization,
-                            Conform, Crop, MakeOffset)
+                            Conform, Crop)
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
@@ -32,7 +32,7 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow("shiva_shift_test_prediction")
+    workflow = Workflow("preprocessing_retrain_brainmask")
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
@@ -44,34 +44,50 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # file selection
     datagrabber = Node(DataGrabber(infields=['subject_id'],
-                                   outfields=['t1', 'flair']),
+                                   outfields=['img']),
                        name='dataGrabber')
     datagrabber.inputs.base_directory = kwargs['BASE_DIR']
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
-    datagrabber.inputs.template = '%s/%s/*'
-    datagrabber.inputs.template_args = {'t1': [['subject_id', 't1']],
-                                        'flair': [['subject_id', 'flair']]}
+    datagrabber.inputs.template_args = {'img': [['subject_id']]}
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
+
+    field_correction = Node(N4BiasFieldCorrection(), name='field_correction')
+    workflow.connect(datagrabber, 'img', field_correction, 'input_image')
     
-    makeoffset_t1 = Node(MakeOffset(), name="makeoffset_t1")
-    makeoffset_t1.inputs.offset = False
+    brain_mask_raw = Node(BET(), name='brain_mask_raw')
+    brain_mask_raw.inputs.mask = True
+    workflow.connect(field_correction, 'output_image', brain_mask_raw, 'in_file')
+
+    # crop main centered on mask
+    crop = Node(Crop(final_dimensions=(160, 214, 176)),
+                name="crop")
+    workflow.connect(datagrabber, 'img',
+                     crop, 'apply_to')
+    workflow.connect(brain_mask_raw, 'mask_file',
+                     crop, 'roi_mask')
     
-    workflow.connect(datagrabber, 't1', makeoffset_t1, 'img')
+    crop_brainmask = Node(Crop(final_dimensions=(160, 214, 176)),
+                name="crop_brainmask")
+    workflow.connect(brain_mask_raw, 'mask_file',
+                     crop_brainmask, 'apply_to')
+    workflow.connect(brain_mask_raw, 'mask_file',
+                     crop_brainmask, 'roi_mask')
+    
+    conform = Node(Conform(),
+                   name="conform")
+    conform.inputs.dimensions = (160, 214, 176)
+    conform.inputs.orientation = 'RAS'
 
-    makeoffset_flair = Node(MakeOffset(), name="makeoffset_flair")
+    workflow.connect(datagrabber, 'img', conform, 'img')
 
-    workflow.connect(makeoffset_t1, "offset_number", makeoffset_flair, 'offset')
-    workflow.connect(datagrabber, "flair", makeoffset_flair, 'img')
+    conform_brainmask = Node(Conform(),
+                   name="conform_brainmask")
+    conform_brainmask.inputs.dimensions = (160, 214, 176)
+    conform_brainmask.inputs.orientation = 'RAS'
 
-    predict = Node(PredictDirect(), name="predict")
-    predict.inputs.model = kwargs['MODELS_PATH']
-    predict.inputs.descriptor = kwargs['DESCRIPTOR']
-    predict.inputs.out_filename = 'map.nii.gz'
-
-    workflow.connect(makeoffset_t1, "shifted_img", predict, 't1')
-    workflow.connect(makeoffset_flair, "shifted_img", predict, "flair")
+    workflow.connect(brain_mask_raw, "mask_file", conform_brainmask, 'img')
 
     return workflow
 

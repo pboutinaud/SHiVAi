@@ -178,7 +178,7 @@ class SPMApplyDeformation(SPMCommand):
         return outputs
 
 
-class PredictInputSpec(SingularityInputSpec):
+class PredictSingularityInputSpec(SingularityInputSpec):
     """PredictVRS input specification.
 
     Inherits from Singularity command line fields.
@@ -233,18 +233,18 @@ class PredictInputSpec(SingularityInputSpec):
                               usedefault=True)
 
 
-class PredictOutputSpec(TraitedSpec):
+class PredictSingularityOutputSpec(TraitedSpec):
     segmentation = traits.File(desc='The segmentation image',
                                    exists=True)
 
 
-class Predict(SingularityCommandLine):
+class PredictSingularity(SingularityCommandLine):
     """Run predict to segment from reformated structural images.
 
     Uses a 3D U-Net.
     """
-    input_spec = PredictInputSpec
-    output_spec = PredictOutputSpec
+    input_spec = PredictSingularityInputSpec
+    output_spec = PredictSingularityOutputSpec
     _cmd = 'predict.py'
 
     def _list_outputs(self):
@@ -253,7 +253,7 @@ class Predict(SingularityCommandLine):
         return outputs
 
 
-class PredictDirectInputSpec(BaseInterfaceInputSpec):
+class PredictInputSpec(BaseInterfaceInputSpec):
     """Predict input specification.
 
     Inherits from Singularity command line fields.
@@ -311,18 +311,18 @@ class PredictDirectInputSpec(BaseInterfaceInputSpec):
                               usedefault=True)
 
 
-class PredictDirectOutputSpec(TraitedSpec):
+class PredictOutputSpec(TraitedSpec):
     segmentation = traits.File(desc='segmentation image',
                                    exists=True)
 
 
-class PredictDirect(CommandLine):
+class Predict(CommandLine):
     """Run predict to segment from reformated structural images.
 
     Uses a 3D U-Net.
     """
-    input_spec = PredictDirectInputSpec
-    output_spec = PredictDirectOutputSpec
+    input_spec = PredictInputSpec
+    output_spec = PredictOutputSpec
     _cmd = 'predict.py'
 
     def _list_outputs(self):
@@ -365,3 +365,4 @@ class SynthSeg(CommandLine):
         outputs = self.output_spec().get()
         outputs["segmentation"] = os.path.abspath(os.path.split(str(self.inputs.out_filename))[1])
         return outputs
+    

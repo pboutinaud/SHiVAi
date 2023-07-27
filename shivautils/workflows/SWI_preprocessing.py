@@ -10,12 +10,10 @@ from nipype.interfaces.io import DataGrabber, DataSink
 from nipype.interfaces.utility import IdentityInterface
 from nipype.interfaces.ants import ApplyTransforms
 
-from shivautils.interfaces.shiva import PredictDirect, SynthSeg
+from shivautils.interfaces.shiva import PredictSingularity, Predict
 from shivautils.interfaces.image import (Threshold, Normalization,
                             Conform, Crop, ApplyMask, MetricsPredictions,
-                            JoinMetricsPredictions, SummaryReport, MaskRegions,
-                            QuantificationWMHVentricals)
-from shivautils.interfaces.interfaces_post_processing import MakeDistanceVentricleMap
+                            JoinMetricsPredictions, SummaryReport)
 from shivautils.isocontour_board import create_edges
 from shivautils.stats import save_histogram
 
@@ -26,13 +24,13 @@ dummy_args = {'SUBJECT_LIST': ['BIOMIST::SUBJECT_LIST'],
 }
 
 
-def swiWorkflow(**kwargs) -> Workflow:
+def genWorkflow(**kwargs) -> Workflow:
     """Generate a nipype workflow
 
     Returns:
         workflow
     """
-    workflow = Workflow("shiva_processing_swi")
+    workflow = Workflow("shiva_preprocessing_swi")
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
@@ -55,14 +53,14 @@ def swiWorkflow(**kwargs) -> Workflow:
     conform = Node(Conform(),
                    name="conform")
     conform.inputs.dimensions = (256, 256, 256)
-    conform.inputs.voxel_size = (1.0, 1.0, 1.0)
+    conform.inputs.voxel_size = kwargs['RESOLUTION']
     conform.inputs.orientation = 'RAS'
 
     workflow.connect(datagrabber, 'SWI', conform, 'img')
 
     # preconform main to 1 mm isotropic, freesurfer-style
     preconform = Node(Conform(), name="preconform")
-    preconform.inputs.dimensions = (160, 214, 176)
+    preconform.inputs.dimensions = kwargs['IMAGE_SIZE']
     preconform.inputs.orientation = 'RAS'
 
     workflow.connect(datagrabber, "SWI", preconform, 'img')
@@ -70,15 +68,29 @@ def swiWorkflow(**kwargs) -> Workflow:
 
     # normalize intensities between 0 and 1 for Tensorflow initial brain mask extraction:
     # identify brain to define image cropping region.
-    preconf_normalization = Node(Normalization(percentile = 99), name="preconform_intensity_normalization")
+    preconf_normalization = Node(Normalization(percentile=kwargs['PERCENTILE']), name="preconform_intensity_normalization")
     workflow.connect(preconform, 'resampled', preconf_normalization, 'input_image')
 
-    # brain mask from tensorflow
-    pre_brain_mask = Node(PredictDirect(), name="pre_brain_mask")
-    pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    if kwargs['CONTAINER'] == True:
+        pre_brain_mask = Node(Predict(), "pre_brain_mask")
+        pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    else:
+        # brain mask from tensorflow
+        pre_brain_mask = Node(PredictSingularity(), "pre_brain_mask")
+        pre_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
+        pre_brain_mask.inputs.snglrt_bind =  [
+            (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
+            ('`pwd`','/mnt/data','rw'),
+            ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
+            ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
+            (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
+        pre_brain_mask.inputs.model = '/mnt/model'
+        pre_brain_mask.inputs.snglrt_enable_nvidia = True
+        pre_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
+        
     pre_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
-    pre_brain_mask.inputs.out_filename = 'brain_mask_map.nii.gz'
-
+    pre_brain_mask.inputs.out_filename = 'pre_brain_mask.nii.gz'
+    
     workflow.connect(preconf_normalization, 'intensity_normalized',
                      pre_brain_mask, 'swi')
     
@@ -86,24 +98,24 @@ def swiWorkflow(**kwargs) -> Workflow:
     # conformed space 256 256 256, same as anatomical conformed image
     unconform = Node(Conform(), name="unpreconform")
     unconform.inputs.dimensions = (256, 256, 256)
-    unconform.inputs.voxel_size = (1.0, 1.0, 1.0)
+    unconform.inputs.voxel_size = kwargs['RESOLUTION']
     unconform.inputs.orientation = 'RAS'
 
     workflow.connect(pre_brain_mask, 'segmentation', unconform, 'img')
 
     # binarize unpreconformed brain mask
-    hard_brain_mask = Node(Threshold(threshold=0.5, binarize=True), name="hard_brain_mask")
+    hard_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD'], binarize=True), name="hard_brain_mask")
     workflow.connect(unconform, 'resampled', hard_brain_mask, 'img')
 
     # normalize intensities between 0 and 1 for Tensorflow
-    post_normalization = Node(Normalization(percentile = 99), name="post_intensity_normalization")
+    post_normalization = Node(Normalization(percentile=kwargs['PERCENTILE']), name="post_intensity_normalization")
     workflow.connect(conform, 'resampled',
                      post_normalization, 'input_image')
     workflow.connect(hard_brain_mask, 'thresholded',
                     post_normalization, 'brain_mask')
     
     # crop main centered on mask origin
-    crop_normalized = Node(Crop(final_dimensions=(160, 214, 176)),
+    crop_normalized = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),
                            name="crop_normalized")
     workflow.connect(post_normalization, 'intensity_normalized',
                      crop_normalized, 'apply_to')
@@ -112,23 +124,38 @@ def swiWorkflow(**kwargs) -> Workflow:
     
     # crop raw
     # crop main centered on mask
-    crop = Node(Crop(final_dimensions=(160, 214, 176)),
+    crop = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),
                 name="crop")
     workflow.connect(conform, 'resampled',
                      crop, 'apply_to')
     workflow.connect(hard_brain_mask, 'thresholded',
                      crop, 'roi_mask')
     
-    # brain mask from tensorflow
-    post_brain_mask = Node(PredictDirect(), "post_brain_mask")
-    post_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    if kwargs['CONTAINER'] == True:
+        post_brain_mask = Node(Predict(), "post_brain_mask")
+        post_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    else:
+        # brain mask from tensorflow
+        post_brain_mask = Node(PredictSingularity(), "post_brain_mask")
+        post_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
+        post_brain_mask.inputs.snglrt_bind =  [
+            (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
+            ('`pwd`','/mnt/data','rw'),
+            ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
+            ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
+            (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
+        post_brain_mask.inputs.model = '/mnt/model'
+        post_brain_mask.inputs.snglrt_enable_nvidia = True
+        post_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
+    
     post_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
-    post_brain_mask.inputs.out_filename = 'brain_mask_map.nii.gz'
+    post_brain_mask.inputs.out_filename = 'post_brain_mask.nii.gz'
+    
     workflow.connect(crop_normalized, 'cropped',
-                     post_brain_mask, 'swi')
+                    post_brain_mask, 'swi')
     
     # binarize post brain mask
-    hard_post_brain_mask = Node(Threshold(threshold=0.5, binarize=True), name="hard_post_brain_mask")
+    hard_post_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD'], binarize=True), name="hard_post_brain_mask")
     workflow.connect(post_brain_mask, 'segmentation', hard_post_brain_mask, 'img')
 
     # compute 3-dof (translations) coregistration parameters of cropped to native main
@@ -168,91 +195,25 @@ def swiWorkflow(**kwargs) -> Workflow:
     # write original image into main crop space
     main_to_mask = Node(ants.ApplyTransforms(), name="main_to_mask")
     main_to_mask.inputs.invert_transform_flags = [True]
-    main_to_mask.interpolation = 'WelchWindowedSinc'
+    main_to_mask.interpolation = kwargs['INTERPOLATION']
 
     workflow.connect(crop_to_main, 'forward_transforms', main_to_mask, 'transforms')
     workflow.connect(datagrabber, "SWI", main_to_mask, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded', main_to_mask, 'reference_image')
 
     # Intensity normalize coregistered image for tensorflow (ENDPOINT 1)
-    final_norm = Node(Normalization(percentile = 99), name="final_intensity_normalization")
+    final_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="final_intensity_normalization")
     workflow.connect(main_to_mask, 'output_image',
                      final_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      final_norm, 'brain_mask')
     
-    save_hist_final = Node(Function(input_names=['img_normalized'],
-                             output_names=['hist'], function=save_histogram), name='save_hist_final')
-    
-    workflow.connect(final_norm, 'intensity_normalized', save_hist_final, 'img_normalized')
-
-
-    predict_cmb = Node(PredictDirect(), name="predict_cmb")
-    predict_cmb.inputs.model = kwargs['MODELS_PATH']
-    predict_cmb.inputs.descriptor = kwargs['CMB_DESCRIPTOR']
-    predict_cmb.inputs.out_filename = 'map.nii.gz'
-
-    workflow.connect(final_norm, "intensity_normalized", predict_cmb, 'swi')
-
-    # warp back on seg PVS or CMB native space
-    cmb_seg_to_native = Node(ants.ApplyTransforms(), name="cmb_seg_to_native")
-    cmb_seg_to_native.inputs.interpolation = 'NearestNeighbor'
-    cmb_seg_to_native.inputs.invert_transform_flags = [True]
-
-    workflow.connect(crop_to_main, 'forward_transforms',
-                     cmb_seg_to_native, 'transforms')
-    workflow.connect(predict_cmb, 'segmentation',
-                    cmb_seg_to_native, 'input_image')
-    workflow.connect(datagrabber, 'SWI',
-                     cmb_seg_to_native, 'reference_image')
-    
-    mask_on_pred_cmb = Node(ApplyMask(), name='mask_on_pred_cmb')
-
-    workflow.connect(predict_cmb, 'segmentation', mask_on_pred_cmb, 'segmentation')
-    workflow.connect(hard_post_brain_mask, 'thresholded', mask_on_pred_cmb, 'brainmask')
-
-    qc_coreg_brainmask_SWI = Node(Function(input_names=['path_image', 'path_ref_image', 'path_brainmask','nb_of_slices'],
-                                           output_names=['qc_coreg'], function=create_edges), name='qc_coreg_brainmask_T1')
-    # Default number of slices - 8
-    qc_coreg_brainmask_T1.inputs.nb_of_slices =  8
-
-
-    metrics_predictions_cmb = Node(MetricsPredictions(),
-                                   name="metrics_predictions_cmb")
-
-    workflow.connect(subject_list, 'subject_id', metrics_predictions_cmb, 'subject_id')
-    workflow.connect(mask_on_pred_cmb, 'segmentation_filtered', metrics_predictions_cmb, 'img')
-
-    summary_report = Node(SummaryReport(), name="summary_report")
-
-    workflow.connect(save_hist_final, 'hist', summary_report, 'histogram_intensity')
-    workflow.connect(metrics_predictions_cmb, 'metrics_predictions_csv', summary_report, 'metrics_clusters')
-
-
-    datasink = Node(DataSink(), name='sink')
-    datasink.inputs.base_directory = 'output'
-    workflow.connect(save_hist_final, 'hist', datasink, 'img_histogram')
-    workflow.connect(preconf_normalization, 'report', datasink, 'report_preconf_normalization')
-    workflow.connect(final_norm, 'report', datasink, 'report_main_final_normalization')
-    workflow.connect(metrics_predictions_cmb, 'metrics_predictions_csv', datasink, 'metrics_prediction_cmb')
-    workflow.connect(predict_cmb, 'segmentation', datasink, 'segmentation')
-    workflow.connect(cmb_seg_to_native, 'output_image', datasink, 'segmentation_original_space')
-    workflow.connect(post_brain_mask, 'segmentation', datasink, 'brain_mask')
-    workflow.connect(final_norm, 'intensity_normalized', datasink, 'img_cropped_normalize')
-    workflow.connect(summary_report, "summary_report", datasink, "summary_report")
-    workflow.connect(summary_report, 'summary', datasink, 'summary_pdf')
-
-    metrics_predictions_generale = JoinNode(JoinMetricsPredictions(),
-                                   joinsource = 'subject_list',
-                                   joinfield= 'csv_files',
-                                   name="metrics_predictions_generale")
-
-    workflow.connect(metrics_predictions_cmb, 'metrics_predictions_csv', metrics_predictions_generale, 'csv_files')
+    workflow.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
 
     return workflow
 
 
 if __name__ == '__main__':
-    wf = swiWorkflow(**dummy_args)
+    wf = genWorkflow(**dummy_args)
     wf.config['execution']['remove_unnecessary_outputs'] = False
     wf.run(plugin='Linear')

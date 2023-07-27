@@ -12,11 +12,11 @@ from nipype.interfaces import ants
 from nipype.interfaces.io import DataGrabber, DataSink
 from nipype.interfaces.dcm2nii import Dcm2nii
 from nipype.interfaces.utility import IdentityInterface
-from pyplm.interfaces.shiva import Predict
 from nipype.interfaces.quickshear import Quickshear
 
 from shivautils.interfaces.image import (Threshold, Normalization,
                             Conform, Crop)
+from shivautils.interfaces.shiva import PredictSingularity, Predict
 from shivautils.stats import save_histogram, bounding_crop
 
 
@@ -64,7 +64,7 @@ def genWorkflow(**kwargs) -> Workflow:
     conform = Node(Conform(),
                    name="conform")
     conform.inputs.dimensions = (256, 256, 256)
-    conform.inputs.voxel_size = (1.0, 1.0, 1.0)
+    conform.inputs.voxel_size = kwargs['RESOLUTION']
     conform.inputs.orientation = 'RAS'
 
     workflow.connect(datagrabber, "main", conform, 'img')
@@ -72,7 +72,7 @@ def genWorkflow(**kwargs) -> Workflow:
     # preconform main to 1 mm isotropic, freesurfer-style
     preconform = Node(Conform(),
                    name="preconform")
-    preconform.inputs.dimensions = (160, 214, 176)
+    preconform.inputs.dimensions = kwargs['IMAGE_SIZE']
     preconform.inputs.orientation = 'RAS'
 
     workflow.connect(datagrabber, "main", preconform, 'img')
@@ -80,24 +80,29 @@ def genWorkflow(**kwargs) -> Workflow:
     
     # normalize intensities between 0 and 1 for Tensorflow initial brain mask extraction:
     # identify brain to define image cropping region.
-    preconf_normalization = Node(Normalization(percentile = 99), name="preconform_intensity_normalization")
-    workflow.connect(preconform, 'resampled',
-                     preconf_normalization, 'input_image')
+    preconf_normalization = Node(Normalization(percentile=kwargs['PERCENTILE']), name="preconform_intensity_normalization")
+    workflow.connect(preconform, 'resampled', preconf_normalization, 'input_image')
 
-    # brain mask from tensorflow
-    pre_brain_mask = Node(Predict(), "pre_brain_mask")
-    pre_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
-    pre_brain_mask.inputs.snglrt_bind =  [
-        (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
-        ('`pwd`','/mnt/data','rw'),
-        ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
-        ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
-        (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
-    pre_brain_mask.inputs.model = '/mnt/model'
-    pre_brain_mask.inputs.snglrt_enable_nvidia = True
+    if kwargs['CONTAINER'] == True:
+        pre_brain_mask = Node(Predict(), "pre_brain_mask")
+        pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    else:
+        # brain mask from tensorflow
+        pre_brain_mask = Node(PredictSingularity(), "pre_brain_mask")
+        pre_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
+        pre_brain_mask.inputs.snglrt_bind =  [
+            (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
+            ('`pwd`','/mnt/data','rw'),
+            ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
+            ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
+            (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
+        pre_brain_mask.inputs.model = '/mnt/model'
+        pre_brain_mask.inputs.snglrt_enable_nvidia = True
+        pre_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
+        
     pre_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
-    pre_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
-    pre_brain_mask.inputs.out_filename = '/mnt/data/pre_brain_mask.nii.gz'
+    pre_brain_mask.inputs.out_filename = 'pre_brain_mask.nii.gz'
+    
     workflow.connect(preconf_normalization, 'intensity_normalized',
                      pre_brain_mask, 't1')
                      
@@ -107,24 +112,24 @@ def genWorkflow(**kwargs) -> Workflow:
     unconform = Node(Conform(),
                 name="unpreconform")
     unconform.inputs.dimensions = (256, 256, 256)
-    unconform.inputs.voxel_size = (1.0, 1.0, 1.0)
+    unconform.inputs.voxel_size = kwargs['RESOLUTION']
     unconform.inputs.orientation = 'RAS'
 
     workflow.connect(pre_brain_mask, 'segmentation', unconform, 'img')
           
     # binarize unpreconformed brain mask
-    hard_brain_mask = Node(Threshold(threshold=0.5, binarize=True), name="hard_brain_mask")
+    hard_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD'], binarize=True), name="hard_brain_mask")
     workflow.connect(unconform, 'resampled', hard_brain_mask, 'img')
     
     # normalize intensities between 0 and 1 for Tensorflow
-    post_normalization = Node(Normalization(percentile = 99), name="post_intensity_normalization")
+    post_normalization = Node(Normalization(percentile=kwargs['PERCENTILE']), name="post_intensity_normalization")
     workflow.connect(conform, 'resampled',
                      post_normalization, 'input_image')
     workflow.connect(hard_brain_mask, 'thresholded',
     	 	         post_normalization, 'brain_mask')
     
     # crop main centered on mask origin
-    crop_normalized = Node(Crop(final_dimensions=(160, 214, 176)),
+    crop_normalized = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),
                 name="crop_normalized")
     workflow.connect(post_normalization, 'intensity_normalized',
                      crop_normalized, 'apply_to')
@@ -133,32 +138,38 @@ def genWorkflow(**kwargs) -> Workflow:
                      
     # crop raw
     # crop main centered on mask
-    crop = Node(Crop(final_dimensions=(160, 214, 176)),
+    crop = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),
                 name="crop")
     workflow.connect(conform, 'resampled',
                      crop, 'apply_to')
     workflow.connect(hard_brain_mask, 'thresholded',
                      crop, 'roi_mask')
 
-    # brain mask from tensorflow
-    post_brain_mask = Node(Predict(), "post_brain_mask")
-    post_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
-    post_brain_mask.inputs.snglrt_bind =  [
-        (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
-        ('`pwd`','/mnt/data','rw'),
-        ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
-        ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
-        (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
-    post_brain_mask.inputs.model = '/mnt/model'
-    post_brain_mask.inputs.snglrt_enable_nvidia = True
+    if kwargs['CONTAINER'] == True:
+        post_brain_mask = Node(Predict(), "post_brain_mask")
+        post_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    else:
+        # brain mask from tensorflow
+        post_brain_mask = Node(PredictSingularity(), "post_brain_mask")
+        post_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
+        post_brain_mask.inputs.snglrt_bind =  [
+            (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
+            ('`pwd`','/mnt/data','rw'),
+            ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
+            ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
+            (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
+        post_brain_mask.inputs.model = '/mnt/model'
+        post_brain_mask.inputs.snglrt_enable_nvidia = True
+        post_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
+    
     post_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
-    post_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
-    post_brain_mask.inputs.out_filename = '/mnt/data/post_brain_mask.nii.gz'
+    post_brain_mask.inputs.out_filename = 'post_brain_mask.nii.gz'
+    
     workflow.connect(crop_normalized, 'cropped',
-                     post_brain_mask, 't1')
+                    post_brain_mask, 't1')
 
     # binarize post brain mask
-    hard_post_brain_mask = Node(Threshold(threshold=0.5, binarize=True), name="hard_post_brain_mask")
+    hard_post_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD'], binarize=True), name="hard_post_brain_mask")
     workflow.connect(post_brain_mask, 'segmentation', hard_post_brain_mask, 'img')
 
     # compute 6-dof coregistration parameters of accessory scan 
@@ -217,7 +228,6 @@ def genWorkflow(**kwargs) -> Workflow:
                      crop_to_main, 'moving_image')
 
     
-
     # write brain seg on main in native space
     mask_to_main = Node(ants.ApplyTransforms(), name="mask_to_main")
     mask_to_main.inputs.interpolation = 'NearestNeighbor'
@@ -248,14 +258,14 @@ def genWorkflow(**kwargs) -> Workflow:
 
 
     # Intensity normalize coregistered image for tensorflow (ENDPOINT 1)
-    main_norm =  Node(Normalization(percentile = 99), name="main_final_intensity_normalization")
+    main_norm =  Node(Normalization(percentile=kwargs['PERCENTILE']), name="main_final_intensity_normalization")
     workflow.connect(main_to_mask, 'output_image',
     		         main_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
     	 	         main_norm, 'brain_mask')
 
     # Intensity normalize coregistered image for tensorflow (ENDPOINT 2)
-    acc_norm =  Node(Normalization(percentile = 99), name="acc_final_intensity_normalization")
+    acc_norm =  Node(Normalization(percentile=kwargs['PERCENTILE']), name="acc_final_intensity_normalization")
     workflow.connect(coreg, 'warped_image',
     		         acc_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',

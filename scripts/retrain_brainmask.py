@@ -3,11 +3,10 @@
 import os
 import argparse
 import json
-import nibabel as nb
-import numpy as np
-import scipy.io
 
-from shivautils.workflows.test_metrics_prediction import genWorkflow
+
+
+from shivautils.workflows.preprocessing_retrain_brainmask import genWorkflow
 
 DESCRIPTION = """SHIVA preprocessing for deep learning predictors. Perform resampling of a structural NIfTI head image, 
                 followed by intensity normalization, and cropping centered on the brain. A nipype workflow is used to 
@@ -34,7 +33,7 @@ def existing_file(file):
 parser = argparse.ArgumentParser(description=DESCRIPTION)
 
 parser.add_argument('--in', dest='input',
-                    help='JSON formatted extract of the Slicer plugin',
+                    help='Path of folder nifti images',
                     metavar='path/to/existing/slicer_extension_database.json',
                     required=True)
 
@@ -44,25 +43,6 @@ parser.add_argument('--out', dest='output',
                     metavar='path/to/nipype_work_dir',
                     required=True)
 
-parser.add_argument('--grab', dest='grab_pattern',
-                    type=str,
-                    help='data grabber pattern, between quotes',
-                    metavar='%s/%s/*nii',
-                    required=True)
-                    
-parser.add_argument('--model',
-                    default=None,
-                    help='path to model descriptor')
-
-parser.add_argument('--simg',
-                    type=existing_file,
-                    default=None,
-                    help='Predictor Singularity image to use')
-
-parser.add_argument('--gpu',
-                    type=int,
-                    help='GPU to use.')
-
 
 
 args = parser.parse_args()
@@ -70,13 +50,10 @@ args = parser.parse_args()
 # the preprocessed image destination path
 subject_dict = args.input
 
+GRAB_PATTERN = '%s/anat/*_T1w.nii.gz'
 out_dir = args.output
 wfargs = {'SUBJECT_LIST': os.listdir(subject_dict),
-          'BASE_DIR': out_dir,
-          # CMB_descriptor ou PVS_descriptor
-          'DESCRIPTOR': os.path.join(args.model, 'brainmask/V0/model_info.json'),
-          'MODELS_PATH': args.model,
-          'SYNTHSEG': True}
+          'BASE_DIR': out_dir}
 
 if not (os.path.exists(out_dir) and os.path.isdir(out_dir)):
     os.makedirs(out_dir)
@@ -85,8 +62,7 @@ print(f'Working directory set to: {out_dir}')
 wf = genWorkflow(**wfargs)
 wf.base_dir = out_dir
 wf.get_node('dataGrabber').inputs.base_directory = subject_dict
-wf.get_node('dataGrabber').inputs.template = args.grab_pattern
-wf.get_node('dataGrabber').inputs.template_args = {'t1_preproc': [['subject_id', 't1_preproc']],
-                                                   'prediction': [['subject_id', 'prediction']]}
+wf.get_node('dataGrabber').inputs.template = GRAB_PATTERN
+wf.get_node('dataGrabber').inputs.template_args = {'img': [['subject_id']]}
 
-wf.run(plugin='Linear')
+wf.run(plugin='SLURM')
