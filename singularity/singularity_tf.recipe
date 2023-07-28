@@ -3,7 +3,7 @@ From: tensorflow/tensorflow:2.7.1-gpu
 Stage: build
 
 %files
-    ../shivautils /usr/local/src/shivautils
+    ../../shivautils /usr/local/src/shivautils
 
 %environment
     PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/ants-2.4.3/bin
