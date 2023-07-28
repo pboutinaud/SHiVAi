@@ -139,10 +139,4 @@ def createBGsliceMask(path_to_freesurfer_segm, out_fname_root=''):
     out_fname = '{}_BG_slice.nii.gz'.format(out_fname_root) if out_fname_root else 'BG_slice.nii.gz'
 
     return bg_roi_nii
-
-#import nibabel as nb
-#freesurfer_segm = nb.load('/homes_unix/yrio/Documents/test_processing_metrics_SHARE/_subject_id_SHARE0055/synthseg/segmentation_regions.nii.gz')
-#createBGsliceMask(freesurfer_segm, out_fname_root='/homes_unix/yrio/Documents/')
-
-
    

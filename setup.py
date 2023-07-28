@@ -7,8 +7,10 @@
 from os.path import join
 from setuptools import setup, find_packages
 
+import shivautils
+
 setup(name='shivautils',
-      version='0.0.1',
+      version=shivautils.__version__,
       packages=find_packages(),
       author="Yann Rio",
       author_email="yrio@fealinx.com",

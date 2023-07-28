@@ -110,10 +110,3 @@ def quantify_clusters(img, bg_mask, thr, cl_filter ,out_csv='cluster_summary_pvs
     out_df = pd.DataFrame(quant_data)
    
     return out_df
-
-#img = "/homes_unix/yrio/Documents/test_preprocessing_bind_histogram/_subject_id_000992205580/predict_pvs/pvs_map.nii.gz"
-#bg_mask = "/homes_unix/yrio/Documents_BG_slice.nii.gz"
-#thr = 0.5
-#cl_filter = 6
-#out_df, nb = quantify_clusters(img, bg_mask, thr, cl_filter ,out_csv='/extra/yrio/cluster_summary.csv')
-#print(type(out_df['BG_num_clusters'].iloc[0]))

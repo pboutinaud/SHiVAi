@@ -33,7 +33,7 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    name_workflow = "post_processing_workflow"
+    name_workflow = "post_processing_workflow_container"
     workflow = Workflow(name_workflow)
     workflow.base_dir = kwargs['BASE_DIR']
 

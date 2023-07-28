@@ -6,14 +6,15 @@ model_path: /homes_unix/yrio/Documents/modele/ReferenceModels
 singularity_image: /homes_unix/yrio/Documents/Script_predict/container_preproc_predict/preproc_tensorflow.sif
 
 parameters:
-  brainmask_descriptor: "/homes_unix/yrio/Documents/modele/ReferenceModels/model_info/brainmask/model_info.json"
-  WMH_descriptor: "/homes_unix/yrio/Documents/modele/ReferenceModels/T1.FLAIR-WMH/V1/model_info.json"
-  PVS_descriptor: "/homes_unix/yrio/Documents/modele/ReferenceModels/T1.FLAIR-PVS/V0/model_info.json"
+  brainmask_descriptor: "brainmask/V0/model_info.json"
+  WMH_descriptor: "T1.FLAIR-WMH/V1/model_info.json"
+  PVS_descriptor: "T1.FLAIR-PVS/V0/model_info.json"
+  CMB_descriptor: "SWI-CMB/V0/model_info.json"
   percentile: 99.0
   threshold: 0.5
   threshold_clusters: 0.2
   final_dimensions: '160 214 176'
   voxels_size: '1.0 1.0 1.0'
   grab: '%s/%s/*nii.gz'
-  SWI: False
+  SWI: True
   interpolation: 'WelchWindowedSinc'

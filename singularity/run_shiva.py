@@ -3,7 +3,7 @@ import subprocess
 import argparse
 from pathlib import Path
 import yaml
-import os
+
 
 DESCRIPTION = """SHIVA preprocessing for deep learning predictors. Perform resampling of a structural NIfTI head image, 
                 followed by intensity normalization, and cropping centered on the brain. A nipype workflow is used to 
@@ -13,8 +13,8 @@ parser = argparse.ArgumentParser(description=DESCRIPTION)
 
 parser.add_argument("--in", dest='input', type=Path, action='store', help="path of folder images data", required=True)
 parser.add_argument("--out", dest='output', type=Path, action='store', help="path for output of processing", required=True)
-parser.add_argument("--model", default='/homes_unix/yrio/Documents/modele/ReferenceModels', required=False, type=Path, action='store', help="path to model descriptor")
-parser.add_argument("--input_type", default='standard', type=str, help="way to grab and manage data : standard, BIDS or json")
+parser.add_argument("--model", default='/homes_unix/yrio/Documents/modele/ReferenceModels', required=False, type=Path, action='store', help="path to model folder")
+parser.add_argument("--input_type", default='standard', type=str, help="File staging convention: 'standard', 'BIDS' or 'json'")
 parser.add_argument("--config", help='yaml file for configuration of workflow')
 
 args = parser.parse_args()
@@ -42,18 +42,22 @@ voxels_size = f"--voxels_size {parameters['voxels_size']}"
 interpolation = f"--interpolation {parameters['interpolation']}"
 model = f"--model /mnt/model" 
 swi = f"--SWI {parameters['SWI']}"
+brainmask_descriptor = f"--brainmask_descriptor {parameters['brainmask_descriptor']}"
+pvs_descriptor = f"--pvs_descriptor {parameters['PVS_descriptor']}"
+wmh_descriptor = f"--wmh_descriptor {parameters['WMH_descriptor']}"
+cmb_descriptor = f"--cmb_descriptor {parameters['CMB_descriptor']}"
 
-separateur_space = ' '
-separateur_comma = ','
+
 bind_list = [bind_cuda, bind_gcc, bind_model, bind_input, bind_output]
-bind = separateur_comma.join(bind_list)
+bind = ','.join(bind_list)
 
 command_list = ["singularity exec --nv --bind", bind, singularity_image,
                 "script_wf.py", input, output, input_type, percentile,
                 threshold, threshold_clusters, final_dimensions, 
-                voxels_size, model, interpolation, swi]
+                voxels_size, model, interpolation, swi, brainmask_descriptor,
+                pvs_descriptor, wmh_descriptor, cmb_descriptor]
 
-command = separateur_space.join(command_list)
+command = ' '.join(command_list)
 
 print(command)
 

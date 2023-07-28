@@ -87,6 +87,26 @@ parser.add_argument('--gpu',
                     type=int,
                     help='GPU to use.')
 
+parser.add_argument('--brainmask_descriptor', 
+                    type=str,
+                    default='brainmask/V0/model_info.json',
+                    help='brainmask descriptor file path')
+
+parser.add_argument('--pvs_descriptor', 
+                    type=str,
+                    default='T1.FLAIR-PVS/V0/model_info.json',
+                    help='pvs descriptor file path')
+
+parser.add_argument('--wmh_descriptor', 
+                    type=str,
+                    default='T1.FLAIR-WMH/V1/model_info.json',
+                    help='wmh descriptor file path')
+
+parser.add_argument('--cmb_descriptor', 
+                    type=str,
+                    default='SWI-CMB/V0/model_info.json',
+                    help='cmb descriptor file path')
+
 
 GRAB_PATTERN = '%s/%s/*.nii*'
 args = parser.parse_args()
@@ -119,11 +139,11 @@ if args.input_type == 'standard' or args.input_type == 'BIDS':
     subject_directory = args.input
     out_dir = args.output
     subject_list = os.listdir(subject_directory)
-    brainmask_descriptor = os.path.join(args.model, 'brainmask/V0/model_info.json')
-    wmh_descriptor = os.path.join(args.model, 'T1.FLAIR-WMH/V1/model_info.json')
-    pvs_descriptor = os.path.join(args.model, 'T1.FLAIR-PVS/V0/model_info.json')
+    brainmask_descriptor = os.path.join(args.model, args.brainmask_descriptor)
+    wmh_descriptor = os.path.join(args.model, args.wmh_descriptor)
+    pvs_descriptor = os.path.join(args.model, args.pvs_descriptor)
     if SWI == 'True':
-        cmb_descriptor = os.path.join(args.model, 'SWI-CMB/V0/model_info.json')
+        cmb_descriptor = os.path.join(args.model, args.cmb_descriptor)
     else:
         cmb_descriptor = None
     

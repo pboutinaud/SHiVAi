@@ -350,9 +350,3 @@ def create_edges(path_image, path_ref_image, path_brainmask, nb_of_slices=8):
     QC_coreg = 'QC_coreg_edges.png'        
     plt.savefig('QC_coreg_edges.png')       
     return (op.abspath(QC_coreg))
-
-
-#path_image = "/homes_unix/yrio/Documents/test_preprocessing_bind_histogram/_subject_id_000992205580/acc_final_intensity_normalization/main_to_acc__Warped_img_normalized.nii.gz"
-#path_ref_image = "/homes_unix/yrio/Documents/test_preprocessing_bind_histogram/_subject_id_000992205580/main_final_intensity_normalization/000992205580_T1_Axialresampled_cropped_img_normalized.nii.gz"
-#path_brainmask = "/homes_unix/yrio/Documents/test_preprocessing_bind_histogram/_subject_id_000992205580/hard_post_brain_mask/post_brain_mask_thresholded.nii.gz"
-#create_edges(path_image, path_ref_image, path_brainmask, nb_of_slices=5)
