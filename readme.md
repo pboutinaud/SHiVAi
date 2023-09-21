@@ -15,11 +15,13 @@ https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.
 
 Once the dependencies are installed, you can build the container image.
 
-3. As *root* user, from the **shivautils/singularity** directory, run the following command to build the SHIVA singularity container image :
+3. If this is not the case already, clone (or download) the shivautils repository.
+
+4. As *root* user, from the **shivautils/singularity** directory, run the following command to build the SHIVA singularity container image :
 
  singularity build preproc_tensorflow.sif singularity_tf.recipe
 
- 
+Note that you don't need to install the package to your local Python environment. But if you want to, see the end of this read-me.
 
 Command line arguments (with run_shiva.py)
 =========================================
@@ -27,7 +29,7 @@ Command line arguments (with run_shiva.py)
     --in (path): path of the input dataset
     --out (path): the path where the generated files will be output
     --input_type (str):  Type of structure file, way to capture and manage nifti files : standard, BIDS or json
-    -- model (path): Path to model descriptor (path_default : '/homes_unix/yrio/Documents/modele/ReferenceModels')
+    --model (path): Path to model descriptor (path_default : '/homes_unix/yrio/Documents/modele/ReferenceModels')
     --config (path): File with configuration options for workflow processing images, (path_default : /homes_unix/yrio/Documents/utils_python/shivautils/singularity/config_wmh.yml)
 
 
@@ -55,7 +57,8 @@ Options configuration in yaml file :
     --threshold (float) : Value of the treshold to apply to the image for brainmask, default value : 0.5
     --threshold_clusters (float) : Threshold to compute clusters metrics, default value : 0.2
     --final_dimensions (str) : Final image array size in i, j, k. Example : '160 214 176'.
-    --voxels_size (str) : Voxel size of the final image, example : '1.0 1.0 1.0' --grab : data grabber
+    --voxels_size (str) : Voxel size of the final image, example : '1.0 1.0 1.0'
+    --grab : data grabber
     --SWI (str) : if a second workflow for CMB is required, example : 'True' or 'False' 
     --interpolation (str): image resampling method, default interpolation : 'WelchWindowedSinc', others ANTS interpolation possibilities : 'Linear', 'NearestNeighbor', 'CosineWindowedSinc', 'HammingWindowedSinc', 'LanczosWindowedSinc', 'BSpline', 'MultiLabel', 'Gaussian', 'GenericLabel'
 
@@ -192,7 +195,7 @@ General CSV file (path folder 'metrics_predictions_{pvs/wmh}_generale'):
 Detailed about python package
 -----------------------------
 
-Use the following command line to deploy the python package with 'setup.py' file : 
+To deploy the python package, from the project directory (containing the 'setup.py' file), use the following command line: 
 
     python -m build
 
