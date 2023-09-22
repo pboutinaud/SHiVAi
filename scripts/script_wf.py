@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Script workflow in containeur singularity
+"""Workflow script for singularity container"""
 import os
 import argparse
 import json
@@ -16,10 +16,12 @@ from shivautils.workflows.SWI_predict import genWorkflow as genWorkflowPredictSW
 from shivautils.workflows.SWI_post_processing import genWorkflow as genWorkflowPostSWI
 
 
-DESCRIPTION = """SHIVA preprocessing for deep learning predictors. Perform resampling of a structural NIfTI head image, 
-                followed by intensity normalization, and cropping centered on the brain. A nipype workflow is used to 
-                preprocess a lot of images at the same time. In the last step the file segmentations with the wmh and 
-                pvs models are processed"""
+DESCRIPTION = """SHIVA pipeline for deep-learning imaging biomarkers computation. Performs resampling and coregistration 
+                of a set of structural NIfTI head image, followed by intensity normalization, and cropping centered on the brain.
+                A nipype workflow is used to preprocess a lot of images at the same time.
+                The segmentations from the wmh, cmb and pvs models are generated depending on the inputs. A Report is generated.
+                
+                Input data can be staged in BIDS or a simplified file arborescence, or described with a JSON file (for the 3D Slicer extension)."""
 
 
 parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -85,7 +87,7 @@ parser.add_argument('--SWI',
 
 parser.add_argument('--gpu',
                     type=int,
-                    help='GPU to use.')
+                    help='Force GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
 
 parser.add_argument('--brainmask_descriptor', 
                     type=str,
@@ -195,7 +197,7 @@ if args.input_type == 'standard' or args.input_type == 'json':
                                                        'acc': [['subject_id', 'acc']]}
     if SWI == 'True':
         swi_wf.get_node('dataGrabber').inputs.base_directory = args.input
-        swi_wf.get_node('dataGrabber').inputs.template = '%s/%s/*.nii*'
+        swi_wf.get_node('dataGrabber').inputs.template = GRAB_PATTERN
         swi_wf.get_node('dataGrabber').inputs.template_args = {'SWI': [['subject_id', 'SWI']]}
 
         swi_wf.get_node('conform').inputs.dimensions = (256, 256, 256)
@@ -215,7 +217,7 @@ if args.gpu:
 
 if args.input_type == 'BIDS':
     wf.get_node('dataGrabber').inputs.base_directory = args.input
-    wf.get_node('dataGrabber').inputs.template = '%s/%s/*.nii*'
+    wf.get_node('dataGrabber').inputs.template = GRAB_PATTERN
     wf.get_node('dataGrabber').inputs.template_args = {'main': [['subject_id', 'subject_id']],
                                                        'acc': [['subject_id', 'subject_id']]}
     wf.get_node('dataGrabber').inputs.field_template = {'main': '%s/anat/%s_T1_raw.nii.gz',
