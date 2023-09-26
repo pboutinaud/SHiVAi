@@ -42,52 +42,52 @@ srun –gpus 1 python run_shiva.py --in ~/Documents/data/VRS/Nagahama/raw/datase
 
 Options configuration in yaml file :
 
---cuda (file) : structure mount_file
---gcc (file) : structure mount_file
---model_path (path) : structure mount_file
---singularity_image (path): path of singularity container file
---brainmask_descriptor (path): path to brain_mask descriptor tensorflow model
---WMH_descriptor (path): path of White Matter HyperIntensities descriptor tensorflow model
---PVS_descriptor (path): path of Peri-Vascular Spaces descriptor tensorflow model
---percentile (float) : Threshold value expressed as percentile
---threshold (float) : Value of the treshold to apply to the image for brainmask, default value : 0.5
---threshold_clusters (float) : Threshold to compute clusters metrics, default value : 0.2
---final_dimensions (str) : Final image array size in i, j, k. Example : '160 214 176'.
---voxels_size (str) : Voxel size of the final image, example : '1.0 1.0 1.0' --grab : data grabber
---SWI (str) : if a second workflow for CMB is required, example : 'True' or 'False' 
---interpolation (str): Way of upsamples images, default interpolation : 'WelchWindowedSinc', others interpolations  possibility : 'Linear', 'NearestNeighbor', 'CosineWindowedSinc', 'HammingWindowedSinc', 'LanczosWindowedSinc', 'BSpline', 'MultiLabel', 'Gaussian', 'GenericLabel'
+    --cuda (file) : structure mount_file
+    --gcc (file) : structure mount_file
+    --model_path (path) : structure mount_file
+    --singularity_image (path): path of singularity container file
+    --brainmask_descriptor (path): path to brain_mask descriptor tensorflow model
+    --WMH_descriptor (path): path of White Matter HyperIntensities descriptor tensorflow model
+    --PVS_descriptor (path): path of Peri-Vascular Spaces descriptor tensorflow model
+    --percentile (float) : Threshold value expressed as percentile
+    --threshold (float) : Value of the treshold to apply to the image for brainmask, default value : 0.5
+    --threshold_clusters (float) : Threshold to compute clusters metrics, default value : 0.2
+    --final_dimensions (str) : Final image array size in i, j, k. Example : '160 214 176'.
+    --voxels_size (str) : Voxel size of the final image, example : '1.0 1.0 1.0' --grab : data grabber
+    --SWI (str) : if a second workflow for CMB is required, example : 'True' or 'False' 
+    --interpolation (str): Way of upsamples images, default interpolation : 'WelchWindowedSinc', others interpolations  possibility : 'Linear', 'NearestNeighbor', 'CosineWindowedSinc', 'HammingWindowedSinc', 'LanczosWindowedSinc', 'BSpline', 'MultiLabel', 'Gaussian', 'GenericLabel'
 
 
 
 
 Example of BIDS structure folders :
 
-.
-├── dataset_description.json
-└── rawdata
-    └── sub-21
-        └── anat
-            ├── sub-21_FLAIR_raw.nii.gz
-            └── sub-21_T1_raw.nii.gz
-    └── sub-51
-        └── anat
-            ├── sub-51_FLAIR_raw.nii.gz
-            └── sub-51_T1_raw.nii.gz
+    .
+    ├── dataset_description.json
+    └── rawdata
+        └── sub-21
+            └── anat
+                ├── sub-21_FLAIR_raw.nii.gz
+                └── sub-21_T1_raw.nii.gz
+        └── sub-51
+            └── anat
+                ├── sub-51_FLAIR_raw.nii.gz
+                └── sub-51_T1_raw.nii.gz
 
 
 Example of Standard structure folders :
 
-.
-├── 21
-│   ├── flair
-│   │   └── 21_FLAIR_raw.nii.gz
-│   └── t1
-│       └── 21_T1_raw.nii.gz
-└── 51
-    ├── flair
-    │   └── 51_FLAIR_raw.nii.gz
-    └── t1
-        └── 51_T1_raw.nii.gz
+    .
+    ├── 21
+    │   ├── flair
+    │   │   └── 21_FLAIR_raw.nii.gz
+    │   └── t1
+    │       └── 21_T1_raw.nii.gz
+    └── 51
+        ├── flair
+        │   └── 51_FLAIR_raw.nii.gz
+        └── t1
+            └── 51_T1_raw.nii.gz
 
 
 Example of Json structure input :

@@ -32,7 +32,7 @@ def normalization(img: nb.Nifti1Image,
     # We suppress values above the 99th percentile to avoid hot spots
     array = img.get_fdata()
     print(np.max(array))
-    array_b = array
+    array_b = array  # Uhoh, this needs a copy or it will modify the original array too I think
     array_b[array_b < 0] = 0
     # calculate percentile 
     if not brain_mask:

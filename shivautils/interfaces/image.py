@@ -7,7 +7,7 @@ import numpy as np
 import csv
 import weasyprint
 import matplotlib.pyplot as plt
-from bokeh.io import export_png
+# from bokeh.io import export_png
 
 import sys
 sys.path.append('/mnt/devt')
