@@ -1,4 +1,5 @@
-"""Script workflow"""
+#!/usr/bin/env python
+"""SHIVA preprocessing workflow for 3D Slicer extension"""
 import os
 import argparse
 import json
@@ -6,11 +7,13 @@ from pathlib import Path
 
 from shivautils.workflows.slicer_preprocessing import genWorkflow
 
-DESCRIPTION = """SHIVA preprocessing for deep learning predictors.
+DESCRIPTION = """SHIVA preprocessing for deep learning predictors, for the 3D SLicer extension.
                  Perform resampling of a structural NIfTI head image,
                  followed by intensity normalization, and cropping centered on
                  the brain. A nipype workflow is used to preprocess a lot of
-                 image in same time"""
+                 image in same time.
+                 
+                 Inputs are taken from a JSON file generated from 3D slicer."""
                  
 def existing_file(file):
     """Checking if file exist
@@ -43,50 +46,9 @@ def build_args_parser():
                         metavar='path/to/existing/slicer_extension_database.json',
                         required=True)
 
-    '''
-    parser.add_argument('--out', dest='output',
-                        type=str,
-                        help='Output folder path (nipype working directory)',
-                        metavar='path/to/nipype_work_dir',
-                        required=True)
-    parser.add_argument('--grab', dest='grab_pattern',
-                        type=str,
-                        help='data grabber pattern, between quotes',
-                        metavar='%s/*nii',
-                        default='%s/*nii'
-                        required=True)
-
-    parser.add_argument('--percentile',
-                        type=float,
-                        default=99,
-                        help='Threshold value expressed as percentile')
-
-    parser.add_argument('--final_dimensions',
-                        nargs='+', type=int,
-                        default=(160, 214, 176),
-                        help='Final image array size in i, j, k.')
-
-    parser.add_argument('--voxel_size', nargs='+',
-                        type=float,
-                        default=(1.0, 1.0, 1.0),
-                        help='Voxel size of final image')
-                        
-    parser.add_argument('--model',
-                        type=existing_file,
-                        default=None,
-                        help='path to model descriptor')
-
-    parser.add_argument('--simg',
-                        type=existing_file,
-                        default=None,
-                        help='Predictor Singularity image to use')
-    
-    parser.add_argument('--gpu',
-                        type=int,
-                        default=1,
-                        help='GPU to use.')
-    '''
-
+    parser.add_argument('--plugin', dest='plugin', type=str,
+                        help='Nipype plugin for batch processing (Linear or SLURM)',
+                        required=False)
     return parser
 
 
@@ -125,7 +87,7 @@ def main():
     wf.get_node('intensity_normalization').inputs.percentile = slicerdb['parameters']['percentile']
     wf.get_node('intensity_normalization_2').inputs.percentile = slicerdb['parameters']['percentile']
     # Predictor model descriptor file (JSON)
-    wf.get_node('brain_mask_2').plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
+    wf.get_node('brain_mask_2').plugin_args = {'sbatch_args': '--gpus 1'}
     
     wf.get_node('brain_mask_2').inputs.descriptor = slicerdb['parameters']['brainmask_model']
     
@@ -145,8 +107,7 @@ def main():
     wf.get_node('brain_mask_2').inputs.out_filename = '/mnt/data/brain_mask.nii.gz'
 
 
-    wf.run(plugin='Linear')
-    #SLURM
+    wf.run(plugin=args.plugin)
 
 
 if __name__ == "__main__":

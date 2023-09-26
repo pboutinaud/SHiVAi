@@ -64,11 +64,12 @@ parser.add_argument(
     type=Path,
     action='store',
     help="(multiple) input modality",
-    required=False)
+    required=True)
 
 parser.add_argument(
     "-descriptor",
     type=Path,
+    required=True,
     help="File info json about model")
 
 parser.add_argument(
@@ -118,7 +119,7 @@ for i in meta_data['files']:
 
 if len(predictor_files) == 0:
     raise FileNotFoundError('Found no model files, '
-                            'please mount a folder '
+                            'please supply or mount a folder '
                             'containing h5 files with model weights.')
 
 modalities = []
@@ -132,13 +133,13 @@ for modality in meta_data['modalities']:
     if args.t2 and "t2" == modality:
         modalities.append(args.swi)
 if args.t1 and "t1" not in meta_data['modalities']:
-    raise ValueError("ERROR : task don't require t1 modality according to json file meta_data")
+    raise ValueError("ERROR : the prediction task doesn't require t1 modality according to json descriptor file metadata")
 if args.flair and "flair" not in meta_data['modalities']:
-    raise ValueError("ERROR : task don't require flair modality according to json file meta_data")
+    raise ValueError("ERROR : the prediction task doesn't require flair modality according to json descriptor file metadata")
 if args.swi and "swi" not in meta_data['modalities']:
-    raise ValueError("ERROR : task don't require swi modality according to json file meta_data")
+    raise ValueError("ERROR : the prediction task doesn't require swi modality according to json descriptor file metadata")
 if args.t2 and "t2" not in meta_data['modalities']:
-    raise ValueError("ERROR : task don't require swi modality according to json file meta_data")
+    raise ValueError("ERROR : the prediction task doesn't require t2 modality according to json descriptor file metadata")
 
 for file in meta_data["files"]:
     print(args.model)
@@ -147,8 +148,6 @@ for file in meta_data["files"]:
         hashmd5 = hashlib.md5(f.read()).hexdigest()
         if file["md5"] != hashmd5:
             raise ValueError("ERROR : file modified")
-
-
 
 
 brainmask = args.braimask

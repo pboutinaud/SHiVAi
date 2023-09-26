@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Script workflow in containeur singularity
+# Chained script workflow for singularity
 import os
 import argparse
 import json
@@ -10,26 +10,24 @@ from shivautils.workflows.dual_preprocessing import genWorkflow
 from shivautils.workflows.dual_predict import genWorkflow as genWorkflowPredict
 from shivautils.workflows.dual_post_processing import genWorkflow as genWorkflowPost
 
-DESCRIPTION = """SHIVA preprocessing for deep learning predictors. Perform resampling of a structural NIfTI head image, 
-                followed by intensity normalization, and cropping centered on the brain. A nipype workflow is used to 
-                preprocess a lot of images at the same time."""
+DESCRIPTION = """SHIVA full processing pipeline: chains preprocessing, prediction, and reporting nipype workflows."""
                  
-def existing_file(file):
-    """Checking if file exist
+def existing_file(filepath: os.PathLike) -> os.PathLike:
+    """Check if file exists (for argparse)
 
     Args:
-        f (_type_): _description_
+        filepath (str): supplied filepath to check
 
     Raises:
-        argparse.ArgumentTypeError: _description_
+        argparse.ArgumentTypeError: if a non existing file path was supplied.
 
     Returns:
-        _type_: _description_
+        str: the file path
     """
-    if not os.path.isfile(file):
-        raise argparse.ArgumentTypeError(file + " not found.")
+    if not os.path.isfile(filepath):
+        raise argparse.ArgumentTypeError(filepath + " not found.")
     else:
-        return file
+        return filepath
 
 
 parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -48,16 +46,19 @@ parser.add_argument('--out', dest='output',
 parser.add_argument('--percentile',
                     type=float,
                     default=99,
+                    metavar='99',
                     help='Threshold value expressed as percentile')
 
 parser.add_argument('--threshold',
                     type=float,
                     default=0.5,
+                    metavar='0.5',
                     help='Value of the treshold to apply to the image')
 
 parser.add_argument('--final_dimensions',
                     nargs='+', type=int,
                     default=(160, 214, 176),
+                    metavar='160, 214, 176'
                     help='Final image array size in i, j, k.')
 
 parser.add_argument('--voxels_size', nargs='+',
@@ -67,11 +68,17 @@ parser.add_argument('--voxels_size', nargs='+',
                     
 parser.add_argument('--model',
                     default=None,
+                    required=True,
                     help='path to model descriptor')
 
 parser.add_argument('--gpu',
                     type=int,
                     help='GPU to use.')
+
+parser.add_argument('--plugin',
+                    type=str,
+                    default='Linear'
+                    help='Nipype job scheduler plugin to use: Linear, MultiProc, SLURM, SGE, PBS, HTCondor, LSF.')
 
 
 
@@ -103,7 +110,6 @@ if not (os.path.exists(out_dir) and os.path.isdir(out_dir)):
 print(f'Working directory set to: {out_dir}')
 
 wf_preprocessing = genWorkflow(**wfargs)
-
 wf_predict = genWorkflowPredict(**wfargs)
 wf_post = genWorkflowPost(**wfargs)
 
@@ -121,7 +127,7 @@ wf_preprocessing.get_node('conform').inputs.orientation = 'RAS'
 wf_preprocessing.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
 
 wf_preprocessing.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-wf_preprocessing.run(plugin='Linear')
+wf_preprocessing.run(plugin=args.plugin)
 
 wf_predict.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_preprocessing.name)
 wf_predict.get_node('dataGrabber').inputs.template = GRAB_PATTERN
@@ -130,7 +136,7 @@ wf_predict.get_node('dataGrabber').inputs.template_args = {'main': [['subject_id
 wf_predict.get_node('dataGrabber').inputs.field_template = {'main': '_subject_id_%s/main_final_intensity_normalization/%s_T1_raw_trans_img_normalized.nii.gz',
                                                             'acc': '_subject_id_%s/acc_final_intensity_normalization/main_to_acc__Warped_img_normalized.nii.gz'}
 
-wf_predict.run(plugin='Linear')
+wf_predict.run(plugin=args.plugin)
 
 wf_post.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_predict.name)
 wf_post.get_node('dataGrabber').inputs.template = GRAB_PATTERN
@@ -159,4 +165,4 @@ wf_post.get_node('dataGrabber').inputs.field_template = {'segmentation_pvs': '_s
 }
 
 wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-wf_post.run(plugin='Linear')
+wf_post.run(plugin=args.plugin)

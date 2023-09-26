@@ -10,10 +10,11 @@ import nibabel.processing as nip
 from shivautils.image import normalization, crop, threshold
 
 
-DESCRIPTION = """SHIVA preprocessing for deep learning predictors.
+DESCRIPTION = """SHIVA simple preprocessing for deep learning predictors.
                  Perform resampling of a structural NIfTI head image,
                  followed by intensity normalization, and cropping centered on
-                 the brain."""
+                 the top of the head. The cropping is necessary because the image 
+                 has to fit in the GPU memory."""
 
 
 def existing_file(file):
@@ -59,10 +60,10 @@ def build_args_parser():
                         'avoiding index errors).')
 
     parser.add_argument('--threshold', type=float, default=0.4,
-                        help='Treshold for the brain_mask')
+                        help='Treshold for the head image')
 
     parser.add_argument('--binarize', type=bool, default=False,
-                        help='Binarized intensities voxel of brain_mask')
+                        help='Binarize intensities voxel of thresholded image')
 
     parser.add_argument('--final_dimensions', nargs='+', type=int,
                         default=(160, 214, 176),

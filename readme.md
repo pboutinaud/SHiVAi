@@ -206,7 +206,9 @@ General CSV file (path folder 'metrics_predictions_{pvs/wmh}_generale'):
 
 ## Detailed about python package
 
-Use the following command line to deploy the python package with 'setup.py' file:
+To deploy the python package, from the project directory (containing the 'setup.py' file), use the following command line: 
+
+    python -m build
 
 ```bash
 python -m build
