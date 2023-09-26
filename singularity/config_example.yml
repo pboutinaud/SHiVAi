@@ -1,0 +1,20 @@
+
+
+cuda: /somewhere/cudas/cuda-xx.x
+gcc: /somewhere/gcc-xx.x.x
+model_path: /myHome/myProject/Shiva_AI_models
+singularity_image: /myHome/myProject/shiva.sif
+
+parameters:
+  brainmask_descriptor: "brainmask/V0/model_info.json"
+  WMH_descriptor: "T1.FLAIR-WMH/V1/model_info.json"
+  PVS_descriptor: "T1.FLAIR-PVS/V0/model_info.json"
+  CMB_descriptor: "SWI-CMB/V0/model_info.json"
+  percentile: 99.0
+  threshold: 0.5
+  threshold_clusters: 0.2
+  final_dimensions: '160 214 176'
+  voxels_size: '1.0 1.0 1.0'
+  grab: '%s/%s/*nii.gz'
+  SWI: True
+  interpolation: 'WelchWindowedSinc'

@@ -42,3 +42,4 @@ shivautils/workflows/__pycache__/wf_BIDS.cpython-311.pyc
 shivautils/workflows/__pycache__/wf_predict.cpython-36.pyc
 shivautils/workflows/__pycache__/wf_predict.cpython-311.pyc
 shivautils/workflows/__pycache__/wf_pretrained_brainmask.cpython-311.pyc
+shivautils/singularity/config_dual.yml
