@@ -1,7 +1,3 @@
-
-
-cuda: /somewhere/cudas/cuda-xx.x
-gcc: /somewhere/gcc-xx.x.x
 model_path: /myHome/myProject/Shiva_AI_models
 singularity_image: /myHome/myProject/shiva.sif
 
