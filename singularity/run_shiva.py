@@ -3,6 +3,7 @@ import subprocess
 import argparse
 from pathlib import Path
 import yaml
+import os
 
 
 def main():
@@ -37,6 +38,8 @@ def main():
 
     bind_model = yaml_content['model_path']
     bind_input = f"{args.input}:/mnt/data/input:rw"
+    if not (os.path.exists(args.output) and os.path.isdir(args.output)):
+        os.makedirs(args.output)
     bind_output = f"{args.output}:/mnt/data/output:rw"
     singularity_image = f"{yaml_content['singularity_image']}"
     input = f"--in /mnt/data/input"
