@@ -134,8 +134,6 @@ Example of `json` structure input:
 
 Options configuration in yaml file:
 
-    --cuda (file) : bind mount path for the CUDA libs
-    --gcc (file) : bind mount path for the gcc
     --model_path (path) : bind mount path for the tensorflow models directory
     --singularity_image (path): path of singularity container file
     --brainmask_descriptor (path): path to brain_mask tensorflow model descriptor
@@ -209,11 +207,10 @@ General CSV file (path folder 'metrics_predictions_{pvs/wmh}_generale'):
 
 To deploy the python package, from the project directory (containing the 'setup.py' file), use the following command line: 
 
-    python -m build
-
 ```bash
-python -m build
+python -m build --wheel
 ```
+
 All of the scripts in the package run nipype workflows which are implemented as follows : 
     https://nipype.readthedocs.io/en/latest/api/generated/nipype.pipeline.engine.workflows.html
 
