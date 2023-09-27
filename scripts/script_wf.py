@@ -1,19 +1,18 @@
 #!/usr/bin/env python
 """Workflow script for singularity container"""
+from shivautils.workflows.SWI_post_processing import genWorkflow as genWorkflowPostSWI
+from shivautils.workflows.SWI_predict import genWorkflow as genWorkflowPredictSWI
+from shivautils.workflows.SWI_preprocessing import genWorkflow as genWorkflowSWI
+from shivautils.workflows.dual_post_processing_container import genWorkflow as genWorkflowPost
+from shivautils.workflows.dual_predict import genWorkflow as genWorkflowPredict
+from shivautils.workflows.dual_preprocessing import genWorkflow
+from nipype import config
 import os
 import argparse
 import json
 import sys
 sys.path.append('/mnt/devt')
-from nipype import config
 config.enable_provenance()
-
-from shivautils.workflows.dual_preprocessing import genWorkflow
-from shivautils.workflows.dual_predict import genWorkflow as genWorkflowPredict
-from shivautils.workflows.dual_post_processing_container import genWorkflow as genWorkflowPost
-from shivautils.workflows.SWI_preprocessing import genWorkflow as genWorkflowSWI
-from shivautils.workflows.SWI_predict import genWorkflow as genWorkflowPredictSWI
-from shivautils.workflows.SWI_post_processing import genWorkflow as genWorkflowPostSWI
 
 
 DESCRIPTION = """SHIVA pipeline for deep-learning imaging biomarkers computation. Performs resampling and coregistration 
@@ -58,7 +57,7 @@ parser.add_argument('--voxels_size', nargs='+',
                     default=(1.0, 1.0, 1.0),
                     help='Voxel size of final image')
 
-parser.add_argument('--threshold', 
+parser.add_argument('--threshold',
                     type=float,
                     default=0.5,
                     help='Value of the treshold to apply to the image')
@@ -67,11 +66,11 @@ parser.add_argument('--threshold_clusters',
                     type=float,
                     default=0.2,
                     help='Threshold to compute clusters metrics')
-                    
-parser.add_argument('--interpolation', 
+
+parser.add_argument('--interpolation',
                     type=str,
                     default='WelchWindowedSinc',
-                    help='final interpolation apply to the main image')
+                    help='final interpolation apply to the t1 image')
 
 parser.add_argument('--model',
                     default=None,
@@ -89,22 +88,22 @@ parser.add_argument('--gpu',
                     type=int,
                     help='Force GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
 
-parser.add_argument('--brainmask_descriptor', 
+parser.add_argument('--brainmask_descriptor',
                     type=str,
                     default='brainmask/V0/model_info.json',
                     help='brainmask descriptor file path')
 
-parser.add_argument('--pvs_descriptor', 
+parser.add_argument('--pvs_descriptor',
                     type=str,
                     default='T1.FLAIR-PVS/V0/model_info.json',
                     help='pvs descriptor file path')
 
-parser.add_argument('--wmh_descriptor', 
+parser.add_argument('--wmh_descriptor',
                     type=str,
                     default='T1.FLAIR-WMH/V1/model_info.json',
                     help='wmh descriptor file path')
 
-parser.add_argument('--cmb_descriptor', 
+parser.add_argument('--cmb_descriptor',
                     type=str,
                     default='SWI-CMB/V0/model_info.json',
                     help='cmb descriptor file path')
@@ -119,7 +118,7 @@ synthseg = args.synthseg
 if args.input_type == 'json':
     with open(args.input, 'r') as json_in:
         subject_dict = json.load(json_in)
-    
+
     out_dir = subject_dict['parameters']['out_dir']
     subject_directory = subject_dict["files_dir"]
     subject_list = os.listdir(subject_directory)
@@ -148,7 +147,7 @@ if args.input_type == 'standard' or args.input_type == 'BIDS':
         cmb_descriptor = os.path.join(args.model, args.cmb_descriptor)
     else:
         cmb_descriptor = None
-    
+
 
 wfargs = {'SUBJECT_LIST': subject_list,
           'DATA_DIR': subject_directory,
@@ -157,14 +156,14 @@ wfargs = {'SUBJECT_LIST': subject_list,
           'WMH_DESCRIPTOR': wmh_descriptor,
           'PVS_DESCRIPTOR': pvs_descriptor,
           'CMB_DESCRIPTOR': cmb_descriptor,
-          'CONTAINER': True, 
+          'CONTAINER': True,
           'MODELS_PATH': args.model,
           'ANONYMIZED': False,
           'SWI': SWI,
           'INTERPOLATION': args.interpolation,
           'PERCENTILE': args.percentile,
           'THRESHOLD': args.threshold,
-          'THRESHOLD_CLUSTERS' : args.threshold_clusters,
+          'THRESHOLD_CLUSTERS': args.threshold_clusters,
           'IMAGE_SIZE': tuple(args.final_dimensions),
           'RESOLUTION': tuple(args.voxels_size)}
 
@@ -190,11 +189,11 @@ if SWI == 'True':
     swi_wf_post.base_dir = out_dir
 
 
-if args.input_type == 'standard' or args.input_type == 'json':    
+if args.input_type == 'standard' or args.input_type == 'json':
     wf.get_node('dataGrabber').inputs.base_directory = subject_directory
     wf.get_node('dataGrabber').inputs.template = GRAB_PATTERN
-    wf.get_node('dataGrabber').inputs.template_args = {'main': [['subject_id', 'main']],
-                                                       'acc': [['subject_id', 'acc']]}
+    wf.get_node('dataGrabber').inputs.template_args = {'t1': [['subject_id', 't1']],
+                                                       'flair': [['subject_id', 'flair']]}
     if SWI == 'True':
         swi_wf.get_node('dataGrabber').inputs.base_directory = args.input
         swi_wf.get_node('dataGrabber').inputs.template = GRAB_PATTERN
@@ -204,7 +203,7 @@ if args.input_type == 'standard' or args.input_type == 'json':
         swi_wf.get_node('conform').inputs.voxel_size = tuple(args.voxels_size)
         swi_wf.get_node('conform').inputs.orientation = 'RAS'
         swi_wf.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
-    
+
 
 wf.get_node('conform').inputs.dimensions = (256, 256, 256)
 wf.get_node('conform').inputs.voxel_size = tuple(args.voxels_size)
@@ -218,10 +217,10 @@ if args.gpu:
 if args.input_type == 'BIDS':
     wf.get_node('dataGrabber').inputs.base_directory = args.input
     wf.get_node('dataGrabber').inputs.template = GRAB_PATTERN
-    wf.get_node('dataGrabber').inputs.template_args = {'main': [['subject_id', 'subject_id']],
-                                                       'acc': [['subject_id', 'subject_id']]}
-    wf.get_node('dataGrabber').inputs.field_template = {'main': '%s/anat/%s_T1_raw.nii.gz',
-                                                        'acc': '%s/anat/%s_FLAIR_raw.nii.gz'}
+    wf.get_node('dataGrabber').inputs.template_args = {'t1': [['subject_id', 'subject_id']],
+                                                       'flair': [['subject_id', 'subject_id']]}
+    wf.get_node('dataGrabber').inputs.field_template = {'t1': '%s/anat/%s_T1_raw.nii.gz',
+                                                        'flair': '%s/anat/%s_FLAIR_raw.nii.gz'}
     if SWI == 'True':
         swi_wf.get_node('dataGrabber').inputs.base_directory = args.input
         swi_wf.get_node('dataGrabber').inputs.template = '%s/%s/*.nii*'
@@ -236,17 +235,17 @@ if args.input_type == 'BIDS':
 
 wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
 wf.run(plugin='Linear')
- 
+
 wf_predict.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf.name)
 wf_predict.get_node('dataGrabber').inputs.template = GRAB_PATTERN
-wf_predict.get_node('dataGrabber').inputs.template_args = {'main': [['subject_id', 'subject_id']],
-                                                            'acc': [['subject_id']]}
-wf_predict.get_node('dataGrabber').inputs.field_template = {'main': '_subject_id_%s/main_final_intensity_normalization/%s_T1_raw_trans_img_normalized.nii.gz',
-                                                            'acc': '_subject_id_%s/acc_final_intensity_normalization/main_to_acc__Warped_img_normalized.nii.gz'}
+wf_predict.get_node('dataGrabber').inputs.template_args = {'t1': [['subject_id', 'subject_id']],
+                                                           'flair': [['subject_id']]}
+wf_predict.get_node('dataGrabber').inputs.field_template = {'t1': '_subject_id_%s/t1_final_intensity_normalization/%s_T1_raw_trans_img_normalized.nii.gz',
+                                                            'flair': '_subject_id_%s/flair_final_intensity_normalization/t1_to_flair__Warped_img_normalized.nii.gz'}
 
 wf_predict.run(plugin='Linear')
 
-  
+
 wf_post.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_predict.name)
 wf_post.get_node('dataGrabber').inputs.template = GRAB_PATTERN
 wf_post.get_node('dataGrabber').inputs.template_args = {'segmentation_pvs': [['subject_id']],
@@ -261,16 +260,16 @@ wf_post.get_node('dataGrabber').inputs.template_args = {'segmentation_pvs': [['s
                                                         'CDG_IJK': [['subject_id']],
                                                         'sum_preproc_wf': [[]]}
 wf_post.get_node('dataGrabber').inputs.field_template = {'segmentation_pvs': '_subject_id_%s/predict_pvs/pvs_map.nii.gz',
-                                                        'segmentation_wmh': '_subject_id_%s/predict_wmh/wmh_map.nii.gz',
-                                                        'brainmask': os.path.join(out_dir, wf.name, '_subject_id_%s/hard_post_brain_mask/post_brain_mask_thresholded.nii.gz'),
-                                                        'pre_brainmask': os.path.join(out_dir, wf.name, '_subject_id_%s/hard_brain_mask/pre_brain_maskresampled_thresholded.nii.gz'),
-                                                        'T1_cropped': os.path.join(out_dir, wf.name, '_subject_id_%s/main_final_intensity_normalization/%s_T1_raw_trans_img_normalized.nii.gz'),
-                                                        'FLAIR_cropped': os.path.join(out_dir, wf.name, '_subject_id_%s/acc_final_intensity_normalization/main_to_acc__Warped_img_normalized.nii.gz'),
-                                                        'T1_conform': os.path.join(out_dir, wf.name, '_subject_id_%s/conform/%s_T1_rawresampled.nii.gz'),
-                                                        'BBOX1': os.path.join(out_dir, wf.name, '_subject_id_%s/crop/bbox1.txt'),
-                                                        'BBOX2': os.path.join(out_dir, wf.name, '_subject_id_%s/crop/bbox2.txt'),
-                                                        'CDG_IJK': os.path.join(out_dir, wf.name, '_subject_id_%s/crop/cdg_ijk.txt'),
-                                                        'sum_preproc_wf': os.path.join(out_dir, wf.name, 'graph.svg')}
+                                                         'segmentation_wmh': '_subject_id_%s/predict_wmh/wmh_map.nii.gz',
+                                                         'brainmask': os.path.join(out_dir, wf.name, '_subject_id_%s/hard_post_brain_mask/post_brain_mask_thresholded.nii.gz'),
+                                                         'pre_brainmask': os.path.join(out_dir, wf.name, '_subject_id_%s/hard_brain_mask/pre_brain_maskresampled_thresholded.nii.gz'),
+                                                         'T1_cropped': os.path.join(out_dir, wf.name, '_subject_id_%s/t1_final_intensity_normalization/%s_T1_raw_trans_img_normalized.nii.gz'),
+                                                         'FLAIR_cropped': os.path.join(out_dir, wf.name, '_subject_id_%s/flair_final_intensity_normalization/t1_to_flair__Warped_img_normalized.nii.gz'),
+                                                         'T1_conform': os.path.join(out_dir, wf.name, '_subject_id_%s/conform/%s_T1_rawresampled.nii.gz'),
+                                                         'BBOX1': os.path.join(out_dir, wf.name, '_subject_id_%s/crop/bbox1.txt'),
+                                                         'BBOX2': os.path.join(out_dir, wf.name, '_subject_id_%s/crop/bbox2.txt'),
+                                                         'CDG_IJK': os.path.join(out_dir, wf.name, '_subject_id_%s/crop/cdg_ijk.txt'),
+                                                         'sum_preproc_wf': os.path.join(out_dir, wf.name, 'graph.svg')}
 
 wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
 wf_post.run(plugin='Linear')
@@ -298,14 +297,14 @@ if SWI == 'True':
                                                                 'CDG_IJK': [['subject_id']],
                                                                 'sum_preproc_wf': [[]]}
     swi_wf_post.get_node('dataGrabber').inputs.field_template = {'segmentation_cmb': '_subject_id_%s/predict_cmb/cmb_map.nii.gz',
-                                                                'brainmask': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/hard_post_brain_mask/post_brain_mask_thresholded.nii.gz'),
-                                                                'pre_brainmask': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/hard_brain_mask/pre_brain_maskresampled_thresholded.nii.gz'),
-                                                                'SWI_cropped': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/final_intensity_normalization/*.nii.gz'),
-                                                                'SWI_conform': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/conform/*.nii.gz'),
-                                                                'BBOX1': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/crop/bbox1.txt'),
-                                                                'BBOX2': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/crop/bbox2.txt'),
-                                                                'CDG_IJK': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/crop/cdg_ijk.txt'),
-                                                                'sum_preproc_wf': os.path.join(out_dir, swi_wf.name, 'graph.svg')}
+                                                                 'brainmask': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/hard_post_brain_mask/post_brain_mask_thresholded.nii.gz'),
+                                                                 'pre_brainmask': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/hard_brain_mask/pre_brain_maskresampled_thresholded.nii.gz'),
+                                                                 'SWI_cropped': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/final_intensity_normalization/*.nii.gz'),
+                                                                 'SWI_conform': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/conform/*.nii.gz'),
+                                                                 'BBOX1': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/crop/bbox1.txt'),
+                                                                 'BBOX2': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/crop/bbox2.txt'),
+                                                                 'CDG_IJK': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/crop/cdg_ijk.txt'),
+                                                                 'sum_preproc_wf': os.path.join(out_dir, swi_wf.name, 'graph.svg')}
 
     swi_wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     swi_wf_post.run(plugin='Linear')
