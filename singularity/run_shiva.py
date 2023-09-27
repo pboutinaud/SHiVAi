@@ -35,8 +35,6 @@ def main():
 
     parameters = yaml_content['parameters']
 
-    bind_cuda = f"{yaml_content['cuda']}:/mnt/cuda:ro"
-    bind_gcc = f"{yaml_content['gcc']}:/mnt/gcc:ro"
     bind_model = yaml_content['model_path']
     bind_input = f"{args.input}:/mnt/data/input:rw"
     bind_output = f"{args.output}:/mnt/data/output:rw"
@@ -57,7 +55,7 @@ def main():
     wmh_descriptor = f"--wmh_descriptor {parameters['WMH_descriptor']}"
     cmb_descriptor = f"--cmb_descriptor {parameters['CMB_descriptor']}"
 
-    bind_list = [bind_cuda, bind_gcc, bind_model, bind_input, bind_output]
+    bind_list = [bind_model, bind_input, bind_output]
     bind = ','.join(bind_list)
 
     command_list = ["singularity exec --nv --bind", bind, singularity_image,
