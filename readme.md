@@ -1,7 +1,5 @@
 # SHIVA preprocessing and deep learning segmentation workflows
 
-
-
 ## Installation
 
 ### Singularity
@@ -18,9 +16,12 @@ singularity build shiva.sif singularity_tf.recipe
 ```
 Then you can move the singularity image on any computer with Singularity installed and run the processing even without being a root user on that machine.
 
+Note that if you are on a **Windows** computer, you can use WSL (Windows Subsystem for Linux) to run singularity and build the image. You can find more info here https://learn.microsoft.com/windows/wsl/install. With WSL installed, open a command prompt, type `wsl` and you will have access to a Linux terminal where you can install and run Singularity.
+There are also similar options for **Mac** users (check the dedicated section from https://apptainer.org/docs/admin/main/installation.html).
+
 ### Other files
 
-You will need to copy `run_shiva.py` script (available in `shivautils/singularity/run_shiva.py`) to the computer that will run the process.
+You will need to copy the `run_shiva.py` script (available in `shivautils/singularity/run_shiva.py`) to the computer that will run the process.
 To use it (see below), you will also need a minimal python environment with the pyyaml library installed.
 
 You will need to obtain the trained AI model accompanying the Shiva project. Let's consider that you stored it in `/myHome/myProject/Shiva_AI_models` for the following parts.
