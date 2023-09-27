@@ -37,10 +37,9 @@ parser.add_argument('--out', dest='output',
                     required=True)
 
 parser.add_argument('--input_type',
-                    type=str,
-                    help='Way to grab and manage nifti files : standard, BIDS or json',
+                    choices=['standard', 'BIDS', 'json'],
+                    help="Way to grab and manage nifti files : 'standard', 'BIDS' or 'json'",
                     default='standard')
-
 
 parser.add_argument('--percentile',
                     type=float,
@@ -90,23 +89,27 @@ parser.add_argument('--gpu',
 
 parser.add_argument('--brainmask_descriptor',
                     type=str,
-                    default='brainmask/V0/model_info.json',
-                    help='brainmask descriptor file path')
+                    # default='brainmask/V0/model_info.json',
+                    help='brainmask descriptor file path',
+                    required=True)
 
 parser.add_argument('--pvs_descriptor',
                     type=str,
-                    default='T1.FLAIR-PVS/V0/model_info.json',
-                    help='pvs descriptor file path')
+                    # default='T1.FLAIR-PVS/V0/model_info.json',
+                    help='pvs descriptor file path',
+                    required=True)
 
 parser.add_argument('--wmh_descriptor',
                     type=str,
-                    default='T1.FLAIR-WMH/V1/model_info.json',
-                    help='wmh descriptor file path')
+                    # default='T1.FLAIR-WMH/V1/model_info.json',
+                    help='wmh descriptor file path',
+                    required=True)
 
 parser.add_argument('--cmb_descriptor',
                     type=str,
-                    default='SWI-CMB/V0/model_info.json',
-                    help='cmb descriptor file path')
+                    # default='SWI-CMB/V0/model_info.json',
+                    help='cmb descriptor file path',
+                    required=True)
 
 
 GRAB_PATTERN = '%s/%s/*.nii*'
