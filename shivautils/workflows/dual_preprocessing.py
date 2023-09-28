@@ -2,7 +2,7 @@
 """Nipype workflow for DICOM to NII image conversion, conformation and preparation before deep
    learning, with accessory image coregistation to cropped space (through ANTS),
    and defacing of native and final images. This also handles back-registration from
-   conformed-crop to main.
+   conformed-crop to t1.
    """
 import os
 
@@ -47,33 +47,33 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # file selection
     datagrabber = Node(DataGrabber(infields=['subject_id'],
-                                   outfields=['main', 'flair']),
+                                   outfields=['t1', 'flair']),
                        name='dataGrabber')
     datagrabber.inputs.base_directory = kwargs['BASE_DIR']
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
     datagrabber.inputs.template = '%s/%s/*'
-    datagrabber.inputs.template_args = {'main': [['subject_id', 'main']],
+    datagrabber.inputs.template_args = {'t1': [['subject_id', 't1']],
                                         'flair': [['subject_id', 'flair']]}
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
 
-    # conform main to 1 mm isotropic, freesurfer-style
+    # conform t1 to 1 mm isotropic, freesurfer-style
     conform = Node(Conform(),
                    name="conform")
     conform.inputs.dimensions = (256, 256, 256)
     conform.inputs.voxel_size = kwargs['RESOLUTION']
     conform.inputs.orientation = 'RAS'
 
-    workflow.connect(datagrabber, "main", conform, 'img')
+    workflow.connect(datagrabber, "t1", conform, 'img')
 
-    # preconform main to 1 mm isotropic, freesurfer-style
+    # preconform t1 to 1 mm isotropic, freesurfer-style
     preconform = Node(Conform(),
                       name="preconform")
     preconform.inputs.dimensions = kwargs['IMAGE_SIZE']
     preconform.inputs.orientation = 'RAS'
 
-    workflow.connect(datagrabber, "main", preconform, 'img')
+    workflow.connect(datagrabber, "t1", preconform, 'img')
 
     # normalize intensities between 0 and 1 for Tensorflow initial brain mask extraction:
     # identify brain to define image cropping region.
@@ -124,7 +124,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(hard_brain_mask, 'thresholded',
                      post_normalization, 'brain_mask')
 
-    # crop main centered on mask origin
+    # crop t1 centered on mask origin
     crop_normalized = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),
                            name="crop_normalized")
     workflow.connect(post_normalization, 'intensity_normalized',
@@ -133,7 +133,7 @@ def genWorkflow(**kwargs) -> Workflow:
                      crop_normalized, 'roi_mask')
 
     # crop raw
-    # crop main centered on mask
+    # crop t1 centered on mask
     crop = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),
                 name="crop")
     workflow.connect(conform, 'resampled',
@@ -169,7 +169,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(post_brain_mask, 'segmentation', hard_post_brain_mask, 'img')
 
     # compute 6-dof coregistration parameters of accessory scan
-    # to cropped main image
+    # to cropped t1 image
     coreg = Node(ants.Registration(),
                  name='coregister')
     coreg.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}
@@ -185,7 +185,7 @@ def genWorkflow(**kwargs) -> Workflow:
     coreg.inputs.number_of_iterations = [[1000, 500, 250, 125]]
     coreg.inputs.sampling_strategy = ['Regular']
     coreg.inputs.sampling_percentage = [0.25]
-    coreg.inputs.output_transform_prefix = "main_to_flair_"
+    coreg.inputs.output_transform_prefix = "t1_to_flair_"
     coreg.inputs.verbose = True
     coreg.inputs.winsorize_lower_quantile = 0.005
     coreg.inputs.winsorize_upper_quantile = 0.995
@@ -197,38 +197,38 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(hard_post_brain_mask, ('thresholded', as_list),
                      coreg, 'fixed_image_masks')
 
-    # compute 3-dof (translations) coregistration parameters of cropped to native main
-    crop_to_main = Node(ants.Registration(),
-                        name='crop_to_main')
-    crop_to_main.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}
-    crop_to_main.inputs.transforms = ['Rigid']
-    crop_to_main.inputs.restrict_deformation = [[1, 0, 0,], [1, 0, 0,], [1, 0, 0]]
-    crop_to_main.inputs.transform_parameters = [(0.1,)]
-    crop_to_main.inputs.metric = ['MI']
-    crop_to_main.inputs.radius_or_number_of_bins = [64]
-    crop_to_main.inputs.shrink_factors = [[8, 4, 2, 1]]
-    crop_to_main.inputs.output_warped_image = False
-    crop_to_main.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
-    crop_to_main.inputs.num_threads = 8
-    crop_to_main.inputs.number_of_iterations = [[1000, 500, 250, 125]]
-    crop_to_main.inputs.sampling_strategy = ['Regular']
-    crop_to_main.inputs.sampling_percentage = [0.25]
-    crop_to_main.inputs.output_transform_prefix = "cropped_to_source_"
-    crop_to_main.inputs.verbose = True
-    crop_to_main.inputs.winsorize_lower_quantile = 0.0
-    crop_to_main.inputs.winsorize_upper_quantile = 1.0
+    # compute 3-dof (translations) coregistration parameters of cropped to native t1
+    crop_to_t1 = Node(ants.Registration(),
+                      name='crop_to_t1')
+    crop_to_t1.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}
+    crop_to_t1.inputs.transforms = ['Rigid']
+    crop_to_t1.inputs.restrict_deformation = [[1, 0, 0,], [1, 0, 0,], [1, 0, 0]]
+    crop_to_t1.inputs.transform_parameters = [(0.1,)]
+    crop_to_t1.inputs.metric = ['MI']
+    crop_to_t1.inputs.radius_or_number_of_bins = [64]
+    crop_to_t1.inputs.shrink_factors = [[8, 4, 2, 1]]
+    crop_to_t1.inputs.output_warped_image = False
+    crop_to_t1.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
+    crop_to_t1.inputs.num_threads = 8
+    crop_to_t1.inputs.number_of_iterations = [[1000, 500, 250, 125]]
+    crop_to_t1.inputs.sampling_strategy = ['Regular']
+    crop_to_t1.inputs.sampling_percentage = [0.25]
+    crop_to_t1.inputs.output_transform_prefix = "cropped_to_source_"
+    crop_to_t1.inputs.verbose = True
+    crop_to_t1.inputs.winsorize_lower_quantile = 0.0
+    crop_to_t1.inputs.winsorize_upper_quantile = 1.0
 
-    workflow.connect(datagrabber, "main",
-                     crop_to_main, 'fixed_image')
+    workflow.connect(datagrabber, "t1",
+                     crop_to_t1, 'fixed_image')
     workflow.connect(crop, 'cropped',
-                     crop_to_main, 'moving_image')
+                     crop_to_t1, 'moving_image')
 
-    # write brain seg on main in native space
-    mask_to_main = Node(ants.ApplyTransforms(), name="mask_to_main")
-    mask_to_main.inputs.interpolation = 'NearestNeighbor'
-    workflow.connect(crop_to_main, 'forward_transforms', mask_to_main, 'transforms')
-    workflow.connect(hard_post_brain_mask, 'thresholded', mask_to_main, 'input_image')
-    workflow.connect(datagrabber, "main", mask_to_main, 'reference_image')
+    # write brain seg on t1 in native space
+    mask_to_t1 = Node(ants.ApplyTransforms(), name="mask_to_t1")
+    mask_to_t1.inputs.interpolation = 'NearestNeighbor'
+    workflow.connect(crop_to_t1, 'forward_transforms', mask_to_t1, 'transforms')
+    workflow.connect(hard_post_brain_mask, 'thresholded', mask_to_t1, 'input_image')
+    workflow.connect(datagrabber, "t1", mask_to_t1, 'reference_image')
 
     # write mask to flair in native space
     mask_to_flair = Node(ants.ApplyTransforms(), name="mask_to_flair")
@@ -242,21 +242,21 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(datagrabber, 'flair',
                      mask_to_flair, 'reference_image')
 
-    # write original image into main crop space
-    main_to_mask = Node(ants.ApplyTransforms(), name="main_to_mask")
-    main_to_mask.inputs.invert_transform_flags = [True]
-    main_to_mask.inputs.interpolation = kwargs['INTERPOLATION']
+    # write original image into t1 crop space
+    t1_to_mask = Node(ants.ApplyTransforms(), name="t1_to_mask")
+    t1_to_mask.inputs.invert_transform_flags = [True]
+    t1_to_mask.inputs.interpolation = kwargs['INTERPOLATION']
 
-    workflow.connect(crop_to_main, 'forward_transforms', main_to_mask, 'transforms')
-    workflow.connect(datagrabber, "main", main_to_mask, 'input_image')
-    workflow.connect(hard_post_brain_mask, 'thresholded', main_to_mask, 'reference_image')
+    workflow.connect(crop_to_t1, 'forward_transforms', t1_to_mask, 'transforms')
+    workflow.connect(datagrabber, "t1", t1_to_mask, 'input_image')
+    workflow.connect(hard_post_brain_mask, 'thresholded', t1_to_mask, 'reference_image')
 
     # Intensity normalize coregistered image for tensorflow (ENDPOINT 1)
-    main_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="main_final_intensity_normalization")
-    workflow.connect(main_to_mask, 'output_image',
-                     main_norm, 'input_image')
+    t1_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="t1_final_intensity_normalization")
+    workflow.connect(t1_to_mask, 'output_image',
+                     t1_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
-                     main_norm, 'brain_mask')
+                     t1_norm, 'brain_mask')
 
     # Intensity normalize coregistered image for tensorflow (ENDPOINT 2)
     flair_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="flair_final_intensity_normalization")

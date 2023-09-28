@@ -10,9 +10,9 @@ from nipype.interfaces.io import DataGrabber, DataSink
 from nipype.interfaces.utility import IdentityInterface
 
 from shivautils.interfaces.shiva import SynthSeg
-from shivautils.interfaces.image import (ApplyMask, MetricsPredictions, 
-                            JoinMetricsPredictions, SummaryReport, MaskRegions,
-                            QuantificationWMHLatVentricles, BGMask, PVSQuantificationBG)
+from shivautils.interfaces.image import (ApplyMask, MetricsPredictions,
+                                         JoinMetricsPredictions, SummaryReport, MaskRegions,
+                                         QuantificationWMHLatVentricles, BGMask, PVSQuantificationBG)
 from shivautils.interfaces.interfaces_post_processing import MakeDistanceMap
 from shivautils.isocontour_board import create_edges
 from shivautils.stats import overlay_brainmask
@@ -20,13 +20,13 @@ from shivautils.stats import overlay_brainmask
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
               "BASE_DIR": os.path.normpath(os.path.expanduser('~')),
-              "DESCRIPTOR": os.path.normpath(os.path.join(os.path.expanduser('~'),'.swomed', 'default_config.ini'))
-}
+              "DESCRIPTOR": os.path.normpath(os.path.join(os.path.expanduser('~'), '.swomed', 'default_config.ini'))
+              }
 
 
 def as_list(input):
     return [input]
-    
+
 
 def genWorkflow(**kwargs) -> Workflow:
     """Generate a nipype workflow
@@ -40,14 +40,14 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # get a list of subjects to iterate on
     subject_list = Node(IdentityInterface(
-                            fields=['subject_id'],
-                            mandatory_inputs=True),
-                        name="subject_list")
+        fields=['subject_id'],
+        mandatory_inputs=True),
+        name="subject_list")
     subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
     # file selection
     datagrabber = Node(DataGrabber(infields=['subject_id'],
-                                   outfields=['segmentation_pvs', 'segmentation_wmh', 'brainmask', 
+                                   outfields=['segmentation_pvs', 'segmentation_wmh', 'brainmask',
                                               'pre_brainmask', 'T1_cropped', 'FLAIR_cropped',
                                               'T1_conform', 'CDG_IJK', 'BBOX1', 'BBOX2',
                                               'sum_preproc_wf']),
@@ -56,8 +56,6 @@ def genWorkflow(**kwargs) -> Workflow:
     datagrabber.inputs.sort_filelist = True
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
-
-
 
     mask_on_pred_pvs = Node(ApplyMask(), name='mask_on_pred_pvs')
 
@@ -69,19 +67,19 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(datagrabber, 'segmentation_wmh', mask_on_pred_wmh, 'segmentation')
     workflow.connect(datagrabber, 'brainmask', mask_on_pred_wmh, 'brainmask')
 
-    qc_coreg_FLAIR_T1 = Node(Function(input_names=['path_image', 'path_ref_image', 'path_brainmask','nb_of_slices'],
+    qc_coreg_FLAIR_T1 = Node(Function(input_names=['path_image', 'path_ref_image', 'path_brainmask', 'nb_of_slices'],
                              output_names=['qc_coreg'], function=create_edges), name='qc_coreg_FLAIR_T1')
     # Default number of slices - 8
     qc_coreg_FLAIR_T1.inputs.nb_of_slices = 5
-                    
+
     # connecting image, ref_image and brainmask to create_edges function
     workflow.connect(datagrabber, 'FLAIR_cropped', qc_coreg_FLAIR_T1, 'path_image')
     workflow.connect(datagrabber, 'T1_cropped', qc_coreg_FLAIR_T1, 'path_ref_image')
     workflow.connect(datagrabber, 'brainmask', qc_coreg_FLAIR_T1, 'path_brainmask')
 
     qc_overlay_brainmask = Node(Function(input_names=['img_ref', 'brainmask'],
-                             output_names=['qc_overlay_brainmask_main'], function=overlay_brainmask), name='overlay_brainmask')
-                    
+                                         output_names=['qc_overlay_brainmask_t1'], function=overlay_brainmask), name='overlay_brainmask')
+
     # connecting image, ref_image and brainmask to create_edges function
     workflow.connect(datagrabber, 'brainmask', qc_overlay_brainmask, 'brainmask')
     workflow.connect(datagrabber, 'T1_cropped', qc_overlay_brainmask, 'img_ref')
@@ -98,9 +96,9 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(synthseg, "segmentation", bg_mask, "segmented_regions")
 
     # Creating a distance map for each ventricle mask
-    make_distance_latventricles_map = Node(MakeDistanceMap(), name="make_distance_latventricles_map")                
+    make_distance_latventricles_map = Node(MakeDistanceMap(), name="make_distance_latventricles_map")
     make_distance_latventricles_map.inputs.out_file = 'distance_map.nii.gz'
-    workflow.connect(mask_latventricles_regions, 'mask_regions', make_distance_latventricles_map , "in_file")
+    workflow.connect(mask_latventricles_regions, 'mask_regions', make_distance_latventricles_map, "in_file")
 
     wmh_quantification_latventricles = Node(QuantificationWMHLatVentricles(), name='wmh_quantification_latventricles')
     wmh_quantification_latventricles.inputs.threshold_clusters = kwargs['THRESHOLD_CLUSTERS']
@@ -141,23 +139,23 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(datagrabber, 'pre_brainmask', summary_report, 'brainmask')
     workflow.connect(subject_list, 'subject_id', summary_report, 'subject_id')
     workflow.connect(qc_coreg_FLAIR_T1, 'qc_coreg', summary_report, 'isocontour_slides_FLAIR_T1')
-    workflow.connect(qc_overlay_brainmask, 'qc_overlay_brainmask_main', summary_report, 'qc_overlay_brainmask_main')
+    workflow.connect(qc_overlay_brainmask, 'qc_overlay_brainmask_t1', summary_report, 'qc_overlay_brainmask_t1')
     workflow.connect(metrics_predictions_pvs, 'metrics_predictions_csv', summary_report, 'metrics_clusters')
     workflow.connect(metrics_predictions_wmh, 'metrics_predictions_csv', summary_report, 'metrics_clusters_2')
     workflow.connect(pvs_quantification_bg, 'metrics_bg_pvs', summary_report, 'metrics_bg_pvs')
     workflow.connect(wmh_quantification_latventricles, 'predictions_latventricles_DWMH', summary_report, 'predictions_latventricles_DWMH')
 
     metrics_predictions_pvs_generale = JoinNode(JoinMetricsPredictions(),
-                                   joinsource = 'subject_list',
-                                   joinfield= 'csv_files',
-                                   name="metrics_predictions_pvs_generale")
+                                                joinsource='subject_list',
+                                                joinfield='csv_files',
+                                                name="metrics_predictions_pvs_generale")
 
     workflow.connect(metrics_predictions_pvs, 'metrics_predictions_csv', metrics_predictions_pvs_generale, 'csv_files')
 
     metrics_predictions_wmh_generale = JoinNode(JoinMetricsPredictions(),
-                                   joinsource = 'subject_list',
-                                   joinfield= 'csv_files',
-                                   name="metrics_predictions_wmh_generale")
+                                                joinsource='subject_list',
+                                                joinfield='csv_files',
+                                                name="metrics_predictions_wmh_generale")
 
     workflow.connect(metrics_predictions_wmh, 'metrics_predictions_csv', metrics_predictions_wmh_generale, 'csv_files')
 

@@ -1,5 +1,15 @@
 """Custom nipype interfaces for image resampling/cropping and
 other preliminary tasks"""
+from shivautils.PVS_postprocessing import quantify_clusters
+from shivautils.create_BG import createBGsliceMask
+from shivautils.quantification_WMH_latventricles import metrics_clusters_latventricles
+from shivautils.stats import metrics_prediction, make_report, get_mask_regions
+from shivautils.image import normalization, crop, threshold, reverse_crop, make_offset, apply_mask
+from nipype.utils.filemanip import split_filename
+from nipype.interfaces.base import isdefined
+from nipype.interfaces.io import DataGrabber
+from nipype.interfaces.base import BaseInterface, \
+    BaseInterfaceInputSpec, traits, TraitedSpec
 import os
 import nibabel.processing as nip
 import nibabel as nb
@@ -11,17 +21,6 @@ import matplotlib.pyplot as plt
 
 import sys
 sys.path.append('/mnt/devt')
-
-from nipype.interfaces.base import BaseInterface, \
-    BaseInterfaceInputSpec, traits, TraitedSpec
-from nipype.interfaces.io import DataGrabber
-from nipype.interfaces.base import isdefined
-from nipype.utils.filemanip import split_filename
-from shivautils.image import normalization, crop, threshold, reverse_crop, make_offset, apply_mask
-from shivautils.stats import metrics_prediction, make_report, get_mask_regions
-from shivautils.quantification_WMH_latventricles import metrics_clusters_latventricles
-from shivautils.create_BG import createBGsliceMask
-from shivautils.PVS_postprocessing import quantify_clusters
 
 
 class ConformInputSpec(BaseInterfaceInputSpec):
@@ -35,7 +34,7 @@ class ConformInputSpec(BaseInterfaceInputSpec):
                               usedefault=True,
                               desc='The minimal array dimensions for the'
                               'intermediate conformed image.')
-    
+
     order = traits.Int(3, desc="Order of spline interpolation", usedefault=True)
 
     voxel_size = traits.Tuple(float, float, float,
@@ -43,8 +42,8 @@ class ConformInputSpec(BaseInterfaceInputSpec):
                               mandatory=False)
 
     orientation = traits.Enum('RAS', 'LAS',
-                              'RPS', 'LPS', 
-                              'RAI', 'LPI', 
+                              'RPS', 'LPS',
+                              'RAI', 'LPI',
                               'RPI', 'LAP',
                               'RAP',
                               desc="orientation of image volume brain",
@@ -95,9 +94,9 @@ class Conform(BaseInterface):
                                    self.inputs.dimensions)
         else:
             voxel_size = self.inputs.voxel_size
-        resampled = nip.conform(img, 
+        resampled = nip.conform(img,
                                 out_shape=self.inputs.dimensions,
-                                voxel_size=voxel_size, 
+                                voxel_size=voxel_size,
                                 order=self.inputs.order,
                                 cval=0.0,
                                 orientation=self.inputs.orientation,
@@ -128,9 +127,9 @@ class IntensityNormalizationInputSpec(BaseInterfaceInputSpec):
     percentile = traits.Float(exists=True, desc='value to threshold above this'
                               'percentile',
                               mandatory=True)
-                              
+
     brain_mask = traits.File(desc='brain_mask to adapt normalization to'
-    			             'the greatest number', mandatory=False)
+                             'the greatest number', mandatory=False)
 
 
 class IntensityNormalizationOutputSpec(TraitedSpec):
@@ -142,7 +141,7 @@ class IntensityNormalizationOutputSpec(TraitedSpec):
     intensity_normalized = traits.File(exists=True,
                                        desc='Intensity normalized image')
 
-    report = traits.File(exists=True, 
+    report = traits.File(exists=True,
                          desc='html file with histogram voxel value,'
                          'mode and percentile value')
 
@@ -183,7 +182,7 @@ class Normalization(BaseInterface):
         img_normalized, report, mode = normalization(img,
                                                      self.inputs.percentile,
                                                      brain_mask)
-        
+
         # Save it for later use in _list_outputs
         setattr(self, 'mode', mode)
         with open('report.html', 'w', encoding='utf-8') as fid:
@@ -215,14 +214,14 @@ class ThresholdInputSpec(BaseInterfaceInputSpec):
 
     threshold = traits.Float(0.5, exists=True, mandatory=True,
                              desc='Value of the treshold to apply to the image'
-                            )
-    
+                             )
+
     sign = traits.Enum('+', '-',
                        usedefault=True,
                        desc='Whether to keep data above threshold or below threshold.')
 
     binarize = traits.Bool(False, exists=True,
-                            desc='Binarize image')
+                           desc='Binarize image')
 
 
 class ThresholdOutputSpec(TraitedSpec):
@@ -291,18 +290,18 @@ class CropInputSpec(BaseInterfaceInputSpec):
                            desc='Mask for computation of center of gravity and'
                            'cropping coordinates', mandatory=False)
 
-    apply_to = traits.File(exists=True, 
+    apply_to = traits.File(exists=True,
                            desc='Image to crop', mandatory=True)
 
     final_dimensions = traits.Tuple(traits.Int, traits.Int, traits.Int,
                                     default=(160, 214, 176),
                                     usedefault=True,
                                     desc='Final image array size in i, j, k.')
-                                   
+
     cdg_ijk = traits.Tuple(traits.Int, traits.Int, traits.Int,
-    			           desc='center of gravity of nifti image cropped with first' 
-    			           'voxel intensities normalization', mandatory=False)
-    
+                           desc='center of gravity of nifti image cropped with first'
+                           'voxel intensities normalization', mandatory=False)
+
     default = traits.Enum("ijk", "xyz", usedefault=True, desc="Default crop center strategy (voxels or world).")
 
 
@@ -339,14 +338,14 @@ class Crop(BaseInterface):
         Return: runtime
         """
         # load images
-        if  isdefined(self.inputs.roi_mask):
+        if isdefined(self.inputs.roi_mask):
             mask = nb.load(self.inputs.roi_mask)
         else:
             # get from ijk
             mask = None
         if not isdefined(self.inputs.cdg_ijk):
             cdg_ijk = None
-        else: 
+        else:
             cdg_ijk = self.inputs.cdg_ijk
         target = nb.load(self.inputs.apply_to)
 
@@ -369,14 +368,12 @@ class Crop(BaseInterface):
         with open('bbox2.txt', 'w') as fid:
             fid.write(str(bbox2))
 
-
         # Save it for later use in _list_outputs
         setattr(self, 'cdg_ijk', cdg_ijk)
         setattr(self, 'bbox1', bbox1)
         setattr(self, 'bbox2', bbox2)
         _, base, _ = split_filename(self.inputs.apply_to)
         nb.save(cropped, base + '_cropped.nii.gz')
-
 
     def _list_outputs(self):
         """Fill in the output structure."""
@@ -389,15 +386,15 @@ class Crop(BaseInterface):
         outputs["cropped"] = os.path.abspath(base + '_cropped.nii.gz')
 
         return outputs
-        
-        
+
+
 class ApplyMaskInputSpec(BaseInterfaceInputSpec):
     """Input parameter to apply an treshold function on
     nifti image"""
     apply_to = traits.File(exists=True, desc='file img Nifti', mandatory=True)
 
     model = traits.Any(exists=True,
-                    	desc='tensor flow model of pretrained brain_mask')
+                       desc='tensor flow model of pretrained brain_mask')
 
 
 class ApplyMaskOutputSpec(TraitedSpec):
@@ -454,17 +451,17 @@ class ApplyMask(BaseInterface):
         _, base, _ = split_filename(fname)
         outputs["brain_mask"] = os.path.abspath(base + '_brain_mask.nii.gz')
 
-        return outputs   
+        return outputs
 
 
 class ReverseCropInputSpec(BaseInterfaceInputSpec):
     """Input parameter to apply reverse cropping to the
     nifti cropped image"""
     original_img = traits.File(exists=True,
-                               desc='reference image in the original space to modify the cropped image', 
+                               desc='reference image in the original space to modify the cropped image',
                                mandatory=False)
 
-    apply_to = traits.File(exists=True, 
+    apply_to = traits.File(exists=True,
                            desc='Image to move in the original shape ', mandatory=True)
 
     bbox1 = traits.Tuple(traits.Int, traits.Int, traits.Int,
@@ -482,7 +479,6 @@ class ReverseCropOutputSpec(TraitedSpec):
     """
     reverse_crop = traits.File(exists=True,
                                desc='nb.Nifti1Image: image cropped in the original space')
-
 
 
 class ReverseCrop(BaseInterface):
@@ -513,7 +509,6 @@ class ReverseCrop(BaseInterface):
         _, base, _ = split_filename(self.inputs.apply_to)
         nb.save(reverse_img, base + '_reverse_img.nii.gz')
 
-
     def _list_outputs(self):
         """Fill in the output structure."""
         outputs = self.output_spec().get()
@@ -521,16 +516,14 @@ class ReverseCrop(BaseInterface):
         _, base, _ = split_filename(fname)
         outputs["reverse_img"] = os.path.abspath(base + '_reverse_img.nii.gz')
 
-        return outputs     
-
-
+        return outputs
 
 
 class DataGrabberSlicerInputSpec(BaseInterfaceInputSpec):
     """Input parameter to datagrabber for 3D slicer workflow"""
     args = traits.Any(desc='dictionary with arguments for workflow',
                       mandatory=False
-                     )
+                      )
 
     subject = traits.String(desc='name of subject')
 
@@ -546,7 +539,6 @@ class DataGrabberSlicerOutputSpec(TraitedSpec):
                       desc='path for raw image')
     seg = traits.File(exists=True,
                       desc='path for segmentation brain mask image')
-
 
 
 class DataGrabberSlicer(BaseInterface):
@@ -570,27 +562,24 @@ class DataGrabberSlicer(BaseInterface):
         setattr(self, 'raw', raw)
         setattr(self, 'seg', seg)
 
-
-
     def _list_outputs(self):
         """Fill in the output structure."""
         outputs = self.output_spec().get()
         outputs['raw'] = getattr(self, 'raw')
         outputs['seg'] = getattr(self, 'seg')
 
-        return outputs  
-    
+        return outputs
 
 
 class MakeOffsetInputSpec(BaseInterfaceInputSpec):
     """Input parameter to apply shifting image with
     a random offset"""
     img = traits.File(exists=True,
-                      desc='image use to shifted with a random offset', 
+                      desc='image use to shifted with a random offset',
                       mandatory=False)
-    
+
     offset = traits.Any(False,
-                          desc="offset apply to images if specified")
+                        desc="offset apply to images if specified")
 
 
 class MakeOffsetOutputSpec(TraitedSpec):
@@ -600,7 +589,7 @@ class MakeOffsetOutputSpec(TraitedSpec):
         shifted_img (nb.Nifti1Image): nifti image shifted with a random offset
     """
     shifted_img = traits.File(exists=True,
-                            desc='nb.Nifti1Image: image shifted with a random offset')
+                              desc='nb.Nifti1Image: image shifted with a random offset')
 
     offset_number = traits.Tuple(traits.Int, traits.Int, traits.Int,
                                  desc="voxel shift in image applied")
@@ -621,7 +610,7 @@ class MakeOffset(BaseInterface):
         """
         # load images
         img = nb.load(self.inputs.img)
-        
+
         # process
         shifted_img, offset_number = make_offset(img, offset=self.inputs.offset)
 
@@ -629,7 +618,6 @@ class MakeOffset(BaseInterface):
         setattr(self, 'offset_number', offset_number)
         _, base, _ = split_filename(self.inputs.img)
         nb.save(shifted_img, base + '_shifted_img.nii.gz')
-
 
     def _list_outputs(self):
         """Fill in the output structure."""
@@ -639,19 +627,18 @@ class MakeOffset(BaseInterface):
         _, base, _ = split_filename(fname)
         outputs["shifted_img"] = os.path.abspath(base + '_shifted_img.nii.gz')
 
-        return outputs  
-    
+        return outputs
 
 
 class MetricsPredictionsInputSpec(BaseInterfaceInputSpec):
     """Input parameter to get metrics of prediction file"""
     img = traits.File(exists=True,
-                       desc='image use to shifted with a random offset', 
-                       mandatory=False)
-    
+                      desc='image use to shifted with a random offset',
+                      mandatory=False)
+
     threshold_clusters = traits.Float(exists=True,
-                                     desc='Threshold to compute clusters metrics')
-    
+                                      desc='Threshold to compute clusters metrics')
+
     pvs = traits.Bool(False, exists=True,
                       desc='pvs Nifti prediction file or not')
 
@@ -664,7 +651,7 @@ class MetricsPredictionsOutputSpec(TraitedSpec):
         file
     """
     metrics_predictions_csv = traits.Any(exists=True,
-                            desc='csv file with metrics about each prediction')
+                                         desc='csv file with metrics about each prediction')
 
 
 class MetricsPredictions(BaseInterface):
@@ -684,7 +671,7 @@ class MetricsPredictions(BaseInterface):
 
         # Création du fichier CSV dans le Sink
         with open("metrics_predictions.csv", mode='w', encoding='utf-8') as file:
-            writer = csv.writer(file, delimiter =',')
+            writer = csv.writer(file, delimiter=',')
 
             img = nb.load(path_images)
             array_img = img.get_fdata()
@@ -696,31 +683,30 @@ class MetricsPredictions(BaseInterface):
             results = metrics_prediction(array_img, thr_cluster, cluster_filter)
 
             # Écriture de l'en-tête du fichier CSV
-            writer.writerow(["Cluster Threshold", "Cluster Filter","Number of voxels", "Number of clusters", 
-                            "Mean clusters size", "Median clusters size", "Minimal clusters size", 
-                            "Maximal clusters size"])
+            writer.writerow(["Cluster Threshold", "Cluster Filter", "Number of voxels", "Number of clusters",
+                            "Mean clusters size", "Median clusters size", "Minimal clusters size",
+                             "Maximal clusters size"])
 
             # Ajout des lignes de données
-            writer.writerow([thr_cluster, cluster_filter, results[0], 
-                             results[1], results[2], results[3], results[4], 
+            writer.writerow([thr_cluster, cluster_filter, results[0],
+                             results[1], results[2], results[3], results[4],
                              results[5]])
 
         setattr(self, 'metrics_predictions_csv', os.path.abspath("metrics_predictions.csv"))
-
 
     def _list_outputs(self):
         """File in the output structure."""
         outputs = self.output_spec().trait_get()
         outputs['metrics_predictions_csv'] = getattr(self, 'metrics_predictions_csv')
         return outputs
-    
+
 
 class JoinMetricsPredictionsInputSpec(BaseInterfaceInputSpec):
     """Input parameter to get metrics of prediction file"""
     csv_files = traits.List(exists=True,
-                       desc='image use to shifted with a random offset', 
-                       mandatory=False)
-    
+                            desc='image use to shifted with a random offset',
+                            mandatory=False)
+
     subject_id = traits.Any(desc="id for each subject")
 
 
@@ -731,7 +717,7 @@ class JoinMetricsPredictionsOutputSpec(TraitedSpec):
         metrics_prediction_csv (csv): csv file with metrics about each prediction
     """
     metrics_predictions_csv = traits.Any(exists=True,
-                            desc='csv file with metrics about each prediction')
+                                         desc='csv file with metrics about each prediction')
 
 
 class JoinMetricsPredictions(BaseInterface):
@@ -771,39 +757,37 @@ class JoinMetricsPredictions(BaseInterface):
 
             else:
                 exists = False
-            
+
             with open('metrics_predictions.csv', mode='a', newline='', encoding='utf-8') as file:
 
                 writer = csv.writer(file)
 
                 if exists == False:
                     # Write header of CSV file
-                    writer.writerow(["Number of voxels", "Number of clusters", 
-                                    "Mean clusters size", "Median clusters size", "Minimal clusters size", 
-                                    "Maximal clusters size", "Number Lateral Ventricles Clusters",
-                                    "Number Basal Ganglia Clusters"])
+                    writer.writerow(["Number of voxels", "Number of clusters",
+                                    "Mean clusters size", "Median clusters size", "Minimal clusters size",
+                                     "Maximal clusters size", "Number Lateral Ventricles Clusters",
+                                     "Number Basal Ganglia Clusters"])
 
                 writer.writerow([subject_id] + second_row)
 
         setattr(self, 'metrics_predictions_csv', os.path.abspath("metrics_predictions.csv"))
 
-
     def _list_outputs(self):
         """File in the output structure."""
         outputs = self.output_spec().trait_get()
         outputs['metrics_predictions_csv'] = getattr(self, 'metrics_predictions_csv')
-        return outputs  
-    
+        return outputs
 
 
 class ApplyMaskInputSpec(BaseInterfaceInputSpec):
     """Delete prediction outside space of brainmask"""
     segmentation = traits.File(exists=True,
-                      desc='prediction file to change', 
-                      mandatory=False)
-    
+                               desc='prediction file to change',
+                               mandatory=False)
+
     brainmask = traits.Any(False,
-                          desc="brainmask reference to delete prediction voxels")
+                           desc="brainmask reference to delete prediction voxels")
 
 
 class ApplyMaskOutputSpec(TraitedSpec):
@@ -813,8 +797,7 @@ class ApplyMaskOutputSpec(TraitedSpec):
         shifted_img (nb.Nifti1Image): prediction file filtered with brainmask file
     """
     segmentation_filtered = traits.File(exists=True,
-                            desc='prediction file filtered with brainmask file')
-
+                                        desc='prediction file filtered with brainmask file')
 
 
 class ApplyMask(BaseInterface):
@@ -833,7 +816,7 @@ class ApplyMask(BaseInterface):
         # load images
         segmentation = nb.load(self.inputs.segmentation)
         brainmask = nb.load(self.inputs.brainmask)
-        
+
         # process
         segmentation_filtered = apply_mask(segmentation, brainmask)
 
@@ -842,7 +825,6 @@ class ApplyMask(BaseInterface):
         _, base, _ = split_filename(self.inputs.segmentation)
         nb.save(segmentation_filtered, base + 'segmentation_filtered.nii.gz')
 
-
     def _list_outputs(self):
         """Fill in the output structure."""
         outputs = self.output_spec().trait_get()
@@ -850,71 +832,70 @@ class ApplyMask(BaseInterface):
         _, base, _ = split_filename(fname)
         outputs["segmentation_filtered"] = os.path.abspath(base + 'segmentation_filtered.nii.gz')
 
-        return outputs  
-    
+        return outputs
 
 
 class SummaryReportInputSpec(BaseInterfaceInputSpec):
     """Make summary report file in pdf format"""
     subject_id = traits.Any(desc="id for each subject")
 
-    swi = traits.Str(default='False', 
-                      desc='Specified if report is about SWI or T1-FLAIR')
+    swi = traits.Str(default='False',
+                     desc='Specified if report is about SWI or T1-FLAIR')
 
     cdg_ijk = traits.File(exists=True,
-                           desc='center of gravity brain_mask in txt file')
+                          desc='center of gravity brain_mask in txt file')
 
     bbox1 = traits.File(exists=True,
-                         desc='bounding box first point in txt file')
+                        desc='bounding box first point in txt file')
 
     bbox2 = traits.File(exists=True,
-                         desc='bounding box second point in txt file')
+                        desc='bounding box second point in txt file')
 
     anonymized = traits.Bool(False, exists=True,
-                            desc='Anonymized Subject ID')
-    
+                             desc='Anonymized Subject ID')
+
     img_normalized = traits.File(exists=True,
-                       desc='nifti file normalized to produce histogram intensity voxels', 
-                       mandatory=False)
-    
+                                 desc='nifti file normalized to produce histogram intensity voxels',
+                                 mandatory=False)
+
     brainmask = traits.File(exists=True,
-                            desc='brainmask for overlay with main image and cropping box', 
+                            desc='brainmask for overlay with t1 image and cropping box',
                             mandatory=False)
-    
+
     isocontour_slides_FLAIR_T1 = traits.File(False,
-                          mandatory=False,
-                          desc="quality control of coregistration isocontour slides FLAIR on T1")
-    
-    qc_overlay_brainmask_main = traits.File(False,
-                          mandatory=False,
-                          desc="quality control of coregistration isocontour slides brainmask on T1")
-    
+                                             mandatory=False,
+                                             desc="quality control of coregistration isocontour slides FLAIR on T1")
+
+    qc_overlay_brainmask_t1 = traits.File(False,
+                                          mandatory=False,
+                                          desc="quality control of coregistration isocontour slides brainmask on T1")
+
     sum_workflow = traits.File(False,
                                mandatory=False,
                                desc="png image with a sumary of each workflow step")
 
     metrics_clusters = traits.File(desc="pandas array of metrics clusters")
 
-    metrics_clusters_2 = traits.File(mandatory=False, 
+    metrics_clusters_2 = traits.File(mandatory=False,
                                      desc="""optionnal metris clusters csv file if necessary 
                                      (example : dualpreprocessing T1-FLAIR with pvs and wmh clusters metrics)""")
-    
+
     metrics_bg_pvs = traits.File(exists=True,
                                  desc='csv file with metrics about pvs clusters in basal ganglia',
                                  mandatory=False)
-    
+
     predictions_latventricles_DWMH = traits.File(exists=True,
                                                  desc="""csv file with metrics about lateral ventricles and 
                                                       deep white matter hyperintensities clusters""",
                                                  mandatory=False)
-    
+
     percentile = traits.Float(exists=True, desc='value to threshold above this'
                               'percentile',
                               mandatory=True)
-    
+
     threshold = traits.Float(0.5, exists=True, mandatory=True,
                              desc='Value of the treshold to apply to the image'
-                            )
+                             )
 
     image_size = traits.Tuple(traits.Int, traits.Int, traits.Int,
                               default=(160, 214, 176),
@@ -935,11 +916,10 @@ class SummaryReportOutputSpec(TraitedSpec):
         summary_report (pdf): summary report for each subject
     """
     summary_report = traits.Any(exists=True,
-                            desc='summary html report')
-    
-    summary = traits.Any(exists=True,
-                            desc='summary pdf report')
+                                desc='summary html report')
 
+    summary = traits.Any(exists=True,
+                         desc='summary pdf report')
 
 
 class SummaryReport(BaseInterface):
@@ -969,7 +949,7 @@ class SummaryReport(BaseInterface):
         bbox2 = self.inputs.bbox2
         cdg_ijk = self.inputs.cdg_ijk
         isocontour_slides_FLAIR_T1 = self.inputs.isocontour_slides_FLAIR_T1
-        qc_overlay_brainmask_main = self.inputs.qc_overlay_brainmask_main
+        qc_overlay_brainmask_t1 = self.inputs.qc_overlay_brainmask_t1
         metrics_clusters = self.inputs.metrics_clusters
         metrics_clusters_2 = None
         if self.inputs.metrics_clusters_2:
@@ -987,7 +967,7 @@ class SummaryReport(BaseInterface):
         threshold = self.inputs.threshold
         image_size = self.inputs.image_size
         resolution = self.inputs.resolution
-        
+
         # process
         summary_report = make_report(img_normalized=img_normalized,
                                      brainmask=brainmask,
@@ -995,7 +975,7 @@ class SummaryReport(BaseInterface):
                                      bbox2=bbox2,
                                      cdg_ijk=cdg_ijk,
                                      isocontour_slides_path_FLAIR_T1=isocontour_slides_FLAIR_T1,
-                                     qc_overlay_brainmask_main=qc_overlay_brainmask_main, 
+                                     qc_overlay_brainmask_t1=qc_overlay_brainmask_t1,
                                      metrics_clusters_path=metrics_clusters,
                                      subject_id=subject_id,
                                      image_size=image_size,
@@ -1023,22 +1003,18 @@ class SummaryReport(BaseInterface):
         outputs = self.output_spec().trait_get()
         outputs['summary_report'] = getattr(self, 'summary_report')
         outputs['summary'] = getattr(self, 'summary')
-        
-        return outputs  
-    
 
-
-
+        return outputs
 
 
 class MaskRegionsInputSpec(BaseInterfaceInputSpec):
     """Filter voxels according to a specific regions"""
     img = traits.File(exists=True,
-                      desc='Nifti file with segmented regions', 
+                      desc='Nifti file with segmented regions',
                       mandatory=False)
-    
+
     list_labels_regions = traits.Any(False,
-                          desc="list of indices or labels regions")
+                                     desc="list of indices or labels regions")
 
 
 class MaskRegionsOutputSpec(TraitedSpec):
@@ -1049,7 +1025,6 @@ class MaskRegionsOutputSpec(TraitedSpec):
     """
     mask_regions = traits.File(exists=True,
                                desc='Nifti mask file filtered with specific regions')
-
 
 
 class MaskRegions(BaseInterface):
@@ -1068,7 +1043,7 @@ class MaskRegions(BaseInterface):
         # load images
         img = nb.load(self.inputs.img)
         list_labels_regions = self.inputs.list_labels_regions
-        
+
         # process
         mask_regions = get_mask_regions(img, list_labels_regions)
 
@@ -1076,7 +1051,6 @@ class MaskRegions(BaseInterface):
         setattr(self, 'mask_regions', mask_regions)
         _, base, _ = split_filename(self.inputs.img)
         nb.loadsave.save(mask_regions, base + 'mask_regions.nii.gz')
-
 
     def _list_outputs(self):
         """Fill in the output structure."""
@@ -1086,21 +1060,21 @@ class MaskRegions(BaseInterface):
         outputs["mask_regions"] = os.path.abspath(base + 'mask_regions.nii.gz')
 
         return outputs
-    
+
 
 class QuantificationWMHLatVentriclesInputSpec(BaseInterfaceInputSpec):
     """Compute metrics about prediction around lateral ventricles"""
     wmh = traits.File(exists=True,
-                      desc='Nifti file prediction', 
+                      desc='Nifti file prediction',
                       mandatory=False)
-    
+
     threshold_clusters = traits.Float(exists=True,
-                                     desc='Threshold to compute clusters metrics')
+                                      desc='Threshold to compute clusters metrics')
 
     subject_id = traits.Any(desc="id for each subject")
-    
+
     latventricles_distance_maps = traits.Any(False,
-                          desc="distance maps in millimeter to lateral ventricles")
+                                             desc="distance maps in millimeter to lateral ventricles")
 
 
 class QuantificationWMHLatVentriclesOutputSpec(TraitedSpec):
@@ -1110,11 +1084,10 @@ class QuantificationWMHLatVentriclesOutputSpec(TraitedSpec):
         csv_clusters_localization (csv): metrics of clusters around lateral ventricles
     """
     csv_clusters_localization = traits.File(exists=True,
-                               desc='metrics of clusters in lateral ventricles for each clusters')
-    
+                                            desc='metrics of clusters in lateral ventricles for each clusters')
+
     predictions_latventricles_DWMH = traits.File(exists=True,
                                                  desc='metrics of DMWH and lateral ventricles clusters')
-
 
 
 class QuantificationWMHLatVentricles(BaseInterface):
@@ -1135,17 +1108,17 @@ class QuantificationWMHLatVentricles(BaseInterface):
         latventricles_distance_maps = nb.load(self.inputs.latventricles_distance_maps)
         subject_id = self.inputs.subject_id
         threshold_clusters = self.inputs.threshold_clusters
-        
+
         # process
-        (dataframe_clusters_localization, 
-        nb_latventricles_clusters, 
-        nb_clusters_DWMH, 
-        nb_voxels_latventricles,
-        nb_voxels_DWMH,
-        threshold) = metrics_clusters_latventricles(latventricles_distance_maps, 
-                                                    wmh, 
-                                                    subject_id,
-                                                    threshold=threshold_clusters)     
+        (dataframe_clusters_localization,
+         nb_latventricles_clusters,
+         nb_clusters_DWMH,
+         nb_voxels_latventricles,
+         nb_voxels_DWMH,
+         threshold) = metrics_clusters_latventricles(latventricles_distance_maps,
+                                                     wmh,
+                                                     subject_id,
+                                                     threshold=threshold_clusters)
 
         out_csv = 'WMH_clusters_localization.csv'
         with open(out_csv, 'w') as f:
@@ -1159,21 +1132,18 @@ class QuantificationWMHLatVentricles(BaseInterface):
             writer = csv.writer(file)
 
             # Écriture de l'en-tête du fichier CSV
-            writer.writerow(["Cluster Threshold", "DWMH clusters number", "DWMH voxels number", 
+            writer.writerow(["Cluster Threshold", "DWMH clusters number", "DWMH voxels number",
                             "Lateral Ventricles clusters number", "Lateral ventricles voxels number",
-                            "Total clusters number", "Total voxels number"])
-
+                             "Total clusters number", "Total voxels number"])
 
             # Ajout des lignes de données
             writer.writerow([threshold, nb_clusters_DWMH, nb_voxels_DWMH,
                              nb_latventricles_clusters, nb_voxels_latventricles,
                              nb_total_clusters, nb_total_voxels])
 
-        
         # Save it for later use in _list_outputs
         setattr(self, 'csv_clusters_localization', os.path.abspath("WMH_clusters_localization.csv"))
         setattr(self, 'predictions_latventricles_DWMH', os.path.abspath("predictions_latventricles_DWMH.csv"))
-
 
     def _list_outputs(self):
         """Fill in the output structure."""
@@ -1184,14 +1154,14 @@ class QuantificationWMHLatVentricles(BaseInterface):
         outputs["predictions_latventricles_DWMH"] = getattr(self, 'predictions_latventricles_DWMH')
 
         return outputs
-    
 
 
 class BGMaskInputSpec(BaseInterfaceInputSpec):
     """Filter voxels according to a basal ganglia and insula regions"""
     segmented_regions = traits.File(exists=True,
-                      desc='Nifti file with segmented freesurfer synthseg regions', 
-                      mandatory=False)
+                                    desc='Nifti file with segmented freesurfer synthseg regions',
+                                    mandatory=False)
+
 
 class BGMaskOutputSpec(TraitedSpec):
     """Output class
@@ -1200,8 +1170,7 @@ class BGMaskOutputSpec(TraitedSpec):
         mask_regions (nb.Nifti1Image): prediction file filtered with basal ganglia regions
     """
     bg_mask = traits.File(exists=True,
-                               desc='Nifti mask file filtered with specific regions')
-
+                          desc='Nifti mask file filtered with specific regions')
 
 
 class BGMask(BaseInterface):
@@ -1219,7 +1188,7 @@ class BGMask(BaseInterface):
         """
         # load images
         regions_segmented_img = nb.load(self.inputs.segmented_regions)
-        
+
         # process
         bg_mask = createBGsliceMask(regions_segmented_img)
 
@@ -1227,7 +1196,6 @@ class BGMask(BaseInterface):
         setattr(self, 'bg_mask', bg_mask)
         _, base, _ = split_filename(self.inputs.segmented_regions)
         nb.loadsave.save(bg_mask, base + 'bg_mask.nii.gz')
-
 
     def _list_outputs(self):
         """Fill in the output structure."""
@@ -1243,13 +1211,14 @@ class PVSQuantificationBGInputSpec(BaseInterfaceInputSpec):
     """Compute metrics clusters and voxels about regions Basal Ganglia and deep white matter"""
     img = traits.File(exists=True,
                       desc='Nifti prediction pvs file')
-    
+
     threshold_clusters = traits.Float(exists=True,
-                                     desc='Threshold to compute clusters metrics')
+                                      desc='Threshold to compute clusters metrics')
 
     bg_mask = traits.File(exists=True,
-                      desc='Basal Ganglions mask Nifti file', 
-                      mandatory=False)
+                          desc='Basal Ganglions mask Nifti file',
+                          mandatory=False)
+
 
 class PVSQuantificationBGOutputSpec(TraitedSpec):
     """Output class
@@ -1258,7 +1227,7 @@ class PVSQuantificationBGOutputSpec(TraitedSpec):
         metrics_prediction_pvs (nb.Nifti1Image): CSV file with metrics about clusters and voxels Basal Ganglia and Deep White Matters regions
     """
     metrics_bg_pvs = traits.File(exists=True,
-                               desc='CSV file with metrics about clusters and voxels Basal Ganglia and Deep White Matters regions')
+                                 desc='CSV file with metrics about clusters and voxels Basal Ganglia and Deep White Matters regions')
 
 
 class PVSQuantificationBG(BaseInterface):
@@ -1288,7 +1257,6 @@ class PVSQuantificationBG(BaseInterface):
 
         # Save it for later use in _list_outputs
         setattr(self, 'metrics_bg_pvs', os.path.abspath("metrics_bg_pvs.csv"))
-
 
     def _list_outputs(self):
         """Fill in the output structure."""

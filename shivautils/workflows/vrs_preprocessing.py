@@ -29,13 +29,13 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # file selection
     datagrabber = Node(DataGrabber(infields=['subject_id'],
-                                   outfields=['main']),
+                                   outfields=['t1']),
                        name='dataGrabber')
     datagrabber.inputs.base_directory = kwargs['BASE_DIR']
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
     datagrabber.inputs.template = '%s'
-    datagrabber.inputs.template_args = {'main': [['subject_id']]}
+    datagrabber.inputs.template_args = {'t1': [['subject_id']]}
 
     workflow.connect(subjectList, 'subject_id', datagrabber, 'subject_id')
 
@@ -44,7 +44,7 @@ def genWorkflow(**kwargs) -> Workflow:
                            orientation='RAS'),
                    name="conform")
 
-    workflow.connect(datagrabber, 'main', conform, 'img')
+    workflow.connect(datagrabber, 't1', conform, 'img')
 
     normalization = Node(Normalization(percentile=kwargs['percentile']), name="intensity_normalization")
     workflow.connect(conform, 'resampled', normalization, 'input_image')
