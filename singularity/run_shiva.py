@@ -36,7 +36,7 @@ def main():
 
     parameters = yaml_content['parameters']
 
-    bind_model = yaml_content['model_path']
+    bind_model = f"{yaml_content['model_path']}:/mnt/model:ro"
     bind_input = f"{args.input}:/mnt/data/input:rw"
     if not (os.path.exists(args.output) and os.path.isdir(args.output)):
         os.makedirs(args.output)
