@@ -993,7 +993,7 @@ class SummaryReport(BaseInterface):
             fid.write(summary_report)
 
         # Convertir le fichier HTML en PDF
-        weasyprint.HTML('summary_report.html').write_pdf('summary.pdf')
+        weasyprint.HTML('summary_report.html').write_pdf('summary.pdf', presentational_hints=True)
 
         setattr(self, 'summary_report', os.path.abspath('summary_report.html'))
         setattr(self, 'summary', os.path.abspath('summary.pdf'))
