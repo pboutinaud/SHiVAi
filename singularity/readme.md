@@ -1,26 +1,36 @@
-Execute preprocessing and deep learning segmentation workflow 
+Run containerized deep learning segmentation workloads
+------------------------------------------------------
 
-Install Singularity :
+1. Download the model weights
+
+2. Build the container image
+
+
+Install Apptainer (formerly Singularity) :
 https://apptainer.org/docs/user/main/quick_start.html
 
-Nvidia :
+Nvidia container toolkit (GPU support):
 https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
 
 
-Command to build container singularity (as root) :
+From this folder, logged in as root (or sudo) use the following command to build the singularity image file:
 
 singularity build preproc_tensorflow.sif singularity_tf.recipe
 
 %files
     */shivautils /usr/local/src/shivautils
 
-*your local 'shivautils' folder path 
+* path to your local 'shivautils' source code folder path 
 
 
+3. Run the command line
 
+In your python environment, install the *pyyaml* package with:
 
+    pip install pyyaml
 
-Command line arguments (with run_shiva.py):
+**run_shiva.py** command line arguments:
+
 
 --in (path): path of the input dataset
 --out (path): the path where the generated files will be output
@@ -30,20 +40,17 @@ Command line arguments (with run_shiva.py):
 
 
 Command line example : 
-python run_shiva.py --in ~/Documents/data/VRS/Nagahama/raw/dataset_test --out ~/shiva_Nagahama_test_preprocessing_dual 
---input_type standard --config ~/.shiva/config_dual.yml
 
-Batch command line example : 
-srun –gpus 1 python run_shiva.py --in ~/Documents/data/VRS/Nagahama/raw/dataset_test --out ~shiva_Nagahama_test_preprocessing_dual --input_type standard --config ~/.shiva/config_wmh.yml
+    python run_shiva.py --in ~/Documents/data/VRS/Nagahama/raw/dataset_test --out ~/shiva_Nagahama_test_preprocessing_dual  
+    --input_type standard --config ~/.shiva/config_dual.yml
+
+SLURM job manager command line example : 
+
+    srun –gpus 1 python run_shiva.py --in ~/Documents/data/VRS/Nagahama/raw/dataset_test --out ~shiva_Nagahama_test_preprocessing_dual --input_type standard --config ~/.shiva/config_wmh.yml
 
 
+Option configuration in yaml file :
 
-
-
-Options configuration in yaml file :
-
-    --cuda (file) : structure mount_file
-    --gcc (file) : structure mount_file
     --model_path (path) : structure mount_file
     --singularity_image (path): path of singularity container file
     --brainmask_descriptor (path): path to brain_mask descriptor tensorflow model
@@ -58,9 +65,7 @@ Options configuration in yaml file :
     --interpolation (str): Way of upsamples images, default interpolation : 'WelchWindowedSinc', others interpolations  possibility : 'Linear', 'NearestNeighbor', 'CosineWindowedSinc', 'HammingWindowedSinc', 'LanczosWindowedSinc', 'BSpline', 'MultiLabel', 'Gaussian', 'GenericLabel'
 
 
-
-
-Example of BIDS structure folders :
+Example of BIDS input structure folders (see the BIDS staging specification):
 
     .
     ├── dataset_description.json
@@ -90,7 +95,7 @@ Example of Standard structure folders :
             └── 51_T1_raw.nii.gz
 
 
-Example of Json structure input :
+Example of JSON-structured input :
 
 {
     "parameters": {
@@ -123,22 +128,18 @@ Example of Json structure input :
     }
 }
 
+Workflow description
+-------------------- 
 
+The SHIVA preprocessing for deep learning predictors is in charge of the resampling of a NIfTI-formatted 
+structural  head image, followed by intensity normalization, and cropping centered on the brain.
 
+A nipype workflow is used to preprocess images in batch. Predictions are sthen performed on the supplied images.
 
+In the last step the image segmentations from the wmh and pvs models are analyzed and a report is generated.
 
-
-
-DESCRIPTION WORKFLOW PROCESS : 
-
-
-SHIVA preprocessing for deep learning predictors. Perform resampling of a structural NIfTI head image, 
-followed by intensity normalization, and cropping centered on the brain. A nipype workflow is used to 
-preprocess a lot of images at the same time. In the last step the file segmentations with the wmh and 
-pvs models are processed
-
-
-Preprocessing steps :
+Preprocessing steps
+===================
 
 1 - Conform : Resample image to 'final_dimensions with voxels of size 'voxels_size'
 
@@ -154,26 +155,18 @@ Preprocessing steps :
 
 6 - Coregistration : Register a FLAIR images on T1w images either through the full interface to the ANTs registration method.
 
-
-
-
-
-
-
-
-Output report :
-
+Reporting
+=========
 
 Individual CSV file (path folder 'subject_{id}/metrics_predictions_{pvs/wmh}'):
 
-In the 'metrics_predictions_pvs' folder or 'metrics_prediction_wmh' of the main folder, there is a csv file reporting all cluster metrics for the perivascular spaces or white matter hyperintensities :
+In the 'metrics_predictions_pvs' folder or 'metrics_prediction_wmh' of the main folder, there will be a *.csv* file describing all cluster metrics for the perivascular spaces or white matter hyperintensities :
 - Number of voxels
 - Number of clusters
 - Mean clusters size
 - Median clusters size
 - Minimal clusters size
 - Maximal clusters size
-
 - Predictions results in ventricles and deep white matters hyperintensities clusters (for wmh)
 - Predictions results in basal ganglia and deep white matters clusters (for pvs)
 
@@ -186,6 +179,6 @@ Individual HTML / PDF Report (path folder 'subject_{id}/summary_report'):
 - Overlay of final brainmask over cropped main images
 - Preprocessing workflow diagram
 
-General CSV file (path folder 'metrics_predictions_{pvs/wmh}_generale'):
+General *.csv* file (path folder 'metrics_predictions_{pvs/wmh}_generale'):
 
-    Sum of metrics clusters with one arrow per subjects.
+ - Sum of cluster metrics with one row per subject.
