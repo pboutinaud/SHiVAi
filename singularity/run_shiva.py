@@ -62,7 +62,7 @@ def main():
     bind = ','.join(bind_list)
 
     command_list = ["singularity exec --nv --bind", bind, singularity_image,
-                    "script_wf.py", input, output, input_type, percentile,
+                    "shiva.py", input, output, input_type, percentile,
                     threshold, threshold_clusters, final_dimensions,
                     voxels_size, model, interpolation, swi, brainmask_descriptor,
                     pvs_descriptor, wmh_descriptor, cmb_descriptor]

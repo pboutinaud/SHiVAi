@@ -8,7 +8,11 @@ from shivautils.workflows.dual_predict import genWorkflow as genWorkflowPredict
 from shivautils.workflows.dual_post_processing import genWorkflow as genWorkflowPost
 
 
-DESCRIPTION = """SHIVA full processing pipeline: chains preprocessing, prediction, and reporting nipype workflows."""
+DESCRIPTION = """Run the SHIVA full processing pipeline for T1 + FLAIR: preprocessing, prediction, and reporting nipype workflows.
+Data should be staged according to a simple directory structure:
+    <subject>/<t1>/<image>.nii.gz
+             /<flair>/<image>.nii.gz
+"""
 
 
 def existing_file(filepath: os.PathLike) -> os.PathLike:

@@ -1,8 +1,28 @@
 # SHIVA preprocessing and deep learning segmentation workflows
 
-## Installation
+This package includes a set of image analysis tools for the study of covert cerebrovascular diseases with structural Magnetic Resonance Imaging.
 
-### Singularity
+The SHIVA segmentation tools currently include cerebral microbleeds, Virchow Robin Spaces (perivascular spaces, PVS) and White Matter Hyperintensities (WMH). The 3D-Unet model weights are available separately at https://github.com/pboutinaud.
+
+The tools cover preprocessing (image resampling and cropping to match the required size for the deep learning models, coregistration for multimodal segmentation tools), predictions (model weights available ), and reporting (QC and results).
+
+The package includes an Apptainer (Singularity) container image recipe file. 
+
+## Dependencies
+
+The deep learning relies on Tensorflow 2.7.13, and a GPU with 16Gb of memory is necessary. The preprocessing pipelines are implemented with Nipype and make use of ANTS for image registration. Quality control reporting uses DOG contours from: https://github.com/neurolabusc/PyDog.
+
+## Package Installation
+
+To deploy the python package, from the project directory (containing the 'setup.py' file), use the following command line: 
+
+```bash
+python -m build --wheel
+```
+
+The scripts should be available in the command line prompt.
+
+## Apptainer image
 
 The SHIVA application requires a Linux machine with a GPU (with 16GB of dedicated memory), and **Singularity** intalled (now known as **AppTainer**):
 https://apptainer.org/docs/user/main/quick_start.html
@@ -201,68 +221,5 @@ Individual HTML / PDF Report (path folder 'subject_{id}/summary_report'):
 General CSV file (path folder 'metrics_predictions_{pvs/wmh}_generale'):
 
 - Sum of metrics clusters with one arrow per subjects.
-
-
-## Detailed about python package
-
-To deploy the python package, from the project directory (containing the 'setup.py' file), use the following command line: 
-
-```bash
-python -m build --wheel
-```
-
-All of the scripts in the package run nipype workflows which are implemented as follows : 
-    https://nipype.readthedocs.io/en/latest/api/generated/nipype.pipeline.engine.workflows.html
-
-The package is designed with nipype interfaces present in the file path 'shivautils/interfaces/image.py'
-
-Example of personnalized Nipype Interface :
-```python
-class ConformInputSpec(BaseInterfaceInputSpec):
-
-    img = traits.File(exists=True)
-
-    dimensions = traits.Tuple(traits.Int, traits.Int, traits.Int,
-                            default=(256, 256, 256))
-
-    voxel_size = traits.Tuple(float, float, float,
-                            desc='resampled voxel size',
-                            mandatory=False)
-
-class ConformOutputSpec(TraitedSpec):
-
-    resampled = traits.File(exists=True,
-                            desc='Image conformed to the required voxel size and shape.')
-
-
-class Conform(BaseInterface):
-
-    input_spec = ConformInputSpec
-    output_spec = ConformOutputSpec
-
-    def _run_interface(self, runtime):
-
-        fname = self.inputs.img
-        img = nb.funcs.squeeze_image(nb.load(fname))
-
-        voxel_size = self.inputs.voxel_size
-        resampled = nip.conform(img, 
-                                out_shape=self.inputs.dimensions,
-                                voxel_size=voxel_size)
-
-        # Save it for later use in _list_outputs
-        _, base, _ = split_filename(fname)
-        nb.save(resampled, base + 'resampled.nii.gz')
-
-        return runtime
-
-    def _list_outputs(self):
-        """Just get the absolute path to the scheme file name."""
-        outputs = self.output_spec().get()
-        fname = self.inputs.img
-        _, base, _ = split_filename(fname)
-        outputs["resampled"] = os.path.abspath(base +'resampled.nii.gz')
-        return outputs
-```
 
 
