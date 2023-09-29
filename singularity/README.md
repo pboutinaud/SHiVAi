@@ -91,36 +91,36 @@ Example of Standard structure folders :
 
 Example of JSON-structured input :
 
-{
-    "parameters": {
-        "out_dir": "/mnt/data/output",
-        "brainmask_descriptor": "~/ReferenceModels/model_info/brainmask/model_info.json",
-        "WMH_descriptor": "~/ReferenceModels/model_info/T1.FLAIR-WMH/model_info.json",
-        "PVS_descriptor": "~/ReferenceModels/model_info/T1.FLAIR-PVS/model_info.json",
-        "percentile": 99.0,
-        "final_dimensions": [
-            160,
-            214,
-            176
-        ],
-        "voxels_size": [
-            1.0,
-            1.0,
-            1.0
-        ]
-    },
-    "files_dir": "~/data/TestSetGlobal/PVS_WMH/T1-FLAIR_raw",
-    "all_files": {
-        "21": {
-            "t1": "21_T1_raw.nii.gz",
-            "flair": "21_FLAIR_raw.nii.gz"
+    {
+        "parameters": {
+            "out_dir": "/mnt/data/output",
+            "brainmask_descriptor": "~/ReferenceModels/model_info/brainmask/model_info.json",
+            "WMH_descriptor": "~/ReferenceModels/model_info/T1.FLAIR-WMH/model_info.json",
+            "PVS_descriptor": "~/ReferenceModels/model_info/T1.FLAIR-PVS/model_info.json",
+            "percentile": 99.0,
+            "final_dimensions": [
+                160,
+                214,
+                176
+            ],
+            "voxels_size": [
+                1.0,
+                1.0,
+                1.0
+            ]
         },
-        "51": {
-            "t1":"51_T1_raw.nii.gz",
-            "flair": "51_FLAIR_raw.nii.gz"
+        "files_dir": "~/data/TestSetGlobal/PVS_WMH/T1-FLAIR_raw",
+        "all_files": {
+            "21": {
+                "t1": "21_T1_raw.nii.gz",
+                "flair": "21_FLAIR_raw.nii.gz"
+            },
+            "51": {
+                "t1":"51_T1_raw.nii.gz",
+                "flair": "51_FLAIR_raw.nii.gz"
+            }
         }
     }
-}
 
 Workflow description
 -------------------- 
