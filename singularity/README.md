@@ -9,7 +9,7 @@ Run containerized deep learning segmentation workloads
 Install Apptainer (formerly Singularity) :
 https://apptainer.org/docs/user/main/quick_start.html
 
-Nvidia container toolkit (GPU support):
+Nvidia container toolkit (for GPU support, **required**):
 https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
 
 
@@ -17,17 +17,10 @@ From this folder, logged in as root (or sudo) use the following command to build
 
     singularity build preproc_tensorflow.sif singularity_tf.recipe
 
-At the end of the singularity file, adapt the *files* section as needed:
-
-    %files
-        */shivautils /usr/local/src/shivautils
-
-* replace with path to your local 'shivautils' source code folder
-
 
 3. Run the command line
 
-In your python environment, install the *pyyaml* package with:
+The container is launched via a wrapper script (**run_shiva.py**). In your python environment, first install the *pyyaml* package with:
 
     pip install pyyaml
 
@@ -36,10 +29,7 @@ In your python environment, install the *pyyaml* package with:
     --in (path): path of the input dataset
     --out (path): the path where the generated files will be output
     --input_type (str):  Type of structure file, way to capture and manage nifti files : standard, BIDS or json
-    -- model (path): Path to model descriptor
-    --config (path): File with configuration options for workflow processing images, (path_default : /homes_unix/yrio/Documents/Script_predict/     
-                     container_preproc_predict/config_wmh.yml)
-
+    --config (path): File with configuration options for workflow processing images
 
 Command line example : 
 
@@ -51,16 +41,16 @@ SLURM job manager command line example :
     srun –gpus 1 python run_shiva.py --in ~/Documents/data/VRS/Nagahama/raw/dataset_test --out ~shiva_Nagahama_test_preprocessing_dual --input_type standard --config ~/.shiva/config_wmh.yml
 
 
-Option configuration in yaml file :
+The 'fixed' options are set in the *--config* yaml file:
 
 
-    --model_path (path) : structure mount_file
-    --singularity_image (path): path of singularity container file
+    --model_path (path) : the path to the model folder, which will be mounted by the container.
+    --singularity_image (path): path of singularity image file
     --brainmask_descriptor (path): path to brain_mask descriptor tensorflow model
     --WMH_descriptor (path): path of White Matter HyperIntensities descriptor tensorflow model
     --PVS_descriptor (path): path of Peri-Vascular Spaces descriptor tensorflow model
     --percentile (float) : Threshold value expressed as percentile
-    --threshold (float) : Value of the treshold to apply to the image for brainmask, default value : 0.5
+    --threshold (float) : treshold to apply to the image to obtain a head mask, default value : 0.5
     --threshold_clusters (float) : Threshold to compute clusters metrics, default value : 0.2
     --final_dimensions (str) : Final image array size in i, j, k. Example : '160 214 176'.
     --voxels_size (str) : Voxel size of the final image, example : '1.0 1.0 1.0' --grab : data grabber
