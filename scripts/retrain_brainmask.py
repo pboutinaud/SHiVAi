@@ -2,9 +2,6 @@
 # Script workflow in containeur singularity
 import os
 import argparse
-import json
-
-
 
 from shivautils.workflows.preprocessing_retrain_brainmask import genWorkflow
 
@@ -51,6 +48,7 @@ args = parser.parse_args()
 subject_dict = args.input
 
 GRAB_PATTERN = '%s/anat/*_T1w.nii.gz'
+
 out_dir = args.output
 wfargs = {'SUBJECT_LIST': os.listdir(subject_dict),
           'BASE_DIR': out_dir}

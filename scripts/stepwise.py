@@ -2,8 +2,7 @@
 # Script workflow in containeur singularity
 import os
 import argparse
-import json
-from nipype import Node, Workflow
+
 from nipype import config
 
 from shivautils.workflows.dual_preprocessing import genWorkflow

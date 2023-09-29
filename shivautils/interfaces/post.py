@@ -1,19 +1,19 @@
-# -*- coding: utf-8 -*
-'''
+"""
 Contains custom interfaces wrapping scripts/functions used by the nipype workflows.
 
 @author: atsuchida
 @modified by iastafeva (added niimath)
-'''
+"""
 import os
 import os.path as op
+
 import numpy as np
+
 from nipype.interfaces.base import (traits, File, TraitedSpec,
                                     BaseInterface, BaseInterfaceInputSpec,
                                     CommandLine, CommandLineInputSpec, 
                                     InputMultiPath, OutputMultiPath) 
-from nipype.interfaces.spm.base import (SPMCommand, SPMCommandInputSpec, 
-                                        scans_for_fname, scans_for_fnames)
+from nipype.interfaces.spm.base import (SPMCommand, SPMCommandInputSpec)
 
 from nipype.interfaces.matlab import MatlabCommand
 from nipype.utils.filemanip import ensure_list, simplify_list
@@ -30,7 +30,7 @@ class CustomIntensityNormalizationInputSpec(BaseInterfaceInputSpec):
 
 class CustomIntensityNormalizationOutputSpec(TraitedSpec):
     out_file = File(exists=True)
-    # output_dir = output_dir = traits.Str()
+
 
 
 class CustomIntensityNormalization(BaseInterface):
@@ -108,10 +108,7 @@ class MakeDistanceMapOutputSpec(TraitedSpec):
 
 
 class MakeDistanceMap(CommandLine):
-    """
-    Creates distance maps using ventricles binarized maps.
-    """
-    import shivautils.interfaces as wf_interfaces
+    """Create distance maps using ventricles binarized maps (niimaths)."""
 
     _cmd = 'niimath'
 
@@ -124,10 +121,9 @@ class MakeDistanceMap(CommandLine):
         return outputs
  
   
-
 class SynthSegSegmentationInputSpec(CommandLineInputSpec):
     
-    #os.system("mri_synthseg --i /data/path --o /save/dir --vol /save/dir --qc /save/dir")
+    # like: os.system("mri_synthseg --i /data/path --o /save/dir --vol /save/dir --qc /save/dir")
     
     im_file = traits.Str(mandatory=True,
                             desc ='Path to MRI image / path to folder with MRI images',
@@ -182,17 +178,20 @@ class SynthSegSegmentationMap(CommandLine):
         return outputs
  
 
-# create qc coregistartions:
 
-class coregQCInputSpec(CommandLineInputSpec):
+
+class CoregQCInputSpec(CommandLineInputSpec):
     
-    # used to;
-    # 1) create coreg isocontour image
-    # 2) compute the cost function of FLIRT coregistration
-    # 
-    # coreg_QC.sh <COREGISTERED_IMG> <REF(T1)_BRAIN> <REF(T1)_BRAIN_MASK> <OUTPUT_BASENAME>
-    # creates <OUTPUT_BASENAME>.png with isocontours image and <OUTPUT_BASENAME>.txt
-    # with costfunction value
+    """Create coregistrations qc endpoints:
+
+     1) create coreg isocontour image
+     2) compute the cost function of FLIRT coregistration
+     
+     coreg_QC.sh <COREGISTERED_IMG> <REF(T1)_BRAIN> <REF(T1)_BRAIN_MASK> <OUTPUT_BASENAME>
+    
+     creates <OUTPUT_BASENAME>.png with isocontours image and <OUTPUT_BASENAME>.txt
+     with costfunction value
+    """
     
     in_file = traits.Str(mandatory=True,
                             desc ='Path to coregistered image',
@@ -234,7 +233,7 @@ class coregQC(CommandLine):
     import shivautils.interfaces as wf_interfaces
     p = op.dirname(wf_interfaces.__file__)
     _cmd = op.join(p, 'coreg_QC.sh')
-    input_spec =  coregQCInputSpec
+    input_spec =  CoregQCInputSpec
     output_spec = coregQCOutputSpec
 
     def _list_outputs(self):
@@ -286,8 +285,10 @@ class SPMApplyDeformationInput(SPMCommandInputSpec):
         low=0, high=7, field="out{1}.pull.interp", desc="degree of b-spline used for interpolation"
     )
 
+
 class SPMApplyDeformationOutput(TraitedSpec):
     out_files = OutputMultiPath(File(exists=True), desc="Transformed files")
+
 
 class SPMApplyDeformation(SPMCommand):
     """

@@ -14,7 +14,7 @@ from shivautils.interfaces.shiva import PredictSingularity, Predict
 from shivautils.interfaces.image import (Threshold, Normalization,
                                          Conform, Crop, ApplyMask, MetricsPredictions,
                                          JoinMetricsPredictions, SummaryReport)
-from shivautils.isocontour_board import create_edges
+from shivautils.postprocessing.isocontour import create_edges
 from shivautils.stats import save_histogram
 
 

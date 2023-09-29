@@ -2,13 +2,11 @@
 # Chained script workflow for singularity
 import os
 import argparse
-import json
-from nipype import Node, Workflow
-
 
 from shivautils.workflows.dual_preprocessing import genWorkflow
 from shivautils.workflows.dual_predict import genWorkflow as genWorkflowPredict
 from shivautils.workflows.dual_post_processing import genWorkflow as genWorkflowPost
+
 
 DESCRIPTION = """SHIVA full processing pipeline: chains preprocessing, prediction, and reporting nipype workflows."""
 

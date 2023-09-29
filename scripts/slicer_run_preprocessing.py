@@ -3,7 +3,6 @@
 import os
 import argparse
 import json
-from pathlib import Path
 
 from shivautils.workflows.slicer_preprocessing import genWorkflow
 

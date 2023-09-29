@@ -1,39 +1,37 @@
-'''
-A script to create the edges based on: https://github.com/neurolabusc/PyDog/blob/main/dog.py to check the coregistration.
-
-INPUT: You must provide the create_edges function with:
- 
- -Path to the image that was coregistered (the image must be cropped and the intensity normalized)
- -Path to the reference image on which the images have been coregistered (the reference image must be cropped and its intensity normalized)
- -Cropped brain mask (in the same space as reference image)
- -Optional: number of slices (default 8) for PNG output
- 
- OUTPUT: the create_edges function will produce one PNG per subject with the reference image in the background 
- and the edges of the given image on top.
-
-EXAMPLE: If you want to check the FLAIR coregistration on T1w, your image will be cropped and the intensity normalized FLAIR image, 
-reference image - cropped and intensity normalized T1w image
-Brain mask in T1w space and cropped.
-
-@autor: iastafeva
-@date: 24-04-2023
-'''
-
 def create_edges(path_image, path_ref_image, path_brainmask, nb_of_slices=8):
+    """Create image edges based on: https://github.com/neurolabusc/PyDog/blob/main/dog.py to check the coregistration.
+
+    INPUT: You must provide the create_edges function with:
     
+    - Path to the image that was coregistered (the image must be cropped and the intensity normalized)
+    - Path to the reference image on which the images have been coregistered (the reference image must be cropped and its intensity normalized)
+    - Cropped brain mask (in the same space as reference image)
+    - Optional: number of slices (default 8) for PNG output
+    
+    OUTPUT: the create_edges function will produce one PNG per subject with the reference image in the background 
+    and the edges of the given image on top.
+
+    EXAMPLE: If you want to check the FLAIR coregistration on T1w, your image will be cropped and the intensity normalized FLAIR image, 
+    reference image - cropped and intensity normalized T1w image
+    Brain mask in T1w space and cropped.
+
+    @autor: iastafeva
+    @date: 24-04-2023
+    """
+    
+    import os.path as op
+    import warnings
+    import math
+    import numpy as np
+
+    import skimage 
     import nibabel as nib
+    import matplotlib.pyplot as plt
+    from scipy import ndimage
     from scipy.ndimage import (
         gaussian_filter1d,
         distance_transform_edt
     )
-    import numpy as np
-    import os.path as op
-    import warnings
-    import math
-    #skimage package is "scikit-image"
-    import skimage  
-    from scipy import ndimage
-    import matplotlib.pyplot as plt
     from matplotlib.colors import ListedColormap
 
     # Creating edges using: https://github.com/neurolabusc/PyDog/blob/main/dog.py
@@ -179,11 +177,12 @@ def create_edges(path_image, path_ref_image, path_brainmask, nb_of_slices=8):
             fwhm = np.asarray([fwhm]).ravel()
             fwhm = np.asarray([0. if elem is None else elem for elem in fwhm])
             affine = affine[:3, :3]  # Keep only the scale part.
-            fwhm_over_sigma_ratio = np.sqrt(8 * np.log(2))  # FWHM to sigma.
+            
             vox_size = np.sqrt(np.sum(affine ** 2, axis=0))
-            #n.b. FSL specifies blur in sigma, SPM in FWHM
+            # fwhm_over_sigma_ratio = np.sqrt(8 * np.log(2))  # FWHM to sigma.
+            # n.b. FSL specifies blur in sigma, SPM in FWHM
             # FWHM = sigma*sqrt(8*ln(2)) = sigma*2.3548.
-            #convert fwhm to sd in voxels see https://github.com/0todd0000/spm1d
+            # convert fwhm to sd in voxels see https://github.com/0todd0000/spm1d
             fwhmvox = fwhm / vox_size
             sd = fwhmvox / math.sqrt(8 * math.log(2))
             for n, s in enumerate(sd):

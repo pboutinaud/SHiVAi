@@ -12,8 +12,8 @@ from nipype.interfaces.utility import IdentityInterface
 from shivautils.interfaces.image import (ApplyMask, MetricsPredictions,
                                          JoinMetricsPredictions, SummaryReport, MaskRegions,
                                          QuantificationWMHLatVentricles, BGMask, PVSQuantificationBG)
-from shivautils.interfaces.interfaces_post_processing import MakeDistanceMap
-from shivautils.isocontour_board import create_edges
+from shivautils.interfaces.post import MakeDistanceMap
+from shivautils.postprocessing.isocontour import create_edges
 from shivautils.stats import save_histogram, bounding_crop, overlay_brainmask
 
 

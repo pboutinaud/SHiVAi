@@ -1,12 +1,11 @@
 import gc
 import numpy as np
+
 from skimage import measure
-#from joblib import Parallel, delayed
 from scipy.ndimage import _ni_support
-from scipy.ndimage.morphology import (
-    distance_transform_edt, binary_erosion,
-    generate_binary_structure
-)
+from scipy.ndimage.morphology import (distance_transform_edt, binary_erosion,
+                                      generate_binary_structure
+                                    )
 
 
 # --------------------------------------------------------------------------
@@ -91,7 +90,7 @@ def compute_metrics(
     n_jobs=-1
 ):
     """ Compute metrics values for a set of subjects, truths predictions for a
-    range of cluster sizes and vocels values.
+    range of cluster sizes and voxels values.
 
     Args:
     - model_id (str): descriptive id for the model that gave the predictions

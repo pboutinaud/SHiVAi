@@ -7,12 +7,9 @@
 import os
 
 from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces.utility import Function
 from nipype.interfaces import ants
-from nipype.interfaces.io import DataGrabber, DataSink
-from nipype.interfaces.dcm2nii import Dcm2nii
+from nipype.interfaces.io import DataGrabber
 from nipype.interfaces.utility import IdentityInterface
-from nipype.interfaces.quickshear import Quickshear
 
 from shivautils.interfaces.image import (Threshold, Normalization,
                                          Conform, Crop)

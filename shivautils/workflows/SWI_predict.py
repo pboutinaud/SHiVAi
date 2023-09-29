@@ -47,8 +47,6 @@ def genWorkflow(**kwargs) -> Workflow:
         predict_cmb.inputs.snglrt_bind =  [
             (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
             ('`pwd`','/mnt/data','rw'),
-            ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
-            ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
             (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
         predict_cmb.inputs.model = '/mnt/model'
         predict_cmb.inputs.snglrt_enable_nvidia = True

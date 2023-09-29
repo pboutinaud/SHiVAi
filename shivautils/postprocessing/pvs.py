@@ -1,5 +1,5 @@
-''' 
-A script to quantify PVS segmentation in two regions: Basal ganglia (BG) and deep white matter (DWM), using the winner's rule.
+"""
+A function to quantify PVS segmentation in two regions: Basal ganglia (BG) and deep white matter (DWM), using the winner's rule.
 
 INPUTS: PVS segmentations, basal ganglia binary mask.
 You must also specify the threshold applied to PVS segmentations (usually = 0.5) and cluster_filter applied to PVS clusters.
@@ -18,37 +18,18 @@ BG_num_voxels - Number of voxels in the BG region
 
 @autor: iastafeva
 @date: 19/06/2023
-'''
-
-# %%
-from nipype import config, logging  
-from nipype.pipeline.engine import Workflow, Node, MapNode
-from nipype.interfaces.utility import IdentityInterface
-from nipype.interfaces.io import DataGrabber
-from nipype.interfaces.utility import IdentityInterface, Function
-import os
-import os.path as op
-import json
-import os
+"""
 
 
-SUBJECTFILE =  '/extra/SHIVA/scripts/swoomed/subjects.txt'
-
-config_json = '/extra/SHIVA/scripts/swoomed/PVS_config.json'
-
-
-# %%
-def quantify_clusters(img, bg_mask, thr, cl_filter ,out_csv='cluster_summary_pvs.csv'):
-    '''
+def quantify_clusters(img, bg_mask, thr, cl_filter):
+    """
     Given the image, count the number of clusters
     and voxels in the img in BG region and DWM regions
 
-    Returns out_csv if file name is provided.
-    '''
-    import os.path as op
+    Returns a pandas data frame.
+    """
     import numpy as np
     import pandas as pd
-    import nibabel
     from skimage import measure
     
     # load WMH predictions    
@@ -59,8 +40,8 @@ def quantify_clusters(img, bg_mask, thr, cl_filter ,out_csv='cluster_summary_pvs
     bg_mask = bg_mask.reshape(bg_mask.shape[0:3])
     
     #Threshold & Binarize
-    img[img<thr] = 0
-    img[img>=thr] = 1
+    img[img < thr] = 0
+    img[img >= thr] = 1
 
     # Start quantification
     quant_data = {}
@@ -88,7 +69,7 @@ def quantify_clusters(img, bg_mask, thr, cl_filter ,out_csv='cluster_summary_pvs
             winner = np.array([np.random.choice(winner)])   
         
         if winner ==0:
-            quant_data['DWM num clusters']+=1
+            quant_data['DWM num clusters'] += 1
             quant_data['DWM num voxels'] += len(all_clust[all_clust==c])
 
             
@@ -101,12 +82,11 @@ def quantify_clusters(img, bg_mask, thr, cl_filter ,out_csv='cluster_summary_pvs
             winner = np.array([np.random.choice(winner)])   
         
         if winner !=0:
-            quant_data['BG num clusters']+=1    
+            quant_data['BG num clusters'] += 1    
             quant_data['BG num voxels'] += len(all_clust[all_clust==c])
             
     quant_data['Total num clusters'] = [quant_data['DWM num clusters'] + quant_data['BG num clusters']]
     quant_data['Total num voxels'] = [quant_data['DWM num voxels'] + quant_data['BG num voxels']]
      
     out_df = pd.DataFrame(quant_data)
-   
     return out_df

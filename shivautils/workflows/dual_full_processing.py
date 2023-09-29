@@ -3,20 +3,24 @@
    learning, with accessory image coregistation to cropped space (through ANTS). 
    This also handles back-registration from conformed-crop to t1.
    """
-from shivautils.stats import save_histogram, overlay_brainmask
-from shivautils.isocontour_board import create_edges
-from shivautils.interfaces.image import (Threshold, Normalization,
-                                         Conform, Crop, ApplyMask, MetricsPredictions,
-                                         JoinMetricsPredictions, SummaryReport)
-from shivautils.interfaces.shiva import PredictDirect, SynthSeg
+import os
+import sys
+
+
 from nipype.interfaces.ants import ApplyTransforms
 from nipype.interfaces.utility import IdentityInterface
 from nipype.interfaces.io import DataGrabber, DataSink
 from nipype.interfaces import ants
 from nipype.interfaces.utility import Function
 from nipype.pipeline.engine import Node, Workflow, JoinNode
-import os
-import sys
+
+from shivautils.stats import save_histogram, overlay_brainmask
+from shivautils.postprocessing.isocontour import create_edges
+from shivautils.interfaces.image import (Threshold, Normalization,
+                                         Conform, Crop, ApplyMask, MetricsPredictions,
+                                         JoinMetricsPredictions, SummaryReport)
+from shivautils.interfaces.shiva import PredictDirect, SynthSeg
+
 sys.path.append('/mnt/devt')
 
 

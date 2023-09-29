@@ -19,11 +19,7 @@ PVWMH - Cluster in Min_distance_to_Latventricle_mask <= 2 mm
 @author: iastafeva
 @date: 2022-12-06
 """
-from nipype import config, logging  
-from nipype.pipeline.engine import Workflow, Node
-from nipype.interfaces.utility import IdentityInterface
-from nipype.interfaces.io import DataGrabber, DataSink
-from nipype.interfaces.utility import IdentityInterface, Function
+
 
 
 def metrics_clusters_latventricles(latventricle_distance_maps, wmh, subject_id, threshold=0.2):

@@ -1,5 +1,5 @@
-"""Nipype workflow for image conformation and preparation before deep
-   learning"""
+"""Nipype workflow for quick image preparation before deep
+   learning:  T1 only"""
 import os
 
 from nipype.pipeline.engine import Node, Workflow

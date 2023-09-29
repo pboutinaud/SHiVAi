@@ -9,7 +9,7 @@ from nipype.interfaces.base import (traits, File, TraitedSpec,
                                     InputMultiPath, OutputMultiPath)
 from nipype.interfaces.spm.base import (SPMCommand, SPMCommandInputSpec)
 from nipype.utils.filemanip import ensure_list, simplify_list
-from shivautils.interfaces.singularity_interface import CommandLine, SingularityCommandLine, SingularityInputSpec, CommandLineInputSpec
+from shivautils.interfaces.singularity import CommandLine, SingularityCommandLine, SingularityInputSpec, CommandLineInputSpec
 
 
 # workflow specific class

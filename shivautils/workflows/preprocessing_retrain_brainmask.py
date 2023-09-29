@@ -6,14 +6,12 @@
 import os
 
 from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces import ants
-from nipype.interfaces.io import DataGrabber, DataSink
+from nipype.interfaces.io import DataGrabber
 from nipype.interfaces.utility import IdentityInterface
 from nipype.interfaces.ants import N4BiasFieldCorrection
 from nipype.interfaces.fsl import BET
 
-from shivautils.interfaces.image import (Threshold, Normalization,
-                            Conform, Crop)
+from shivautils.interfaces.image import (Conform, Crop)
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],

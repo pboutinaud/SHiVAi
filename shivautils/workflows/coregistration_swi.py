@@ -3,6 +3,7 @@
 resulting image is coregistered to T1 and ready for use in predictor. Meant to be used with SWI / T2GRE images.
 """
 import os
+
 from nipype.interfaces import ants
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.io import DataGrabber

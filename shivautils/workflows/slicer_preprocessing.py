@@ -3,9 +3,9 @@
 import os
 
 from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces.io import DataGrabber, DataSink
+from nipype.interfaces.io import DataSink
 from nipype.interfaces.utility import IdentityInterface, Function
-from pyplm.interfaces.shiva import Predict
+from shivautils.interfaces.shiva import Predict
 
 from shivautils.interfaces.image import (Threshold, Normalization,
                             Conform, Crop, DataGrabberSlicer)

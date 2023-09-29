@@ -6,7 +6,7 @@
 from nipype.pipeline.engine import Workflow, Node
 from nipype.interfaces.utility import IdentityInterface
 from nipype.interfaces.io import DataGrabber
-from pyplm.interfaces.shiva import Predict 
+from shivautils.interfaces.shiva import Predict 
 import os
 
 
@@ -45,7 +45,7 @@ def genWorkflow(**kwargs):
     # SHIVA VRS predictions
     pvs = Node(Predict(), name="pvs")
     pvs.inputs.snglrt_enable_nvidia = True
-    pvs.inputs.snglrt_bind = [(kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),('`pwd`','/mnt/data','rw'),('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),('/bigdata/resources/gcc-10.1.0','/mnt/gcc', 'ro'),('/bigdata/yrio/Documents/modele/ReferenceModels','/mnt/model','ro')]
+    pvs.inputs.snglrt_bind = [(kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),('`pwd`','/mnt/data','rw'),('/bigdata/yrio/Documents/modele/ReferenceModels','/mnt/model','ro')]
     pvs.inputs.verbose = True
     pvs.inputs.snglrt_image = '/homes_unix/yrio/singularity/predict_2.sif'
     pvs.inputs.model = '/mnt/model'

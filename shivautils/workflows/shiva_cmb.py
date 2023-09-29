@@ -4,12 +4,14 @@
 @author: Pierre-Yves Herve
 @contact: pyherve@fealinx.com
 """
+import os
+
 from nipype.pipeline.engine import Workflow, Node
 from nipype.interfaces.utility import IdentityInterface
 from nipype.interfaces.io import DataGrabber
-from pyplm.interfaces.shiva import Predict
 from nipype.interfaces.ants import ApplyTransforms
-import os
+
+from shivautils.interfaces.shiva import Predict
 
 
 # dummy args are a set of dummy parameters. The real kwargs come
@@ -45,7 +47,7 @@ def genWorkflow(**kwargs):
     # SHIVA cerebral microbleed predictions
     cmb = Node(Predict(), name="cmb")
     cmb.inputs.snglrt_enable_nvidia = True
-    cmb.inputs.snglrt_bind = [(kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),('`pwd`','/mnt/data','rw'),('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),('/bigdata/yrio/Documents/modele/ReferenceModels','/mnt/model', 'ro')]
+    cmb.inputs.snglrt_bind = [(kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),('`pwd`','/mnt/data','rw'),('/bigdata/yrio/Documents/modele/ReferenceModels','/mnt/model', 'ro')]
     cmb.inputs.verbose = True
     cmb.inputs.snglrt_image = '/homes_unix/yrio/singularity/predict_2.sif'
     cmb.inputs.model = '/mnt/model'

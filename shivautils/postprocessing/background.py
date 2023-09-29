@@ -1,5 +1,5 @@
-'''
-A script for creating BGs using Freesurfer segmentations. The BG is made by creating a box around the BG up to the insula.
+"""
+A function for creating BGs using Freesurfer segmentations. The BG is made by creating a box around the BG up to the insula.
 INPUT: You must provide the createBGsliceMask function with:
 
 -The path to the nifti image segmented by Freesurfer (e.g. aparc+aseg_out.nii.gz).
@@ -9,21 +9,16 @@ OUTPUT:
  
 @author: atsuchida, iastafeva
 @date: 2023-06-08
-'''
-
-# %%
-from nipype import config, logging  
-from nipype.pipeline.engine import  Node
-from nipype.interfaces.utility import  Function
+"""
 
 
-def createBGsliceMask(path_to_freesurfer_segm, out_fname_root=''):
-    '''
+def create_background_slice_mask(path_to_freesurfer_segm, out_fname_root=''):
+    """
     A function that takes freesurfer segmentations to create 
     BG slice mask (for VRS region classification). 
     
     Note that it will include some regions overlapping with hipp/midbrain.
-    '''
+    """
     import os.path as op
     import numpy as np
     import nibabel as nib
@@ -136,7 +131,4 @@ def createBGsliceMask(path_to_freesurfer_segm, out_fname_root=''):
         bg_box[ins_wall == 1] = 0
 
     bg_roi_nii = nib.Nifti1Image(bg_box, path_to_freesurfer_segm.affine, path_to_freesurfer_segm.header)
-    out_fname = '{}_BG_slice.nii.gz'.format(out_fname_root) if out_fname_root else 'BG_slice.nii.gz'
-
     return bg_roi_nii
-   
