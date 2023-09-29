@@ -15,12 +15,14 @@ https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.
 
 From this folder, logged in as root (or sudo) use the following command to build the singularity image file:
 
-singularity build preproc_tensorflow.sif singularity_tf.recipe
+    singularity build preproc_tensorflow.sif singularity_tf.recipe
 
-%files
-    */shivautils /usr/local/src/shivautils
+At the end of the singularity file, adapt the *files* section as needed:
 
-* path to your local 'shivautils' source code folder path 
+    %files
+        */shivautils /usr/local/src/shivautils
+
+* replace with path to your local 'shivautils' source code folder
 
 
 3. Run the command line
@@ -31,12 +33,12 @@ In your python environment, install the *pyyaml* package with:
 
 **run_shiva.py** command line arguments:
 
-
---in (path): path of the input dataset
---out (path): the path where the generated files will be output
---input_type (str):  Type of structure file, way to capture and manage nifti files : standard, BIDS or json
--- model (path): Path to model descriptor
---config (path): File with configuration options for workflow processing images, (path_default : /homes_unix/yrio/Documents/Script_predict/container_preproc_predict/config_wmh.yml)
+    --in (path): path of the input dataset
+    --out (path): the path where the generated files will be output
+    --input_type (str):  Type of structure file, way to capture and manage nifti files : standard, BIDS or json
+    -- model (path): Path to model descriptor
+    --config (path): File with configuration options for workflow processing images, (path_default : /homes_unix/yrio/Documents/Script_predict/     
+                     container_preproc_predict/config_wmh.yml)
 
 
 Command line example : 
@@ -51,6 +53,7 @@ SLURM job manager command line example :
 
 Option configuration in yaml file :
 
+
     --model_path (path) : structure mount_file
     --singularity_image (path): path of singularity container file
     --brainmask_descriptor (path): path to brain_mask descriptor tensorflow model
@@ -62,7 +65,8 @@ Option configuration in yaml file :
     --final_dimensions (str) : Final image array size in i, j, k. Example : '160 214 176'.
     --voxels_size (str) : Voxel size of the final image, example : '1.0 1.0 1.0' --grab : data grabber
     --SWI (str) : if a second workflow for CMB is required, example : 'True' or 'False' 
-    --interpolation (str): Way of upsamples images, default interpolation : 'WelchWindowedSinc', others interpolations  possibility : 'Linear', 'NearestNeighbor', 'CosineWindowedSinc', 'HammingWindowedSinc', 'LanczosWindowedSinc', 'BSpline', 'MultiLabel', 'Gaussian', 'GenericLabel'
+    --interpolation (str): for image resampling with ANTS, default interpolation : 'WelchWindowedSinc', others interpolations  possibility : 'Linear',     
+                           'NearestNeighbor', 'CosineWindowedSinc', 'HammingWindowedSinc', 'LanczosWindowedSinc', 'BSpline', 'MultiLabel', 'Gaussian', 'GenericLabel'
 
 
 Example of BIDS input structure folders (see the BIDS staging specification):
@@ -100,9 +104,9 @@ Example of JSON-structured input :
 {
     "parameters": {
         "out_dir": "/mnt/data/output",
-        "brainmask_descriptor": "/homes_unix/yrio/Documents/modele/ReferenceModels/model_info/brainmask/model_info.json",
-        "WMH_descriptor": "/homes_unix/yrio/Documents/modele/ReferenceModels/model_info/T1.FLAIR-WMH/model_info.json",
-        "PVS_descriptor": "/homes_unix/yrio/Documents/modele/ReferenceModels/model_info/T1.FLAIR-PVS/model_info.json",
+        "brainmask_descriptor": "~/ReferenceModels/model_info/brainmask/model_info.json",
+        "WMH_descriptor": "~/ReferenceModels/model_info/T1.FLAIR-WMH/model_info.json",
+        "PVS_descriptor": "~/ReferenceModels/model_info/T1.FLAIR-PVS/model_info.json",
         "percentile": 99.0,
         "final_dimensions": [
             160,
@@ -115,7 +119,7 @@ Example of JSON-structured input :
             1.0
         ]
     },
-    "files_dir": "/homes_unix/yrio/Documents/data/TestSetGlobal/PVS_WMH/T1-FLAIR_raw",
+    "files_dir": "~/data/TestSetGlobal/PVS_WMH/T1-FLAIR_raw",
     "all_files": {
         "21": {
             "t1": "21_T1_raw.nii.gz",
