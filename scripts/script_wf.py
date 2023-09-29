@@ -158,9 +158,9 @@ def main():
               'WMH_DESCRIPTOR': wmh_descriptor,
               'PVS_DESCRIPTOR': pvs_descriptor,
               'CMB_DESCRIPTOR': cmb_descriptor,
-              'CONTAINER': True,
+              'CONTAINER': True,  # TODO: Change so that we can use this script without singularity
               'MODELS_PATH': args.model,
-              'ANONYMIZED': False,
+              'ANONYMIZED': False,  # TODO: Why though?
               'SWI': SWI,
               'INTERPOLATION': args.interpolation,
               'PERCENTILE': args.percentile,
@@ -269,7 +269,7 @@ def main():
                                                              'CDG_IJK': os.path.join(out_dir, wf.name, '_subject_id_%s/crop/cdg_ijk.txt'),
                                                              'sum_preproc_wf': os.path.join(out_dir, wf.name, 'graph.svg')}
 
-    wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+    wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}  # TODO: Is there even the possibility that it is True?
     wf_post.run(plugin='Linear')
 
     if SWI == 'True':

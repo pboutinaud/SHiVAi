@@ -37,7 +37,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
 
-    if kwargs['CONTAINER'] == True:
+    if kwargs['CONTAINER'] == True:  # BUG? Shouldn't it be False? (because PredictSingularity is used in the 'else')
         predict_pvs = Node(Predict(), name="predict_pvs")
         predict_pvs.inputs.model = kwargs['MODELS_PATH']
     else:
