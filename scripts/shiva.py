@@ -114,7 +114,7 @@ def main():
                         help='cmb descriptor file path',
                         required=True)
 
-    GRAB_PATTERN = '%s/%s/*.nii*'
+    # GRAB_PATTERN = '%s/%s/*.nii*'  # Now directly specified in the workflow generators
     args = parser.parse_args()
 
     SWI = str(args.SWI)
@@ -154,157 +154,71 @@ def main():
             cmb_descriptor = None
 
     wfargs = {'SUBJECT_LIST': subject_list,
-              'DATA_DIR': subject_directory,
-              'BASE_DIR': out_dir,
+              'DATA_DIR': subject_directory,  # Default base_directory for the dataGrabber
+              'BASE_DIR': out_dir,  # Default base_dir for each workflow
+              'INPUT_TYPE': args.input_type,
+              'WF_DIRS': {'preproc': 'shiva_preprocessing_dual', 'pred': 'dual_predictor_workflow'},  # Name of the preprocessing wf, used to link wf for now
               'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
               'WMH_DESCRIPTOR': wmh_descriptor,
               'PVS_DESCRIPTOR': pvs_descriptor,
               'CMB_DESCRIPTOR': cmb_descriptor,
               'CONTAINER': True,  # TODO: Change so that we can use this script without singularity
               'MODELS_PATH': args.model,
-              'ANONYMIZED': False,  # TODO: Why though?
+              'ANONYMIZED': False,  # TODO: Why False though?
               'SWI': SWI,
               'INTERPOLATION': args.interpolation,
               'PERCENTILE': args.percentile,
               'THRESHOLD': args.threshold,
               'THRESHOLD_CLUSTERS': args.threshold_clusters,
               'IMAGE_SIZE': tuple(args.final_dimensions),
-              'RESOLUTION': tuple(args.voxels_size)}
+              'RESOLUTION': tuple(args.voxels_size),
+              'ORIENTATION': 'RAS'}
 
     if not (os.path.exists(out_dir) and os.path.isdir(out_dir)):
         os.makedirs(out_dir)
     print(f'Working directory set to: {out_dir}')
 
-    wf = genWorkflow(**wfargs)
-
+    wf_preproc = genWorkflow(**wfargs)
     wf_predict = genWorkflowPredict(**wfargs)
     wf_post = genWorkflowPost(**wfargs)
 
-    wf.base_dir = out_dir
-    wf_predict.base_dir = out_dir
-    wf_post.base_dir = out_dir
+    # If necessary to modify defaults:
+    # wf_preproc.get_node('conform').inputs.dimensions = (256, 256, 256)
+    # wf_preproc.get_node('conform').inputs.voxel_size = tuple(args.voxels_size)
+    # wf_preproc.get_node('conform').inputs.orientation = 'RAS'
+    # wf_preproc.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
 
     if SWI == 'True':
-        swi_wf = genWorkflowSWI(**wfargs)
+        wfargs.update({'WF_SWI_DIRS': {'preproc': 'shiva_preprocessing_swi', 'pred': 'SWI_predictor_workflow'}})
+        swi_wf_preproc = genWorkflowSWI(**wfargs)
         swi_wf_predict = genWorkflowPredictSWI(**wfargs)
         swi_wf_post = genWorkflowPostSWI(**wfargs)
-        swi_wf.base_dir = out_dir
-        swi_wf_predict.base_dir = out_dir
-        swi_wf_post.base_dir = out_dir
 
-    if args.input_type == 'standard' or args.input_type == 'json':
-        wf.get_node('dataGrabber').inputs.base_directory = subject_directory
-        wf.get_node('dataGrabber').inputs.template = GRAB_PATTERN
-        wf.get_node('dataGrabber').inputs.template_args = {'t1': [['subject_id', 't1']],
-                                                           'flair': [['subject_id', 'flair']]}
-        if SWI == 'True':
-            swi_wf.get_node('dataGrabber').inputs.base_directory = args.input
-            swi_wf.get_node('dataGrabber').inputs.template = GRAB_PATTERN
-            swi_wf.get_node('dataGrabber').inputs.template_args = {'SWI': [['subject_id', 'SWI']]}
-
-            swi_wf.get_node('conform').inputs.dimensions = (256, 256, 256)
-            swi_wf.get_node('conform').inputs.voxel_size = tuple(args.voxels_size)
-            swi_wf.get_node('conform').inputs.orientation = 'RAS'
-            swi_wf.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
-
-    wf.get_node('conform').inputs.dimensions = (256, 256, 256)
-    wf.get_node('conform').inputs.voxel_size = tuple(args.voxels_size)
-    wf.get_node('conform').inputs.orientation = 'RAS'
-    wf.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
+        # If necessary to modify defaults:
+        # swi_wf_preproc.get_node('conform').inputs.dimensions = (256, 256, 256)
+        # swi_wf_preproc.get_node('conform').inputs.voxel_size = tuple(args.voxels_size)
+        # swi_wf_preproc.get_node('conform').inputs.orientation = 'RAS'
+        # swi_wf_preproc.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
 
     if args.gpu:
-        wf.get_node('pre_brain_mask').inputs.gpu_number = args.gpu
-        wf.get_node('post_brain_mask').inputs.gpu_number = args.gpu
+        wf_preproc.get_node('pre_brain_mask').inputs.gpu_number = args.gpu
+        wf_preproc.get_node('post_brain_mask').inputs.gpu_number = args.gpu
 
-    if args.input_type == 'BIDS':
-        wf.get_node('dataGrabber').inputs.base_directory = args.input
-        wf.get_node('dataGrabber').inputs.template = GRAB_PATTERN
-        wf.get_node('dataGrabber').inputs.template_args = {'t1': [['subject_id', 'subject_id']],
-                                                           'flair': [['subject_id', 'subject_id']]}
-        wf.get_node('dataGrabber').inputs.field_template = {'t1': '%s/anat/%s_T1_raw.nii.gz',
-                                                            'flair': '%s/anat/%s_FLAIR_raw.nii.gz'}
-        if SWI == 'True':
-            swi_wf.get_node('dataGrabber').inputs.base_directory = args.input
-            swi_wf.get_node('dataGrabber').inputs.template = '%s/%s/*.nii*'
-            swi_wf.get_node('dataGrabber').inputs.template_args = {'SWI': [['subject_id', 'subject_id']]}
-            swi_wf.get_node('dataGrabber').inputs.field_template = {'SWI': '%s/anat/%s_SWI_raw.nii.gz'}
+    wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+    wf_preproc.run(plugin='Linear')
 
-            swi_wf.get_node('conform').inputs.dimensions = (256, 256, 256)
-            swi_wf.get_node('conform').inputs.voxel_size = tuple(args.voxels_size)
-            swi_wf.get_node('conform').inputs.orientation = 'RAS'
-            swi_wf.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
-
-    wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-    wf.run(plugin='Linear')
-
-    wf_predict.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf.name)
-    wf_predict.get_node('dataGrabber').inputs.template = GRAB_PATTERN
-    wf_predict.get_node('dataGrabber').inputs.template_args = {'t1': [['subject_id', 'subject_id']],
-                                                               'flair': [['subject_id']]}
-    wf_predict.get_node('dataGrabber').inputs.field_template = {'t1': '_subject_id_%s/t1_final_intensity_normalization/%s_T1_raw_trans_img_normalized.nii.gz',
-                                                                'flair': '_subject_id_%s/flair_final_intensity_normalization/t1_to_flair__Warped_img_normalized.nii.gz'}
-
+    # wf_predict.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_preproc.name)
     wf_predict.run(plugin='Linear')
 
-    wf_post.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_predict.name)
-    wf_post.get_node('dataGrabber').inputs.template = GRAB_PATTERN
-    wf_post.get_node('dataGrabber').inputs.template_args = {'segmentation_pvs': [['subject_id']],
-                                                            'segmentation_wmh': [['subject_id']],
-                                                            'brainmask': [['subject_id']],
-                                                            'pre_brainmask': [['subject_id']],
-                                                            'T1_cropped': [['subject_id', 'subject_id']],
-                                                            'FLAIR_cropped': [['subject_id']],
-                                                            'T1_conform': [['subject_id', 'subject_id']],
-                                                            'BBOX1': [['subject_id']],
-                                                            'BBOX2': [['subject_id']],
-                                                            'CDG_IJK': [['subject_id']],
-                                                            'sum_preproc_wf': [[]]}
-    wf_post.get_node('dataGrabber').inputs.field_template = {'segmentation_pvs': '_subject_id_%s/predict_pvs/pvs_map.nii.gz',
-                                                             'segmentation_wmh': '_subject_id_%s/predict_wmh/wmh_map.nii.gz',
-                                                             'brainmask': os.path.join(out_dir, wf.name, '_subject_id_%s/hard_post_brain_mask/post_brain_mask_thresholded.nii.gz'),
-                                                             'pre_brainmask': os.path.join(out_dir, wf.name, '_subject_id_%s/hard_brain_mask/pre_brain_maskresampled_thresholded.nii.gz'),
-                                                             'T1_cropped': os.path.join(out_dir, wf.name, '_subject_id_%s/t1_final_intensity_normalization/%s_T1_raw_trans_img_normalized.nii.gz'),
-                                                             'FLAIR_cropped': os.path.join(out_dir, wf.name, '_subject_id_%s/flair_final_intensity_normalization/t1_to_flair__Warped_img_normalized.nii.gz'),
-                                                             'T1_conform': os.path.join(out_dir, wf.name, '_subject_id_%s/conform/%s_T1_rawresampled.nii.gz'),
-                                                             'BBOX1': os.path.join(out_dir, wf.name, '_subject_id_%s/crop/bbox1.txt'),
-                                                             'BBOX2': os.path.join(out_dir, wf.name, '_subject_id_%s/crop/bbox2.txt'),
-                                                             'CDG_IJK': os.path.join(out_dir, wf.name, '_subject_id_%s/crop/cdg_ijk.txt'),
-                                                             'sum_preproc_wf': os.path.join(out_dir, wf.name, 'graph.svg')}
+    # wf_post.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_predict.name)
 
     wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}  # TODO: Is there even the possibility that it is True?
     wf_post.run(plugin='Linear')
 
     if SWI == 'True':
-        swi_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-        swi_wf.run(plugin='Linear')
-
-        swi_wf_predict.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, swi_wf.name)
-        swi_wf_predict.get_node('dataGrabber').inputs.template = GRAB_PATTERN
-        swi_wf_predict.get_node('dataGrabber').inputs.template_args = {'SWI': [['subject_id']]}
-        swi_wf_predict.get_node('dataGrabber').inputs.field_template = {'SWI': '_subject_id_%s/final_intensity_normalization/*.nii.gz'}
-
+        swi_wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+        swi_wf_preproc.run(plugin='Linear')
         swi_wf_predict.run(plugin='Linear')
-
-        swi_wf_post.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, swi_wf_predict.name)
-        swi_wf_post.get_node('dataGrabber').inputs.template = GRAB_PATTERN
-        swi_wf_post.get_node('dataGrabber').inputs.template_args = {'segmentation_cmb': [['subject_id']],
-                                                                    'brainmask': [['subject_id']],
-                                                                    'pre_brainmask': [['subject_id']],
-                                                                    'SWI_cropped': [['subject_id']],
-                                                                    'SWI_conform': [['subject_id']],
-                                                                    'BBOX1': [['subject_id']],
-                                                                    'BBOX2': [['subject_id']],
-                                                                    'CDG_IJK': [['subject_id']],
-                                                                    'sum_preproc_wf': [[]]}
-        swi_wf_post.get_node('dataGrabber').inputs.field_template = {'segmentation_cmb': '_subject_id_%s/predict_cmb/cmb_map.nii.gz',
-                                                                     'brainmask': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/hard_post_brain_mask/post_brain_mask_thresholded.nii.gz'),
-                                                                     'pre_brainmask': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/hard_brain_mask/pre_brain_maskresampled_thresholded.nii.gz'),
-                                                                     'SWI_cropped': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/final_intensity_normalization/*.nii.gz'),
-                                                                     'SWI_conform': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/conform/*.nii.gz'),
-                                                                     'BBOX1': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/crop/bbox1.txt'),
-                                                                     'BBOX2': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/crop/bbox2.txt'),
-                                                                     'CDG_IJK': os.path.join(out_dir, swi_wf.name, '_subject_id_%s/crop/cdg_ijk.txt'),
-                                                                     'sum_preproc_wf': os.path.join(out_dir, swi_wf.name, 'graph.svg')}
 
         swi_wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
         swi_wf_post.run(plugin='Linear')

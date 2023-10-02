@@ -8,7 +8,6 @@ from nipype.interfaces.utility import IdentityInterface
 from shivautils.interfaces.shiva import PredictSingularity, Predict
 
 
-
 dummy_args = {'SUBJECT_LIST': ['BIOMIST::SUBJECT_LIST'],
               'BASE_DIR': os.path.normpath(os.path.expanduser('~'))}
 
@@ -19,20 +18,24 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow("SWI_predictor_workflow")
+    workflow = Workflow(kwargs['WF_SWI_DIRS']['pred'])
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
     subject_list = Node(IdentityInterface(
-                            fields=['subject_id'],
-                            mandatory_inputs=True),
-                            name="subject_list")
+        fields=['subject_id'],
+        mandatory_inputs=True),
+        name="subject_list")
     subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
     # file selection
     datagrabber = Node(DataGrabber(infields=['subject_id'],
                                    outfields=['SWI']),
                        name='dataGrabber')
+    datagrabber.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], kwargs['WF_SWI_DIRS']['preproc'])
+    datagrabber.inputs.template = '%s/%s/*.nii.gz'
+    datagrabber.inputs.field_template = {'SWI': '_subject_id_%s/final_intensity_normalization/*.nii.gz'}
+    datagrabber.inputs.template_args = {'SWI': [['subject_id']]}
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
 
@@ -44,9 +47,9 @@ def genWorkflow(**kwargs) -> Workflow:
     else:
         predict_cmb = Node(PredictSingularity(), name="predict_cmb")
         predict_cmb.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 4 --gpus 1'}
-        predict_cmb.inputs.snglrt_bind =  [
-            (kwargs['BASE_DIR'],kwargs['BASE_DIR'],'rw'),
-            ('`pwd`','/mnt/data','rw'),
+        predict_cmb.inputs.snglrt_bind = [
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            ('`pwd`', '/mnt/data', 'rw'),
             (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
         predict_cmb.inputs.model = '/mnt/model'
         predict_cmb.inputs.snglrt_enable_nvidia = True

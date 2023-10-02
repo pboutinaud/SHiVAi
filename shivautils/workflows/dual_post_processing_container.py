@@ -41,6 +41,7 @@ def genWorkflow(**kwargs) -> Workflow:
         name="subject_list")
     subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
+    preprocDir = kwargs['WF_DIRS']['preproc']
     # file selection
     datagrabber = Node(DataGrabber(infields=['subject_id'],
                                    outfields=['segmentation_pvs', 'segmentation_wmh', 'brainmask',
@@ -48,6 +49,30 @@ def genWorkflow(**kwargs) -> Workflow:
                                               'T1_conform', 'CDG_IJK', 'BBOX1', 'BBOX2',
                                               'sum_preproc_wf']),
                        name='dataGrabber')
+    datagrabber.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], kwargs['WF_DIRS']['pred'])
+    datagrabber.inputs.template = '%s/%s/*.nii.gz'
+    datagrabber.inputs.template_args = {'segmentation_pvs': [['subject_id']],
+                                        'segmentation_wmh': [['subject_id']],
+                                        'brainmask': [['subject_id']],
+                                        'pre_brainmask': [['subject_id']],
+                                        'T1_cropped': [['subject_id', 'subject_id']],
+                                        'FLAIR_cropped': [['subject_id']],
+                                        'T1_conform': [['subject_id', 'subject_id']],
+                                        'BBOX1': [['subject_id']],
+                                        'BBOX2': [['subject_id']],
+                                        'CDG_IJK': [['subject_id']],
+                                        'sum_preproc_wf': [[]]}
+    datagrabber.inputs.field_template = {'segmentation_pvs': '_subject_id_%s/predict_pvs/pvs_map.nii.gz',
+                                         'segmentation_wmh': '_subject_id_%s/predict_wmh/wmh_map.nii.gz',
+                                         'brainmask': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/hard_post_brain_mask/post_brain_mask_thresholded.nii.gz'),
+                                         'pre_brainmask': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/hard_brain_mask/pre_brain_maskresampled_thresholded.nii.gz'),
+                                         'T1_cropped': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/t1_final_intensity_normalization/%s_T1_raw_trans_img_normalized.nii.gz'),
+                                         'FLAIR_cropped': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/flair_final_intensity_normalization/t1_to_flair__Warped_img_normalized.nii.gz'),
+                                         'T1_conform': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/conform/%s_T1_rawresampled.nii.gz'),
+                                         'BBOX1': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/crop/bbox1.txt'),
+                                         'BBOX2': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/crop/bbox2.txt'),
+                                         'CDG_IJK': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/crop/cdg_ijk.txt'),
+                                         'sum_preproc_wf': os.path.join(kwargs['BASE_DIR'], preprocDir, 'graph.svg')}
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
 

@@ -30,7 +30,7 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow("shiva_preprocessing_swi")
+    workflow = Workflow(kwargs['WF_SWI_DIRS']['preproc'])
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
@@ -44,6 +44,14 @@ def genWorkflow(**kwargs) -> Workflow:
     datagrabber = Node(DataGrabber(infields=['subject_id'],
                                    outfields=['SWI']),
                        name='dataGrabber')
+    datagrabber.inputs.base_directory = kwargs['DATA_DIR']
+    datagrabber.inputs.template = '%s/%s/*.nii.gz'
+    if kwargs['INPUT_TYPE'] in ['standard', 'json']:
+        datagrabber.inputs.field_template = {'SWI': '%s/%s/*_raw.nii.gz'}
+        datagrabber.inputs.template_args = {'SWI': [['subject_id', 'SWI']]}
+    if kwargs['INPUT_TYPE'] == 'BIDS':
+        datagrabber.inputs.template_args = {'SWI': [['subject_id', 'subject_id']]}
+        datagrabber.inputs.field_template = {'SWI': '%s/anat/%s_SWI_raw.nii.gz'}
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
 
@@ -54,7 +62,7 @@ def genWorkflow(**kwargs) -> Workflow:
                    name="conform")
     conform.inputs.dimensions = (256, 256, 256)
     conform.inputs.voxel_size = kwargs['RESOLUTION']
-    conform.inputs.orientation = 'RAS'
+    conform.inputs.orientation = kwargs['ORIENTATION']
 
     workflow.connect(datagrabber, 'SWI', conform, 'img')
 

@@ -18,7 +18,7 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow("dual_predictor_workflow")
+    workflow = Workflow(kwargs['WF_DIRS']['pred'])
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
@@ -32,6 +32,13 @@ def genWorkflow(**kwargs) -> Workflow:
     datagrabber = Node(DataGrabber(infields=['subject_id'],
                                    outfields=['t1', 'flair']),
                        name='dataGrabber')
+    datagrabber.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], kwargs['WF_DIRS']['preproc'])
+    datagrabber.inputs.template = '%s/%s/*.nii.gz'
+    datagrabber.inputs.field_template = {
+        't1': '_subject_id_%s/t1_final_intensity_normalization/%s_T1_raw_trans_img_normalized.nii.gz',
+        'flair': '_subject_id_%s/flair_final_intensity_normalization/t1_to_flair__Warped_img_normalized.nii.gz'}
+    datagrabber.inputs.template_args = {'t1': [['subject_id', 'subject_id']],
+                                        'flair': [['subject_id']]}
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
 
@@ -57,7 +64,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(datagrabber, "t1", predict_pvs, "t1")
     workflow.connect(datagrabber, "flair", predict_pvs, "flair")
 
-    if kwargs['CONTAINER'] == True:
+    if kwargs['CONTAINER'] == True:  # BUG? Shouldn't it be False? (because PredictSingularity is used in the 'else')
         predict_wmh = Node(Predict(), name="predict_wmh")
         predict_wmh.inputs.model = kwargs['MODELS_PATH']
 

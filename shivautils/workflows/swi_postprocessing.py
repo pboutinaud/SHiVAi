@@ -51,6 +51,27 @@ def genWorkflow(**kwargs) -> Workflow:
                                               'SWI_conform', 'CDG_IJK', 'BBOX1', 'BBOX2',
                                               'sum_preproc_wf']),
                        name='dataGrabber')
+    datagrabber.inputs.base_directory = os.path.join(kwargs['DATA_DIR'], kwargs['WF_SWI_DIRS']['pred'])
+    preprocDir = kwargs['WF_SWI_DIRS']['preproc']
+    datagrabber.inputs.template = '%s/%s/*.nii.gz'
+    datagrabber.inputs.field_template = {'segmentation_cmb': '_subject_id_%s/predict_cmb/cmb_map.nii.gz',
+                                         'brainmask': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/hard_post_brain_mask/post_brain_mask_thresholded.nii.gz'),
+                                         'pre_brainmask': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/hard_brain_mask/pre_brain_maskresampled_thresholded.nii.gz'),
+                                         'SWI_cropped': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/final_intensity_normalization/*.nii.gz'),
+                                         'SWI_conform': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/conform/*.nii.gz'),
+                                         'BBOX1': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/crop/bbox1.txt'),
+                                         'BBOX2': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/crop/bbox2.txt'),
+                                         'CDG_IJK': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/crop/cdg_ijk.txt'),
+                                         'sum_preproc_wf': os.path.join(kwargs['BASE_DIR'], preprocDir, 'graph.svg')}
+    datagrabber.inputs.template_args = {'segmentation_cmb': [['subject_id']],
+                                        'brainmask': [['subject_id']],
+                                        'pre_brainmask': [['subject_id']],
+                                        'SWI_cropped': [['subject_id']],
+                                        'SWI_conform': [['subject_id']],
+                                        'BBOX1': [['subject_id']],
+                                        'BBOX2': [['subject_id']],
+                                        'CDG_IJK': [['subject_id']],
+                                        'sum_preproc_wf': [[]]}
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
 

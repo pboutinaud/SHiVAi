@@ -32,7 +32,7 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow("shiva_preprocessing_dual")
+    workflow = Workflow(kwargs['WF_DIRS']['preproc'])
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
@@ -46,12 +46,21 @@ def genWorkflow(**kwargs) -> Workflow:
     datagrabber = Node(DataGrabber(infields=['subject_id'],
                                    outfields=['t1', 'flair']),
                        name='dataGrabber')
-    datagrabber.inputs.base_directory = kwargs['BASE_DIR']
+    datagrabber.inputs.base_directory = kwargs['DATA_DIR']
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
-    datagrabber.inputs.template = '%s/%s/*'
-    datagrabber.inputs.template_args = {'t1': [['subject_id', 't1']],
-                                        'flair': [['subject_id', 'flair']]}
+    datagrabber.inputs.template = '%s/%s/*.nii.gz'
+    if kwargs['INPUT_TYPE'] in ['standard', 'json']:
+        datagrabber.inputs.field_template = {'t1': '%s/%s/*_raw.nii.gz',
+                                             'flair': '%s/%s/*_raw.nii.gz'}
+        datagrabber.inputs.template_args = {'t1': [['subject_id', 't1']],
+                                            'flair': [['subject_id', 'flair']]}
+
+    if kwargs['INPUT_TYPE'] == 'BIDS':
+        datagrabber.inputs.field_template = {'t1': '%s/anat/%s_T1_raw.nii.gz',
+                                             'flair': '%s/anat/%s_FLAIR_raw.nii.gz'}
+        datagrabber.inputs.template_args = {'t1': [['subject_id', 'subject_id']],
+                                            'flair': [['subject_id', 'subject_id']]}
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
 
@@ -60,7 +69,7 @@ def genWorkflow(**kwargs) -> Workflow:
                    name="conform")
     conform.inputs.dimensions = (256, 256, 256)
     conform.inputs.voxel_size = kwargs['RESOLUTION']
-    conform.inputs.orientation = 'RAS'
+    conform.inputs.orientation = kwargs['ORIENTATION']
 
     workflow.connect(datagrabber, "t1", conform, 'img')
 
