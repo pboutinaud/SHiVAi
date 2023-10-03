@@ -5,7 +5,7 @@ from shivautils.workflows.SWI_predict import genWorkflow as genWorkflowPredictSW
 from shivautils.workflows.SWI_preprocessing import genWorkflow as genWorkflowSWI
 from shivautils.workflows.dual_post_processing_container import genWorkflow as genWorkflowPost
 from shivautils.workflows.dual_predict import genWorkflow as genWorkflowPredict
-from shivautils.workflows.dual_preprocessing import genWorkflow
+from shivautils.workflows.dual_preprocessing import genWorkflowPreproc
 from nipype import config
 import os
 import argparse
@@ -46,15 +46,15 @@ def shivaParser(DESCRIPTION):
                         default='standard')
 
     parser.add_argument('--prediction',
-                        choices=['PVS', 'PVS_dual', 'WMH', 'CMB', 'all'],
+                        choices=['PVS', 'PVS2', 'WMH', 'CMB', 'all'],
                         nargs='?',
                         help=("Choice of the type of prediction (i.e. segmentation) you want to compute.\n"
                               "A combination of multiple predictions (separated by a white space) can be given.\n"
                               "- 'PVS' for the segmentation of perivascular spaces using only T1 scans\n"
-                              "- 'PVS_dual' for the segmentation of perivascular spaces using both T1 and FLAIR scans\n"
+                              "- 'PVS2' for the segmentation of perivascular spaces using both T1 and FLAIR scans\n"
                               "- 'WMH' for the segmentation of white matter hyperintensities (requires both T1 and FLAIR scans)\n"
                               "- 'CMB' for the segmentation of cerebral microbleeds (requires SWI scans)\n"
-                              "- 'all' for doing 'PVS_dual', 'WMH', and 'CMB' segmentation (requires T1, FLAIR, and SWI scans)"),
+                              "- 'all' for doing 'PVS2', 'WMH', and 'CMB' segmentation (requires T1, FLAIR, and SWI scans)"),
                         default=['PVS'])
 
     parser.add_argument('--synthseg',
@@ -173,17 +173,19 @@ def setArgsAndCheck(inParser):
     if args.container:
         args.model = '/mnt/model'
 
+    if 'all' in args.prediction:
+        args.prediction = ['PVS2', 'WMH', 'CMB']
+    return args
 
-def checkInputForPred(inPred, wfargs):
-    # choices=['PVS', 'PVS_dual', 'WMH', 'CMB', 'all']
-    for pred in inPred:
-        if pred == 'PVS':
-            if not os.path.exists(wfargs['PVS_DESCRIPTOR']):
-                errormsg = ('The AI model descriptor for the segmentation of PVS was not found. '
-                            'Check if the model paths were properly setup in the configuration file (.yml).\n'
-                            f'The path given for the model descriptor was: {wfargs["PVS_DESCRIPTOR"]}')
-                raise FileNotFoundError(errormsg)
-        # elif pred
+
+def checkInputForPred(wfargs):
+    # wfargs['PREDICTION'] is a combination of ['PVS', 'PVS2', 'WMH', 'CMB']
+    for pred in wfargs['PREDICTION']:
+        if not os.path.exists(wfargs['{pred}_DESCRIPTOR']):
+            errormsg = ('The AI model descriptor for the segmentation of {pred} was not found. '
+                        'Check if the model paths were properly setup in the configuration file (.yml).\n'
+                        f'The path given for the model descriptor was: {wfargs[f"{pred}_DESCRIPTOR"]}')
+            raise FileNotFoundError(errormsg)
 
 
 def main():
@@ -194,7 +196,7 @@ def main():
     # GRAB_PATTERN = '%s/%s/*.nii*'  # Now directly specified in the workflow generators
     # synthseg = args.synthseg  # Unused for now
 
-    if args.input_type == 'json':  # TODO: Check definition of brainmask_descriptor, wmh_descriptor and pvs_descriptor
+    if args.input_type == 'json':  # TODO: Homogenize with the .yml file
         with open(args.input, 'r') as json_in:
             subject_dict = json.load(json_in)
 
@@ -229,16 +231,17 @@ def main():
               'DATA_DIR': subject_directory,  # Default base_directory for the dataGrabber
               'BASE_DIR': out_dir,  # Default base_dir for each workflow
               'INPUT_TYPE': args.input_type,
+              'PREDICTION': args.prediction,
               'WF_DIRS': {'preproc': 'shiva_preprocessing_dual', 'pred': 'dual_predictor_workflow'},  # Name of the preprocessing wf, used to link wf for now
               'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
               'WMH_DESCRIPTOR': wmh_descriptor,
               'PVS_DESCRIPTOR': pvs_descriptor,
               'PVS2_DESCRIPTOR': pvs2_descriptor,
               'CMB_DESCRIPTOR': cmb_descriptor,
-              'CONTAINER': True,  # TODO: Change so that we can use this script without singularity
+              'CONTAINER': args.container,  # TODO: Adapt other scripts to run without Apptainer
               'MODELS_PATH': args.model,
               'ANONYMIZED': False,  # TODO: Why False though?
-              #   'SWI': SWI,  # TODO: Check where it was used and change it
+              #  'SWI': SWI,  # TODO: Check where it was used and change it
               'INTERPOLATION': args.interpolation,
               'PERCENTILE': args.percentile,
               'THRESHOLD': args.threshold,
@@ -247,11 +250,13 @@ def main():
               'RESOLUTION': tuple(args.voxels_size),
               'ORIENTATION': 'RAS'}
 
+    checkInputForPred(wfargs)
+
     if not (os.path.exists(out_dir) and os.path.isdir(out_dir)):
         os.makedirs(out_dir)
     print(f'Working directory set to: {out_dir}')
 
-    wf_preproc = genWorkflow(**wfargs)
+    wf_preproc = genWorkflowPreproc(**wfargs)
     wf_predict = genWorkflowPredict(**wfargs)
     wf_post = genWorkflowPost(**wfargs)
 
