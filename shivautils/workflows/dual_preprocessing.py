@@ -86,22 +86,22 @@ def genWorkflow(**kwargs) -> Workflow:
     preconf_normalization = Node(Normalization(percentile=kwargs['PERCENTILE']), name="preconform_intensity_normalization")
     workflow.connect(preconform, 'resampled', preconf_normalization, 'input_image')
 
-    if kwargs['CONTAINER'] == True:
-        pre_brain_mask = Node(Predict(), "pre_brain_mask")
-        pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
-    else:
-        # brain mask from tensorflow
-        pre_brain_mask = Node(PredictSingularity(), "pre_brain_mask")
-        pre_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
-        pre_brain_mask.inputs.snglrt_bind = [
-            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
-            ('`pwd`', '/mnt/data', 'rw'),
-            ('/bigdata/resources/cudas/cuda-11.2', '/mnt/cuda', 'ro'),
-            ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
-            (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
-        pre_brain_mask.inputs.model = '/mnt/model'
-        pre_brain_mask.inputs.snglrt_enable_nvidia = True
-        pre_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
+    # if kwargs['CONTAINER'] == True:
+    pre_brain_mask = Node(Predict(), "pre_brain_mask")
+    pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    # else:
+    # # brain mask from tensorflow
+    # pre_brain_mask = Node(PredictSingularity(), "pre_brain_mask")
+    # pre_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
+    # pre_brain_mask.inputs.snglrt_bind = [
+    #     (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+    #     ('`pwd`', '/mnt/data', 'rw'),
+    #     ('/bigdata/resources/cudas/cuda-11.2', '/mnt/cuda', 'ro'),
+    #     ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
+    #     (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
+    # pre_brain_mask.inputs.model = '/mnt/model'
+    # pre_brain_mask.inputs.snglrt_enable_nvidia = True
+    # pre_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
 
     pre_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
     pre_brain_mask.inputs.out_filename = 'pre_brain_mask.nii.gz'
@@ -147,22 +147,22 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(hard_brain_mask, 'thresholded',
                      crop, 'roi_mask')
 
-    if kwargs['CONTAINER'] == True:
-        post_brain_mask = Node(Predict(), "post_brain_mask")
-        post_brain_mask.inputs.model = kwargs['MODELS_PATH']
-    else:
-        # brain mask from tensorflow
-        post_brain_mask = Node(PredictSingularity(), "post_brain_mask")
-        post_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
-        post_brain_mask.inputs.snglrt_bind = [
-            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
-            ('`pwd`', '/mnt/data', 'rw'),
-            ('/bigdata/resources/cudas/cuda-11.2', '/mnt/cuda', 'ro'),
-            ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
-            (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
-        post_brain_mask.inputs.model = '/mnt/model'
-        post_brain_mask.inputs.snglrt_enable_nvidia = True
-        post_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
+    # if kwargs['CONTAINER'] == True:
+    post_brain_mask = Node(Predict(), "post_brain_mask")
+    post_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    # else:
+    #     # brain mask from tensorflow
+    #     post_brain_mask = Node(PredictSingularity(), "post_brain_mask")
+    #     post_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
+    #     post_brain_mask.inputs.snglrt_bind = [
+    #         (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+    #         ('`pwd`', '/mnt/data', 'rw'),
+    #         ('/bigdata/resources/cudas/cuda-11.2', '/mnt/cuda', 'ro'),
+    #         ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
+    #         (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
+    #     post_brain_mask.inputs.model = '/mnt/model'
+    #     post_brain_mask.inputs.snglrt_enable_nvidia = True
+    #     post_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
 
     post_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
     post_brain_mask.inputs.out_filename = 'post_brain_mask.nii.gz'
