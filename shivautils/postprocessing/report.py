@@ -1,3 +1,9 @@
+import nibabel as nb
+import pandas as pd
+from shivautils.stats import save_histogram, bounding_crop
+from string import Template
+
+
 def make_report(img_normalized: nb.Nifti1Image,
                 brainmask: nb.Nifti1Image,
                 bbox1: tuple,

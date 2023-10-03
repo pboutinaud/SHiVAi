@@ -949,7 +949,10 @@ class SummaryReport(BaseInterface):
         bbox1 = self.inputs.bbox1
         bbox2 = self.inputs.bbox2
         cdg_ijk = self.inputs.cdg_ijk
-        isocontour_slides_FLAIR_T1 = self.inputs.isocontour_slides_FLAIR_T1
+        if hasattr(self.inputs, 'isocontour_slides_FLAIR_T1'):
+            isocontour_slides_FLAIR_T1 = self.inputs.isocontour_slides_FLAIR_T1
+        else:
+            isocontour_slides_FLAIR_T1 = None
         qc_overlay_brainmask_t1 = self.inputs.qc_overlay_brainmask_t1
         metrics_clusters = self.inputs.metrics_clusters
         metrics_clusters_2 = None

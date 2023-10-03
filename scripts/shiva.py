@@ -3,7 +3,7 @@
 from shivautils.workflows.SWI_postprocessing import genWorkflow as genWorkflowPostSWI
 from shivautils.workflows.SWI_predict import genWorkflow as genWorkflowPredictSWI
 from shivautils.workflows.SWI_preprocessing import genWorkflow as genWorkflowSWI
-from shivautils.workflows.dual_post_processing_container import genWorkflow as genWorkflowPost2
+from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
 from shivautils.workflows.dual_predict import genWorkflow as genWorkflowPredict2
 from shivautils.workflows.T1_predict import genWorkflow as genWorkflowPredict
 from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowPreproc2
@@ -262,11 +262,11 @@ def main():
     if wfargs['PREDICTION'] == ['PVS']:
         wf_preproc = genWorkflowPreproc(**wfargs)
         wf_predict = genWorkflowPredict(**wfargs)
-        # wf_post = genWorkflowPost(**wfargs)
+        wf_post = genWorkflowPost(**wfargs)
     elif 'PVS2' in wfargs['PREDICTION'] or 'WMH' in wfargs['PREDICTION']:
         wf_preproc = genWorkflowPreproc2(**wfargs)
         wf_predict = genWorkflowPredict2(**wfargs)
-        wf_post = genWorkflowPost2(**wfargs)
+        wf_post = genWorkflowPost(**wfargs)
 
     # If necessary to modify defaults:
     # wf_preproc.get_node('conform').inputs.dimensions = (256, 256, 256)
