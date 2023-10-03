@@ -25,7 +25,7 @@ DESCRIPTION = """SHIVA pipeline for deep-learning imaging biomarkers computation
                 Input data can be staged in BIDS or a simplified file arborescence, or described with a JSON file (for the 3D Slicer extension)."""
 
 
-def main():
+def shivaParser():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('--in', dest='input',
@@ -113,14 +113,19 @@ def main():
                         # default='SWI-CMB/V0/model_info.json',
                         help='cmb descriptor file path',
                         required=True)
+    return parser
 
-    # GRAB_PATTERN = '%s/%s/*.nii*'  # Now directly specified in the workflow generators
+
+def main():
+
+    parser = shivaParser()
     args = parser.parse_args()
 
+    # GRAB_PATTERN = '%s/%s/*.nii*'  # Now directly specified in the workflow generators
     SWI = str(args.SWI)
     synthseg = args.synthseg
 
-    if args.input_type == 'json':
+    if args.input_type == 'json':  # TODO: Check definition of brainmask_descriptor, wmh_descriptor and pvs_descriptor
         with open(args.input, 'r') as json_in:
             subject_dict = json.load(json_in)
 
@@ -188,6 +193,19 @@ def main():
     # wf_preproc.get_node('conform').inputs.orientation = 'RAS'
     # wf_preproc.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
 
+    if args.gpu:
+        wf_preproc.get_node('pre_brain_mask').inputs.gpu_number = args.gpu
+        wf_preproc.get_node('post_brain_mask').inputs.gpu_number = args.gpu
+
+    wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+    # wf_predict.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_preproc.name)
+    # wf_post.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_predict.name)
+    wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}  # TODO: Is there even the possibility that it is True?
+
+    wf_preproc.run(plugin='Linear')
+    wf_predict.run(plugin='Linear')
+    wf_post.run(plugin='Linear')
+
     if SWI == 'True':
         wfargs.update({'WF_SWI_DIRS': {'preproc': 'shiva_preprocessing_swi', 'pred': 'SWI_predictor_workflow'}})
         swi_wf_preproc = genWorkflowSWI(**wfargs)
@@ -200,27 +218,11 @@ def main():
         # swi_wf_preproc.get_node('conform').inputs.orientation = 'RAS'
         # swi_wf_preproc.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
 
-    if args.gpu:
-        wf_preproc.get_node('pre_brain_mask').inputs.gpu_number = args.gpu
-        wf_preproc.get_node('post_brain_mask').inputs.gpu_number = args.gpu
-
-    wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-    wf_preproc.run(plugin='Linear')
-
-    # wf_predict.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_preproc.name)
-    wf_predict.run(plugin='Linear')
-
-    # wf_post.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_predict.name)
-
-    wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}  # TODO: Is there even the possibility that it is True?
-    wf_post.run(plugin='Linear')
-
-    if SWI == 'True':
         swi_wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+        swi_wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+
         swi_wf_preproc.run(plugin='Linear')
         swi_wf_predict.run(plugin='Linear')
-
-        swi_wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
         swi_wf_post.run(plugin='Linear')
 
 
