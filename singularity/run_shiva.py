@@ -34,8 +34,6 @@ def main():
     with open(args.config, 'r') as file:
         yaml_content = yaml.safe_load(file)
 
-    parameters = yaml_content['parameters']
-
     bind_model = f"{yaml_content['model_path']}:/mnt/model:ro"
     bind_input = f"{args.input}:/mnt/data/input:rw"
     if not (os.path.exists(args.output) and os.path.isdir(args.output)):
@@ -45,27 +43,13 @@ def main():
     input = f"--in /mnt/data/input"
     output = f"--out /mnt/data/output"
     input_type = f"--input_type {args.input_type}"
-    percentile = f"--percentile {parameters['percentile']}"
-    threshold = f"--threshold {parameters['threshold']}"
-    threshold_clusters = f"--threshold_clusters {parameters['threshold_clusters']}"
-    final_dimensions = f"--final_dimensions {parameters['final_dimensions']}"
-    voxels_size = f"--voxels_size {parameters['voxels_size']}"
-    interpolation = f"--interpolation {parameters['interpolation']}"
-    model = f"--model /mnt/model"
-    swi = f"--SWI {parameters['SWI']}"
-    brainmask_descriptor = f"--brainmask_descriptor {parameters['brainmask_descriptor']}"
-    pvs_descriptor = f"--pvs_descriptor {parameters['PVS_descriptor']}"
-    wmh_descriptor = f"--wmh_descriptor {parameters['WMH_descriptor']}"
-    cmb_descriptor = f"--cmb_descriptor {parameters['CMB_descriptor']}"
+    config = f"--model_config {args.config}"
 
     bind_list = [bind_model, bind_input, bind_output]
     bind = ','.join(bind_list)
 
     command_list = ["singularity exec --nv --bind", bind, singularity_image,
-                    "shiva.py", input, output, input_type, percentile,
-                    threshold, threshold_clusters, final_dimensions,
-                    voxels_size, model, interpolation, swi, brainmask_descriptor,
-                    pvs_descriptor, wmh_descriptor, cmb_descriptor]
+                    "shiva.py --container", input, output, input_type, config]
 
     command = ' '.join(command_list)
 

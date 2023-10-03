@@ -11,6 +11,7 @@ import os
 import argparse
 import json
 import sys
+import yaml
 
 sys.path.append('/mnt/devt')
 
@@ -25,7 +26,7 @@ DESCRIPTION = """SHIVA pipeline for deep-learning imaging biomarkers computation
                 Input data can be staged in BIDS or a simplified file arborescence, or described with a JSON file (for the 3D Slicer extension)."""
 
 
-def shivaParser():
+def shivaParser(DESCRIPTION):
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('--in', dest='input',
@@ -44,22 +45,51 @@ def shivaParser():
                         help="Way to grab and manage nifti files : 'standard', 'BIDS' or 'json'",
                         default='standard')
 
+    parser.add_argument('--prediction',
+                        choices=['PVS', 'PVS_dual', 'WMH', 'CMB', 'all'],
+                        nargs='?',
+                        help=("Choice of the type of prediction (i.e. segmentation) you want to compute.\n"
+                              "A combination of multiple predictions (separated by a white space) can be given.\n"
+                              "- 'PVS' for the segmentation of perivascular spaces using only T1 scans\n"
+                              "- 'PVS_dual' for the segmentation of perivascular spaces using both T1 and FLAIR scans\n"
+                              "- 'WMH' for the segmentation of white matter hyperintensities (requires both T1 and FLAIR scans)\n"
+                              "- 'CMB' for the segmentation of cerebral microbleeds (requires SWI scans)\n"
+                              "- 'all' for doing 'PVS_dual', 'WMH', and 'CMB' segmentation (requires T1, FLAIR, and SWI scans)"),
+                        default=['PVS'])
+
+    parser.add_argument('--synthseg',
+                        action='store_true',
+                        help='Optional FreeSurfer segmentation of regions to compute metrics clusters of specific regions')
+
+    parser.add_argument('--gpu',
+                        type=int,
+                        help='Force GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
+
+    parser.add_argument('--container',
+                        action='store_true',
+                        help='Wether or not the script is being called from a container or not.')
+
+    parser.add_argument('--model_config',
+                        type=str,
+                        help=('Configuration file (.yml) containing the information and parameters for the '
+                              'AI model (as well as the path to the AppTainer container when used).\n'
+                              'Using a configuration file is incompatible with the arguments listed below '
+                              '(i.e. --model --percentile --percentile --threshold_clusters --final_dimensions '
+                              '--voxels_size --interpolation --brainmask_descriptor --pvs_descriptor '
+                              '--pvs2_descriptor --wmh_descriptor --cmb_descriptor).'),
+                        default=None)
+
+    # Manual input
+    parser.add_argument('--model',
+                        default=None,
+                        help='path to model descriptor')
+
     parser.add_argument('--percentile',
                         type=float,
                         default=99,
                         help='Threshold value expressed as percentile')
 
-    parser.add_argument('--final_dimensions',
-                        nargs='+', type=int,
-                        default=(160, 214, 176),
-                        help='Final image array size in i, j, k.')
-
-    parser.add_argument('--voxels_size', nargs='+',
-                        type=float,
-                        default=(1.0, 1.0, 1.0),
-                        help='Voxel size of final image')
-
-    parser.add_argument('--threshold',
+    parser.add_argument('--percentile',
                         type=float,
                         default=0.5,
                         help='Value of the treshold to apply to the image')
@@ -69,61 +99,100 @@ def shivaParser():
                         default=0.2,
                         help='Threshold to compute clusters metrics')
 
+    parser.add_argument('--final_dimensions',
+                        nargs=3, type=int,
+                        default=(160, 214, 176),
+                        help='Final image array size in i, j, k.')
+
+    parser.add_argument('--voxels_size', nargs=3,
+                        type=float,
+                        default=(1.0, 1.0, 1.0),
+                        help='Voxel size of final image')
+
     parser.add_argument('--interpolation',
                         type=str,
                         default='WelchWindowedSinc',
                         help='final interpolation apply to the t1 image')
 
-    parser.add_argument('--model',
-                        default=None,
-                        help='path to model descriptor')
-
-    parser.add_argument('--synthseg',
-                        default=False,
-                        help='Optional FreeSurfer segmentation of regions to compute metrics clusters of specific regions')
-
-    parser.add_argument('--SWI',
-                        default='False',
-                        help='If a second workflow for CMB is required')
-
-    parser.add_argument('--gpu',
-                        type=int,
-                        help='Force GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
-
     parser.add_argument('--brainmask_descriptor',
                         type=str,
-                        # default='brainmask/V0/model_info.json',
+                        default='brainmask/V0/model_info.json',
                         help='brainmask descriptor file path',
                         required=True)
 
     parser.add_argument('--pvs_descriptor',
                         type=str,
-                        # default='T1.FLAIR-PVS/V0/model_info.json',
+                        default='T1-PVS/V1/model_info.json',
                         help='pvs descriptor file path',
+                        required=True)
+
+    parser.add_argument('--pvs2_descriptor',
+                        type=str,
+                        default='T1.FLAIR-PVS/V0/model_info.json',
+                        help='pvs dual descriptor file path',
                         required=True)
 
     parser.add_argument('--wmh_descriptor',
                         type=str,
-                        # default='T1.FLAIR-WMH/V1/model_info.json',
+                        default='T1.FLAIR-WMH/V1/model_info.json',
                         help='wmh descriptor file path',
                         required=True)
 
     parser.add_argument('--cmb_descriptor',
                         type=str,
-                        # default='SWI-CMB/V0/model_info.json',
+                        default='SWI-CMB/V1/model_info.json',
                         help='cmb descriptor file path',
                         required=True)
     return parser
 
 
+def setArgsAndCheck(inParser):
+    args = inParser.parse_args()
+    if args.container and not args.model_config:
+        inParser.error(
+            'Using a container (denoted with the "--container" argument) requires '
+            'a configuration file (.yml) do none was give.')
+
+    if args.model_config:  # Parse the config file
+        with open(args.config, 'r') as file:
+            yaml_content = yaml.safe_load(file)
+        parameters = yaml_content['parameters']
+        args.model = yaml_content['model_path']  # only used when not with container
+        args.percentile = parameters['percentile']
+        args.threshold = parameters['threshold']
+        args.threshold_clusters = parameters['threshold_clusters']
+        args.final_dimensions = parameters['final_dimensions']
+        args.voxels_size = parameters['voxels_size']
+        args.interpolation = parameters['interpolation']
+        args.brainmask_descriptor = parameters['brainmask_descriptor']
+        args.pvs_descriptor = parameters['PVS_descriptor']
+        args.pvs2_descriptor = parameters['PVS2_descriptor']
+        args.wmh_descriptor = parameters['WMH_descriptor']
+        args.cmb_descriptor = parameters['CMB_descriptor']
+
+    if args.container:
+        args.model = '/mnt/model'
+
+
+def checkInputForPred(inPred, wfargs):
+    # choices=['PVS', 'PVS_dual', 'WMH', 'CMB', 'all']
+    for pred in inPred:
+        if pred == 'PVS':
+            if not os.path.exists(wfargs['PVS_DESCRIPTOR']):
+                errormsg = ('The AI model descriptor for the segmentation of PVS was not found. '
+                            'Check if the model paths were properly setup in the configuration file (.yml).\n'
+                            f'The path given for the model descriptor was: {wfargs["PVS_DESCRIPTOR"]}')
+                raise FileNotFoundError(errormsg)
+        # elif pred
+
+
 def main():
 
     parser = shivaParser()
-    args = parser.parse_args()
+    args = setArgsAndCheck(parser)
 
     # GRAB_PATTERN = '%s/%s/*.nii*'  # Now directly specified in the workflow generators
-    SWI = str(args.SWI)
-    synthseg = args.synthseg
+    # synthseg = args.synthseg  # Unused for now
 
     if args.input_type == 'json':  # TODO: Check definition of brainmask_descriptor, wmh_descriptor and pvs_descriptor
         with open(args.input, 'r') as json_in:
@@ -153,10 +222,8 @@ def main():
         brainmask_descriptor = os.path.join(args.model, args.brainmask_descriptor)
         wmh_descriptor = os.path.join(args.model, args.wmh_descriptor)
         pvs_descriptor = os.path.join(args.model, args.pvs_descriptor)
-        if SWI == 'True':
-            cmb_descriptor = os.path.join(args.model, args.cmb_descriptor)
-        else:
-            cmb_descriptor = None
+        pvs2_descriptor = os.path.join(args.model, args.pvs2_descriptor)
+        cmb_descriptor = os.path.join(args.model, args.cmb_descriptor)
 
     wfargs = {'SUBJECT_LIST': subject_list,
               'DATA_DIR': subject_directory,  # Default base_directory for the dataGrabber
@@ -166,11 +233,12 @@ def main():
               'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
               'WMH_DESCRIPTOR': wmh_descriptor,
               'PVS_DESCRIPTOR': pvs_descriptor,
+              'PVS2_DESCRIPTOR': pvs2_descriptor,
               'CMB_DESCRIPTOR': cmb_descriptor,
               'CONTAINER': True,  # TODO: Change so that we can use this script without singularity
               'MODELS_PATH': args.model,
               'ANONYMIZED': False,  # TODO: Why False though?
-              'SWI': SWI,
+              #   'SWI': SWI,  # TODO: Check where it was used and change it
               'INTERPOLATION': args.interpolation,
               'PERCENTILE': args.percentile,
               'THRESHOLD': args.threshold,
@@ -206,7 +274,7 @@ def main():
     wf_predict.run(plugin='Linear')
     wf_post.run(plugin='Linear')
 
-    if SWI == 'True':
+    if 'CMB' in args.prediction or 'all' in args.prediction:
         wfargs.update({'WF_SWI_DIRS': {'preproc': 'shiva_preprocessing_swi', 'pred': 'SWI_predictor_workflow'}})
         swi_wf_preproc = genWorkflowSWI(**wfargs)
         swi_wf_predict = genWorkflowPredictSWI(**wfargs)
