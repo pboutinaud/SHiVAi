@@ -97,7 +97,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     summary_report = Node(SummaryReport(), name="summary_report")
     summary_report.inputs.anonymized = kwargs['ANONYMIZED']
-    summary_report.inputs.swi = kwargs['SWI']
+    summary_report.inputs.swi = 'CMB' in kwargs['PREDICTION']
     summary_report.inputs.percentile = kwargs['PERCENTILE']
     summary_report.inputs.threshold = kwargs['THRESHOLD']
     summary_report.inputs.image_size = kwargs['IMAGE_SIZE']

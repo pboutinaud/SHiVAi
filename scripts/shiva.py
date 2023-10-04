@@ -243,7 +243,6 @@ def main():
               'CONTAINER': args.container,  # TODO: Adapt other scripts to run without Apptainer
               'MODELS_PATH': args.model,
               'ANONYMIZED': False,  # TODO: Why False though?
-              #  'SWI': SWI,  # TODO: Check where it was used and change it
               'INTERPOLATION': args.interpolation,
               'PERCENTILE': args.percentile,
               'THRESHOLD': args.threshold,
@@ -287,7 +286,7 @@ def main():
     wf_predict.run(plugin='Linear')
     wf_post.run(plugin='Linear')
 
-    if 'CMB' in args.prediction or 'all' in args.prediction:
+    if 'CMB' in args.prediction:
         wfargs.update({'WF_SWI_DIRS': {'preproc': 'shiva_preprocessing_swi', 'pred': 'SWI_predictor_workflow'}})
         swi_wf_preproc = genWorkflowSWI(**wfargs)
         swi_wf_predict = genWorkflowPredictSWI(**wfargs)
