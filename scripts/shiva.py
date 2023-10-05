@@ -20,15 +20,14 @@ sys.path.append('/mnt/devt')
 config.enable_provenance()
 
 
-DESCRIPTION = """SHIVA pipeline for deep-learning imaging biomarkers computation. Performs resampling and coregistration 
+def shivaParser():
+    DESCRIPTION = """SHIVA pipeline for deep-learning imaging biomarkers computation. Performs resampling and coregistration 
                 of a set of structural NIfTI head image, followed by intensity normalization, and cropping centered on the brain.
                 A nipype workflow is used to preprocess a lot of images at the same time.
                 The segmentations from the wmh, cmb and pvs models are generated depending on the inputs. A Report is generated.
                 
                 Input data can be staged in BIDS or a simplified file arborescence, or described with a JSON file (for the 3D Slicer extension)."""
 
-
-def shivaParser(DESCRIPTION):
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('--in', dest='input',

@@ -32,7 +32,7 @@ def existing_file(file):
         return file
 
 
-def main():
+def stepwParser():
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('--in', dest='input',
@@ -74,7 +74,9 @@ def main():
                         type=int,
                         help='GPU to use.')
 
-    args = parser.parse_args()
+
+def main():
+    args = stepwParser.parse_args()
 
     GRAB_PATTERN = '%s/%s/*.nii*'
     subject_directory = args.input

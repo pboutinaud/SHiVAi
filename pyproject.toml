@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shivautils"
+version = "0.2.1"
+authors = [
+    { name = "Yann RIO", email = "yrio@fealinx.com" },
+    { name = "Pierre-Yves HERVE", email = "pyherve@fealinx.com" },
+]
+maintainers = [
+    { name = "Pierre-Yves HERVE", email = "pyherve@fealinx.com" },
+    { name = "Victor NOZAIS", email = "vnozais@fealinx.com" },
+]
+description = "Package for preprocessing and automatic, AI-based segmentation of perivascular scpaces (PVS), white-matter hyperintensities (WMH), and cerebral microbleeds (CMB)."
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = [
+    "MRI",
+    "AI",
+    "segmentation",
+    "PVS",
+    "WMH",
+    "CMB",
+    "T1",
+    "FLAIR",
+    "SWI",
+]
+license = { text = "GNU General Public License v3 (GPLv3)" }
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.8",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+dependencies = [
+    "argparse>=1.1",
+    "bokeh",
+    "matplotlib",
+    "networkx>=2.8.7",
+    "nibabel>=4.0.2",
+    "nipype>=1.7.0",
+    "numpy>=1.21.5",
+    "pandas",
+    "pybids",
+    "pydot",
+    "pydotplus",
+    "pyyaml",
+    "scikit-image",
+    "scipy>=1.7.3",
+    "tensorflow[and-cuda]=2.13.0",
+    "weasyprint",
+]
+
+[project.scripts]
+shiva = "scripts.shiva:main"
+shiva_preproc = "scripts.preprocess:main"
+shiva_predict = "scripts.predict:main"
+shiva_contained = "singularity.run_shiva:main"

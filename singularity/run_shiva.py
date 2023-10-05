@@ -6,7 +6,7 @@ import yaml
 import os
 
 
-def main():
+def singParser():
     DESCRIPTION = """SHIVA preprocessing for deep learning predictors. Perform resampling of a structural NIfTI head image, 
                     followed by intensity normalization, and cropping centered on the brain. A nipype workflow is used to 
                     preprocess a lot of images at the same time."""
@@ -39,8 +39,12 @@ def main():
                               "- 'CMB' for the segmentation of cerebral microbleeds (requires SWI scans)\n"
                               "- 'all' for doing 'PVS2', 'WMH', and 'CMB' segmentation (requires T1, FLAIR, and SWI scans)"),
                         default=['PVS'])
+    return parser
 
-    args = parser.parse_args()
+
+def main():
+
+    args = singParser.parse_args()
 
     with open(args.config, 'r') as file:
         yaml_content = yaml.safe_load(file)
