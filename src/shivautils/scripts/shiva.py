@@ -150,15 +150,15 @@ def setArgsAndCheck(inParser):
             'a configuration file (.yml) do none was give.')
 
     if args.model_config:  # Parse the config file
-        with open(args.config, 'r') as file:
+        with open(args.model_config, 'r') as file:
             yaml_content = yaml.safe_load(file)
         parameters = yaml_content['parameters']
         args.model = yaml_content['model_path']  # only used when not with container
         args.percentile = parameters['percentile']
         args.threshold = parameters['threshold']
         args.threshold_clusters = parameters['threshold_clusters']
-        args.final_dimensions = parameters['final_dimensions']
-        args.voxels_size = parameters['voxels_size']
+        args.final_dimensions = (int(dm) for dm in parameters['final_dimensions'].split(' '))
+        args.voxels_size = (float(vx) for vx in parameters['voxels_size'].split(' '))
         args.interpolation = parameters['interpolation']
         args.brainmask_descriptor = parameters['brainmask_descriptor']
         args.pvs_descriptor = parameters['PVS_descriptor']
@@ -171,13 +171,15 @@ def setArgsAndCheck(inParser):
 
     if 'all' in args.prediction:
         args.prediction = ['PVS2', 'WMH', 'CMB']
+    if not isinstance(args.prediction, list):  # When only one input
+        args.prediction = [args.prediction]
     return args
 
 
 def checkInputForPred(wfargs):
     # wfargs['PREDICTION'] is a combination of ['PVS', 'PVS2', 'WMH', 'CMB']
     for pred in wfargs['PREDICTION']:
-        if not os.path.exists(wfargs['{pred}_DESCRIPTOR']):
+        if not os.path.exists(wfargs[f'{pred}_DESCRIPTOR']):
             errormsg = ('The AI model descriptor for the segmentation of {pred} was not found. '
                         'Check if the model paths were properly setup in the configuration file (.yml).\n'
                         f'The path given for the model descriptor was: {wfargs[f"{pred}_DESCRIPTOR"]}')
