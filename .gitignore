@@ -49,3 +49,9 @@ singularity/singularity_tf_conda.recipe
 .vscode
 shivautils.egg-info
 build
+shivautils/singularity/config_dual.yml
+shivautils/__pycache__
+shivautils.egg-info
+.spyproject
+.vscode/launch.json
+
