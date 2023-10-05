@@ -54,4 +54,5 @@ shivautils/__pycache__
 shivautils.egg-info
 .spyproject
 .vscode/launch.json
+__pycache__
 
