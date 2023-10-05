@@ -28,6 +28,17 @@ def main():
     parser.add_argument("-c", "--config",
                         help='yaml file for configuration of workflow',
                         required=True)
+    parser.add_argument("-p", '--prediction',
+                        choices=['PVS', 'PVS2', 'WMH', 'CMB', 'all'],
+                        nargs='?',
+                        help=("Choice of the type of prediction (i.e. segmentation) you want to compute.\n"
+                              "A combination of multiple predictions (separated by a white space) can be given.\n"
+                              "- 'PVS' for the segmentation of perivascular spaces using only T1 scans\n"
+                              "- 'PVS2' for the segmentation of perivascular spaces using both T1 and FLAIR scans\n"
+                              "- 'WMH' for the segmentation of white matter hyperintensities (requires both T1 and FLAIR scans)\n"
+                              "- 'CMB' for the segmentation of cerebral microbleeds (requires SWI scans)\n"
+                              "- 'all' for doing 'PVS2', 'WMH', and 'CMB' segmentation (requires T1, FLAIR, and SWI scans)"),
+                        default=['PVS'])
 
     args = parser.parse_args()
 
@@ -44,12 +55,13 @@ def main():
     output = f"--out /mnt/data/output"
     input_type = f"--input_type {args.input_type}"
     config = f"--model_config {args.config}"
+    pred = f"--prediction {' '.join(args.prediction)}"
 
     bind_list = [bind_model, bind_input, bind_output]
     bind = ','.join(bind_list)
 
     command_list = ["singularity exec --nv --bind", bind, singularity_image,
-                    "shiva.py --container", input, output, input_type, config]
+                    "shiva.py --container", input, output, input_type, pred, config]
 
     command = ' '.join(command_list)
 
