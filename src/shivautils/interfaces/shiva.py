@@ -121,7 +121,7 @@ class SPMApplyDeformationInput(SPMCommandInputSpec):
         desc="SPM deformation file"
     )
     target = File(
-        exists=True, 
+        exists=True,
         mandatory=True,
         field="comp{2}.id.space",
         desc="File defining target space"
@@ -187,7 +187,7 @@ class PredictSingularityInputSpec(SingularityInputSpec):
                          argstr='-m %s',
                          desc='Model files in h5 format.',
                          mandatory=False,
-                        )
+                         )
 
     t1 = traits.File(argstr='--t1 %s',
                      desc='The T1W image of the subject.',
@@ -197,27 +197,27 @@ class PredictSingularityInputSpec(SingularityInputSpec):
                         desc='The FLAIR image of the subject.',
                         exists=True)
     swi = traits.File(argstr='--swi %s',
-                        desc='The SWI image of the subject.',
-                        mandatory=False,
-                        exists=True)
+                      desc='The SWI image of the subject.',
+                      mandatory=False,
+                      exists=True)
 
     t2 = traits.File(argstr='--t2 %s',
-                        desc='The T2 image of the subject.',
-                        mandatory=False,
-                        exists=True)
+                     desc='The T2 image of the subject.',
+                     mandatory=False,
+                     exists=True)
 
     model = traits.Directory('/mnt/model',
-                          argstr='--model %s',
-                          exists=False,
-                          desc='Folder containing hdf5 model files.',
-                          usedefault=True
-                          )
-                
+                             argstr='--model %s',
+                             exists=False,
+                             desc='Folder containing hdf5 model files.',
+                             usedefault=True
+                             )
+
     descriptor = traits.File(argstr='-descriptor %s',
                              exists=True,
                              desc='File info about model and validation',
                              mandatory=True)
-    
+
     gpu_number = traits.Int(argstr='--gpu %d',
                             desc='GPU to use if several GPUs are available.',
                             mandatory=False)
@@ -235,7 +235,7 @@ class PredictSingularityInputSpec(SingularityInputSpec):
 
 class PredictSingularityOutputSpec(TraitedSpec):
     segmentation = traits.File(desc='The segmentation image',
-                                   exists=True)
+                               exists=True)
 
 
 class PredictSingularity(SingularityCommandLine):
@@ -245,7 +245,7 @@ class PredictSingularity(SingularityCommandLine):
     """
     input_spec = PredictSingularityInputSpec
     output_spec = PredictSingularityOutputSpec
-    _cmd = 'predict.py'
+    _cmd = 'shiva_predict'
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
@@ -262,7 +262,7 @@ class PredictInputSpec(BaseInterfaceInputSpec):
                          argstr='-m %s',
                          desc='Model files in h5 format.',
                          mandatory=False,
-                        )
+                         )
 
     t1 = traits.File(argstr='--t1 %s',
                      desc='The T1W image of the subject.',
@@ -273,29 +273,29 @@ class PredictInputSpec(BaseInterfaceInputSpec):
                         desc='The FLAIR image of the subject.',
                         mandatory=False,
                         exists=True)
-    
+
     swi = traits.File(argstr='--swi %s',
-                        desc='The SWI image of the subject.',
-                        mandatory=False,
-                        exists=True)
+                      desc='The SWI image of the subject.',
+                      mandatory=False,
+                      exists=True)
 
     t2 = traits.File(argstr='--t2 %s',
-                        desc='The T2 image of the subject.',
-                        mandatory=False,
-                        exists=True)
+                     desc='The T2 image of the subject.',
+                     mandatory=False,
+                     exists=True)
 
     model = traits.Directory('/mnt/model',
-                          argstr='--model %s',
-                          exists=False,
-                          desc='Folder containing hdf5 model files.',
-                          usedefault=True
-                          )
-                
+                             argstr='--model %s',
+                             exists=False,
+                             desc='Folder containing hdf5 model files.',
+                             usedefault=True
+                             )
+
     descriptor = traits.File(argstr='-descriptor %s',
                              exists=True,
                              desc='File info about model and validation',
                              mandatory=True)
-    
+
     gpu_number = traits.Int(argstr='--gpu %d',
                             desc='GPU to use if several GPUs are available.',
                             mandatory=False)
@@ -313,7 +313,7 @@ class PredictInputSpec(BaseInterfaceInputSpec):
 
 class PredictOutputSpec(TraitedSpec):
     segmentation = traits.File(desc='segmentation image',
-                                   exists=True)
+                               exists=True)
 
 
 class Predict(CommandLine):
@@ -323,13 +323,12 @@ class Predict(CommandLine):
     """
     input_spec = PredictInputSpec
     output_spec = PredictOutputSpec
-    _cmd = 'predict.py'
+    _cmd = 'shiva_predict'
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs["segmentation"] = os.path.abspath(os.path.split(str(self.inputs.out_filename))[1])
         return outputs
-    
 
 
 class SynthSegInputSpec(CommandLineInputSpec):
@@ -338,18 +337,16 @@ class SynthSegInputSpec(CommandLineInputSpec):
     Inherits from Singularity command line fields.
     """
     i = traits.File(argstr='--i %s',
-                     desc='The T1W image of the subject.',
-                     exists=True)
-    
+                    desc='The T1W image of the subject.',
+                    exists=True)
+
     out_filename = traits.Str(argstr='--o %s',
                               desc='path file output')
 
 
-
-
 class SynthSegOutputSpec(TraitedSpec):
     segmentation = traits.File(desc='The segmentation regions image',
-                                   exists=True)
+                               exists=True)
 
 
 class SynthSeg(CommandLine):
@@ -365,4 +362,3 @@ class SynthSeg(CommandLine):
         outputs = self.output_spec().get()
         outputs["segmentation"] = os.path.abspath(os.path.split(str(self.inputs.out_filename))[1])
         return outputs
-    
