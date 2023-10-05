@@ -118,32 +118,27 @@ def shivaParser():
     parser.add_argument('--brainmask_descriptor',
                         type=str,
                         default='brainmask/V0/model_info.json',
-                        help='brainmask descriptor file path',
-                        required=True)
+                        help='brainmask descriptor file path')
 
     parser.add_argument('--pvs_descriptor',
                         type=str,
                         default='T1-PVS/V1/model_info.json',
-                        help='pvs descriptor file path',
-                        required=True)
+                        help='pvs descriptor file path')
 
     parser.add_argument('--pvs2_descriptor',
                         type=str,
                         default='T1.FLAIR-PVS/V0/model_info.json',
-                        help='pvs dual descriptor file path',
-                        required=True)
+                        help='pvs dual descriptor file path')
 
     parser.add_argument('--wmh_descriptor',
                         type=str,
                         default='T1.FLAIR-WMH/V1/model_info.json',
-                        help='wmh descriptor file path',
-                        required=True)
+                        help='wmh descriptor file path')
 
     parser.add_argument('--cmb_descriptor',
                         type=str,
                         default='SWI-CMB/V1/model_info.json',
-                        help='cmb descriptor file path',
-                        required=True)
+                        help='cmb descriptor file path')
     return parser
 
 
