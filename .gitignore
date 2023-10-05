@@ -1,3 +1,4 @@
+.gitignore
 shivautils/interfaces/__pycache__/__init__.cpython-36.pyc
 shivautils/interfaces/__pycache__/__init__.cpython-38.pyc
 shivautils/interfaces/__pycache__/__init__.cpython-39.pyc
@@ -42,4 +43,9 @@ shivautils/workflows/__pycache__/wf_BIDS.cpython-311.pyc
 shivautils/workflows/__pycache__/wf_predict.cpython-36.pyc
 shivautils/workflows/__pycache__/wf_predict.cpython-311.pyc
 shivautils/workflows/__pycache__/wf_pretrained_brainmask.cpython-311.pyc
-shivautils/singularity/config_dual.yml
+config_dual_old.yml
+singularity/singularity_fullConda.recipe
+singularity/singularity_tf_conda.recipe
+.vscode
+shivautils.egg-info
+build
