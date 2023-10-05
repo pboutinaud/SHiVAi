@@ -43,8 +43,8 @@ def singParser():
 
 
 def main():
-
-    args = singParser.parse_args()
+    parser = singParser()
+    args = parser.parse_args()
 
     with open(args.config, 'r') as file:
         yaml_content = yaml.safe_load(file)
