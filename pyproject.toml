@@ -2,9 +2,6 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-py-modules = []
-
 [project]
 name = "shivautils"
 version = "0.2.1"
