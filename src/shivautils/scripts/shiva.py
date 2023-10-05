@@ -75,7 +75,7 @@ def shivaParser():
                         help=('Configuration file (.yml) containing the information and parameters for the '
                               'AI model (as well as the path to the AppTainer container when used).\n'
                               'Using a configuration file is incompatible with the arguments listed below '
-                              '(i.e. --model --percentile --percentile --threshold_clusters --final_dimensions '
+                              '(i.e. --model --percentile --threshold --threshold_clusters --final_dimensions '
                               '--voxels_size --interpolation --brainmask_descriptor --pvs_descriptor '
                               '--pvs2_descriptor --wmh_descriptor --cmb_descriptor).'),
                         default=None)
@@ -90,7 +90,7 @@ def shivaParser():
                         default=99,
                         help='Threshold value expressed as percentile')
 
-    parser.add_argument('--percentile',
+    parser.add_argument('--threshold',
                         type=float,
                         default=0.5,
                         help='Value of the treshold to apply to the image')
