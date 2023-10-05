@@ -37,7 +37,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
 dependencies = [
-    "argparse>=1.1",
     "bokeh",
     "matplotlib",
     "networkx>=2.8.7",
