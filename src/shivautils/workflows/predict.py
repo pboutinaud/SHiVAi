@@ -67,7 +67,10 @@ def genWorkflow(**kwargs) -> Workflow:
     if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:
         predict_pvs = Node(Predict(), name="predict_pvs")
         predict_pvs.inputs.model = kwargs['MODELS_PATH']
-        predict_pvs.inputs.descriptor = kwargs['PVS_DESCRIPTOR']
+        if dual:
+            predict_pvs.inputs.descriptor = kwargs['PVS2_DESCRIPTOR']
+        else:
+            predict_pvs.inputs.descriptor = kwargs['PVS_DESCRIPTOR']
         predict_pvs.inputs.out_filename = 'pvs_map.nii.gz'
         workflow.connect(datagrabber, "t1", predict_pvs, "t1")
         if dual:
