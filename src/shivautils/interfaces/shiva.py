@@ -323,7 +323,7 @@ class Predict(CommandLine):
     """
     input_spec = PredictInputSpec
     output_spec = PredictOutputSpec
-    _cmd = 'shiva_predict'
+    _cmd = 'shiva_predict'  # shivautils.scripts.predict:main
 
     def _list_outputs(self):
         outputs = self.output_spec().get()

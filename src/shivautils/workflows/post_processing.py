@@ -93,15 +93,17 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
 
-    mask_on_pred_pvs = Node(ApplyMask(), name='mask_on_pred_pvs')
+    if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:
+        mask_on_pred_pvs = Node(ApplyMask(), name='mask_on_pred_pvs')
 
     workflow.connect(datagrabber, 'segmentation_pvs', mask_on_pred_pvs, 'segmentation')
     workflow.connect(datagrabber, 'brainmask', mask_on_pred_pvs, 'brainmask')
 
-    mask_on_pred_wmh = Node(ApplyMask(), name='mask_on_pred_wmh')
+    if 'WMH' in kwargs['PREDICTION']:
+        mask_on_pred_wmh = Node(ApplyMask(), name='mask_on_pred_wmh')
 
-    workflow.connect(datagrabber, 'segmentation_wmh', mask_on_pred_wmh, 'segmentation')
-    workflow.connect(datagrabber, 'brainmask', mask_on_pred_wmh, 'brainmask')
+        workflow.connect(datagrabber, 'segmentation_wmh', mask_on_pred_wmh, 'segmentation')
+        workflow.connect(datagrabber, 'brainmask', mask_on_pred_wmh, 'brainmask')
 
     if 'PVS2' in kwargs['PREDICTION'] or 'WMH' in kwargs['PREDICTION']:
         qc_coreg_FLAIR_T1 = Node(Function(input_names=['path_image', 'path_ref_image', 'path_brainmask', 'nb_of_slices'],
@@ -121,20 +123,23 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(datagrabber, 'brainmask', qc_overlay_brainmask, 'brainmask')
     workflow.connect(datagrabber, 'T1_cropped', qc_overlay_brainmask, 'img_ref')
 
-    metrics_predictions_wmh = Node(MetricsPredictions(),
-                                   name="metrics_predictions_wmh")
-    metrics_predictions_wmh.inputs.threshold_clusters = kwargs['THRESHOLD_CLUSTERS']
+    if 'WMH' in kwargs['PREDICTION']:
+        metrics_predictions_wmh = Node(MetricsPredictions(),
+                                    name="metrics_predictions_wmh")
+        metrics_predictions_wmh.inputs.threshold_clusters = kwargs['THRESHOLD_CLUSTERS']
 
-    workflow.connect(mask_on_pred_wmh, 'segmentation_filtered', metrics_predictions_wmh, 'img')
+        workflow.connect(mask_on_pred_wmh, 'segmentation_filtered', metrics_predictions_wmh, 'img')
 
-    metrics_predictions_pvs = Node(MetricsPredictions(),
-                                   name="metrics_predictions_pvs")
-    metrics_predictions_pvs.pvs = True
-    metrics_predictions_pvs.inputs.threshold_clusters = kwargs['THRESHOLD_CLUSTERS']
+    if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:
+        metrics_predictions_pvs = Node(MetricsPredictions(),
+                                    name="metrics_predictions_pvs")
+        metrics_predictions_pvs.pvs = True
+        metrics_predictions_pvs.inputs.threshold_clusters = kwargs['THRESHOLD_CLUSTERS']
 
-    workflow.connect(mask_on_pred_pvs, 'segmentation_filtered', metrics_predictions_pvs, 'img')
+        workflow.connect(mask_on_pred_pvs, 'segmentation_filtered', metrics_predictions_pvs, 'img')
 
     summary_report = Node(SummaryReport(), name="summary_report")
+    # TODO: Add SWI, metrics_bg_pvs 
     summary_report.inputs.anonymized = kwargs['ANONYMIZED']
     summary_report.inputs.percentile = kwargs['PERCENTILE']
     summary_report.inputs.threshold = kwargs['THRESHOLD']
@@ -148,25 +153,28 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(datagrabber, 'T1_conform', summary_report, 'img_normalized')
     workflow.connect(datagrabber, 'pre_brainmask', summary_report, 'brainmask')
     workflow.connect(subject_list, 'subject_id', summary_report, 'subject_id')
+    workflow.connect(qc_overlay_brainmask, 'qc_overlay_brainmask_t1', summary_report, 'qc_overlay_brainmask_t1')
     if 'PVS2' in kwargs['PREDICTION'] or 'WMH' in kwargs['PREDICTION']:
         workflow.connect(qc_coreg_FLAIR_T1, 'qc_coreg', summary_report, 'isocontour_slides_FLAIR_T1')
-    workflow.connect(qc_overlay_brainmask, 'qc_overlay_brainmask_t1', summary_report, 'qc_overlay_brainmask_t1')
-    workflow.connect(metrics_predictions_pvs, 'metrics_predictions_csv', summary_report, 'metrics_clusters')
-    workflow.connect(metrics_predictions_wmh, 'metrics_predictions_csv', summary_report, 'metrics_clusters_2')
+    if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:
+        workflow.connect(metrics_predictions_pvs, 'metrics_predictions_csv', summary_report, 'metrics_clusters')
+    if 'WMH' in kwargs['PREDICTION']:
+        workflow.connect(metrics_predictions_wmh, 'metrics_predictions_csv', summary_report, 'metrics_clusters_2')
 
-    metrics_predictions_pvs_generale = JoinNode(JoinMetricsPredictions(),
-                                                joinsource='subject_list',
-                                                joinfield='csv_files',
-                                                name="metrics_predictions_pvs_generale")
+    if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:
+        metrics_predictions_pvs_generale = JoinNode(JoinMetricsPredictions(),
+                                                    joinsource='subject_list',
+                                                    joinfield='csv_files',
+                                                    name="metrics_predictions_pvs_generale")
+        workflow.connect(metrics_predictions_pvs, 'metrics_predictions_csv', metrics_predictions_pvs_generale, 'csv_files')
 
-    workflow.connect(metrics_predictions_pvs, 'metrics_predictions_csv', metrics_predictions_pvs_generale, 'csv_files')
+    if 'WMH' in kwargs['PREDICTION']:
+        metrics_predictions_wmh_generale = JoinNode(JoinMetricsPredictions(),
+                                                    joinsource='subject_list',
+                                                    joinfield='csv_files',
+                                                    name="metrics_predictions_wmh_generale")
 
-    metrics_predictions_wmh_generale = JoinNode(JoinMetricsPredictions(),
-                                                joinsource='subject_list',
-                                                joinfield='csv_files',
-                                                name="metrics_predictions_wmh_generale")
-
-    workflow.connect(metrics_predictions_wmh, 'metrics_predictions_csv', metrics_predictions_wmh_generale, 'csv_files')
+        workflow.connect(metrics_predictions_wmh, 'metrics_predictions_csv', metrics_predictions_wmh_generale, 'csv_files')
 
     return workflow
 
