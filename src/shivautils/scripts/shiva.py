@@ -4,9 +4,7 @@ from shivautils.workflows.SWI_postprocessing import genWorkflow as genWorkflowPo
 from shivautils.workflows.SWI_predict import genWorkflow as genWorkflowPredictSWI
 from shivautils.workflows.SWI_preprocessing import genWorkflow as genWorkflowSWI
 from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
-from shivautils.workflows.dual_predict import genWorkflow as genWorkflowPredict2
 from shivautils.workflows.predict import genWorkflow as genWorkflowPredict
-from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowPreproc2
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from nipype import config
 import os
@@ -268,10 +266,7 @@ def main():
     # wf_preproc.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
     wf_preproc.run(plugin='Linear')
 
-    if wfargs['PREDICTION'] == ['PVS']:
-        wf_predict = genWorkflowPredict(**wfargs)
-    elif 'PVS2' in wfargs['PREDICTION'] or 'WMH' in wfargs['PREDICTION']:
-        wf_predict = genWorkflowPredict2(**wfargs)
+    wf_predict = genWorkflowPredict(**wfargs)
     wf_predict.run(plugin='Linear')
 
     wf_post = genWorkflowPost(**wfargs)
