@@ -102,7 +102,7 @@ def main():
     _VERBOSE = args.verbose
 
     # Set GPU
-    if args.gpu:
+    if args.gpu is not None:
         os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
         if _VERBOSE:
             if args.gpu >= 0:

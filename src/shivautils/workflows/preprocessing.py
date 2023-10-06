@@ -110,6 +110,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     pre_brain_mask = Node(Predict(), "pre_brain_mask")
     pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    pre_brain_mask.inputs.gpu_number = kwargs['GPU']
 
     pre_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
     pre_brain_mask.inputs.out_filename = 'pre_brain_mask.nii.gz'
@@ -157,17 +158,14 @@ def genWorkflow(**kwargs) -> Workflow:
 
     post_brain_mask = Node(Predict(), "post_brain_mask")
     post_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    post_brain_mask.inputs.gpu_number = kwargs['GPU'] 
+
 
     post_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
     post_brain_mask.inputs.out_filename = 'post_brain_mask.nii.gz'
-
     workflow.connect(crop_normalized, 'cropped',
                      post_brain_mask, 't1')
-    
-    # Specify GPU
-    if kwargs['GPU'] is not None:
-        pre_brain_mask.inputs.gpu_number = kwargs['GPU']
-        post_brain_mask.inputs.gpu_number = kwargs['GPU'] 
+
 
     # binarize post brain mask
     hard_post_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD'], binarize=True), name="hard_post_brain_mask")
