@@ -64,7 +64,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
 
-    if 'PVS' in kwargs['PREDICTION']:
+    if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:
         predict_pvs = Node(Predict(), name="predict_pvs")
         predict_pvs.inputs.model = kwargs['MODELS_PATH']
         predict_pvs.inputs.descriptor = kwargs['PVS_DESCRIPTOR']
