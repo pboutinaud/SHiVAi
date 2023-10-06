@@ -30,7 +30,7 @@ def singParser():
                         required=True)
     parser.add_argument("-p", '--prediction',
                         choices=['PVS', 'PVS2', 'WMH', 'CMB', 'all'],
-                        nargs='?',
+                        nargs='+',
                         help=("Choice of the type of prediction (i.e. segmentation) you want to compute.\n"
                               "A combination of multiple predictions (separated by a white space) can be given.\n"
                               "- 'PVS' for the segmentation of perivascular spaces using only T1 scans\n"

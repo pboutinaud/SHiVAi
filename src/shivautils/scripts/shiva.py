@@ -48,7 +48,7 @@ def shivaParser():
 
     parser.add_argument('--prediction',
                         choices=['PVS', 'PVS2', 'WMH', 'CMB', 'all'],
-                        nargs='?',
+                        nargs='+',
                         help=("Choice of the type of prediction (i.e. segmentation) you want to compute.\n"
                               "A combination of multiple predictions (separated by a white space) can be given.\n"
                               "- 'PVS' for the segmentation of perivascular spaces using only T1 scans\n"
@@ -148,7 +148,7 @@ def setArgsAndCheck(inParser):
         inParser.error(
             'Using a container (denoted with the "--container" argument) requires '
             'a configuration file (.yml) do none was give.')
-    if os.path.isdir(args.output) and not os.listdir(args.output) == 0:
+    if os.path.isdir(args.output) and bool(os.listdir(args.output)):
         inParser.error(
             'The output directory already exists and is not empty.'
         )
