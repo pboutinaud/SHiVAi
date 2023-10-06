@@ -22,7 +22,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.base_dir = kwargs['BASE_DIR']
 
     # Check if using T1 and FLAIR ("dual") or T1 only: TODO: Add SWI too
-    if 'PVS2' in wfargs['PREDICTION'] or 'WMH' in wfargs['PREDICTION']:
+    if 'PVS2' in kwargs['PREDICTION'] or 'WMH' in kwargs['PREDICTION']:
         dual = True
     else:
         dual = False
@@ -64,7 +64,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
 
-    if 'PVS' in kwargs['PREDICTION']
+    if 'PVS' in kwargs['PREDICTION']:
         predict_pvs = Node(Predict(), name="predict_pvs")
         predict_pvs.inputs.model = kwargs['MODELS_PATH']
         predict_pvs.inputs.descriptor = kwargs['PVS_DESCRIPTOR']
