@@ -32,7 +32,8 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow(kwargs['WF_DIRS']['preproc'])
+    wf_name = kwargs['WF_DIRS']['preproc']
+    workflow = Workflow(wf_name)
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
@@ -43,9 +44,10 @@ def genWorkflow(**kwargs) -> Workflow:
     subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
     # file selection
-    datagrabber = Node(DataGrabber(infields=['subject_id'],
-                                   outfields=['t1', 'flair']),
-                       name='dataGrabber')
+    datagrabber = Node(DataGrabber(
+        infields=['subject_id'],
+        outfields=['t1', 'flair']),
+        name='dataGrabber')
     datagrabber.inputs.base_directory = kwargs['DATA_DIR']
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
@@ -169,6 +171,11 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(crop_normalized, 'cropped',
                      post_brain_mask, 't1')
+    
+    # Specify GPU
+    if kwargs['GPU']:
+        pre_brain_mask.inputs.gpu_number = kwargs['GPU']
+        post_brain_mask.inputs.gpu_number = kwargs['GPU'] 
 
     # binarize post brain mask
     hard_post_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD'], binarize=True), name="hard_post_brain_mask")

@@ -7,7 +7,7 @@ from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
 from shivautils.workflows.dual_predict import genWorkflow as genWorkflowPredict2
 from shivautils.workflows.T1_predict import genWorkflow as genWorkflowPredict
 from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowPreproc2
-from shivautils.workflows.T1_preprocessing import genWorkflow as genWorkflowPreproc
+from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from nipype import config
 import os
 import argparse
@@ -234,7 +234,7 @@ def main():
               'BASE_DIR': out_dir,  # Default base_dir for each workflow
               'INPUT_TYPE': args.input_type,
               'PREDICTION': args.prediction,
-              'WF_DIRS': {'preproc': 'shiva_preprocessing_dual', 'pred': 'dual_predictor_workflow'},  # Name of the preprocessing wf, used to link wf for now
+              'WF_DIRS': {'preproc': 'shiva_preprocessing', 'pred': 'predictor_workflow'},  # Name of the preprocessing wf, used to link wf for now
               'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
               'WMH_DESCRIPTOR': wmh_descriptor,
               'PVS_DESCRIPTOR': pvs_descriptor,
@@ -242,6 +242,7 @@ def main():
               'CMB_DESCRIPTOR': cmb_descriptor,
               'CONTAINER': args.container,  # TODO: Adapt other scripts to run without Apptainer
               'MODELS_PATH': args.model,
+              'GPU': args.gpu,
               'ANONYMIZED': False,  # TODO: Why False though?
               'INTERPOLATION': args.interpolation,
               'PERCENTILE': args.percentile,
@@ -258,35 +259,27 @@ def main():
     print(f'Working directory set to: {out_dir}')
 
     # TODO: merge the workflows and do the ckecks inside
-    if wfargs['PREDICTION'] == ['PVS']:
-        wf_preproc = genWorkflowPreproc(**wfargs)
-        wf_predict = genWorkflowPredict(**wfargs)
-        wf_post = genWorkflowPost(**wfargs)
-    elif 'PVS2' in wfargs['PREDICTION'] or 'WMH' in wfargs['PREDICTION']:
-        wf_preproc = genWorkflowPreproc2(**wfargs)
-        wf_predict = genWorkflowPredict2(**wfargs)
-        wf_post = genWorkflowPost(**wfargs)
-
+    wf_preproc = genWorkflowPreproc(**wfargs)
     # If necessary to modify defaults:
     # wf_preproc.get_node('conform').inputs.dimensions = (256, 256, 256)
     # wf_preproc.get_node('conform').inputs.voxel_size = tuple(args.voxels_size)
     # wf_preproc.get_node('conform').inputs.orientation = 'RAS'
     # wf_preproc.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
-
-    if args.gpu:
-        wf_preproc.get_node('pre_brain_mask').inputs.gpu_number = args.gpu
-        wf_preproc.get_node('post_brain_mask').inputs.gpu_number = args.gpu
-
     wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-    # wf_predict.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_preproc.name)
+    wf_preproc.run(plugin='Linear')
+
+    if wfargs['PREDICTION'] == ['PVS']:
+        wf_predict = genWorkflowPredict(**wfargs)
+    elif 'PVS2' in wfargs['PREDICTION'] or 'WMH' in wfargs['PREDICTION']:
+        wf_predict = genWorkflowPredict2(**wfargs)
+    wf_predict.run(plugin='Linear')
+
+    wf_post = genWorkflowPost(**wfargs)
     # wf_post.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_predict.name)
     wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}  # TODO: Is there even the possibility that it is True?
-
-    wf_preproc.run(plugin='Linear')
-    wf_predict.run(plugin='Linear')
     wf_post.run(plugin='Linear')
 
-    if 'CMB' in args.prediction:
+    if 'CMB' in args.prediction:  # TODO: Check if SWI preproc needs T1/dual preproc or is stand-alone
         wfargs.update({'WF_SWI_DIRS': {'preproc': 'shiva_preprocessing_swi', 'pred': 'SWI_predictor_workflow'}})
         swi_wf_preproc = genWorkflowSWI(**wfargs)
         swi_wf_predict = genWorkflowPredictSWI(**wfargs)
