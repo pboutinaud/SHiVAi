@@ -39,7 +39,7 @@ def genWorkflow(**kwargs) -> Workflow:
     # Define if dual (FLAIR + T1) or T1 only
     if kwargs['PREDICTION'] == ['PVS']:
         dual = False
-    elif 'PVS2' in wfargs['PREDICTION'] or 'WMH' in wfargs['PREDICTION']:
+    elif 'PVS2' in kwargs['PREDICTION'] or 'WMH' in kwargs['PREDICTION']:
         dual = True
 
     # get a list of subjects to iterate on
@@ -165,7 +165,7 @@ def genWorkflow(**kwargs) -> Workflow:
                      post_brain_mask, 't1')
     
     # Specify GPU
-    if kwargs['GPU']:
+    if kwargs['GPU'] is not None:
         pre_brain_mask.inputs.gpu_number = kwargs['GPU']
         post_brain_mask.inputs.gpu_number = kwargs['GPU'] 
 
