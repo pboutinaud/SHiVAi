@@ -1,7 +1,7 @@
 import nibabel as nb
 import pandas as pd
 from shivautils.stats import save_histogram, bounding_crop
-from string import Template
+from jinja2 import Template
 
 
 def make_report(img_normalized: nb.Nifti1Image,
