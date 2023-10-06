@@ -148,6 +148,10 @@ def setArgsAndCheck(inParser):
         inParser.error(
             'Using a container (denoted with the "--container" argument) requires '
             'a configuration file (.yml) do none was give.')
+    if os.path.isdir(args.output) and not os.listdir(args.output) == 0:
+        inParser.error(
+            'The output directory already exists and is not empty.'
+        )
 
     if args.model_config:  # Parse the config file
         with open(args.model_config, 'r') as file:
@@ -249,7 +253,7 @@ def main():
 
     checkInputForPred(wfargs)
 
-    if not (os.path.exists(out_dir) and os.path.isdir(out_dir)):
+    if not os.path.exists(out_dir) :
         os.makedirs(out_dir)
     print(f'Working directory set to: {out_dir}')
 
