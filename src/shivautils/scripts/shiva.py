@@ -5,7 +5,7 @@ from shivautils.workflows.SWI_predict import genWorkflow as genWorkflowPredictSW
 from shivautils.workflows.SWI_preprocessing import genWorkflow as genWorkflowSWI
 from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
 from shivautils.workflows.dual_predict import genWorkflow as genWorkflowPredict2
-from shivautils.workflows.T1_predict import genWorkflow as genWorkflowPredict
+from shivautils.workflows.predict import genWorkflow as genWorkflowPredict
 from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowPreproc2
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from nipype import config
@@ -260,12 +260,12 @@ def main():
 
     # TODO: merge the workflows and do the ckecks inside
     wf_preproc = genWorkflowPreproc(**wfargs)
+    wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     # If necessary to modify defaults:
     # wf_preproc.get_node('conform').inputs.dimensions = (256, 256, 256)
     # wf_preproc.get_node('conform').inputs.voxel_size = tuple(args.voxels_size)
     # wf_preproc.get_node('conform').inputs.orientation = 'RAS'
     # wf_preproc.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
-    wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     wf_preproc.run(plugin='Linear')
 
     if wfargs['PREDICTION'] == ['PVS']:
@@ -282,21 +282,22 @@ def main():
     if 'CMB' in args.prediction:  # TODO: Check if SWI preproc needs T1/dual preproc or is stand-alone
         wfargs.update({'WF_SWI_DIRS': {'preproc': 'shiva_preprocessing_swi', 'pred': 'SWI_predictor_workflow'}})
         swi_wf_preproc = genWorkflowSWI(**wfargs)
-        swi_wf_predict = genWorkflowPredictSWI(**wfargs)
-        swi_wf_post = genWorkflowPostSWI(**wfargs)
-
+        swi_wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
         # If necessary to modify defaults:
         # swi_wf_preproc.get_node('conform').inputs.dimensions = (256, 256, 256)
         # swi_wf_preproc.get_node('conform').inputs.voxel_size = tuple(args.voxels_size)
         # swi_wf_preproc.get_node('conform').inputs.orientation = 'RAS'
         # swi_wf_preproc.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
-
-        swi_wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-        swi_wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-
         swi_wf_preproc.run(plugin='Linear')
+
+        swi_wf_predict = genWorkflowPredictSWI(**wfargs)
         swi_wf_predict.run(plugin='Linear')
+
+        swi_wf_post = genWorkflowPostSWI(**wfargs)
+        swi_wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
         swi_wf_post.run(plugin='Linear')
+
+
 
 
 if __name__ == "__main__":

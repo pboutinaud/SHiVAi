@@ -56,3 +56,4 @@ shivautils.egg-info
 .vscode/launch.json
 __pycache__
 provenance.*
+crash*
