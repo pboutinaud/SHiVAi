@@ -282,9 +282,9 @@ def make_report(img_normalized: nb.Nifti1Image,
                     <h1>Quality control</h1>
                     <h2>Preprocessed {{ modality }} image histogram</h2>
                     <p>Histogram of the {{ modality }} image that enters the classifier: {{ resolution }} mm<sup>3</sup> with {{ image_size }} shape, (within brain mask and with censoring for voxels outside the brain mask)</p>
-                    <object type = 'image/svg+xml' data='data:image/svg+xml;base64, {{ hist_intensity }}' width="200" height="200"></object>
+                    <object type = 'image/svg+xml' data='data:image/svg+xml;base64, {{ hist_intensity }}' width="400" height="400"></object>
                     <h2>Crop box</h2>Display of the cropping region on the conformed image (256x256x256 at 1.0 mm<sup>3</sup> resolution).</p>
-                    <object type = 'image/svg+xml' data='data:image/svg+xml;base64, {{ bounding_crop }}'></object>
+                    <object type = 'image/svg+xml' data='data:image/svg+xml;base64, {{ bounding_crop }}' width="600" height="400"></object>
                     {% if isocontour_slides_FLAIR_T1 %}
                     <h2>Isocontour Slides for coregistration FLAIR on T1w</h2>
                     <p>Isocontour of the FLAIR image coregister on T1w image that enters the classifier: {{ resolution }} mm<sup>3</sup> with {{ image_size }}, (within brain mask and with censoring for voxels outside the brain mask)</p>
@@ -305,7 +305,7 @@ def make_report(img_normalized: nb.Nifti1Image,
                 <p>final resolution : {{ resolution }} mm<sup>3</p>
                 <p>final dimensions crop : {{ image_size }}<p>
                 {% if sum_workflow %}
-                <object type = 'image/svg+xml' data='data:image/svg+xml;base64, {{ sum_workflow }}' width="600" height="360"></object>
+                <object type = 'image/svg+xml' data='data:image/svg+xml;base64, {{ sum_workflow }}' width="700" height="500"></object>
                 {% endif %}
                 </body>
                 </html>"""
