@@ -14,7 +14,7 @@ from shivautils.stats import histogram
 
 def normalization(img: nb.Nifti1Image,
                   percentile: int,
-                  brain_mask: nb.Nifti1Image=None) -> nb.Nifti1Image:
+                  brain_mask: nb.Nifti1Image = None) -> nb.Nifti1Image:
     """We remove values above the 99th percentile to avoid hot spots,
        set values below 0 to 0, set values above 1.3 to 1.3 and normalize
        the data between 0 and 1.
@@ -32,24 +32,22 @@ def normalization(img: nb.Nifti1Image,
     # We suppress values above the 99th percentile to avoid hot spots
     array = img.get_fdata()
     print(np.max(array))
-    array_b = array  # Uhoh, this needs a copy or it will modify the original array too I think
-    array_b[array_b < 0] = 0
-    # calculate percentile 
+    array[array < 0] = 0
+    # calculate percentile
     if not brain_mask:
-        value_percentile = np.percentile(array_b, percentile)
-    else: 
+        value_percentile = np.percentile(array, percentile)
+    else:
         brain_mask_array = np.squeeze(brain_mask.get_fdata())
-        value_percentile = np.percentile(array_b[np.squeeze(brain_mask_array) != 0], percentile)
+        value_percentile = np.percentile(array[np.squeeze(brain_mask_array) != 0], percentile)
 
-    array += array.min()
     # scaling the array with the percentile value
     array /= value_percentile
 
     # anything values less than 0 are set to 0 and we set to 1.3 the values greater than 1.3
-    array = np.clip(array, 0, 1.3)
+    array[array > 1.3] = 1.3
 
     # We normalize the data between 0 and 1
-    array_normalized = (array - array.min()) / (array.max() - array.min())
+    array_normalized = array / 1.3
 
     # Normalization information
     report, mode = histogram(array_normalized, percentile, bins=64)
@@ -98,17 +96,17 @@ def threshold(img: nb.Nifti1Image,
     else:
         raise ValueError(f'Unsupported sign argument value {sign} (+ or -)...')
     thresholded = nip.Nifti1Image(array, img.affine)
-    
+
     return thresholded
 
 
 def crop(roi_mask: nb.Nifti1Image,
-	     apply_to: nb.Nifti1Image,
+         apply_to: nb.Nifti1Image,
          dimensions: Tuple[int, int, int],
          cdg_ijk: np.ndarray = None,
          default: str = 'ijk',
          safety_marger: int = 5
-         ) -> Tuple[nb.Nifti1Image, 
+         ) -> Tuple[nb.Nifti1Image,
                     Tuple[int, int, int],
                     Tuple[int, int, int],
                     Tuple[int, int, int]]:
@@ -147,11 +145,11 @@ def crop(roi_mask: nb.Nifti1Image,
         raise TypeError("roi_mask: only Nifti images are supported")
     elif not roi_mask and not cdg_ijk:
         if default == 'xyz':
-            # get cropping center from xyz origin  
-            cdg_ijk =  np.linalg.inv(apply_to.affine) @ np.array([0.0, 0.0, 0.0, 1.0])
+            # get cropping center from xyz origin
+            cdg_ijk = np.linalg.inv(apply_to.affine) @ np.array([0.0, 0.0, 0.0, 1.0])
             cdg_ijk = np.ceil(cdg_ijk).astype(int)[:3]
         elif default == "ijk":
-            cdg_ijk  = np.ceil(np.array(apply_to.shape) / 2).astype(int)
+            cdg_ijk = np.ceil(np.array(apply_to.shape) / 2).astype(int)
         else:
             raise ValueError(f"argument 'default' value {default} not valid")
     elif roi_mask and not cdg_ijk:
@@ -168,15 +166,12 @@ def crop(roi_mask: nb.Nifti1Image,
         if len(dimensions) != required_ndim:
             raise ValueError(f"`dimensions` must have {required_ndim} values")
         cdg_ijk = np.ceil(np.array(
-                            ndimage.center_of_mass(
-		                        roi_mask.get_fdata()))).astype(int)
-        
-
+            ndimage.center_of_mass(
+                roi_mask.get_fdata()))).astype(int)
 
     # Calculation of the center of gravity of the mask, we round and convert
     # to integers
-    
- 
+
     # We will center the block on the center of gravity, so we cut the size in
     # 2
     halfs = np.array(dimensions)/2
@@ -188,7 +183,7 @@ def crop(roi_mask: nb.Nifti1Image,
     # the highest ijk voxel of the bounding box
     bbox2 = halfs + cdg_ijk
 
-    array_out = np.empty(dimensions, dtype = apply_to.header.get_data_dtype())
+    array_out = np.empty(dimensions, dtype=apply_to.header.get_data_dtype())
     print(f"bbox1: {bbox1}")
     print(f"bbox2: {bbox2}")
     print(f"cdg_ijk: {cdg_ijk}")
@@ -208,27 +203,27 @@ def crop(roi_mask: nb.Nifti1Image,
 
         # we are too low, we nned to move the crop box up
         # (because brain mask is wrong and includes stuff in the neck and shoulders)
-        
+
         delta = top_mask_slice_index - bbox2[2] + safety_marger
         bbox1[2] = bbox1[2] + delta
         bbox2[2] = bbox2[2] + delta
-        cdg_ijk[2] = cdg_ijk[2] + delta 
+        cdg_ijk[2] = cdg_ijk[2] + delta
         print(f"reworked bbox1: {bbox1}")
         print(f"reworked bbox2: {bbox2}")
 
     array_out[offset_ijk[0]:offset_ijk[0] + span[0],
               offset_ijk[1]:offset_ijk[1] + span[1],
               offset_ijk[2]:offset_ijk[2] + span[2]] = apply_to.get_fdata()[
-                                bbox1[0]:bbox2[0],
-                                bbox1[1]:bbox2[1],
-                                bbox1[2]:bbox2[2]]
-    
+        bbox1[0]:bbox2[0],
+        bbox1[1]:bbox2[1],
+        bbox1[2]:bbox2[2]]
+
     # We correct the coordinates, so first we have to convert ijk to xyz for
     # half block size and centroid
     cdg_xyz = apply_to.affine @ np.append(cdg_ijk, 1)
     halfs_xyz = apply_to.affine @ np.append(cdg_ijk - bbox1, 1)
     padding_xyz = apply_to.affine @ np.append(tuple(offset_ijk), 1)
-    offset_padding = apply_to.affine[:,3] - padding_xyz
+    offset_padding = apply_to.affine[:, 3] - padding_xyz
     print(f"padding: {padding_xyz}")
     print(f"padding offset: {offset_padding}")
     print(f"halfs xyz: {halfs_xyz}")
@@ -242,14 +237,13 @@ def crop(roi_mask: nb.Nifti1Image,
 
     affine_out[:, 3] = affine_out[:, 3] + (cdg_xyz - halfs_xyz) + offset_padding
 
-
     # We write the result image
     cropped = nip.Nifti1Image(array_out, affine_out)
 
     return cropped, cdg_ijk, bbox1, bbox2
 
 
-def reverse_crop(original_img: nb.Nifti1Image, 
+def reverse_crop(original_img: nb.Nifti1Image,
                  apply_to: nb.Nifti1Image,
                  bbox1: Tuple[int, int, int],
                  bbox2: Tuple[int, int, int]):
@@ -322,10 +316,10 @@ def apply_mask(file_prediction: nb.Nifti1Image,
     Returns:
         masked_prediction_Nifti: file with all prediction out of brain deleted
     """
-    
+
     array_prediction = file_prediction.get_fdata()
     array_brainmask = brainmask.get_fdata()
-    
+
     if len(array_prediction.shape) == 4:
         array_prediction = array_prediction.squeeze()
     if len(array_brainmask.shape) == 4:
