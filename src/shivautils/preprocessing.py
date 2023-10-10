@@ -3,6 +3,8 @@ from typing import Tuple
 import numpy as np
 import random
 from copy import deepcopy
+from skimage.measure import label
+from skimage.morphology import opening, binary_opening, ball
 
 import nibabel.processing as nip
 import nibabel as nb
@@ -60,16 +62,27 @@ def normalization(img: nb.Nifti1Image,
 def threshold(img: nb.Nifti1Image,
               thr: float = 0.4,
               sign: str = '+',
-              binarize: bool = False) -> nb.Nifti1Image:
+              binarize: bool = False,
+              open: int = 0,
+              clusterCheck: str = 'size',
+              minVol: int = 0) -> nb.Nifti1Image:
     """Create a brain_mask by putting all the values below the threshold.
-       to 0
+       to 0. Offer filtering options if multiple clusters are expected.
 
        Args:
-          img (nb.Nifti1Image): image to process
-          thr (float): appropriate value to select mostly brain tissue
-             (white matter) and remove background
-          sign (str): '+' zero anything below, '-' zero anythin above threshold
-          binarize (bool): make a binary mask
+            img (nb.Nifti1Image): image to process
+            thr (float): appropriate value to select mostly brain tissue
+                (white matter) and remove background
+            sign (str): '+' zero anything below, '-' zero anythin above threshold
+            binarize (bool): make a binary mask
+            open (int): do a morphological opening using the given int for the radius
+                of the ball used as footprint. If 0 is given, skip this step.
+            clusterCheck (str): Can be 'top', 'size', or 'all'. Labels the clusters in the mask,
+                then keep the one highest in the brain if 'top' was selected, or keep
+                the biggest cluster if 'size' was selected (but will raise an error if
+                it's not the one at the top). 'all' doesn't do any check.
+            minVol (int): Removes clusters with volume under the specified value. Should
+                be used if clusterCheck = 'top'
 
        Returns:
            nb.Nifti1Image: preprocessed image
@@ -81,6 +94,9 @@ def threshold(img: nb.Nifti1Image,
         raise TypeError("Only Nifti images are supported")
     if not isinstance(thr, float):
         raise TypeError("'thr' must be a float")
+    if not clusterCheck in ('top', 'size', 'all'):
+        raise ValueError(
+            f"Input for clusterCheck should be 'top', 'size' or 'all' but {clusterCheck} was given.")
 
     array = img.get_fdata()
     if sign == '+' and not binarize:
@@ -95,6 +111,35 @@ def threshold(img: nb.Nifti1Image,
         array = array.astype(np.uint8)
     else:
         raise ValueError(f'Unsupported sign argument value {sign} (+ or -)...')
+    
+    if open:
+        if binarize:
+            array = binary_opening(array, footprint=ball(open)).astype(np.uint8)
+        else:
+            array = opening(array, footprint=ball(open))
+    if clusterCheck in ('top', 'size') or minVol:
+        labeled_clusters = label(array)
+        clst,  clst_cnt = np.unique(  # already sorted by size
+            labeled_clusters[labeled_clusters>0],
+            return_counts=True)
+        if minVol:
+            clst = clst[clst_cnt > minVol]
+        if clusterCheck in ('top', 'size'):
+            maxInd = []
+            for c in clst:
+                zmax = np.where(labeled_clusters==c)[2].max()
+                maxInd.append(zmax)
+            topClst = clst[np.argmax(maxInd)]  # Highest (z-axis) cluster
+            if clusterCheck == 'top':
+                cluster_mask = (labeled_clusters == topClst)
+            else:
+                if not topClst == clst[0]:
+                    raise ValueError(
+                        'The biggest cluster in the mask is not the one at '
+                        'the top of the brain. Check the data for that participant.')
+                cluster_mask = (labeled_clusters == clst[0])
+        array *= cluster_mask
+        
     thresholded = nip.Nifti1Image(array, img.affine)
 
     return thresholded

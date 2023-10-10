@@ -29,6 +29,9 @@ def as_list(input):
 def genWorkflow(**kwargs) -> Workflow:
     """Generate a nipype workflow
 
+    "conformed" = (256, 256, 256) 1x1x1mm3
+    "preconformed" = (160, 214, 176) = pred model dim (no specific resolution in mm3)
+    "unpreconformed" = "preconfored" sent in "conformed" space
     Returns:
         workflow
     """
@@ -95,10 +98,10 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(datagrabber, "t1", conform, 'img')
 
-    # preconform t1 to 1 mm isotropic, freesurfer-style
+    # preconform t1 to resampled image in model-imposed dim while keeping fov (for 1st brain mask)
     preconform = Node(Conform(),
                       name="preconform")
-    preconform.inputs.dimensions = kwargs['IMAGE_SIZE']
+    preconform.inputs.dimensions = kwargs['IMAGE_SIZE']  # = final dim = 160x214x176
     preconform.inputs.orientation = 'RAS'
 
     workflow.connect(datagrabber, "t1", preconform, 'img')
@@ -120,18 +123,22 @@ def genWorkflow(**kwargs) -> Workflow:
                      pre_brain_mask, 't1')
 
     # send mask from preconformed space to
-    # conformed space 256 256 256 , same as anatomical conformed image
-    unconform = Node(Conform(),
+    # conformed space 256 256 256, same as anatomical conformed image
+    unpreconform = Node(Conform(),
                      name="unpreconform")
-    unconform.inputs.dimensions = (256, 256, 256)
-    unconform.inputs.voxel_size = kwargs['RESOLUTION']
-    unconform.inputs.orientation = 'RAS'
+    unpreconform.inputs.dimensions = (256, 256, 256)
+    unpreconform.inputs.voxel_size = kwargs['RESOLUTION']
+    unpreconform.inputs.orientation = 'RAS'
 
-    workflow.connect(pre_brain_mask, 'segmentation', unconform, 'img')
+    workflow.connect(pre_brain_mask, 'segmentation', unpreconform, 'img')
 
     # binarize unpreconformed brain mask
-    hard_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD'], binarize=True), name="hard_brain_mask")
-    workflow.connect(unconform, 'resampled', hard_brain_mask, 'img')
+    hard_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="hard_brain_mask")
+    hard_brain_mask.inputs.binarize = True
+    hard_brain_mask.inputs.open = 3  # morphological opening of clusters using a ball of radius 3
+    hard_brain_mask.inputs.minVol = 30000  # Get rif of potential small clusters
+    hard_brain_mask.inputs.clusterCheck = 'size'  # Select biggest cluster
+    workflow.connect(unpreconform, 'resampled', hard_brain_mask, 'img')
 
     # normalize intensities between 0 and 1 for Tensorflow
     post_normalization = Node(Normalization(percentile=kwargs['PERCENTILE']), name="post_intensity_normalization")
@@ -170,7 +177,11 @@ def genWorkflow(**kwargs) -> Workflow:
 
 
     # binarize post brain mask
-    hard_post_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD'], binarize=True), name="hard_post_brain_mask")
+    hard_post_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="hard_post_brain_mask")
+    hard_post_brain_mask.inputs.binarize = True
+    hard_post_brain_mask.inputs.open = 3
+    hard_post_brain_mask.inputs.minVol = 30000
+    hard_post_brain_mask.inputs.clusterCheck = 'size'
     workflow.connect(post_brain_mask, 'segmentation', hard_post_brain_mask, 'img')
 
     if dual:

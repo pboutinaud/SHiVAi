@@ -223,6 +223,17 @@ class ThresholdInputSpec(BaseInterfaceInputSpec):
 
     binarize = traits.Bool(False, exists=True,
                            desc='Binarize image')
+    
+    open = traits.Int(0, usedefault=True,
+                      desc=('For binary opening of the clusters, radius of the ball used '
+                            'as footprint (skip opening if <= 0'))
+    
+    clusterCheck = traits.Str('size', usedefault=True,
+                              desc=("Can be 'size', 'top' or 'all'. Select one cluster "
+                                    "(if not 'all') in the mask, biggest or highest on z-axis"))
+
+    minVol = traits.Int(0, usedefault=True,
+                        desc='Minimum size of the clusters to keep (if > 0, else keep all)')
 
 
 class ThresholdOutputSpec(TraitedSpec):
@@ -264,7 +275,10 @@ class Threshold(BaseInterface):
         thresholded = threshold(img,
                                 self.inputs.threshold,
                                 sign=self.inputs.sign,
-                                binarize=self.inputs.binarize)
+                                binarize=self.inputs.binarize,
+                                open=self.inputs.open,
+                                clusterCheck=self.inputs.clusterCheck,
+                                minVol=self.inputs.minVol)
 
         # Save it for later use in _list_outputs
         _, base, _ = split_filename(fname)
