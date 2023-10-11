@@ -20,14 +20,14 @@ import tensorflow as tf
 
 
 def _load_image(filename):
-    dataNii = nibabel.load(filename)
+    data_nii = nibabel.load(filename)
     # load file and add dimension for the modality
-    image = dataNii.get_fdata(dtype=np.float32)[..., np.newaxis]
-    return image, dataNii.affine
+    image = data_nii.get_fdata(dtype=np.float32)[..., np.newaxis]
+    return image, data_nii.affine
 
 
 # Script parameters
-def predictParser():
+def predict_parser():
     parser = argparse.ArgumentParser(
         description="Run inference with tensorflow models(s) on an image that may be built from several modalities"
     )
@@ -96,8 +96,8 @@ def predictParser():
 
 
 def main():
-    predParser = predictParser()
-    args = predParser.parse_args()
+    pred_parser = predict_parser()
+    args = pred_parser.parse_args()
 
     _VERBOSE = args.verbose
 

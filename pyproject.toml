@@ -8,6 +8,7 @@ version = "0.2.1"
 authors = [
     { name = "Yann RIO", email = "yrio@fealinx.com" },
     { name = "Pierre-Yves HERVE", email = "pyherve@fealinx.com" },
+    { name = "Victor NOZAIS", email = "vnozais@fealinx.com" },
 ]
 maintainers = [
     { name = "Pierre-Yves HERVE", email = "pyherve@fealinx.com" },

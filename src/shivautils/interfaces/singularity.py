@@ -6,18 +6,14 @@ Created on 15 October 2019
 """
 
 import os
+import re
+
 from nipype.interfaces.base import (
     traits,
     CommandLineInputSpec,
     CommandLine,
 )
-import re
-try:
-    # more recent nipype versions
-    from nipype.interfaces.base.traits_extension import isdefined
-except ModuleNotFoundError:
-    from nipype.interfaces.traits_extension import isdefined
-
+from nipype.interfaces.base.traits_extension import isdefined
 from nipype.interfaces.dcm2nii import (Dcm2niiInputSpec, Dcm2nii,
                                        Dcm2niiOutputSpec)
 
