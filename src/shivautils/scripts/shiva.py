@@ -64,9 +64,13 @@ def shivaParser():
                         type=int,
                         help='Force GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
 
+    parser.add_argument('--use_container',
+                        action='store_true',
+                        help='Wether or not to use containerised processes (mainly for SWOmed).')
+
     parser.add_argument('--container',
                         action='store_true',
-                        help='Wether or not the script is being called from a container or not.')
+                        help='Wether or not process is launched from inside a container.')
 
     parser.add_argument('--model_config',
                         type=str,
@@ -145,7 +149,7 @@ def setArgsAndCheck(inParser):
     if args.container and not args.model_config:
         inParser.error(
             'Using a container (denoted with the "--container" argument) requires '
-            'a configuration file (.yml) do none was give.')
+            'a configuration file (.yml) but none was given.')
     if os.path.isdir(args.output) and bool(os.listdir(args.output)):
         inParser.error(
             'The output directory already exists and is not empty.'
@@ -238,7 +242,7 @@ def main():
               'PVS_DESCRIPTOR': pvs_descriptor,
               'PVS2_DESCRIPTOR': pvs2_descriptor,
               'CMB_DESCRIPTOR': cmb_descriptor,
-              'CONTAINER': args.container,  # TODO: Adapt other scripts to run without Apptainer
+              'CONTAINER': not args.use_container,  # store "False" because of legacy meaning of the variable. Only when used by SMOmed usually
               'MODELS_PATH': args.model,
               'GPU': args.gpu,
               'ANONYMIZED': False,  # TODO: Why False though?
