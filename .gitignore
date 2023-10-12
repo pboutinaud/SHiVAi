@@ -57,3 +57,4 @@ shivautils.egg-info
 __pycache__
 provenance.*
 crash*
+/test
