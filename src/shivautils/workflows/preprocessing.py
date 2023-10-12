@@ -9,7 +9,7 @@ import os
 from nipype.pipeline.engine import Node, JoinNode, Workflow
 from nipype.interfaces import ants
 from nipype.interfaces.io import DataGrabber
-from nipype.interfaces.utility import IdentityInterface
+from nipype.interfaces.utility import IdentityInterface, Function
 
 from shivautils.interfaces.image import (Threshold, Normalization,
                                          Conform, Crop)
@@ -24,6 +24,16 @@ dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
 
 def as_list(input):
     return [input]
+
+
+def make_output_dict(sub_list, t1_preproc_list, flair_preproc_list=None):
+    """Takes the list participants, the list of preproc T1 and potentially preproc FLAIR,
+    and put the in a dict to pass to the next workflow. 
+    """
+    if flair_preproc_list is None:
+        return {'subject_id': sub_list, 't1_preproc': t1_preproc_list}
+    else:
+        return {'subject_id': sub_list, 't1_preproc': t1_preproc_list, 'flair_preproc': flair_preproc_list}
 
 
 def genWorkflow(**kwargs) -> Workflow:
@@ -232,9 +242,19 @@ def genWorkflow(**kwargs) -> Workflow:
                      t1_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      t1_norm, 'brain_mask')
-    join_out_T1 = JoinNode(IdentityInterface(
-        fields=['t1'], mandatory_inputs=False
-    ))
+    
+    join_output = JoinNode(
+        Function(
+            input_names=['sub_list', 't1_preproc_list'],
+            output_names='preproc_out_dict',
+            function=make_output_dict),
+        name='preproc_out_node',
+        joinsource=subject_list,
+        joinfield=['sub_list', 't1_preproc_list']
+    )
+    workflow.connect(subject_list, 'subject_id', join_output, 'sub_list')
+    workflow.connect(t1_norm, 'intensity_normalized', join_output, 't1_preproc_list')
+
     workflow.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
 
     return workflow
