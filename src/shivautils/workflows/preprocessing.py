@@ -6,7 +6,7 @@
 """
 import os
 
-from nipype.pipeline.engine import Node, Workflow
+from nipype.pipeline.engine import Node, JoinNode, Workflow
 from nipype.interfaces import ants
 from nipype.interfaces.io import DataGrabber
 from nipype.interfaces.utility import IdentityInterface
@@ -35,15 +35,9 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    wf_name = kwargs['WF_DIRS']['preproc']
+    wf_name = 'shiva_mono_preprocessing'
     workflow = Workflow(wf_name)
     workflow.base_dir = kwargs['BASE_DIR']
-
-    # Define if dual (FLAIR + T1) or T1 only
-    if kwargs['PREDICTION'] == ['PVS']:
-        dual = False
-    elif 'PVS2' in kwargs['PREDICTION'] or 'WMH' in kwargs['PREDICTION']:
-        dual = True
 
     # get a list of subjects to iterate on
     subject_list = Node(IdentityInterface(
@@ -53,39 +47,15 @@ def genWorkflow(**kwargs) -> Workflow:
     subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
     # file selection
-    if dual:
-        datagrabber = Node(DataGrabber(
-            infields=['subject_id'],
-            outfields=['t1', 'flair']),
-            name='dataGrabber')
-    else:
-        datagrabber = Node(DataGrabber(
-            infields=['subject_id'],
-            outfields=['t1']),
-            name='dataGrabber')
+    datagrabber = Node(DataGrabber(
+        infields=['subject_id'],
+        outfields=['t1']),
+        name='dataGrabber')
     datagrabber.inputs.base_directory = kwargs['DATA_DIR']
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
     datagrabber.inputs.template = '%s/%s/*.nii.gz'
-    if kwargs['INPUT_TYPE'] in ['standard', 'json']:
-        if dual:
-            datagrabber.inputs.field_template = {'t1': '%s/%s/*_raw.nii.gz',
-                                                 'flair': '%s/%s/*_raw.nii.gz'}
-            datagrabber.inputs.template_args = {'t1': [['subject_id', 't1']],
-                                                'flair': [['subject_id', 'flair']]}
-        else:
-            datagrabber.inputs.field_template = {'t1': '%s/%s/*_raw.nii.gz'}
-            datagrabber.inputs.template_args = {'t1': [['subject_id', 't1']]}
-
-    if kwargs['INPUT_TYPE'] == 'BIDS':
-        if dual:
-            datagrabber.inputs.field_template = {'t1': '%s/anat/%s_T1_raw.nii.gz',
-                                                 'flair': '%s/anat/%s_FLAIR_raw.nii.gz'}
-            datagrabber.inputs.template_args = {'t1': [['subject_id', 'subject_id']],
-                                                'flair': [['subject_id', 'subject_id']]}
-        else:
-            datagrabber.inputs.field_template = {'t1': '%s/anat/%s_T1_raw.nii.gz'}
-            datagrabber.inputs.template_args = {'t1': [['subject_id', 'subject_id']]}
+    datagrabber.inputs.template_args = {'main': [['subject_id', 'main']]}
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
 
@@ -111,8 +81,23 @@ def genWorkflow(**kwargs) -> Workflow:
     preconf_normalization = Node(Normalization(percentile=kwargs['PERCENTILE']), name="preconform_intensity_normalization")
     workflow.connect(preconform, 'resampled', preconf_normalization, 'input_image')
 
-    pre_brain_mask = Node(Predict(), "pre_brain_mask")
-    pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    if kwargs['CONTAINER'] == True:  # TODO: Check with PY
+        pre_brain_mask = Node(Predict(), "pre_brain_mask")
+        pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    else:
+        # brain mask from tensorflow
+        pre_brain_mask = Node(PredictSingularity(), "pre_brain_mask")
+        pre_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
+        pre_brain_mask.inputs.snglrt_bind = [
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            ('`pwd`', '/mnt/data', 'rw'),
+            ('/bigdata/resources/cudas/cuda-11.2', '/mnt/cuda', 'ro'),
+            ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
+            (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
+        pre_brain_mask.inputs.model = '/mnt/model'
+        pre_brain_mask.inputs.snglrt_enable_nvidia = True
+        pre_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
+
     if kwargs['GPU'] is not None:
         pre_brain_mask.inputs.gpu_number = kwargs['GPU']
 
@@ -164,8 +149,23 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(hard_brain_mask, 'thresholded',
                      crop, 'roi_mask')
 
-    post_brain_mask = Node(Predict(), "post_brain_mask")
-    post_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    if kwargs['CONTAINER'] == True:  # TODO: Check with PY
+        post_brain_mask = Node(Predict(), "post_brain_mask")
+        post_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    else:
+        # brain mask from tensorflow
+        post_brain_mask = Node(PredictSingularity(), "post_brain_mask")
+        post_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
+        post_brain_mask.inputs.snglrt_bind = [
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            ('`pwd`', '/mnt/data', 'rw'),
+            ('/bigdata/resources/cudas/cuda-11.2', '/mnt/cuda', 'ro'),
+            ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
+            (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
+        post_brain_mask.inputs.model = '/mnt/model'
+        post_brain_mask.inputs.snglrt_enable_nvidia = True
+        post_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
+
     if kwargs['GPU'] is not None:
         post_brain_mask.inputs.gpu_number = kwargs['GPU'] 
 
@@ -275,7 +275,9 @@ def genWorkflow(**kwargs) -> Workflow:
                      t1_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      t1_norm, 'brain_mask')
-
+    join_out_T1 = JoinNode(IdentityInterface(
+        fields=['t1'], mandatory_inputs=False
+    ))
     if dual:
         # Intensity normalize coregistered image for tensorflow (ENDPOINT 2)
         flair_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="flair_final_intensity_normalization")
