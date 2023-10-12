@@ -184,36 +184,6 @@ def genWorkflow(**kwargs) -> Workflow:
     hard_post_brain_mask.inputs.clusterCheck = 'size'
     workflow.connect(post_brain_mask, 'segmentation', hard_post_brain_mask, 'img')
 
-    if dual:
-        # compute 6-dof coregistration parameters of accessory scan
-        # to cropped t1 image
-        coreg = Node(ants.Registration(),
-                     name='coregister')
-        coreg.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}
-        coreg.inputs.transforms = ['Rigid']
-        coreg.inputs.transform_parameters = [(0.1,)]
-        coreg.inputs.metric = ['MI']
-        coreg.inputs.radius_or_number_of_bins = [64]
-        coreg.inputs.interpolation = 'WelchWindowedSinc'
-        coreg.inputs.shrink_factors = [[8, 4, 2, 1]]
-        coreg.inputs.output_warped_image = True
-        coreg.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
-        coreg.inputs.num_threads = 8
-        coreg.inputs.number_of_iterations = [[1000, 500, 250, 125]]
-        coreg.inputs.sampling_strategy = ['Regular']
-        coreg.inputs.sampling_percentage = [0.25]
-        coreg.inputs.output_transform_prefix = "t1_to_flair_"
-        coreg.inputs.verbose = True
-        coreg.inputs.winsorize_lower_quantile = 0.005
-        coreg.inputs.winsorize_upper_quantile = 0.995
-
-        workflow.connect(datagrabber, "flair",
-                         coreg, 'moving_image')
-        workflow.connect(crop, 'cropped',
-                         coreg, 'fixed_image')
-        workflow.connect(hard_post_brain_mask, ('thresholded', as_list),
-                         coreg, 'fixed_image_masks')
-
     # compute 3-dof (translations) coregistration parameters of cropped to native t1
     crop_to_t1 = Node(ants.Registration(),
                       name='crop_to_t1')
@@ -247,19 +217,6 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(hard_post_brain_mask, 'thresholded', mask_to_t1, 'input_image')
     workflow.connect(datagrabber, "t1", mask_to_t1, 'reference_image')
 
-    if dual:
-        # write mask to flair in native space
-        mask_to_flair = Node(ants.ApplyTransforms(), name="mask_to_flair")
-        mask_to_flair.inputs.interpolation = 'NearestNeighbor'
-        mask_to_flair.inputs.invert_transform_flags = [True]
-
-        workflow.connect(coreg, 'forward_transforms',
-                         mask_to_flair, 'transforms')
-        workflow.connect(hard_post_brain_mask, 'thresholded',
-                         mask_to_flair, 'input_image')
-        workflow.connect(datagrabber, 'flair',
-                         mask_to_flair, 'reference_image')
-
     # write original image into t1 crop space
     t1_to_mask = Node(ants.ApplyTransforms(), name="t1_to_mask")
     t1_to_mask.inputs.invert_transform_flags = [True]
@@ -278,14 +235,6 @@ def genWorkflow(**kwargs) -> Workflow:
     join_out_T1 = JoinNode(IdentityInterface(
         fields=['t1'], mandatory_inputs=False
     ))
-    if dual:
-        # Intensity normalize coregistered image for tensorflow (ENDPOINT 2)
-        flair_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="flair_final_intensity_normalization")
-        workflow.connect(coreg, 'warped_image',
-                         flair_norm, 'input_image')
-        workflow.connect(hard_post_brain_mask, 'thresholded',
-                         flair_norm, 'brain_mask')
-
     workflow.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
 
     return workflow
