@@ -53,7 +53,7 @@ def genWorkflow(**kwargs) -> Workflow:
                        name='dataGrabber')
     datagrabber.inputs.base_directory = os.path.join(kwargs['DATA_DIR'], kwargs['WF_SWI_DIRS']['pred'])
     preprocDir = kwargs['WF_SWI_DIRS']['preproc']
-    datagrabber.inputs.template = '%s/%s/*.nii.gz'
+    datagrabber.inputs.template = '%s/%s/*.nii*'
     datagrabber.inputs.field_template = {'segmentation_cmb': '_subject_id_%s/predict_cmb/cmb_map.nii.gz',
                                          'brainmask': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/hard_post_brain_mask/post_brain_mask_thresholded.nii.gz'),
                                          'pre_brainmask': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/hard_brain_mask/pre_brain_maskresampled_thresholded.nii.gz'),

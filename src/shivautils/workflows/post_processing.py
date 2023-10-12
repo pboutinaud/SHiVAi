@@ -85,7 +85,7 @@ def genWorkflow(**kwargs) -> Workflow:
                                    outfields=ofields),
                        name='dataGrabber')
     datagrabber.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], kwargs['WF_DIRS']['pred'])
-    datagrabber.inputs.template = '%s/%s/*.nii.gz'
+    datagrabber.inputs.template = '%s/%s/*.nii*'
     datagrabber.inputs.template_args = tpl_args
     datagrabber.inputs.field_template = field_tpl
     datagrabber.inputs.raise_on_empty = True

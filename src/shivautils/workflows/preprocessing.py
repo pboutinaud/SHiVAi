@@ -54,7 +54,7 @@ def genWorkflow(**kwargs) -> Workflow:
     datagrabber.inputs.base_directory = kwargs['DATA_DIR']
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
-    datagrabber.inputs.template = '%s/%s/*.nii.gz'
+    datagrabber.inputs.template = '%s/%s/*.nii*'
     datagrabber.inputs.template_args = {'main': [['subject_id', 'main']]}
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')

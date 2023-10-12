@@ -46,7 +46,7 @@ def genWorkflow(**kwargs) -> Workflow:
                             outfields=['t1']),
                         name='dataGrabber')
     datagrabber.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], kwargs['WF_DIRS']['preproc'])
-    datagrabber.inputs.template = '%s/%s/*.nii.gz'
+    datagrabber.inputs.template = '%s/%s/*.nii*'
     if dual:
         datagrabber.inputs.field_template = {
             't1': '_subject_id_%s/t1_final_intensity_normalization/%s_T1_raw_trans_img_normalized.nii.gz',

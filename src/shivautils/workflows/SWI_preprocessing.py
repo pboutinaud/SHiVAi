@@ -45,7 +45,7 @@ def genWorkflow(**kwargs) -> Workflow:
                                    outfields=['SWI']),
                        name='dataGrabber')
     datagrabber.inputs.base_directory = kwargs['DATA_DIR']
-    datagrabber.inputs.template = '%s/%s/*.nii.gz'
+    datagrabber.inputs.template = '%s/%s/*.nii*'
     if kwargs['INPUT_TYPE'] in ['standard', 'json']:
         datagrabber.inputs.field_template = {'SWI': '%s/%s/*_raw.nii.gz'}
         datagrabber.inputs.template_args = {'SWI': [['subject_id', 'SWI']]}

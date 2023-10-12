@@ -33,7 +33,7 @@ def genWorkflow(**kwargs) -> Workflow:
                                    outfields=['SWI']),
                        name='dataGrabber')
     datagrabber.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], kwargs['WF_SWI_DIRS']['preproc'])
-    datagrabber.inputs.template = '%s/%s/*.nii.gz'
+    datagrabber.inputs.template = '%s/%s/*.nii*'
     datagrabber.inputs.field_template = {'SWI': '_subject_id_%s/final_intensity_normalization/*.nii.gz'}
     datagrabber.inputs.template_args = {'SWI': [['subject_id']]}
     datagrabber.inputs.raise_on_empty = True

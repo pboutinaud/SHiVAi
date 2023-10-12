@@ -50,7 +50,7 @@ def genWorkflow(**kwargs) -> Workflow:
                                               'sum_preproc_wf']),
                        name='dataGrabber')
     datagrabber.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], kwargs['WF_DIRS']['pred'])
-    datagrabber.inputs.template = '%s/%s/*.nii.gz'
+    datagrabber.inputs.template = '%s/%s/*.nii*'
     datagrabber.inputs.template_args = {'segmentation_pvs': [['subject_id']],
                                         'segmentation_wmh': [['subject_id']],
                                         'brainmask': [['subject_id']],
