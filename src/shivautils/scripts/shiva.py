@@ -5,6 +5,7 @@ from shivautils.workflows.SWI_predict import genWorkflow as genWorkflowPredictSW
 from shivautils.workflows.SWI_preprocessing import genWorkflow as genWorkflowSWI
 from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
 from shivautils.workflows.predict import genWorkflow as genWorkflowPredict
+from shivautils.workflows.dual_predict import genWorkflow as genWorkflowDualPredict
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from nipype import config
 import os
@@ -182,7 +183,7 @@ def setArgsAndCheck(inParser):
     return args
 
 
-def checkInputForPred(wfargs):
+def check_input_for_pred(wfargs):
     # wfargs['PREDICTION'] is a combination of ['PVS', 'PVS2', 'WMH', 'CMB']
     for pred in wfargs['PREDICTION']:
         if not os.path.exists(wfargs[f'{pred}_DESCRIPTOR']):
@@ -192,12 +193,38 @@ def checkInputForPred(wfargs):
             raise FileNotFoundError(errormsg)
 
 
+def update_wf_grabber(wf, data_struct, dual):
+    """Updates the workflow datagrabber to work with the different types on input
+    """
+    datagrabber = wf.get_node('datagrabber')
+
+    if data_struct in ['standard', 'json']:
+        if dual:
+            datagrabber.inputs.field_template = {'t1': '%s/%s/*_raw.nii.gz',
+                                                 'flair': '%s/%s/*_raw.nii.gz'}
+            datagrabber.inputs.template_args = {'t1': [['subject_id', 't1']],
+                                                'flair': [['subject_id', 'flair']]}
+        else:
+            datagrabber.inputs.field_template = {'t1': '%s/%s/*_raw.nii.gz'}
+            datagrabber.inputs.template_args = {'t1': [['subject_id', 't1']]}
+
+    if data_struct == 'BIDS':
+        if dual:
+            datagrabber.inputs.field_template = {'t1': '%s/anat/%s_T1_raw.nii.gz',
+                                                 'flair': '%s/anat/%s_FLAIR_raw.nii.gz'}
+            datagrabber.inputs.template_args = {'t1': [['subject_id', 'subject_id']],
+                                                'flair': [['subject_id', 'subject_id']]}
+        else:
+            datagrabber.inputs.field_template = {'t1': '%s/anat/%s_T1_raw.nii.gz'}
+            datagrabber.inputs.template_args = {'t1': [['subject_id', 'subject_id']]}
+    return wf
+
+
 def main():
 
     parser = shivaParser()
     args = setArgsAndCheck(parser)
 
-    # GRAB_PATTERN = '%s/%s/*.nii*'  # Now directly specified in the workflow generators
     # synthseg = args.synthseg  # Unused for now
 
     if args.input_type == 'json':  # TODO: Homogenize with the .yml file
@@ -231,16 +258,22 @@ def main():
         pvs2_descriptor = os.path.join(args.model, args.pvs2_descriptor)
         cmb_descriptor = os.path.join(args.model, args.cmb_descriptor)
 
+
+    if args.prediction == ['PVS']:
+        dual = False
+    elif 'PVS2' in args.prediction or 'WMH' in args.prediction:
+        dual = True
+
     wfargs = {'SUBJECT_LIST': subject_list,
               'DATA_DIR': subject_directory,  # Default base_directory for the dataGrabber
               'BASE_DIR': out_dir,  # Default base_dir for each workflow
-              'INPUT_TYPE': args.input_type,
-              'PREDICTION': args.prediction,
-              'WF_DIRS': {'preproc': 'shiva_preprocessing', 'pred': 'predictor_workflow'},  # Name of the preprocessing wf, used to link wf for now
+              'INPUT_TYPE': args.input_type,  # TODO: remove
+              'PREDICTION': args.prediction,  # TODO: remove
+              'WF_DIRS': {'preproc': 'shiva_preprocessing', 'pred': 'predictor_workflow'},  # TODO: remove
               'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
               'WMH_DESCRIPTOR': wmh_descriptor,
               'PVS_DESCRIPTOR': pvs_descriptor,
-              'PVS2_DESCRIPTOR': pvs2_descriptor,
+              'PVS2_DESCRIPTOR': pvs2_descriptor,  # TODO: Compatible SMOmed ?
               'CMB_DESCRIPTOR': cmb_descriptor,
               'CONTAINER': not args.use_container,  # store "False" because of legacy meaning of the variable. Only when used by SMOmed usually
               'MODELS_PATH': args.model,
@@ -254,16 +287,21 @@ def main():
               'RESOLUTION': tuple(args.voxels_size),
               'ORIENTATION': 'RAS'}
 
-    checkInputForPred(wfargs)
+    check_input_for_pred(wfargs)
 
     if not os.path.exists(out_dir) :
         os.makedirs(out_dir)
     print(f'Working directory set to: {out_dir}')
 
-    # TODO: merge the workflows and do the ckecks inside
-    wf_preproc = genWorkflowPreproc(**wfargs)
+    if dual:
+        wf_preproc = genWorkflowDualPredict(**wfargs)
+    else:
+        wf_preproc = genWorkflowPreproc(**wfargs)
+
+    wf_preproc = update_wf_grabber(wf_preproc, args.input_type, dual)
+
     wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-    # If necessary to modify defaults:
+    # If necessary to modify defaults:  # TODO: Check if compatible with SWOmed
     # wf_preproc.get_node('conform').inputs.dimensions = (256, 256, 256)
     # wf_preproc.get_node('conform').inputs.voxel_size = tuple(args.voxels_size)
     # wf_preproc.get_node('conform').inputs.orientation = 'RAS'
