@@ -145,7 +145,7 @@ def shivaParser():
     return parser
 
 
-def setArgsAndCheck(inParser):
+def set_args_and_check(inParser):
     args = inParser.parse_args()
     if args.container and not args.model_config:
         inParser.error(
@@ -196,7 +196,7 @@ def check_input_for_pred(wfargs):
 def update_wf_grabber(wf, data_struct, dual):
     """Updates the workflow datagrabber to work with the different types on input
     """
-    datagrabber = wf.get_node('datagrabber')
+    datagrabber = wf.get_node('dataGrabber')
 
     if data_struct in ['standard', 'json']:
         if dual:
@@ -223,7 +223,7 @@ def update_wf_grabber(wf, data_struct, dual):
 def main():
 
     parser = shivaParser()
-    args = setArgsAndCheck(parser)
+    args = set_args_and_check(parser)
 
     # synthseg = args.synthseg  # Unused for now
 
@@ -258,7 +258,6 @@ def main():
         pvs2_descriptor = os.path.join(args.model, args.pvs2_descriptor)
         cmb_descriptor = os.path.join(args.model, args.cmb_descriptor)
 
-
     if args.prediction == ['PVS']:
         dual = False
     elif 'PVS2' in args.prediction or 'WMH' in args.prediction:
@@ -289,7 +288,7 @@ def main():
 
     check_input_for_pred(wfargs)
 
-    if not os.path.exists(out_dir) :
+    if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     print(f'Working directory set to: {out_dir}')
 
@@ -333,8 +332,6 @@ def main():
         swi_wf_post = genWorkflowPostSWI(**wfargs)
         swi_wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
         swi_wf_post.run(plugin='Linear')
-
-
 
 
 if __name__ == "__main__":
