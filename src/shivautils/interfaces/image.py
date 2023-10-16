@@ -447,6 +447,7 @@ class ApplyMask(BaseInterface):
             function
         Return: runtime
         """
+        # TODO: reactivate or remove if superseded buy other procedure
         fname = self.inputs.apply_to
         apply_to = nb.load(fname)
         model = self.inputs.model

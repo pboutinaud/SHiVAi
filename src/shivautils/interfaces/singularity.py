@@ -31,7 +31,7 @@ class SingularityInputSpec(CommandLineInputSpec):
     snglrt_image = traits.File(
         mandatory=True,
         argstr='%s',
-        postion=-1,
+        position=-1,
         exists=True,
         desc='Name of the singularity image file to use')
 
