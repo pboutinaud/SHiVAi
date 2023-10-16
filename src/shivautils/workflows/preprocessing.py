@@ -120,7 +120,7 @@ def genWorkflow(**kwargs) -> Workflow:
     # send mask from preconformed space to
     # conformed space 256 256 256, same as anatomical conformed image
     unpreconform = Node(Conform(),
-                     name="unpreconform")
+                        name="unpreconform")
     unpreconform.inputs.dimensions = (256, 256, 256)
     unpreconform.inputs.voxel_size = kwargs['RESOLUTION']
     unpreconform.inputs.orientation = 'RAS'
@@ -177,14 +177,12 @@ def genWorkflow(**kwargs) -> Workflow:
         post_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
 
     if kwargs['GPU'] is not None:
-        post_brain_mask.inputs.gpu_number = kwargs['GPU'] 
-
+        post_brain_mask.inputs.gpu_number = kwargs['GPU']
 
     post_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
     post_brain_mask.inputs.out_filename = 'post_brain_mask.nii.gz'
     workflow.connect(crop_normalized, 'cropped',
                      post_brain_mask, 't1')
-
 
     # binarize post brain mask
     hard_post_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="hard_post_brain_mask")
@@ -242,7 +240,7 @@ def genWorkflow(**kwargs) -> Workflow:
                      t1_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      t1_norm, 'brain_mask')
-    
+
     join_output = JoinNode(
         Function(
             input_names=['sub_list', 't1_preproc_list'],
