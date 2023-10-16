@@ -30,10 +30,7 @@ def make_output_dict(sub_list, t1_preproc_list, flair_preproc_list=None):
     """Takes the list participants, the list of preproc T1 and potentially preproc FLAIR,
     and put the in a dict to pass to the next workflow. 
     """
-    if flair_preproc_list is None:
-        return {'subject_id': sub_list, 't1_preproc': t1_preproc_list}
-    else:
-        return {'subject_id': sub_list, 't1_preproc': t1_preproc_list, 'flair_preproc': flair_preproc_list}
+    return {'subject_id': sub_list, 't1_preproc': t1_preproc_list, 'flair_preproc': flair_preproc_list}
 
 
 def genWorkflow(**kwargs) -> Workflow:
@@ -241,7 +238,8 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      t1_norm, 'brain_mask')
 
-    join_output = JoinNode(
+    # Prepare output for connection with next workflow
+    preproc_out_node = JoinNode(
         Function(
             input_names=['sub_list', 't1_preproc_list'],
             output_names='preproc_out_dict',
@@ -250,9 +248,10 @@ def genWorkflow(**kwargs) -> Workflow:
         joinsource=subject_list,
         joinfield=['sub_list', 't1_preproc_list']
     )
-    workflow.connect(subject_list, 'subject_id', join_output, 'sub_list')
-    workflow.connect(t1_norm, 'intensity_normalized', join_output, 't1_preproc_list')
+    workflow.connect(subject_list, 'subject_id', preproc_out_node, 'sub_list')
+    workflow.connect(t1_norm, 'intensity_normalized', preproc_out_node, 't1_preproc_list')
 
+    # TODO: Shoudln't be in the definition of the workflow...
     workflow.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
 
     return workflow

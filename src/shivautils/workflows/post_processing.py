@@ -125,21 +125,21 @@ def genWorkflow(**kwargs) -> Workflow:
 
     if 'WMH' in kwargs['PREDICTION']:
         metrics_predictions_wmh = Node(MetricsPredictions(),
-                                    name="metrics_predictions_wmh")
+                                       name="metrics_predictions_wmh")
         metrics_predictions_wmh.inputs.threshold_clusters = kwargs['THRESHOLD_CLUSTERS']
 
         workflow.connect(mask_on_pred_wmh, 'segmentation_filtered', metrics_predictions_wmh, 'img')
 
     if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:
         metrics_predictions_pvs = Node(MetricsPredictions(),
-                                    name="metrics_predictions_pvs")
+                                       name="metrics_predictions_pvs")
         metrics_predictions_pvs.pvs = True
         metrics_predictions_pvs.inputs.threshold_clusters = kwargs['THRESHOLD_CLUSTERS']
 
         workflow.connect(mask_on_pred_pvs, 'segmentation_filtered', metrics_predictions_pvs, 'img')
 
     summary_report = Node(SummaryReport(), name="summary_report")
-    # TODO: Add SWI, metrics_bg_pvs 
+    # TODO: Add SWI, metrics_bg_pvs
     summary_report.inputs.anonymized = kwargs['ANONYMIZED']
     summary_report.inputs.percentile = kwargs['PERCENTILE']
     summary_report.inputs.threshold = kwargs['THRESHOLD']

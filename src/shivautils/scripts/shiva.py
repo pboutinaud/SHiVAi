@@ -7,7 +7,9 @@ from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
 from shivautils.workflows.predict import genWorkflow as genWorkflowPredict
 from shivautils.workflows.dual_predict import genWorkflow as genWorkflowDualPredict
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
+from shivautils.interfaces.shiva import Predict
 from nipype import config
+from nipype.pipeline.engine import Node, Workflow
 import os
 import argparse
 import json
@@ -145,7 +147,7 @@ def shivaParser():
     return parser
 
 
-def setArgsAndCheck(inParser):
+def set_args_and_check(inParser):
     args = inParser.parse_args()
     if args.container and not args.model_config:
         inParser.error(
@@ -196,7 +198,7 @@ def check_input_for_pred(wfargs):
 def update_wf_grabber(wf, data_struct, dual):
     """Updates the workflow datagrabber to work with the different types on input
     """
-    datagrabber = wf.get_node('datagrabber')
+    datagrabber = wf.get_node('dataGrabber')
 
     if data_struct in ['standard', 'json']:
         if dual:
@@ -223,7 +225,7 @@ def update_wf_grabber(wf, data_struct, dual):
 def main():
 
     parser = shivaParser()
-    args = setArgsAndCheck(parser)
+    args = set_args_and_check(parser)
 
     # synthseg = args.synthseg  # Unused for now
 
@@ -258,7 +260,6 @@ def main():
         pvs2_descriptor = os.path.join(args.model, args.pvs2_descriptor)
         cmb_descriptor = os.path.join(args.model, args.cmb_descriptor)
 
-
     if args.prediction == ['PVS']:
         dual = False
     elif 'PVS2' in args.prediction or 'WMH' in args.prediction:
@@ -289,27 +290,31 @@ def main():
 
     check_input_for_pred(wfargs)
 
-    if not os.path.exists(out_dir) :
+    if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     print(f'Working directory set to: {out_dir}')
 
+    # Declaration of the workflows
+    main_wf = Workflow('meta')
     if dual:
         wf_preproc = genWorkflowDualPredict(**wfargs)
     else:
         wf_preproc = genWorkflowPreproc(**wfargs)
-
     wf_preproc = update_wf_grabber(wf_preproc, args.input_type, dual)
 
-    wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-    # If necessary to modify defaults:  # TODO: Check if compatible with SWOmed
-    # wf_preproc.get_node('conform').inputs.dimensions = (256, 256, 256)
-    # wf_preproc.get_node('conform').inputs.voxel_size = tuple(args.voxels_size)
-    # wf_preproc.get_node('conform').inputs.orientation = 'RAS'
-    # wf_preproc.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
-    wf_preproc.run(plugin='Linear')
+    # Preprare prediction nodes
+    pred_nodes = []
+    for PRED in args.prediction:
+        predict_node = Node(Predict(), name=f"predict_{PRED}")
+        predict_node.inputs.model = wfargs['MODELS_PATH']
+        predict_node.inputs.descriptor = wfargs[f'{PRED}_DESCRIPTOR']
+        predict_node.inputs.out_filename = f'{PRED.lower()}_map.nii.gz'  # TODO: Check if ok with swomed
+        pred_nodes.append(predict_node)
+    # wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+    # wf_preproc.run(plugin='Linear')
 
-    wf_predict = genWorkflowPredict(**wfargs)
-    wf_predict.run(plugin='Linear')
+    # wf_predict = genWorkflowPredict(**wfargs)
+    # wf_predict.run(plugin='Linear')
 
     wf_post = genWorkflowPost(**wfargs)
     # wf_post.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_predict.name)
@@ -320,11 +325,6 @@ def main():
         wfargs.update({'WF_SWI_DIRS': {'preproc': 'shiva_preprocessing_swi', 'pred': 'SWI_predictor_workflow'}})
         swi_wf_preproc = genWorkflowSWI(**wfargs)
         swi_wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-        # If necessary to modify defaults:
-        # swi_wf_preproc.get_node('conform').inputs.dimensions = (256, 256, 256)
-        # swi_wf_preproc.get_node('conform').inputs.voxel_size = tuple(args.voxels_size)
-        # swi_wf_preproc.get_node('conform').inputs.orientation = 'RAS'
-        # swi_wf_preproc.get_node('crop').inputs.final_dimensions = tuple(args.final_dimensions)
         swi_wf_preproc.run(plugin='Linear')
 
         swi_wf_predict = genWorkflowPredictSWI(**wfargs)
@@ -333,8 +333,6 @@ def main():
         swi_wf_post = genWorkflowPostSWI(**wfargs)
         swi_wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
         swi_wf_post.run(plugin='Linear')
-
-
 
 
 if __name__ == "__main__":
