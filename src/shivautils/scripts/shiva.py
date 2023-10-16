@@ -301,6 +301,7 @@ def main():
     else:
         wf_preproc = genWorkflowPreproc(**wfargs)
     wf_preproc = update_wf_grabber(wf_preproc, args.input_type, dual)
+    wf_preproc.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
 
     # Preprare prediction nodes
     pred_nodes = []

@@ -251,9 +251,6 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(subject_list, 'subject_id', preproc_out_node, 'sub_list')
     workflow.connect(t1_norm, 'intensity_normalized', preproc_out_node, 't1_preproc_list')
 
-    # TODO: Shoudln't be in the definition of the workflow...
-    workflow.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
-
     return workflow
 
 

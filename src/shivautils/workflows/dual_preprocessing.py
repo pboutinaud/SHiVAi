@@ -110,9 +110,6 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(t1_norm, 'intensity_normalized', preproc_out_node, 't1_preproc_list')
     workflow.connect(flair_norm, 'intensity_normalized', preproc_out_node, 'flair_preproc_list')
 
-    # TODO: Check if the figure of the graph is ok and and call needed here
-    workflow.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
-
     return workflow
 
 
