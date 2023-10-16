@@ -64,8 +64,8 @@ def genWorkflow(**kwargs) -> Workflow:
 
     predict_pvs = Node(Predict(), name=f"predict_{pred}")
     predict_pvs.inputs.model = kwargs['MODELS_PATH']
-    if 'PREDICTION' in kwargs.keys():  # Else need to be set outside of the wf
-        PRED = kwargs['PREDICTION']
+    if 'PRED' in kwargs.keys():  # Else need to be set outside of the wf
+        PRED = kwargs['PRED']
         pred = PRED[:3].lower()  # biomarkers should have 3 letters
         predict_pvs.inputs.descriptor = kwargs[f'{PRED}_DESCRIPTOR']
         predict_pvs.inputs.out_filename = f'{pred}_map.nii.gz'

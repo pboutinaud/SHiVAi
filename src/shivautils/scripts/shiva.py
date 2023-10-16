@@ -311,8 +311,8 @@ def main():
         pass
     else:
         for PRED in args.prediction:
-            wf_pred = genWorkflowPredict(**wfargs)
             seg_name = PRED[:3].lower()  # PVS or CMB, doesn't need [:3]
+            wf_pred = genWorkflowPredict(**wfargs, PRED=PRED)
             wf_pred.name = f'{seg_name}_predictor_workflow'
             wf_pred.config['execution'] = {'remove_unnecessary_outputs': 'False'}
             pred_wfs.append(wf_pred)
