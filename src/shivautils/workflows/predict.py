@@ -62,7 +62,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(subject_list, 'subject_id', input_node, 'subject_id')
 
-    predict_pvs = Node(Predict(), name=f"predict_{pred}")
+    predict_pvs = Node(Predict(), name=f"predict_seg")
     predict_pvs.inputs.model = kwargs['MODELS_PATH']
     if 'PRED' in kwargs.keys():  # Else need to be set outside of the wf
         PRED = kwargs['PRED']
