@@ -30,7 +30,7 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    name_workflow = "post_processing_workflow_container"
+    name_workflow = "post_processing_workflow"
     workflow = Workflow(name_workflow)
     workflow.base_dir = kwargs['BASE_DIR']
 
@@ -41,7 +41,7 @@ def genWorkflow(**kwargs) -> Workflow:
         name="subject_list")
     subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
-    preprocDir = kwargs['WF_DIRS']['preproc']
+    preprocDir = 'shiva_mono_preprocessing'
 
     # file selection
     ofields = ['brainmask', 'pre_brainmask', 'T1_cropped',
@@ -84,7 +84,7 @@ def genWorkflow(**kwargs) -> Workflow:
     datagrabber = Node(DataGrabber(infields=['subject_id'],
                                    outfields=ofields),
                        name='dataGrabber')
-    datagrabber.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], kwargs['WF_DIRS']['pred'])
+    datagrabber.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'predictor_workflow')
     datagrabber.inputs.template = '%s/%s/*.nii*'
     datagrabber.inputs.template_args = tpl_args
     datagrabber.inputs.field_template = field_tpl

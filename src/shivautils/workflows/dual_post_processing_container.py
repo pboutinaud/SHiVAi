@@ -41,7 +41,7 @@ def genWorkflow(**kwargs) -> Workflow:
         name="subject_list")
     subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
-    preprocDir = kwargs['WF_DIRS']['preproc']
+    preprocDir = 'shiva_dual_preprocessing'
     # file selection
     datagrabber = Node(DataGrabber(infields=['subject_id'],
                                    outfields=['segmentation_pvs', 'segmentation_wmh', 'brainmask',
@@ -49,7 +49,7 @@ def genWorkflow(**kwargs) -> Workflow:
                                               'T1_conform', 'CDG_IJK', 'BBOX1', 'BBOX2',
                                               'sum_preproc_wf']),
                        name='dataGrabber')
-    datagrabber.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], kwargs['WF_DIRS']['pred'])
+    datagrabber.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'dual_predictor_workflow')
     datagrabber.inputs.template = '%s/%s/*.nii*'
     datagrabber.inputs.template_args = {'segmentation_pvs': [['subject_id']],
                                         'segmentation_wmh': [['subject_id']],

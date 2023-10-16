@@ -46,10 +46,10 @@ def genWorkflow(**kwargs) -> Workflow:
                        name='dataGrabber')
     datagrabber.inputs.base_directory = kwargs['DATA_DIR']
     datagrabber.inputs.template = '%s/%s/*.nii*'
-    if kwargs['INPUT_TYPE'] in ['standard', 'json']:
+    if kwargs['INPUT_TYPE'] in ['standard', 'json']:  # TODO: Remove
         datagrabber.inputs.field_template = {'SWI': '%s/%s/*_raw.nii.gz'}
         datagrabber.inputs.template_args = {'SWI': [['subject_id', 'SWI']]}
-    if kwargs['INPUT_TYPE'] == 'BIDS':
+    if kwargs['INPUT_TYPE'] == 'BIDS':  # TODO: Remove
         datagrabber.inputs.template_args = {'SWI': [['subject_id', 'subject_id']]}
         datagrabber.inputs.field_template = {'SWI': '%s/anat/%s_SWI_raw.nii.gz'}
     datagrabber.inputs.raise_on_empty = True
