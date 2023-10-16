@@ -30,7 +30,11 @@ def make_output_dict(sub_list, t1_preproc_list, flair_preproc_list=None):
     """Takes the list participants, the list of preproc T1 and potentially preproc FLAIR,
     and put the in a dict to pass to the next workflow. 
     """
-    return {'subject_id': sub_list, 't1_preproc': t1_preproc_list, 'flair_preproc': flair_preproc_list}
+    if flair_preproc_list:
+        out_dict = {sub: {'t1': t1, 'flair': flair} for sub, t1, flair in zip(sub_list, t1_preproc_list, flair_preproc_list)}
+    else:
+        out_dict = {sub: {'t1': t1, 'flair': None} for sub, t1 in zip(sub_list, t1_preproc_list)}
+    return out_dict
 
 
 def genWorkflow(**kwargs) -> Workflow:
