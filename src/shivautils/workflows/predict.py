@@ -44,12 +44,6 @@ def genWorkflow(**kwargs) -> Workflow:
             ),
             name='input_parser'
         )
-        input_node.synchronize = True
-        input_node.iterables([('subject_id', 't1'),
-                              zip(
-                                  input_node.outputs.subject_list,
-                                  input_node.outputs.t1_list
-        )])
 
     else:  # Using a datagrabber (requires additional settings outside of the wf)
         # get a list of subjects to iterate on
