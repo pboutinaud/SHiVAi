@@ -12,10 +12,10 @@ dummy_args = {'SUBJECT_LIST': ['BIOMIST::SUBJECT_LIST'],
               'BASE_DIR': os.path.normpath(os.path.expanduser('~'))}
 
 
-def get_input_lists(inDict):
-    subject_list = inDict['subject_id']
-    t1_list = inDict['t1_preproc']
-    flair_list = inDict['flair_preproc']
+def get_input_lists(in_dict):
+    subject_list = in_dict['subject_id']
+    t1_list = in_dict['t1_preproc']
+    flair_list = in_dict['flair_preproc']
     return subject_list, t1_list, flair_list
 
 
@@ -32,11 +32,11 @@ def genWorkflow(**kwargs) -> Workflow:
     if 'SUB_WF' in kwargs.keys() and kwargs['SUB_WF']:  # From previous workflow
         input_node = Node(
             Function(
-                input_names='inDict',
+                input_names='in_dict',
                 output_names=['subject_list', 't1_list', 'flair_list'],  # flair unsued here
                 function=get_input_lists
             ),
-            name='inputParser'
+            name='input_parser'
         )
         input_node.synchronize = True
         input_node.iterables([('subject_id', 't1'),
