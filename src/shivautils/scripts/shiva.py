@@ -265,28 +265,28 @@ def main():
     elif 'PVS2' in args.prediction or 'WMH' in args.prediction:
         dual = True
 
-    wfargs = {'SUBJECT_LIST': subject_list,
-              'DATA_DIR': subject_directory,  # Default base_directory for the dataGrabber
-              'BASE_DIR': out_dir,  # Default base_dir for each workflow
-              'INPUT_TYPE': args.input_type,  # TODO: remove
-              'PREDICTION': args.prediction,  # TODO: remove
-              'WF_DIRS': {'preproc': 'shiva_preprocessing', 'pred': 'predictor_workflow'},  # TODO: remove
-              'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
-              'WMH_DESCRIPTOR': wmh_descriptor,
-              'PVS_DESCRIPTOR': pvs_descriptor,
-              'PVS2_DESCRIPTOR': pvs2_descriptor,  # TODO: Compatible SMOmed ?
-              'CMB_DESCRIPTOR': cmb_descriptor,
-              'CONTAINER': not args.use_container,  # store "False" because of legacy meaning of the variable. Only when used by SMOmed usually
-              'MODELS_PATH': args.model,
-              'GPU': args.gpu,
-              'ANONYMIZED': False,  # TODO: Why False though?
-              'INTERPOLATION': args.interpolation,
-              'PERCENTILE': args.percentile,
-              'THRESHOLD': args.threshold,
-              'THRESHOLD_CLUSTERS': args.threshold_clusters,
-              'IMAGE_SIZE': tuple(args.final_dimensions),
-              'RESOLUTION': tuple(args.voxels_size),
-              'ORIENTATION': 'RAS'}
+    wfargs = {
+        'SUB_WF': True,  # Denotes that the workflows are stringed together
+        'SUBJECT_LIST': subject_list,
+        'DATA_DIR': subject_directory,  # Default base_directory for the dataGrabber
+        'BASE_DIR': out_dir,  # Default base_dir for each workflow
+        'PREDICTION': args.prediction,  # TODO: remove
+        'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
+        'WMH_DESCRIPTOR': wmh_descriptor,
+        'PVS_DESCRIPTOR': pvs_descriptor,
+        'PVS2_DESCRIPTOR': pvs2_descriptor,  # TODO: Compatible SMOmed ?
+        'CMB_DESCRIPTOR': cmb_descriptor,
+        'CONTAINER': not args.use_container,  # store "False" because of legacy meaning of the variable. Only when used by SMOmed usually
+        'MODELS_PATH': args.model,
+        'GPU': args.gpu,
+        'ANONYMIZED': False,  # TODO: Why False though?
+        'INTERPOLATION': args.interpolation,
+        'PERCENTILE': args.percentile,
+        'THRESHOLD': args.threshold,
+        'THRESHOLD_CLUSTERS': args.threshold_clusters,
+        'IMAGE_SIZE': tuple(args.final_dimensions),
+        'RESOLUTION': tuple(args.voxels_size),
+        'ORIENTATION': 'RAS'}
 
     check_input_for_pred(wfargs)
 
@@ -295,27 +295,34 @@ def main():
     print(f'Working directory set to: {out_dir}')
 
     # Declaration of the workflows
-    main_wf = Workflow('meta')
+    main_wf = Workflow('full_workflow')
     if dual:
         wf_preproc = genWorkflowDualPredict(**wfargs)
     else:
         wf_preproc = genWorkflowPreproc(**wfargs)
     wf_preproc = update_wf_grabber(wf_preproc, args.input_type, dual)
     wf_preproc.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
-
-    # Preprare prediction nodes
-    pred_nodes = []
-    for PRED in args.prediction:
-        predict_node = Node(Predict(), name=f"predict_{PRED}")
-        predict_node.inputs.model = wfargs['MODELS_PATH']
-        predict_node.inputs.descriptor = wfargs[f'{PRED}_DESCRIPTOR']
-        predict_node.inputs.out_filename = f'{PRED.lower()}_map.nii.gz'  # TODO: Check if ok with swomed
-        pred_nodes.append(predict_node)
-    # wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+    wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     # wf_preproc.run(plugin='Linear')
 
-    # wf_predict = genWorkflowPredict(**wfargs)
+    # Preprare prediction nodes
+    pred_wfs = []
+    if dual:
+        pass
+    else:
+        for PRED in args.prediction:
+            wf_pred = genWorkflowPredict(**wfargs)
+            seg_name = PRED[:3].lower()  # PVS or CMB, doesn't need [:3]
+            wf_pred.name = f'{seg_name}_predictor_workflow'
+            wf_pred.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+            pred_wfs.append(wf_pred)
+
+    main_wf.add_nodes([wf_preproc] + pred_wfs)
+    for wf_pred in pred_wfs:
+        main_wf.connect(wf_preproc, 'preproc_out_node.preproc_out_dict', wf_pred, 'input_parser.in_dict')
     # wf_predict.run(plugin='Linear')
+    main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+    main_wf.run(plugin='Linear')
 
     wf_post = genWorkflowPost(**wfargs)
     # wf_post.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_predict.name)
