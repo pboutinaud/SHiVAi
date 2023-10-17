@@ -5,7 +5,7 @@ from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.io import DataGrabber
 from nipype.interfaces.utility import IdentityInterface, Function
 
-from shivautils.interfaces.shiva import PredictSingularity, Predict
+from shivautils.interfaces.shiva import Predict
 
 
 dummy_args = {'SUBJECT_LIST': ['BIOMIST::SUBJECT_LIST'],
@@ -20,7 +20,8 @@ def get_input_files(subject_id, in_dict):
 
 def genWorkflow(**kwargs) -> Workflow:
     """Generate a nipype workflow
-
+    Most arguments are part of the wfargs in shiva.py
+    But there is also "PRED" which may contains the type of prediction (PVS/PVS2/WMH/CMB)
     Returns:
         workflow
     """
@@ -52,23 +53,24 @@ def genWorkflow(**kwargs) -> Workflow:
         input_node = Node(
             DataGrabber(
                 infields=['subject_id'],
-                outfields=['t1']),
+                outfields=['t1', 'flair']),  # flair unsued here
             name='dataGrabber')
 
-        input_node.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'shiva_mono_preprocessing')
         input_node.inputs.template = '%s/%s/*.nii*'
         input_node.inputs.raise_on_empty = True
         input_node.inputs.sort_filelist = True
 
     workflow.connect(subject_list, 'subject_id', input_node, 'subject_id')
 
-    predict_pvs = Node(Predict(), name="predict_seg")
-    predict_pvs.inputs.model = kwargs['MODELS_PATH']
     if 'PRED' in kwargs.keys():  # Else need to be set outside of the wf
         PRED = kwargs['PRED']
         pred = PRED[:3].lower()  # biomarkers should have 3 letters
-        predict_pvs.name = f"predict_{pred}"
-        predict_pvs.inputs.descriptor = kwargs[f'{PRED}_DESCRIPTOR']
-        predict_pvs.inputs.out_filename = f'{pred}_map.nii.gz'
-    workflow.connect(input_node, "t1", predict_pvs, "t1")
+        predictor_node = Node(Predict(), name=f"predict_{pred}")
+        predictor_node.inputs.descriptor = kwargs[f'{PRED}_DESCRIPTOR']
+        predictor_node.inputs.out_filename = f'{pred}_map.nii.gz'
+    else:
+        predictor_node = Node(Predict(), name="predict_seg")
+    predictor_node.inputs.model = kwargs['MODELS_PATH']
+
+    workflow.connect(input_node, "t1", predictor_node, "t1")
     return workflow

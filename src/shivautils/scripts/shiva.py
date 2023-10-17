@@ -7,9 +7,9 @@ from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
 from shivautils.workflows.predict import genWorkflow as genWorkflowPredict
 from shivautils.workflows.dual_predict import genWorkflow as genWorkflowDualPredict
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
-from shivautils.interfaces.shiva import Predict
+from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowDualPreproc
 from nipype import config
-from nipype.pipeline.engine import Node, Workflow
+from nipype.pipeline.engine import Workflow
 import os
 import argparse
 import json
@@ -298,25 +298,26 @@ def main():
     main_wf = Workflow('full_workflow')
     main_wf.base_dir = wfargs['BASE_DIR']
     if dual:
-        wf_preproc = genWorkflowDualPredict(**wfargs)
+        wf_preproc = genWorkflowDualPreproc(**wfargs)
     else:
         wf_preproc = genWorkflowPreproc(**wfargs)
     wf_preproc = update_wf_grabber(wf_preproc, args.input_type, dual)
-    # wf_preproc.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
+    wf_preproc.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
     wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     # wf_preproc.run(plugin='Linear')
 
     # Preprare prediction nodes
     pred_wfs = []
-    if dual:
-        pass
-    else:
-        for PRED in args.prediction:
-            seg_name = PRED[:3].lower()  # PVS or CMB, doesn't need [:3]
+
+    for PRED in args.prediction:
+        seg_name = PRED[:3].lower()  # PVS or CMB, doesn't need [:3]
+        if dual:
+            wf_pred = genWorkflowDualPredict(**wfargs, PRED=PRED)
+        else:
             wf_pred = genWorkflowPredict(**wfargs, PRED=PRED)
-            wf_pred.name = f'{seg_name}_predictor_workflow'
-            wf_pred.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-            pred_wfs.append(wf_pred)
+        wf_pred.name = f'{seg_name}_predictor_workflow'
+        wf_pred.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+        pred_wfs.append(wf_pred)
 
     main_wf.add_nodes([wf_preproc] + pred_wfs)
     for wf_pred in pred_wfs:
