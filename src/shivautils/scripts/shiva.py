@@ -296,6 +296,7 @@ def main():
 
     # Declaration of the workflows
     main_wf = Workflow('full_workflow')
+    main_wf.base_dir = wfargs['BASE_DIR']
     if dual:
         wf_preproc = genWorkflowDualPredict(**wfargs)
     else:
@@ -321,6 +322,7 @@ def main():
     for wf_pred in pred_wfs:
         main_wf.connect(wf_preproc, 'preproc_out_node.preproc_out_dict', wf_pred, 'input_parser.in_dict')
     # wf_predict.run(plugin='Linear')
+    main_wf.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
     main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     main_wf.run(plugin='Linear')
 
@@ -328,7 +330,6 @@ def main():
     # wf_post.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_predict.name)
     wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}  # TODO: Is there even the possibility that it is True?
     wf_post.run(plugin='Linear')
-    wf_post.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
 
     if 'CMB' in args.prediction:  # TODO: Check if SWI preproc needs T1/dual preproc or is stand-alone
         wfargs.update({'WF_SWI_DIRS': {'preproc': 'shiva_preprocessing_swi', 'pred': 'SWI_predictor_workflow'}})
