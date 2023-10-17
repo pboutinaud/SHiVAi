@@ -26,14 +26,61 @@ def as_list(input):
     return [input]
 
 
-def make_output_dict(sub_list, t1_preproc_list, flair_preproc_list=None):
-    """Takes the list participants, the list of preproc T1 and potentially preproc FLAIR,
-    and put the in a dict to pass to the next workflow. 
+def make_output_dict(sub_list,
+                     t1_preproc_list,
+                     brainmask_list,
+                     pre_brainmask_list,
+                     T1_cropped_list,
+                     T1_conform_list,
+                     BBOX1_list,
+                     BBOX2_list,
+                     CDG_IJK_list,
+                     sum_preproc_wf_list,
+                     flair_preproc_list=None,
+                     swi_preproc_list=None
+                     ):
+    """Takes the list participants, all needed lists of preproc data
+    and put them in a dict to pass to the next workflow. 
     """
-    if flair_preproc_list:
-        out_dict = {sub: {'t1': t1, 'flair': flair} for sub, t1, flair in zip(sub_list, t1_preproc_list, flair_preproc_list)}
-    else:
-        out_dict = {sub: {'t1': t1, 'flair': None} for sub, t1 in zip(sub_list, t1_preproc_list)}
+    if flair_preproc_list is None:
+        flair_preproc_list = [None]*len(sub_list)
+    if swi_preproc_list is None:
+        swi_preproc_list = [None]*len(sub_list)
+    out_dict = {sub: {'t1': t1,
+                      'brainmask': brainmask,
+                      'pre_brainmask': pre_brainmask,
+                      'T1_cropped': T1_cropped,
+                      'T1_conform': T1_conform,
+                      'BBOX1': BBOX1,
+                      'BBOX2': BBOX2,
+                      'CDG_IJK': CDG_IJK,
+                      'sum_preproc_wf': sum_preproc_wf,
+                      'flair': flair,
+                      'swi': swi
+                      } for (sub,
+                             t1,
+                             brainmask,
+                             pre_brainmask,
+                             T1_cropped,
+                             T1_conform,
+                             BBOX1,
+                             BBOX2,
+                             CDG_IJK,
+                             sum_preproc_wf,
+                             flair,
+                             swi
+                             ) in zip(sub_list,
+                                      t1_preproc_list,
+                                      brainmask_list,
+                                      pre_brainmask_list,
+                                      T1_cropped_list,
+                                      T1_conform_list,
+                                      BBOX1_list,
+                                      BBOX2_list,
+                                      CDG_IJK_list,
+                                      sum_preproc_wf_list,
+                                      flair_preproc_list,
+                                      swi_preproc_list)}
     return out_dict
 
 
@@ -95,19 +142,6 @@ def genWorkflow(**kwargs) -> Workflow:
     if kwargs['CONTAINER'] == True:  # TODO: Check with PY
         pre_brain_mask = Node(Predict(), "pre_brain_mask")
         pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
-    else:
-        # brain mask from tensorflow
-        pre_brain_mask = Node(PredictSingularity(), "pre_brain_mask")
-        pre_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
-        pre_brain_mask.inputs.snglrt_bind = [
-            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
-            ('`pwd`', '/mnt/data', 'rw'),
-            ('/bigdata/resources/cudas/cuda-11.2', '/mnt/cuda', 'ro'),
-            ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
-            (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
-        pre_brain_mask.inputs.model = '/mnt/model'
-        pre_brain_mask.inputs.snglrt_enable_nvidia = True
-        pre_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
 
     if kwargs['GPU'] is not None:
         pre_brain_mask.inputs.gpu_number = kwargs['GPU']
@@ -163,19 +197,6 @@ def genWorkflow(**kwargs) -> Workflow:
     if kwargs['CONTAINER'] == True:  # TODO: Check with PY
         post_brain_mask = Node(Predict(), "post_brain_mask")
         post_brain_mask.inputs.model = kwargs['MODELS_PATH']
-    else:
-        # brain mask from tensorflow
-        post_brain_mask = Node(PredictSingularity(), "post_brain_mask")
-        post_brain_mask.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 1 --partition GPU'}
-        post_brain_mask.inputs.snglrt_bind = [
-            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
-            ('`pwd`', '/mnt/data', 'rw'),
-            ('/bigdata/resources/cudas/cuda-11.2', '/mnt/cuda', 'ro'),
-            ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
-            (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
-        post_brain_mask.inputs.model = '/mnt/model'
-        post_brain_mask.inputs.snglrt_enable_nvidia = True
-        post_brain_mask.inputs.snglrt_image = '/bigdata/yrio/singularity/predict.sif'
 
     if kwargs['GPU'] is not None:
         post_brain_mask.inputs.gpu_number = kwargs['GPU']
