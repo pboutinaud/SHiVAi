@@ -270,7 +270,7 @@ def main():
         'SUBJECT_LIST': subject_list,
         'DATA_DIR': subject_directory,  # Default base_directory for the dataGrabber
         'BASE_DIR': out_dir,  # Default base_dir for each workflow
-        'PREDICTION': args.prediction,  # TODO: remove
+        'PREDICTION': args.prediction,
         'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
         'WMH_DESCRIPTOR': wmh_descriptor,
         'PVS_DESCRIPTOR': pvs_descriptor,
