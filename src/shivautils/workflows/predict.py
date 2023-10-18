@@ -1,7 +1,7 @@
 """Nipype workflow for prediction and return segmentation images"""
 import os
 
-from nipype.pipeline.engine import Node, Workflow
+from nipype.pipeline.engine import Node, Workflow, JoinNode
 from nipype.interfaces.io import DataGrabber
 from nipype.interfaces.utility import IdentityInterface, Function
 
@@ -18,6 +18,10 @@ def get_input_files(subject_id, in_dict):
     return t1, flair,
 
 
+def make_output_dict(sub_list, pred_map_list):
+    return {sub: pred_map for sub, pred_map in zip(sub_list, pred_map_list)}
+
+
 def genWorkflow(**kwargs) -> Workflow:
     """Generate a nipype workflow
     Most arguments are part of the wfargs in shiva.py
@@ -25,7 +29,7 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow('predictor_workflow')
+    workflow = Workflow('seg_predictor_workflow')
     workflow.base_dir = kwargs['BASE_DIR']
 
     subject_list = Node(
@@ -73,4 +77,18 @@ def genWorkflow(**kwargs) -> Workflow:
     predictor_node.inputs.model = kwargs['MODELS_PATH']
 
     workflow.connect(input_node, "t1", predictor_node, "t1")
+
+    predict_out_node = JoinNode(
+        Function(
+            input_names=['sub_list', 'pred_map_list'],
+            output_names='preproc_out_dict',
+            function=make_output_dict),
+        name='predict_out_node',
+        joinsource=subject_list,
+        joinfield=['sub_list', 'pred_map_list']
+    )
+
+    workflow.connect(subject_list, 'subject_id', predict_out_node, 'sub_list')
+    workflow.connect(predictor_node, "segmentation", predict_out_node, "pred_map_list")
+
     return workflow
