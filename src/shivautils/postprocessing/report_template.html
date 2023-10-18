@@ -29,107 +29,31 @@
 </head>
 
 <body>
-    <h1>Results report {% if subject_id %} subject {{ subject_id }} {% endif %}</h1>
-    <div class="table">
-        {% if metrics_clusters_2 is defined and metrics_clusters_2 is not none %}
-        <h2>Prediction results for White Matter Hyperintensities (WMH)</h2>
-        <table>
-            <tr class="row">
-                {% for col in columns_2 %}
-                <th class="cell">{{ col }}</th>
-                {% endfor %}
-            </tr>
-            <div class="row">
-                {% for _, row in metrics_clusters_2.iterrows() %}
-                <tr>
-                    {% for col in columns_2 %}
-                    <td class="cell">{{ row[col] }}</td>
-                    {% endfor %}
-                </tr>
-                {% endfor %}
-            </div>
-        </table>
-        <p>Clusters Threshold : {{ clusters_threshold_2 }}</p>
-        <p>Clusters Filter : {{ clusters_filter_2 }}</p>
-        {% endif %}
+    <h1>Results report {{ data_origin }}</h1>
+
+    {% for pred in pred_stat_dict %}
+    <div class="table"></div>
+    <h2> {{ pred_stat_dict[pred].title }}</h2>
+    {{pred_stat_dict[pred].metrics_table | safe}}
+    <p>Clusters Threshold : {{ clusters_threshold_2 }}</p>
+    <p>Clusters Filter : {{ clusters_filter_2 }}</p>
     </div>
-    <div class="table">
-        {% if predictions_latventricles_DWMH is defined and predictions_latventricles_DWMH is not none %}
-        <h2>Predictions results clusters WMH in Lateral Ventricles and DWMH</h2>
-        <table>
-            <tr class="row">
-                {% for col in columns_latventricles %}
-                <th class="cell">{{ col }}</th>
-                {% endfor %}
-            </tr>
-            <div class="row">
-                {% for _, row in predictions_latventricles_DWMH.iterrows() %}
-                <tr>
-                    {% for col in columns_latventricles %}
-                    <td class="cell">{{ row[col] }}</td>
-                    {% endfor %}
-                </tr>
-                {% endfor %}
-            </div>
-        </table>
-        <p>Clusters Threshold : {{ clusters_threshold_latventricles }}</p>
-        {% endif %}
-    </div>
-    <div class="table">
-        <h2>{{ title_metrics_clusters }}</h2>
-        <table>
-            <tr class="row">
-                {% for col in columns %}
-                <th class="cell">{{ col }}</th>
-                {% endfor %}
-            </tr>
-            <div class="row">
-                {% for _, row in metrics_clusters.iterrows() %}
-                <tr>
-                    {% for col in columns %}
-                    <td class="cell">{{ row[col] }}</td>
-                    {% endfor %}
-                </tr>
-                {% endfor %}
-            </div>
-        </table>
-        <p>Clusters Threshold : {{ cluster_threshold }}</p>
-        <p>Clusters Filter : {{ cluster_filter }}</p>
-    </div>
-    <div class="table">
-        {% if clusters_bg_pvs is defined and clusters_bg_pvs is not none %}
-        <h2>Predictions results clusters PVS in Basal Ganglia and DWM</h2>
-        <table>
-            <tr class="row">
-                {% for col in clusters_bg_pvs.columns %}
-                <th class="cell">{{ col }}</th>
-                {% endfor %}
-            </tr>
-            <div class="row">
-                {% for _, row in clusters_bg_pvs.iterrows() %}
-                <tr>
-                    {% for col in clusters_bg_pvs.columns %}
-                    <td class="cell">{{ row[col] }}</td>
-                    {% endfor %}
-                </tr>
-                {% endfor %}
-            </div>
-        </table>
-        <p>Clusters Threshold : {{ clusters_threshold_bg }}</p>
-        <p>Clusters Filter DWM: {{ clusters_filter_bg }}</p>
-        {% endif %}
-    </div>
+    {% endfor %}
+
     <div class="test">
         <h1>Quality control</h1>
+
         <h2>Preprocessed {{ modality }} image histogram</h2>
         <p>Histogram of the {{ modality }} image that enters the classifier: {{ resolution }} mm<sup>3</sup> with {{
             image_size }} shape, (within brain mask and with censoring for voxels outside the brain mask)</p>
         <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ hist_intensity }}' width="400"
             height="400"></object>
+
         <h2>Crop box</h2>Display of the cropping region on the conformed image (256x256x256 at 1.0 mm<sup>3</sup>
         resolution).</p>
         <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ bounding_crop }}' width="600"
             height="400"></object>
+
         {% if isocontour_slides_FLAIR_T1 %}
         <h2>Isocontour Slides for coregistration FLAIR on T1w</h2>
         <p>Isocontour of the FLAIR image coregister on T1w image that enters the classifier: {{ resolution }}
@@ -137,6 +61,7 @@
             mask)</p>
         <img src='data:image/png;base64, {{ isocontour_slides_FLAIR_T1 }}' width="600" height="300"></img>
         {% endif %}
+
         {% if qc_overlay_brainmask_t1 %}
         <h2>Overlay of final brainmask over cropped {{ modality }}</h2>
         <p>Overlay of the brainmask on {{ modality }} image : {{ resolution }} mm<sup>3</sup> with {{ image_size }},
@@ -145,18 +70,14 @@
         {% endif %}
     </div>
     {% if sum_workflow %}
-    <h2>Preprocessing workflow diagram<h2>
-            {% endif %}
-            <p>Parameters : </p>
-            <p>value percentile : {{ percentile }}</p>
-            <p>value threshold : {{ threshold }}</p>
-            <p>final resolution : {{ resolution }} mm<sup>3</p>
-            <p>final dimensions crop : {{ image_size }}
-            <p>
-                {% if sum_workflow %}
-                <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ sum_workflow }}' width="700"
-                    height="500"></object>
-                {% endif %}
+    <h2>Preprocessing workflow diagram</h2>
+    <p>Parameters : </p>
+    <p>value percentile : {{ percentile }}</p>
+    <p>value threshold : {{ threshold }}</p>
+    <p>final resolution : {{ resolution }} mm<sup>3</p>
+    <p>final dimensions crop : {{ image_size }}</p>
+    <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ sum_workflow }}' width="700" height="500"></object>
+    {% endif %}
 </body>
 
 </html>

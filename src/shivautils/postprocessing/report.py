@@ -2,6 +2,8 @@ import nibabel as nb
 import pandas as pd
 from shivautils.stats import save_histogram, bounding_crop
 from jinja2 import Environment, PackageLoader
+import base64
+# from PIL import Image
 
 
 def make_report(img_normalized: nb.Nifti1Image,
@@ -55,9 +57,6 @@ def make_report(img_normalized: nb.Nifti1Image,
     Returns:
         html file with completed report
     """
-
-    from PIL import Image
-    import base64
 
     if swi == 'True':
         modality = 'SWI'
@@ -162,31 +161,49 @@ def make_report(img_normalized: nb.Nifti1Image,
     env = Environment(loader=PackageLoader('shivautils', 'postprocessing'))
     tm = env.get_template('report_template.html')
 
-    template_report = tm.render(subject_id=subject_id,
-                                hist_intensity=histogram_intensity_data,
-                                bounding_crop=bounding_crop_data,
-                                isocontour_slides_FLAIR_T1=isocontour_slides_path_FLAIR_T1,
-                                qc_overlay_brainmask_t1=qc_overlay_brainmask_t1,
-                                sum_workflow=sum_workflow_data,
-                                metrics_clusters=metrics_clusters,
-                                columns=columns,
-                                cluster_filter=cluster_filter,
-                                cluster_threshold=cluster_threshold,
-                                columns_2=columns_2,
-                                metrics_clusters_2=metrics_clusters_2,
-                                clusters_threshold_2=clusters_threshold_2,
-                                clusters_filter_2=clusters_filter_2,
-                                clusters_bg_pvs=clusters_bg_pvs,
-                                clusters_threshold_bg=clusters_threshold_bg,
-                                clusters_filter_bg=clusters_filter_bg,
-                                predictions_latventricles_DWMH=predictions_latventricles_DWMH,
-                                columns_latventricles=columns_latventricles,
-                                clusters_threshold_latventricles=clusters_threshold_latventricles,
-                                percentile=percentile,
-                                threshold=threshold,
-                                image_size=image_size,
-                                resolution=resolution,
-                                modality=modality,
-                                title_metrics_clusters=title_metrics_clusters)
+    metrics = ['Number of {seg}',
+               'Mean volume of {seg} (mm<sup>3</sup>)',
+               'Median volume of {seg} (mm<sup>3</sup>)',
+               'Max volume of {seg} (mm<sup>3</sup>)',
+               'Min volume of {seg} (mm<sup>3</sup>)',
+               'Total volume of all {seg} (mm<sup>3</sup>)',
+               'Total volume for the {seg} (mm<sup>3</sup>)']
+
+    stat_df = pd.DataFrame({}, index=['Whole brain'], columns=metrics)
+    stat_df_html = stat_df.to_html(justify='center', escape=False)
+    pred_stat_dict = {'{seg}': {'title': 'Brain charge statistics for {seg_whole_name} ({seg})',
+                                'metrics_table': stat_df_html,
+                                }},
+
+    template_report = tm.render(
+        data_origin=subject_id,
+        pred_stat_dict=pred_stat_dict,
+    )
+    # (subject_id=subject_id,
+    # hist_intensity=histogram_intensity_data,
+    # bounding_crop=bounding_crop_data,
+    # isocontour_slides_FLAIR_T1=isocontour_slides_path_FLAIR_T1,
+    # qc_overlay_brainmask_t1=qc_overlay_brainmask_t1,
+    # sum_workflow=sum_workflow_data,
+    # metrics_clusters=metrics_clusters,
+    # columns=columns,
+    # cluster_filter=cluster_filter,
+    # cluster_threshold=cluster_threshold,
+    # columns_2=columns_2,
+    # metrics_clusters_2=metrics_clusters_2,
+    # clusters_threshold_2=clusters_threshold_2,
+    # clusters_filter_2=clusters_filter_2,
+    # clusters_bg_pvs=clusters_bg_pvs,
+    # clusters_threshold_bg=clusters_threshold_bg,
+    # clusters_filter_bg=clusters_filter_bg,
+    # predictions_latventricles_DWMH=predictions_latventricles_DWMH,
+    # columns_latventricles=columns_latventricles,
+    # clusters_threshold_latventricles=clusters_threshold_latventricles,
+    # percentile=percentile,
+    # threshold=threshold,
+    # image_size=image_size,
+    # resolution=resolution,
+    # modality=modality,
+    # title_metrics_clusters=title_metrics_clusters)
 
     return template_report
