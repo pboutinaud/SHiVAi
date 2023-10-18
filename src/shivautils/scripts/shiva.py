@@ -310,7 +310,9 @@ def main():
     pred_wfs = []
 
     for PRED in args.prediction:
-        seg_name = PRED[:3].lower()  # PVS or CMB, doesn't need [:3]
+        seg_name = PRED.lower()
+        if seg_name == 'pvs2':
+            seg_name = 'pvs'
         if dual:
             wf_pred = genWorkflowDualPredict(**wfargs, PRED=PRED)
         else:

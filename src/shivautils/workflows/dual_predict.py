@@ -26,7 +26,9 @@ def genWorkflow(**kwargs) -> Workflow:
 
     if 'PRED' in kwargs.keys():
         PRED = kwargs['PRED']
-        pred = PRED[:3].lower()
+        pred = PRED.lower()
+        if pred == 'pvs2':
+            pred = 'pvs'
         pred_name = f"predict_{pred}"
     else:
         pred_name = "predict_seg"
