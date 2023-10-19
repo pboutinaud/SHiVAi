@@ -6,24 +6,26 @@ import base64
 # from PIL import Image
 
 
-def make_report(img_normalized: nb.Nifti1Image,
-                brainmask: nb.Nifti1Image,
-                bbox1: tuple,
-                bbox2: tuple,
-                cdg_ijk: tuple,
-                isocontour_slides_path_FLAIR_T1: str,
-                qc_overlay_brainmask_t1: str,
-                metrics_clusters_path: str,
-                subject_id: int = None,
-                image_size: tuple = (160, 214, 176),
-                resolution: tuple = (1.0, 1.0, 1.0),
-                percentile: int = 99,
-                threshold: float = 0.5,
-                sum_workflow_path: str = None,
-                metrics_clusters_2_path: str = None,
-                clusters_bg_pvs_path: str = None,
-                predictions_latventricles_DWMH_path: str = None,
-                swi: bool = 'False'):
+def make_report(
+        metrics_segmentations: list,
+        img_normalized: nb.Nifti1Image,
+        brainmask: nb.Nifti1Image,
+        bbox1: tuple,
+        bbox2: tuple,
+        cdg_ijk: tuple,
+        isocontour_slides_path_FLAIR_T1: str,
+        qc_overlay_brainmask_t1: str,
+        metrics_clusters_path: str,
+        subject_id: int = None,
+        image_size: tuple = (160, 214, 176),
+        resolution: tuple = (1.0, 1.0, 1.0),
+        percentile: int = 99,
+        threshold: float = 0.5,
+        sum_workflow_path: str = None,
+        metrics_clusters_2_path: str = None,
+        clusters_bg_pvs_path: str = None,
+        predictions_latventricles_DWMH_path: str = None,
+        swi: bool = 'False'):
     """
     Individual HTML report:
 
@@ -58,12 +60,32 @@ def make_report(img_normalized: nb.Nifti1Image,
         html file with completed report
     """
 
-    if swi == 'True':
-        modality = 'SWI'
-        title_metrics_clusters = "Predictions results for Cerebral MicroBleeds (CMB)"
-    else:
-        modality = 'T1w'
-        title_metrics_clusters = "Prediction results for PeriVascular Spaces (PVS)"
+    # if swi == 'True':  # TODO: remove
+    #     modality = 'SWI'
+    #     title_metrics_clusters = "Predictions results for Cerebral MicroBleeds (CMB)"
+    # else:
+    #     modality = 'T1w'
+    #     title_metrics_clusters = "Prediction results for PeriVascular Spaces (PVS)"
+
+    # metrics_clusters_orig = pd.read_csv(metrics_clusters_path)
+    # metrics_clusters = metrics_clusters_orig[['Number of voxels', 'Number of clusters', 'Mean clusters size',
+    #                                           'Median clusters size', 'Minimal clusters size', 'Maximal clusters size']].copy()
+    # cluster_filter = metrics_clusters_orig['Cluster Filter'].values[0]
+    # cluster_threshold = metrics_clusters_orig['Cluster Threshold'].values[0]
+    # columns = metrics_clusters.columns.tolist()
+    # if metrics_clusters_2_path:
+    #     metrics_clusters_2_orig = pd.read_csv(metrics_clusters_2_path)
+    #     metrics_clusters_2 = metrics_clusters_2_orig[['Number of voxels', 'Number of clusters',
+    #                                                   'Mean clusters size', 'Median clusters size',
+    #                                                   'Minimal clusters size', 'Maximal clusters size']].copy()
+    #     clusters_threshold_2 = metrics_clusters_2_orig['Cluster Threshold'].values[0]
+    #     clusters_filter_2 = metrics_clusters_2_orig['Cluster Filter'].values[0]
+    #     columns_2 = metrics_clusters_2.columns.tolist()
+    # else:
+    #     metrics_clusters_2 = None
+    #     clusters_threshold_2 = None
+    #     clusters_filter_2 = None
+    #     columns_2 = None
 
     try:
         with open(sum_workflow_path, 'rb') as f:
@@ -72,10 +94,10 @@ def make_report(img_normalized: nb.Nifti1Image,
     except:
         sum_workflow_data = None
 
-    histogram_intensity_path = save_histogram(img_normalized)
-    with open(histogram_intensity_path, 'rb') as f:
-        image_data = f.read()
-    histogram_intensity_data = base64.b64encode(image_data).decode()
+    # histogram_intensity_path = save_histogram(img_normalized)
+    # with open(histogram_intensity_path, 'rb') as f:
+    #     image_data = f.read()
+    # histogram_intensity_data = base64.b64encode(image_data).decode()
 
     with open(bbox1, 'r') as file:
         bbox1 = eval(file.readline().strip())
@@ -106,26 +128,6 @@ def make_report(img_normalized: nb.Nifti1Image,
         qc_overlay_brainmask_t1 = base64.b64encode(image_data).decode()
     except:
         qc_overlay_brainmask_t1 = None
-
-    metrics_clusters_orig = pd.read_csv(metrics_clusters_path)
-    metrics_clusters = metrics_clusters_orig[['Number of voxels', 'Number of clusters', 'Mean clusters size',
-                                              'Median clusters size', 'Minimal clusters size', 'Maximal clusters size']].copy()
-    cluster_filter = metrics_clusters_orig['Cluster Filter'].values[0]
-    cluster_threshold = metrics_clusters_orig['Cluster Threshold'].values[0]
-    columns = metrics_clusters.columns.tolist()
-    if metrics_clusters_2_path:
-        metrics_clusters_2_orig = pd.read_csv(metrics_clusters_2_path)
-        metrics_clusters_2 = metrics_clusters_2_orig[['Number of voxels', 'Number of clusters',
-                                                      'Mean clusters size', 'Median clusters size',
-                                                      'Minimal clusters size', 'Maximal clusters size']].copy()
-        clusters_threshold_2 = metrics_clusters_2_orig['Cluster Threshold'].values[0]
-        clusters_filter_2 = metrics_clusters_2_orig['Cluster Filter'].values[0]
-        columns_2 = metrics_clusters_2.columns.tolist()
-    else:
-        metrics_clusters_2 = None
-        clusters_threshold_2 = None
-        clusters_filter_2 = None
-        columns_2 = None
 
     clusters_threshold_bg = None
     clusters_filter_bg = None

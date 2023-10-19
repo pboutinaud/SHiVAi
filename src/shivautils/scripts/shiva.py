@@ -302,12 +302,12 @@ def main():
     else:
         wf_preproc = genWorkflowPreproc(**wfargs)
     wf_preproc = update_wf_grabber(wf_preproc, args.input_type, dual)
-    wf_preproc.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
     wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+    # wf_preproc.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
     # wf_preproc.run(plugin='Linear')
 
-    # Preprare prediction nodes
-    pred_wfs = []
+    # Prepare prediction workflows
+    pred_wfs = {}
     for PRED in args.prediction:
         biomarker = PRED.lower()
         if biomarker == 'pvs2':
@@ -318,13 +318,13 @@ def main():
             wf_pred = genWorkflowPredict(**wfargs, PRED=PRED)
         wf_pred.name = f'{biomarker}_predictor_workflow'
         wf_pred.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-        pred_wfs.append(wf_pred)
+        pred_wfs[biomarker] = wf_pred
 
     main_wf.add_nodes([wf_preproc] + pred_wfs)
 
-    for wf_pred in pred_wfs:
+    for wf_pred in pred_wfs.values():
         main_wf.connect(wf_preproc, 'preproc_out_node.preproc_out_dict', wf_pred, 'input_parser.in_dict')
-    # wf_predict.run(plugin='Linear')
+
     main_wf.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
     main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     main_wf.run(plugin='Linear')
