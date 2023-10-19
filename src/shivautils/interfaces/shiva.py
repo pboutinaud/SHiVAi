@@ -2,12 +2,11 @@
 import os
 
 
-
 from nipype.interfaces.base import (traits, TraitedSpec,
                                     BaseInterfaceInputSpec)
 
-from shivautils.interfaces.singularity import (CommandLine, SingularityCommandLine, 
-                                            SingularityInputSpec, CommandLineInputSpec)
+from shivautils.interfaces.singularity import (CommandLine, SingularityCommandLine,
+                                               SingularityInputSpec, CommandLineInputSpec)
 
 
 class PredictInputSpec(BaseInterfaceInputSpec):
@@ -49,6 +48,9 @@ class PredictInputSpec(BaseInterfaceInputSpec):
                              exists=True,
                              desc='File information about models for validation',
                              mandatory=True)
+
+    biomarker = traits.Str('seg',
+                           desc='Type of biomarker to segment')
 
     gpu_number = traits.Int(argstr='--gpu %d',
                             desc='GPU to use if several GPUs are available.',
@@ -111,17 +113,17 @@ class SynthSegInputSpec(CommandLineInputSpec):
     """Input arguments structure for Freesurfer synthseg."""
 
     input = traits.File(argstr='--i %s',
-                    desc='The structural image of the subject (use an image input file, not a file list or folder).',
-                    exists=True)
+                        desc='The structural image of the subject (use an image input file, not a file list or folder).',
+                        exists=True)
 
     out_filename = traits.Str('segmented.nii.gz', argstr='--o %s',
                               desc='Output file path.')
-    
+
     threads = traits.Int(20, argstr='--threads %d',
                          desc='Number of threads',
                          usedefault=True)
 
-    robust = traits.Bool(True, argstr='--robust', 
+    robust = traits.Bool(True, argstr='--robust',
                          desc='Perform robust computations for noisy images.',
                          usedefault=True)
 
@@ -135,21 +137,20 @@ class SynthSegInputSpec(CommandLineInputSpec):
     vol = traits.Str('volumes.csv', argstr='--vol %s', mandatory='False',
                      desc='Path to a CSV file where volumes for all segmented regions will be saved.')
 
-
-    qc = traits.Str ('qc.csv', argstr='--qc %s',
-                     desc='Path to a CSV file where QC scores will be saved.', mandatory=False)
+    qc = traits.Str('qc.csv', argstr='--qc %s',
+                    desc='Path to a CSV file where QC scores will be saved.', mandatory=False)
 
 
 class SynthSegOutputSpec(TraitedSpec):
     """Freesurfer synthseg output ports."""
     segmentation = traits.File(desc='The segmentation regions image',
                                exists=True)
-    
+
     qc = traits.File(desc='The quality control csv file',
                      exists=False)
-    
+
     volumes = traits.File(desc='The volumetry results csv file',
-                     exists=False)
+                          exists=False)
 
 
 class SynthSeg(CommandLine):
