@@ -5,7 +5,7 @@ from skimage import measure
 from scipy.ndimage import _ni_support
 from scipy.ndimage.morphology import (distance_transform_edt, binary_erosion,
                                       generate_binary_structure
-                                    )
+                                      )
 
 
 # --------------------------------------------------------------------------
@@ -30,53 +30,53 @@ def get_metrics(
     if 'VRS_WMH' in type_labels:
         # Parallel computation of metrics for VRS
         vrs_v_metrics, vrs_c_metrics = compute_metrics(
-                    model_id, 'VRS',
-                    ids, truths, predictions, pred_channel=0,
-                    cluster_range=cluster_range,
-                    threshold_range=threshold_range,
-                    compute_hd95=compute_hd95,
-                    n_jobs=n_jobs
-                )
+            model_id, 'VRS',
+            ids, truths, predictions, pred_channel=0,
+            cluster_range=cluster_range,
+            threshold_range=threshold_range,
+            compute_hd95=compute_hd95,
+            n_jobs=n_jobs
+        )
         # Parallel computation of metrics for WMH
         wmh_v_metrics, wmh_c_metrics = compute_metrics(
-                    model_id, 'WMH',
-                    ids, truths, predictions, pred_channel=1,
-                    cluster_range=cluster_range,
-                    threshold_range=threshold_range,
-                    compute_hd95=compute_hd95,
-                    n_jobs=n_jobs
-                )
+            model_id, 'WMH',
+            ids, truths, predictions, pred_channel=1,
+            cluster_range=cluster_range,
+            threshold_range=threshold_range,
+            compute_hd95=compute_hd95,
+            n_jobs=n_jobs
+        )
     elif 'WMH' in type_labels:
         # Parallel computation of metrics for WMH
         wmh_v_metrics, wmh_c_metrics = compute_metrics(
-                    model_id, 'WMH',
-                    ids, truths, predictions, pred_channel=0,
-                    cluster_range=cluster_range,
-                    threshold_range=threshold_range,
-                    compute_hd95=compute_hd95,
-                    n_jobs=n_jobs
-                )
+            model_id, 'WMH',
+            ids, truths, predictions, pred_channel=0,
+            cluster_range=cluster_range,
+            threshold_range=threshold_range,
+            compute_hd95=compute_hd95,
+            n_jobs=n_jobs
+        )
     elif 'VRS' in type_labels:
         # Parallel computation of metrics for VRS
         vrs_v_metrics, vrs_c_metrics = compute_metrics(
-                    model_id, 'VRS',
-                    ids, truths, predictions, pred_channel=0,
-                    cluster_range=cluster_range,
-                    threshold_range=threshold_range,
-                    compute_hd95=compute_hd95,
-                    n_jobs=n_jobs
-                )
+            model_id, 'VRS',
+            ids, truths, predictions, pred_channel=0,
+            cluster_range=cluster_range,
+            threshold_range=threshold_range,
+            compute_hd95=compute_hd95,
+            n_jobs=n_jobs
+        )
     else:
         # Parallel computation of metrics for ???
         vrs_v_metrics, vrs_c_metrics = compute_metrics(
-                    model_id, 
-                    '???' if prediction_label is None else prediction_label,
-                    ids, truths, predictions, pred_channel=0,
-                    cluster_range=cluster_range,
-                    threshold_range=threshold_range,
-                    compute_hd95=compute_hd95,
-                    n_jobs=n_jobs
-                )
+            model_id,
+            '???' if prediction_label is None else prediction_label,
+            ids, truths, predictions, pred_channel=0,
+            cluster_range=cluster_range,
+            threshold_range=threshold_range,
+            compute_hd95=compute_hd95,
+            n_jobs=n_jobs
+        )
     return vrs_v_metrics, vrs_c_metrics, wmh_v_metrics, wmh_c_metrics
 
 
@@ -147,13 +147,13 @@ def image_metrics_proxy(
     subject_id, cluster_filter=0, compute_hd95=False
 ):
     voxel, cluster = image_metrics(
-            mask,
-            pred,
-            channel=channel,
-            threshold=threshold,
-            cluster_filter=cluster_filter,
-            compute_hd95=compute_hd95,
-        )
+        mask,
+        pred,
+        channel=channel,
+        threshold=threshold,
+        cluster_filter=cluster_filter,
+        compute_hd95=compute_hd95,
+    )
     sensitivity, precision, f1, tp, fp, fn, _hd95 = voxel
     v = {
         'run': rname,
@@ -192,24 +192,30 @@ def image_metrics_proxy(
 
 # --------------------------------------------------------------------------
 def get_clusters_and_filter_image(image, cluster_filter=0):
-    # Compute clusters
+    """ 
+    Compute clusters and filter out those smaller than "cluster_filter"
+
+    """
     clusters, num_clusters = measure.label(
-        image, background=0, connectivity=2, return_num=True)
-    # do we have to remove some clusters ?
-    if cluster_filter is not None and cluster_filter > 0:
-        # find the size of each cluster except for the background
+        image, return_num=True)
+    if cluster_filter:
         clusnum, counts = np.unique(clusters[clusters > 0], return_counts=True)
-        # find the ids of the cluster with a size < threshold
-        avirer = clusnum[counts <= cluster_filter]
-        # set to 0 the voxels where the cluster size is les than threshold
-        image = image.copy()
-        image[np.isin(clusters, avirer)] = 0
-        # rebuild clusters (must be some more efficient way to do that)
-        clusters_f, num_clusters_f = measure.label(
-            image, background=0, connectivity=3, return_num=True)
+        to_remove = clusnum[counts <= cluster_filter]
+        nums_left = [i for i in clusnum if i not in to_remove]
+
+        image_f = image.copy()
+        image_f[np.isin(clusters, to_remove)] = 0
+        clusters_f = clusters.copy()
+        clusters_f[np.isin(clusters, to_remove)] = 0
+
+        num_clusters_f = []
+        for new_i, old_i in enumerate(nums_left):
+            new_i += 1  # because starts at 0
+            clusters_f[clusters == old_i] = new_i
+            num_clusters_f.append(new_i)
     else:  # filtered clusters are the same
-        clusters_f, num_clusters_f = clusters, num_clusters
-    return image, clusters, num_clusters, clusters_f, num_clusters_f
+        image_f, clusters_f, num_clusters_f = image, clusters, num_clusters
+    return image_f, clusters, num_clusters, clusters_f, num_clusters_f
 
 
 # --------------------------------------------------------------------------
@@ -245,9 +251,9 @@ def image_metrics(
             vox_sensitivity = 0.
             vox_f1 = 0.
     else:
-            vox_sensitivity = vox_tp / (vox_tp+vox_fn)
-            vox_precision = vox_tp / (vox_tp+vox_fp)
-            vox_f1 = (2*vox_tp)/(2*vox_tp+vox_fp+vox_fn)  # noqa: E501
+        vox_sensitivity = vox_tp / (vox_tp+vox_fn)
+        vox_precision = vox_tp / (vox_tp+vox_fp)
+        vox_f1 = (2*vox_tp)/(2*vox_tp+vox_fp+vox_fn)  # noqa: E501
 
     # Cluster metrics
     # compute True Positive from Ground Truth perspective
@@ -472,4 +478,4 @@ def hilo(images, channel=0, threshold=0.5):
     return (
         (np.stack(images[:half]).mean(axis=0) > threshold) |
         (np.stack(images[half+1:]).mean(axis=0) > threshold)
-        )[..., channel].astype(int)
+    )[..., channel].astype(int)
