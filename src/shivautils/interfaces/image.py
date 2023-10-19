@@ -4,7 +4,7 @@ from shivautils.postprocessing.pvs import quantify_clusters
 from shivautils.postprocessing.report import make_report
 from shivautils.postprocessing.background import create_background_slice_mask
 from shivautils.postprocessing.wmh import metrics_clusters_latventricles
-from shivautils.stats import metrics_prediction, get_mask_regions
+from shivautils.stats import prediction_metrics, get_mask_regions
 from shivautils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask
 from nipype.utils.filemanip import split_filename
 from nipype.interfaces.base import isdefined
@@ -13,7 +13,7 @@ from nipype.interfaces.base import BaseInterface, \
     BaseInterfaceInputSpec, traits, TraitedSpec
 import os
 import nibabel.processing as nip
-import nibabel as nb
+import nibabel as nib
 import numpy as np
 import csv
 import weasyprint
@@ -55,7 +55,7 @@ class ConformOutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        conform (nb.Nifti1Image): transformed image
+        conform (nib.Nifti1Image): transformed image
     """
     resampled = traits.File(exists=True,
                             desc='Image conformed to the required voxel size and shape.')
@@ -65,12 +65,12 @@ class Conform(BaseInterface):
     """Main class
 
     Attributes:
-        input_spec (nb.Nifti1Image):
+        input_spec (nib.Nifti1Image):
             NIfTI image file to process
             dimensions (int, int, int): minimal dimension
             voxel_size (float, float, float): Voxel size of final image
             orientation (string): orientation of the volume brain
-        output_spec (nb.Nifti1Image): file img brain mask IRM nifti
+        output_spec (nib.Nifti1Image): file img brain mask IRM nifti
 
     Methods:
         _run_interface(runtime):
@@ -88,7 +88,7 @@ class Conform(BaseInterface):
         Return: runtime
         """
         fname = self.inputs.img
-        img = nb.funcs.squeeze_image(nb.load(fname))
+        img = nib.funcs.squeeze_image(nib.load(fname))
         if not (isdefined(self.inputs.voxel_size)):
             # resample so as to keep FOV
             voxel_size = np.divide(np.multiply(img.header['dim'][1:4], img.header['pixdim'][1:4]).astype(np.double),
@@ -105,7 +105,7 @@ class Conform(BaseInterface):
 
         # Save it for later use in _list_outputs
         _, base, _ = split_filename(fname)
-        nb.save(resampled, base + 'resampled.nii.gz')
+        nib.save(resampled, base + 'resampled.nii.gz')
 
         return runtime
 
@@ -137,7 +137,7 @@ class IntensityNormalizationOutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        img_crop (nb.Nifti1Image): file img IRM nifti transformed
+        img_crop (nib.Nifti1Image): file img IRM nifti transformed
     """
     intensity_normalized = traits.File(exists=True,
                                        desc='Intensity normalized image')
@@ -155,8 +155,8 @@ class Normalization(BaseInterface):
     """Main class
 
     Attributes:
-        input_spec (nb.Nifti1Image): NIfTI image input
-        output_spec (nb.Nifti1Image): Intensity-normalized image
+        input_spec (nib.Nifti1Image): NIfTI image input
+        output_spec (nib.Nifti1Image): Intensity-normalized image
 
     Methods:
         _run_interface(runtime):
@@ -175,9 +175,9 @@ class Normalization(BaseInterface):
         """
         # conform image to desired voxel sizes and dimensions
         fname = self.inputs.input_image
-        img = nb.load(fname)
+        img = nib.load(fname)
         if self.inputs.brain_mask:
-            brain_mask = nb.load(self.inputs.brain_mask)
+            brain_mask = nib.load(self.inputs.brain_mask)
         else:
             brain_mask = self.inputs.brain_mask
         img_normalized, report, mode = normalization(img,
@@ -191,7 +191,7 @@ class Normalization(BaseInterface):
 
         _, base, _ = split_filename(fname)
         setattr(self, 'report', os.path.abspath('report.html'))
-        nb.save(img_normalized, base + '_img_normalized.nii.gz')
+        nib.save(img_normalized, base + '_img_normalized.nii.gz')
 
         return runtime
 
@@ -223,11 +223,11 @@ class ThresholdInputSpec(BaseInterfaceInputSpec):
 
     binarize = traits.Bool(False, exists=True,
                            desc='Binarize image')
-    
+
     open = traits.Int(0, usedefault=True,
                       desc=('For binary opening of the clusters, radius of the ball used '
                             'as footprint (skip opening if <= 0'))
-    
+
     clusterCheck = traits.Str('size', usedefault=True,
                               desc=("Can be 'size', 'top' or 'all'. Select one cluster "
                                     "(if not 'all') in the mask, biggest or highest on z-axis"))
@@ -240,7 +240,7 @@ class ThresholdOutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        img_crop (nb.Nifti1Image): file img IRM nifti transformed
+        img_crop (nib.Nifti1Image): file img IRM nifti transformed
     """
     thresholded = traits.File(exists=True,
                               desc='Thresholded image')
@@ -250,10 +250,10 @@ class Threshold(BaseInterface):
     """Main class
 
     Attributes:
-        input_spec (nb.Nifti1Image):
+        input_spec (nib.Nifti1Image):
             file img Nifti
             Threshold for the brain mask
-        output_spec (nb.Nifti1Image): file img brain mask IRM nifti
+        output_spec (nib.Nifti1Image): file img brain mask IRM nifti
 
     Methods:
         _run_interface(runtime):
@@ -271,7 +271,7 @@ class Threshold(BaseInterface):
         Return: runtime
         """
         fname = self.inputs.img
-        img = nb.funcs.squeeze_image(nb.load(fname))
+        img = nib.funcs.squeeze_image(nib.load(fname))
         thresholded = threshold(img,
                                 self.inputs.threshold,
                                 sign=self.inputs.sign,
@@ -282,7 +282,7 @@ class Threshold(BaseInterface):
 
         # Save it for later use in _list_outputs
         _, base, _ = split_filename(fname)
-        nb.save(thresholded, base + '_thresholded.nii.gz')
+        nib.save(thresholded, base + '_thresholded.nii.gz')
 
         return runtime
 
@@ -324,10 +324,10 @@ class CropOutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        img_crop (nb.Nifti1Image): Cropped image
+        img_crop (nib.Nifti1Image): Cropped image
     """
     cropped = traits.File(exists=True,
-                          desc='nb.Nifti1Image: preprocessed image')
+                          desc='nib.Nifti1Image: preprocessed image')
 
     cdg_ijk = traits.Tuple(traits.Int, traits.Int, traits.Int,
                            desc='center of gravity brain_mask')
@@ -354,7 +354,7 @@ class Crop(BaseInterface):
         """
         # load images
         if isdefined(self.inputs.roi_mask):
-            mask = nb.load(self.inputs.roi_mask)
+            mask = nib.load(self.inputs.roi_mask)
         else:
             # get from ijk
             mask = None
@@ -362,7 +362,7 @@ class Crop(BaseInterface):
             cdg_ijk = None
         else:
             cdg_ijk = self.inputs.cdg_ijk
-        target = nb.load(self.inputs.apply_to)
+        target = nib.load(self.inputs.apply_to)
 
         # process
         cropped, cdg_ijk, bbox1, bbox2 = crop(
@@ -388,7 +388,7 @@ class Crop(BaseInterface):
         setattr(self, 'bbox1', bbox1)
         setattr(self, 'bbox2', bbox2)
         _, base, _ = split_filename(self.inputs.apply_to)
-        nb.save(cropped, base + '_cropped.nii.gz')
+        nib.save(cropped, base + '_cropped.nii.gz')
 
     def _list_outputs(self):
         """Fill in the output structure."""
@@ -416,7 +416,7 @@ class ApplyMaskOutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        brain_mask (nb.Nifti1Image): brain mask of input NIfTI image
+        brain_mask (nib.Nifti1Image): brain mask of input NIfTI image
     """
     brain_mask = traits.File(exists=True,
                              desc='Segmented brain mask of NIfTI image ')
@@ -426,10 +426,10 @@ class ApplyMask(BaseInterface):
     """Main class
 
     Attributes:
-        input_spec (nb.Nifti1Image):
+        input_spec (nib.Nifti1Image):
             file img Nifti
             tensorflow model of pretrained brain mask
-        output_spec (nb.Nifti1Image): brain mask for nifti image given
+        output_spec (nib.Nifti1Image): brain mask for nifti image given
 
     Methods:
 
@@ -448,14 +448,14 @@ class ApplyMask(BaseInterface):
         Return: runtime
         """
         fname = self.inputs.apply_to
-        apply_to = nb.load(fname)
+        apply_to = nib.load(fname)
         model = self.inputs.model
         # brain_mask = apply_mask(apply_to, model)
         brain_mask = None
 
         # Save it for later use in _list_outputs
         _, base, _ = split_filename(fname)
-        nb.save(brain_mask, base + '_brain_mask.nii.gz')
+        nib.save(brain_mask, base + '_brain_mask.nii.gz')
 
         return runtime
 
@@ -490,10 +490,10 @@ class ReverseCropOutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        img_crop (nb.Nifti1Image): Cropped image
+        img_crop (nib.Nifti1Image): Cropped image
     """
     reverse_crop = traits.File(exists=True,
-                               desc='nb.Nifti1Image: image cropped in the original space')
+                               desc='nib.Nifti1Image: image cropped in the original space')
 
 
 class ReverseCrop(BaseInterface):
@@ -510,8 +510,8 @@ class ReverseCrop(BaseInterface):
         Return: runtime
         """
         # load images
-        original_img = nb.load(self.inputs.original_img)
-        apply_to = nb.load(self.inputs.apply_to)
+        original_img = nib.load(self.inputs.original_img)
+        apply_to = nib.load(self.inputs.apply_to)
 
         # process
         reverse_img = reverse_crop(
@@ -522,7 +522,7 @@ class ReverseCrop(BaseInterface):
 
         # Save it for later use in _list_outputs
         _, base, _ = split_filename(self.inputs.apply_to)
-        nb.save(reverse_img, base + '_reverse_img.nii.gz')
+        nib.save(reverse_img, base + '_reverse_img.nii.gz')
 
     def _list_outputs(self):
         """Fill in the output structure."""
@@ -601,10 +601,10 @@ class MakeOffsetOutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        shifted_img (nb.Nifti1Image): nifti image shifted with a random offset
+        shifted_img (nib.Nifti1Image): nifti image shifted with a random offset
     """
     shifted_img = traits.File(exists=True,
-                              desc='nb.Nifti1Image: image shifted with a random offset')
+                              desc='nib.Nifti1Image: image shifted with a random offset')
 
     offset_number = traits.Tuple(traits.Int, traits.Int, traits.Int,
                                  desc="voxel shift in image applied")
@@ -624,7 +624,7 @@ class MakeOffset(BaseInterface):
         Return: runtime
         """
         # load images
-        img = nb.load(self.inputs.img)
+        img = nib.load(self.inputs.img)
 
         # process
         shifted_img, offset_number = make_offset(img, offset=self.inputs.offset)
@@ -632,7 +632,7 @@ class MakeOffset(BaseInterface):
         # Save it for later use in _list_outputs
         setattr(self, 'offset_number', offset_number)
         _, base, _ = split_filename(self.inputs.img)
-        nb.save(shifted_img, base + '_shifted_img.nii.gz')
+        nib.save(shifted_img, base + '_shifted_img.nii.gz')
 
     def _list_outputs(self):
         """Fill in the output structure."""
@@ -648,14 +648,16 @@ class MakeOffset(BaseInterface):
 class MetricsPredictionsInputSpec(BaseInterfaceInputSpec):
     """Input parameter to get metrics of prediction file"""
     img = traits.File(exists=True,
-                      desc='image use to shifted with a random offset',
-                      mandatory=False)
+                      desc='Nifti file of the biomarker segmentation',
+                      mandatory=True)
 
-    threshold_clusters = traits.Float(exists=True,
-                                      desc='Threshold to compute clusters metrics')
+    thr_cluster_val = traits.Float(exists=True,
+                                   desc='Value to threshold segmentation image',
+                                   mandatory=True)
 
-    pvs = traits.Bool(False, exists=True,
-                      desc='pvs Nifti prediction file or not')
+    thr_cluster_size = traits.Int(exists=True,
+                                  desc='Value to threshold segmentation image',
+                                  )
 
 
 class MetricsPredictionsOutputSpec(TraitedSpec):
@@ -665,8 +667,12 @@ class MetricsPredictionsOutputSpec(TraitedSpec):
         metrics_prediction_csv (csv): csv file with metrics about the cluster prediction
         file
     """
-    metrics_predictions_csv = traits.Any(exists=True,
-                                         desc='csv file with metrics about each prediction')
+    biomarker_census_csv = traits.File(exists=True,
+                                       desc='csv file listing all segmented biomarkers with their size')
+    biomarker_stats_csv = traits.File(exists=True,
+                                      desc='csv file with statistics on the segmented biomarkers')
+    labelled_biomarkers = traits.File(exists=True,
+                                      desc='Nifti file with labelled segmented biomarkers')
 
 
 class MetricsPredictions(BaseInterface):
@@ -675,51 +681,39 @@ class MetricsPredictions(BaseInterface):
     output_spec = MetricsPredictionsOutputSpec
 
     def _run_interface(self, runtime):
-        """Run processing cluster metrics
-
-        Args:
-            runtime (_type_): time to execute the
-            function
-        Return: runtime
-        """
         path_images = self.inputs.img
+        thr_cluster_val = self.inputs.thr_cluster_val
+        thr_cluster_size = self.inputs.thr_cluster_size
 
-        # Création du fichier CSV dans le Sink
-        with open("metrics_predictions.csv", mode='w', encoding='utf-8') as file:
-            writer = csv.writer(file, delimiter=',')
+        img = nib.load(path_images)
+        segmentation_vol = img.get_fdata()
+        cluster_measures, cluster_stats, clusters_vol = prediction_metrics(segmentation_vol, thr_cluster_val, thr_cluster_size)
 
-            img = nb.load(path_images)
-            array_img = img.get_fdata()
-            thr_cluster = self.inputs.threshold_clusters
-            if self.inputs.pvs == True:
-                cluster_filter = 6
-            else:
-                cluster_filter = 0
-            results = metrics_prediction(array_img, thr_cluster, cluster_filter)
+        cluster_measures.to_csv('biomarker_census.csv')
+        cluster_stats.to_csv('biomarker_stats.csv')
+        clusters_im = nib.Nifti1Image(clusters_vol, img.affine, img.header)
+        nib.save(clusters_im, 'labeled_biomarkers.nii.gz')
 
-            # Écriture de l'en-tête du fichier CSV
-            writer.writerow(["Cluster Threshold", "Cluster Filter", "Number of voxels", "Number of clusters",
-                            "Mean clusters size", "Median clusters size", "Minimal clusters size",
-                             "Maximal clusters size"])
+        # Set the attribute to pass as output
+        setattr(self, 'biomarker_census_csv', os.path.abspath("biomarker_census.csv"))
+        setattr(self, 'biomarker_stats_csv', os.path.abspath("biomarker_stats.csv"))
+        setattr(self, 'labelled_biomarkers', os.path.abspath("labeled_biomarkers.nii.gz"))
 
-            # Ajout des lignes de données
-            writer.writerow([thr_cluster, cluster_filter, results[0],
-                             results[1], results[2], results[3], results[4],
-                             results[5]])
-
-        setattr(self, 'metrics_predictions_csv', os.path.abspath("metrics_predictions.csv"))
+        return runtime
 
     def _list_outputs(self):
-        """File in the output structure."""
+        """Fill in the output structure."""
         outputs = self.output_spec().trait_get()
-        outputs['metrics_predictions_csv'] = getattr(self, 'metrics_predictions_csv')
+        outputs['biomarker_census_csv'] = getattr(self, 'biomarker_census_csv')
+        outputs['biomarker_stats_csv'] = getattr(self, 'biomarker_stats_csv')
+        outputs['labelled_biomarkers'] = getattr(self, 'labelled_biomarkers')
         return outputs
 
 
 class JoinMetricsPredictionsInputSpec(BaseInterfaceInputSpec):
     """Input parameter to get metrics of prediction file"""
     csv_files = traits.List(exists=True,
-                            desc='image use to shifted with a random offset',
+                            desc='List if csv files containing metrics for individual participants',
                             mandatory=False)
 
     subject_id = traits.Any(desc="id for each subject")
@@ -809,7 +803,7 @@ class ApplyMaskOutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        shifted_img (nb.Nifti1Image): prediction file filtered with brainmask file
+        shifted_img (nib.Nifti1Image): prediction file filtered with brainmask file
     """
     segmentation_filtered = traits.File(exists=True,
                                         desc='prediction file filtered with brainmask file')
@@ -829,8 +823,8 @@ class ApplyMask(BaseInterface):
         Return: runtime
         """
         # load images
-        segmentation = nb.load(self.inputs.segmentation)
-        brainmask = nb.load(self.inputs.brainmask)
+        segmentation = nib.load(self.inputs.segmentation)
+        brainmask = nib.load(self.inputs.brainmask)
 
         # process
         segmentation_filtered = apply_mask(segmentation, brainmask)
@@ -838,7 +832,7 @@ class ApplyMask(BaseInterface):
         # Save it for later use in _list_outputs
         setattr(self, 'segmentation_filtered', segmentation_filtered)
         _, base, _ = split_filename(self.inputs.segmentation)
-        nb.save(segmentation_filtered, base + 'segmentation_filtered.nii.gz')
+        nib.save(segmentation_filtered, base + 'segmentation_filtered.nii.gz')
 
     def _list_outputs(self):
         """Fill in the output structure."""
@@ -852,10 +846,29 @@ class ApplyMask(BaseInterface):
 
 class SummaryReportInputSpec(BaseInterfaceInputSpec):
     """Make summary report file in pdf format"""
+
+    # metrics_clusters = traits.File(desc="pandas array of metrics clusters")   # TODO: remove
+
+    # metrics_clusters_2 = traits.File(mandatory=False,  # TODO: remove
+    #                                  desc="""optionnal metris clusters csv file if necessary
+    #                                  (example : dualpreprocessing T1-FLAIR with pvs and wmh clusters metrics)""")
+    metrics_segmentations = traits.List(traits.File,
+                                        desc='List of csv files with metrics for each segmentation',
+                                        mandatory=True)
+
+    metrics_bg_pvs = traits.File(exists=True,
+                                 desc='csv file with metrics about pvs clusters in basal ganglia',
+                                 mandatory=False)
+
+    predictions_latventricles_DWMH = traits.File(exists=True,
+                                                 desc="""csv file with metrics about lateral ventricles and 
+                                                      deep white matter hyperintensities clusters""",
+                                                 mandatory=False)
+
     subject_id = traits.Any(desc="id for each subject")
 
-    swi = traits.Str(default='False',
-                     desc='Specified if report is about SWI or T1-FLAIR')
+    # swi = traits.Str(default='False',
+    #                  desc='Specified if report is about SWI or T1-FLAIR')
 
     cdg_ijk = traits.File(exists=True,
                           desc='center of gravity brain_mask in txt file')
@@ -888,21 +901,6 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
     sum_workflow = traits.File(False,
                                mandatory=False,
                                desc="png image with a sumary of each workflow step")
-
-    metrics_clusters = traits.File(desc="pandas array of metrics clusters")
-
-    metrics_clusters_2 = traits.File(mandatory=False,
-                                     desc="""optionnal metris clusters csv file if necessary 
-                                     (example : dualpreprocessing T1-FLAIR with pvs and wmh clusters metrics)""")
-
-    metrics_bg_pvs = traits.File(exists=True,
-                                 desc='csv file with metrics about pvs clusters in basal ganglia',
-                                 mandatory=False)
-
-    predictions_latventricles_DWMH = traits.File(exists=True,
-                                                 desc="""csv file with metrics about lateral ventricles and 
-                                                      deep white matter hyperintensities clusters""",
-                                                 mandatory=False)
 
     percentile = traits.Float(exists=True, desc='value to threshold above this'
                               'percentile',
@@ -954,12 +952,13 @@ class SummaryReport(BaseInterface):
             subject_id = None
         else:
             subject_id = self.inputs.subject_id
-        if self.inputs.swi == 'True':
-            swi = self.inputs.swi
-        else:
-            swi = 'False'
-        img_normalized = nb.load(self.inputs.img_normalized)
-        brainmask = nb.load(self.inputs.brainmask)
+        metrics_segmentations = self.inputs.metrics_segmentations
+        # if self.inputs.swi == 'True':   # TODO: remove
+        #     swi = self.inputs.swi
+        # else:
+        #     swi = 'False'
+        img_normalized = nib.load(self.inputs.img_normalized)
+        brainmask = nib.load(self.inputs.brainmask)
         bbox1 = self.inputs.bbox1
         bbox2 = self.inputs.bbox2
         cdg_ijk = self.inputs.cdg_ijk
@@ -968,10 +967,10 @@ class SummaryReport(BaseInterface):
         else:
             isocontour_slides_FLAIR_T1 = None
         qc_overlay_brainmask_t1 = self.inputs.qc_overlay_brainmask_t1
-        metrics_clusters = self.inputs.metrics_clusters
-        metrics_clusters_2 = None
-        if self.inputs.metrics_clusters_2:
-            metrics_clusters_2 = self.inputs.metrics_clusters_2
+        # metrics_clusters = self.inputs.metrics_clusters   # TODO: remove
+        # metrics_clusters_2 = None
+        # if self.inputs.metrics_clusters_2:
+        #     metrics_clusters_2 = self.inputs.metrics_clusters_2
         metrics_bg_pvs = None
         if self.inputs.metrics_bg_pvs:
             metrics_bg_pvs = self.inputs.metrics_bg_pvs
@@ -987,25 +986,27 @@ class SummaryReport(BaseInterface):
         resolution = self.inputs.resolution
 
         # process
-        summary_report = make_report(img_normalized=img_normalized,
-                                     brainmask=brainmask,
-                                     bbox1=bbox1,
-                                     bbox2=bbox2,
-                                     cdg_ijk=cdg_ijk,
-                                     isocontour_slides_path_FLAIR_T1=isocontour_slides_FLAIR_T1,
-                                     qc_overlay_brainmask_t1=qc_overlay_brainmask_t1,
-                                     metrics_clusters_path=metrics_clusters,
-                                     subject_id=subject_id,
-                                     image_size=image_size,
-                                     resolution=resolution,
-                                     percentile=percentile,
-                                     threshold=threshold,
-                                     sum_workflow_path=sum_workflow,
-                                     metrics_clusters_2_path=metrics_clusters_2,
-                                     clusters_bg_pvs_path=metrics_bg_pvs,
-                                     predictions_latventricles_DWMH_path=predictions_latventricles_DWMH,
-                                     swi=swi
-                                     )
+        summary_report = make_report(
+            metrics_segmentations=metrics_segmentations,
+            img_normalized=img_normalized,
+            brainmask=brainmask,
+            bbox1=bbox1,
+            bbox2=bbox2,
+            cdg_ijk=cdg_ijk,
+            isocontour_slides_path_FLAIR_T1=isocontour_slides_FLAIR_T1,
+            qc_overlay_brainmask_t1=qc_overlay_brainmask_t1,
+            #  metrics_clusters_path=metrics_clusters,  # TODO: remove
+            subject_id=subject_id,
+            image_size=image_size,
+            resolution=resolution,
+            percentile=percentile,
+            threshold=threshold,
+            sum_workflow_path=sum_workflow,
+            #  metrics_clusters_2_path=metrics_clusters_2,  # TODO: remove
+            clusters_bg_pvs_path=metrics_bg_pvs,
+            predictions_latventricles_DWMH_path=predictions_latventricles_DWMH,
+            #  swi=swi  # TODO: remove
+        )
 
         with open('summary_report.html', 'w', encoding='utf-8') as fid:
             fid.write(summary_report)
@@ -1039,7 +1040,7 @@ class MaskRegionsOutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        mask_regions (nb.Nifti1Image): prediction file filtered with brainmask file
+        mask_regions (nib.Nifti1Image): prediction file filtered with brainmask file
     """
     mask_regions = traits.File(exists=True,
                                desc='Nifti mask file filtered with specific regions')
@@ -1059,7 +1060,7 @@ class MaskRegions(BaseInterface):
         Return: runtime
         """
         # load images
-        img = nb.load(self.inputs.img)
+        img = nib.load(self.inputs.img)
         list_labels_regions = self.inputs.list_labels_regions
 
         # process
@@ -1068,7 +1069,7 @@ class MaskRegions(BaseInterface):
         # Save it for later use in _list_outputs
         setattr(self, 'mask_regions', mask_regions)
         _, base, _ = split_filename(self.inputs.img)
-        nb.loadsave.save(mask_regions, base + 'mask_regions.nii.gz')
+        nib.loadsave.save(mask_regions, base + 'mask_regions.nii.gz')
 
     def _list_outputs(self):
         """Fill in the output structure."""
@@ -1122,17 +1123,17 @@ class QuantificationWMHLatVentricles(BaseInterface):
         Return: runtime
         """
         # load images
-        wmh = nb.load(self.inputs.wmh)
-        latventricles_distance_maps = nb.load(self.inputs.latventricles_distance_maps)
+        wmh = nib.load(self.inputs.wmh)
+        latventricles_distance_maps = nib.load(self.inputs.latventricles_distance_maps)
         subject_id = self.inputs.subject_id
         threshold_clusters = self.inputs.threshold_clusters
 
         # process
         (dataframe_clusters_localization,
-         nb_latventricles_clusters,
-         nb_clusters_DWMH,
-         nb_voxels_latventricles,
-         nb_voxels_DWMH,
+         nib_latventricles_clusters,
+         nib_clusters_DWMH,
+         nib_voxels_latventricles,
+         nib_voxels_DWMH,
          threshold) = metrics_clusters_latventricles(latventricles_distance_maps,
                                                      wmh,
                                                      subject_id,
@@ -1142,8 +1143,8 @@ class QuantificationWMHLatVentricles(BaseInterface):
         with open(out_csv, 'w') as f:
             dataframe_clusters_localization.to_csv(f, index=False)
 
-        nb_total_clusters = nb_latventricles_clusters + nb_clusters_DWMH
-        nb_total_voxels = nb_voxels_latventricles + nb_voxels_DWMH
+        nib_total_clusters = nib_latventricles_clusters + nib_clusters_DWMH
+        nib_total_voxels = nib_voxels_latventricles + nib_voxels_DWMH
 
         # Création du fichier CSV dans le Sink
         with open("predictions_latventricles_DWMH.csv", mode='w', newline='', encoding='utf-8') as file:
@@ -1155,9 +1156,9 @@ class QuantificationWMHLatVentricles(BaseInterface):
                              "Total clusters number", "Total voxels number"])
 
             # Ajout des lignes de données
-            writer.writerow([threshold, nb_clusters_DWMH, nb_voxels_DWMH,
-                             nb_latventricles_clusters, nb_voxels_latventricles,
-                             nb_total_clusters, nb_total_voxels])
+            writer.writerow([threshold, nib_clusters_DWMH, nib_voxels_DWMH,
+                             nib_latventricles_clusters, nib_voxels_latventricles,
+                             nib_total_clusters, nib_total_voxels])
 
         # Save it for later use in _list_outputs
         setattr(self, 'csv_clusters_localization', os.path.abspath("WMH_clusters_localization.csv"))
@@ -1185,7 +1186,7 @@ class BGMaskOutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        mask_regions (nb.Nifti1Image): prediction file filtered with basal ganglia regions
+        mask_regions (nib.Nifti1Image): prediction file filtered with basal ganglia regions
     """
     bg_mask = traits.File(exists=True,
                           desc='Nifti mask file filtered with specific regions')
@@ -1205,7 +1206,7 @@ class BGMask(BaseInterface):
         Return: runtime
         """
         # load images
-        regions_segmented_img = nb.load(self.inputs.segmented_regions)
+        regions_segmented_img = nib.load(self.inputs.segmented_regions)
 
         # process
         bg_mask = create_background_slice_mask(regions_segmented_img)
@@ -1213,7 +1214,7 @@ class BGMask(BaseInterface):
         # Save it for later use in _list_outputs
         setattr(self, 'bg_mask', bg_mask)
         _, base, _ = split_filename(self.inputs.segmented_regions)
-        nb.loadsave.save(bg_mask, base + 'bg_mask.nii.gz')
+        nib.loadsave.save(bg_mask, base + 'bg_mask.nii.gz')
 
     def _list_outputs(self):
         """Fill in the output structure."""
@@ -1225,7 +1226,7 @@ class BGMask(BaseInterface):
         return outputs
 
 
-class PVSQuantificationBGInputSpec(BaseInterfaceInputSpec):
+class PVSQuantificationibGInputSpec(BaseInterfaceInputSpec):
     """Compute metrics clusters and voxels about regions Basal Ganglia and deep white matter"""
     img = traits.File(exists=True,
                       desc='Nifti prediction pvs file')
@@ -1238,20 +1239,20 @@ class PVSQuantificationBGInputSpec(BaseInterfaceInputSpec):
                           mandatory=False)
 
 
-class PVSQuantificationBGOutputSpec(TraitedSpec):
+class PVSQuantificationibGOutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        metrics_prediction_pvs (nb.Nifti1Image): CSV file with metrics about clusters and voxels Basal Ganglia and Deep White Matters regions
+        metrics_prediction_pvs (nib.Nifti1Image): CSV file with metrics about clusters and voxels Basal Ganglia and Deep White Matters regions
     """
     metrics_bg_pvs = traits.File(exists=True,
                                  desc='CSV file with metrics about clusters and voxels Basal Ganglia and Deep White Matters regions')
 
 
-class PVSQuantificationBG(BaseInterface):
+class PVSQuantificationibG(BaseInterface):
     """Filter voxels according to a specific regions of brain"""
-    input_spec = PVSQuantificationBGInputSpec
-    output_spec = PVSQuantificationBGOutputSpec
+    input_spec = PVSQuantificationibGInputSpec
+    output_spec = PVSQuantificationibGOutputSpec
 
     def _run_interface(self, runtime):
         """Run mask specific regions
@@ -1262,8 +1263,8 @@ class PVSQuantificationBG(BaseInterface):
         Return: runtime
         """
         # load images
-        img = nb.load(self.inputs.img)
-        bg_mask = nb.load(self.inputs.bg_mask)
+        img = nib.load(self.inputs.img)
+        bg_mask = nib.load(self.inputs.bg_mask)
         thr = self.inputs.threshold_clusters
         cl_filter = 6
         # process
