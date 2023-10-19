@@ -32,6 +32,25 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow = Workflow('seg_predictor_workflow')
     workflow.base_dir = kwargs['BASE_DIR']
 
+    if 'PRED' in kwargs.keys():  # When called from a bigger wf (shiva.py)
+        PRED = kwargs['PRED']
+        pred = PRED.lower()
+        if pred == 'pvs2':
+            pred = 'pvs'
+    else:  # placeholders
+        pred = 'seg'
+        PRED = 'SEG'
+
+    # Unconnected node (at least internally to the workflow) to keep
+    # track of the investigated biomarker
+    biomarker_tag = Node(
+        IdentityInterface(
+            fields=['biomarker'],
+            mandatory_inputs=True),
+        name="biomarker_tag")
+
+    biomarker_tag.inputs.biomarker = pred
+
     subject_list = Node(
         IdentityInterface(
             fields=['subject_id'],
@@ -66,16 +85,9 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(subject_list, 'subject_id', input_node, 'subject_id')
 
-    if 'PRED' in kwargs.keys():  # Else need to be set outside of the wf
-        PRED = kwargs['PRED']
-        pred = PRED.lower()
-        if pred == 'pvs2':
-            pred = 'pvs'
-        predictor_node = Node(Predict(), name=f"predict_{pred}")
-        predictor_node.inputs.descriptor = kwargs[f'{PRED}_DESCRIPTOR']
-        predictor_node.inputs.out_filename = f'{pred}_map.nii.gz'
-    else:
-        predictor_node = Node(Predict(), name="predict_seg")
+    predictor_node = Node(Predict(), name=f"predict_{pred}")
+    predictor_node.inputs.descriptor = kwargs[f'{PRED}_DESCRIPTOR']
+    predictor_node.inputs.out_filename = f'{pred}_map.nii.gz'
     predictor_node.inputs.model = kwargs['MODELS_PATH']
 
     workflow.connect(input_node, "t1", predictor_node, "t1")
@@ -83,7 +95,7 @@ def genWorkflow(**kwargs) -> Workflow:
     predict_out_node = JoinNode(
         Function(
             input_names=['sub_list', 'pred_map_list'],
-            output_names='preproc_out_dict',
+            output_names='predict_out_node',
             function=make_output_dict),
         name='predict_out_node',
         joinsource=subject_list,

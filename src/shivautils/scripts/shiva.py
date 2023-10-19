@@ -270,7 +270,7 @@ def main():
         'SUBJECT_LIST': subject_list,
         'DATA_DIR': subject_directory,  # Default base_directory for the dataGrabber
         'BASE_DIR': out_dir,  # Default base_dir for each workflow
-        'PREDICTION': args.prediction,
+        'PREDICTION': args.prediction,  # TODO: remove?
         'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
         'WMH_DESCRIPTOR': wmh_descriptor,
         'PVS_DESCRIPTOR': pvs_descriptor,
@@ -308,20 +308,20 @@ def main():
 
     # Preprare prediction nodes
     pred_wfs = []
-
     for PRED in args.prediction:
-        seg_name = PRED.lower()
-        if seg_name == 'pvs2':
-            seg_name = 'pvs'
+        biomarker = PRED.lower()
+        if biomarker == 'pvs2':
+            biomarker = 'pvs'
         if dual:
             wf_pred = genWorkflowDualPredict(**wfargs, PRED=PRED)
         else:
             wf_pred = genWorkflowPredict(**wfargs, PRED=PRED)
-        wf_pred.name = f'{seg_name}_predictor_workflow'
+        wf_pred.name = f'{biomarker}_predictor_workflow'
         wf_pred.config['execution'] = {'remove_unnecessary_outputs': 'False'}
         pred_wfs.append(wf_pred)
 
     main_wf.add_nodes([wf_preproc] + pred_wfs)
+
     for wf_pred in pred_wfs:
         main_wf.connect(wf_preproc, 'preproc_out_node.preproc_out_dict', wf_pred, 'input_parser.in_dict')
     # wf_predict.run(plugin='Linear')

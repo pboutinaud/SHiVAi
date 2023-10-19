@@ -49,9 +49,6 @@ class PredictInputSpec(BaseInterfaceInputSpec):
                              desc='File information about models for validation',
                              mandatory=True)
 
-    biomarker = traits.Str('seg',
-                           desc='Type of biomarker to segment')
-
     gpu_number = traits.Int(argstr='--gpu %d',
                             desc='GPU to use if several GPUs are available.',
                             mandatory=False)
