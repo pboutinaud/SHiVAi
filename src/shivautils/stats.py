@@ -308,37 +308,39 @@ def overlay_brainmask(img_ref,
     return (op.abspath('qc_overlay_brainmask_T1.png'))
 
 
-def metrics_prediction(array_img, threshold, cluster_filter):
+def prediction_metrics(array_vol, threshold, cluster_filter):
     """Get metrics on array Nifti prediction file
 
     Args:
-        array_img (array): array Nifti prediction file
+        array_vol (array): array Nifti prediction file
         threshold (float): Threshold to compute clusters metrics
-        cluster_filter (int): number of voxels above which the cluster is counted
+        cluster_filter (int): number of voxels (strictly) above which the cluster is counted
 
     Returns:
-        tuple: sum voxel segmented, number of cluster, mean size cluster, 
-        median size cluster, min size cluster, max size cluster
+        Dataframe: Labels and size of each cluster
+        Dataframe: Summary metrics of the clusters 
+            (sum voxel segmented, number of cluster, mean size cluster, 
+            median size cluster, min size cluster, max size cluster)
+        Array: Labelled clusters
     """
 
-    if len(array_img.shape) > 3:
-        array_img = array_img.squeeze()
-    # Il faut bien faire un seuillage avant de calculer les clusters
-    threshold_img = array_img > threshold
-    cluster_img = get_clusters_and_filter_image(threshold_img, cluster_filter)
-    number_of_cluster = cluster_img[4]
-    size_cluster = list(np.unique(cluster_img[3], return_counts=True)[1])
-    if len(size_cluster) != 1:
-        del size_cluster[0]
-    else:
-        size_cluster[0] = 0
-    sum_voxel_segmented = sum(size_cluster)
-    mean_size_cluster = round(np.mean(size_cluster))
-    median_size_cluster = float(median(size_cluster))
-    min_size_cluster = min(size_cluster)
-    max_size_cluster = max(size_cluster)
+    if len(array_vol.shape) > 3:
+        array_vol = array_vol.squeeze()
+    thresholded_img = (array_vol > threshold).astype(int)
+    _, _, _, clusters_vol, _ = get_clusters_and_filter_image(thresholded_img, cluster_filter)
+    clust_labels, clust_size = np.unique(clusters_vol, return_counts=True)
+    cluster_measures = pd.DataFrame(
+        {'Biomarker_labels': clust_labels,
+         'Biomarker_size': clust_size})
+    cluster_stats = pd.DataFrame(
+        {'Total_biomarker_volume':cluster_measures['Biomarker_size'].sum(),
+         'Mean_biomarker_volume':cluster_measures['Biomarker_size'].mean(),
+         'Median_biomarker_volume':cluster_measures['Biomarker_size'].median(),
+         'StD_biomarker_volume': cluster_measures['Biomarker_size'].std(),
+         'Min_biomarker_volume': cluster_measures['Biomarker_size'].min(),
+         'Max_biomarker_volume': cluster_measures['Biomarker_size'].max()})
 
-    return sum_voxel_segmented, number_of_cluster, mean_size_cluster, median_size_cluster, min_size_cluster, max_size_cluster
+    return cluster_measures, cluster_stats, clusters_vol
 
 
 def get_mask_regions(img: nb.Nifti1Image,
@@ -362,5 +364,3 @@ def get_mask_regions(img: nb.Nifti1Image,
     mask_regions = nb.Nifti1Image(mask, img.affine, img.header)
 
     return mask_regions
-
-
