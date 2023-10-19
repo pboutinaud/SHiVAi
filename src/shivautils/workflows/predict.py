@@ -41,16 +41,6 @@ def genWorkflow(**kwargs) -> Workflow:
         pred = 'seg'
         PRED = 'SEG'
 
-    # Unconnected node (at least internally to the workflow) to keep
-    # track of the investigated biomarker
-    biomarker_tag = Node(
-        IdentityInterface(
-            fields=['biomarker'],
-            mandatory_inputs=True),
-        name="biomarker_tag")
-
-    biomarker_tag.inputs.biomarker = pred
-
     subject_list = Node(
         IdentityInterface(
             fields=['subject_id'],

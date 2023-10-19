@@ -35,7 +35,6 @@ def make_output_dict(sub_list,
                      BBOX1_list,
                      BBOX2_list,
                      CDG_IJK_list,
-                     sum_preproc_wf_list,
                      flair_preproc_list=None,
                      swi_preproc_list=None
                      ):
@@ -54,7 +53,6 @@ def make_output_dict(sub_list,
                       'BBOX1': BBOX1,
                       'BBOX2': BBOX2,
                       'CDG_IJK': CDG_IJK,
-                      'sum_preproc_wf': sum_preproc_wf,
                       'flair': flair,
                       'swi': swi
                       } for (sub,
@@ -66,7 +64,6 @@ def make_output_dict(sub_list,
                              BBOX1,
                              BBOX2,
                              CDG_IJK,
-                             sum_preproc_wf,
                              flair,
                              swi
                              ) in zip(sub_list,
@@ -78,7 +75,6 @@ def make_output_dict(sub_list,
                                       BBOX1_list,
                                       BBOX2_list,
                                       CDG_IJK_list,
-                                      sum_preproc_wf_list,
                                       flair_preproc_list,
                                       swi_preproc_list)}
     return out_dict
