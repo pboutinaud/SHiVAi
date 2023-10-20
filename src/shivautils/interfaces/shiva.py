@@ -1,7 +1,6 @@
 """Interfaces for SHIVA project deep learning segmentation and prediction tools."""
 import os
 
-
 from nipype.interfaces.base import (traits, TraitedSpec,
                                     BaseInterfaceInputSpec)
 
