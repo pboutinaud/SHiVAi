@@ -403,7 +403,7 @@ class Crop(BaseInterface):
         return outputs
 
 
-class ApplyMaskInputSpec(BaseInterfaceInputSpec):
+class Apply_mask_InputSpec(BaseInterfaceInputSpec):
     """Input parameter to apply an treshold function on
     nifti image"""
     apply_to = traits.File(exists=True, desc='file img Nifti', mandatory=True)
@@ -412,7 +412,7 @@ class ApplyMaskInputSpec(BaseInterfaceInputSpec):
                        desc='tensor flow model of pretrained brain_mask')
 
 
-class ApplyMaskOutputSpec(TraitedSpec):
+class Apply_mask_OutputSpec(TraitedSpec):
     """Output class
 
     Args:
@@ -422,7 +422,7 @@ class ApplyMaskOutputSpec(TraitedSpec):
                              desc='Segmented brain mask of NIfTI image ')
 
 
-class ApplyMask(BaseInterface):
+class Apply_mask(BaseInterface):
     """Main class
 
     Attributes:
@@ -436,8 +436,8 @@ class ApplyMask(BaseInterface):
         _run_interface(runtime):
             apply a model of brain mask on a nifti image
     """
-    input_spec = ApplyMaskInputSpec
-    output_spec = ApplyMaskOutputSpec
+    input_spec = Apply_mask_InputSpec
+    output_spec = Apply_mask_OutputSpec
 
     def _run_interface(self, runtime):
         """Run main programm
@@ -645,7 +645,7 @@ class MakeOffset(BaseInterface):
         return outputs
 
 
-class MetricsPredictionsInputSpec(BaseInterfaceInputSpec):
+class Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
     """Input parameter to get metrics of prediction file"""
     img = traits.File(exists=True,
                       desc='Nifti file of the biomarker segmentation',
@@ -660,7 +660,7 @@ class MetricsPredictionsInputSpec(BaseInterfaceInputSpec):
                                   )
 
 
-class MetricsPredictionsOutputSpec(TraitedSpec):
+class Prediction_metrics_OutputSpec(TraitedSpec):
     """Output class
 
     Args:
@@ -675,10 +675,10 @@ class MetricsPredictionsOutputSpec(TraitedSpec):
                                       desc='Nifti file with labelled segmented biomarkers')
 
 
-class MetricsPredictions(BaseInterface):
+class Prediction_metrics(BaseInterface):
     """Get cluster metrics about one prediction file"""
-    input_spec = MetricsPredictionsInputSpec
-    output_spec = MetricsPredictionsOutputSpec
+    input_spec = Prediction_metrics_InputSpec
+    output_spec = Prediction_metrics_OutputSpec
 
     def _run_interface(self, runtime):
         path_images = self.inputs.img
@@ -710,7 +710,7 @@ class MetricsPredictions(BaseInterface):
         return outputs
 
 
-class JoinMetricsPredictionsInputSpec(BaseInterfaceInputSpec):
+class Join_Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
     """Input parameter to get metrics of prediction file"""
     csv_files = traits.List(exists=True,
                             desc='List if csv files containing metrics for individual participants',
@@ -719,7 +719,7 @@ class JoinMetricsPredictionsInputSpec(BaseInterfaceInputSpec):
     subject_id = traits.Any(desc="id for each subject")
 
 
-class JoinMetricsPredictionsOutputSpec(TraitedSpec):
+class Join_Prediction_metrics_OutputSpec(TraitedSpec):
     """Output class
 
     Args:
@@ -729,10 +729,10 @@ class JoinMetricsPredictionsOutputSpec(TraitedSpec):
                                          desc='csv file with metrics about each prediction')
 
 
-class JoinMetricsPredictions(BaseInterface):
+class Join_Prediction_metrics(BaseInterface):
     """Get metrics about each prediction file"""
-    input_spec = JoinMetricsPredictionsInputSpec
-    output_spec = JoinMetricsPredictionsOutputSpec
+    input_spec = Join_Prediction_metrics_InputSpec
+    output_spec = Join_Prediction_metrics_OutputSpec
 
     def _run_interface(self, runtime):
         """Run join of all cluster metrics in
@@ -789,7 +789,7 @@ class JoinMetricsPredictions(BaseInterface):
         return outputs
 
 
-class ApplyMaskInputSpec(BaseInterfaceInputSpec):
+class Apply_mask_InputSpec(BaseInterfaceInputSpec):
     """Delete prediction outside space of brainmask"""
     segmentation = traits.File(exists=True,
                                desc='prediction file to change',
@@ -799,7 +799,7 @@ class ApplyMaskInputSpec(BaseInterfaceInputSpec):
                            desc="brainmask reference to delete prediction voxels")
 
 
-class ApplyMaskOutputSpec(TraitedSpec):
+class Apply_mask_OutputSpec(TraitedSpec):
     """Output class
 
     Args:
@@ -809,10 +809,10 @@ class ApplyMaskOutputSpec(TraitedSpec):
                                         desc='prediction file filtered with brainmask file')
 
 
-class ApplyMask(BaseInterface):
+class Apply_mask(BaseInterface):
     """Re-transform an image into the originel dimensions."""
-    input_spec = ApplyMaskInputSpec
-    output_spec = ApplyMaskOutputSpec
+    input_spec = Apply_mask_InputSpec
+    output_spec = Apply_mask_OutputSpec
 
     def _run_interface(self, runtime):
         """Run reverse crop function
@@ -898,9 +898,9 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
                                           mandatory=False,
                                           desc="quality control of coregistration isocontour slides brainmask on T1")
 
-    sum_workflow = traits.File(False,
-                               mandatory=False,
-                               desc="png image with a sumary of each workflow step")
+    wf_graph = traits.File(False,
+                           mandatory=False,
+                           desc="png of the graph representing the whole workflow")
 
     percentile = traits.Float(exists=True, desc='value to threshold above this'
                               'percentile',
@@ -977,9 +977,9 @@ class SummaryReport(BaseInterface):
         predictions_latventricles_DWMH = None
         if self.inputs.predictions_latventricles_DWMH:
             predictions_latventricles_DWMH = self.inputs.predictions_latventricles_DWMH
-        sum_workflow = None
-        if self.inputs.sum_workflow:
-            sum_workflow = self.inputs.sum_workflow
+        wf_graph = None
+        if self.inputs.wf_graph:
+            wf_graph = self.inputs.wf_graph
         percentile = self.inputs.percentile
         threshold = self.inputs.threshold
         image_size = self.inputs.image_size
@@ -1001,7 +1001,7 @@ class SummaryReport(BaseInterface):
             resolution=resolution,
             percentile=percentile,
             threshold=threshold,
-            sum_workflow_path=sum_workflow,
+            wf_graph_path=wf_graph,
             #  metrics_clusters_2_path=metrics_clusters_2,  # TODO: remove
             clusters_bg_pvs_path=metrics_bg_pvs,
             predictions_latventricles_DWMH_path=predictions_latventricles_DWMH,
