@@ -58,3 +58,4 @@ __pycache__
 provenance.*
 crash*
 /test
+tmp_test.py
