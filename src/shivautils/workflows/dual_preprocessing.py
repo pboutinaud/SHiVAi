@@ -94,21 +94,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # Prepare output for connection with next workflow
     preproc_out_node = workflow.get_node('preproc_out_node')
-    workflow.remove_nodes([preproc_out_node])  # Because original doesn't account for flair
-    subject_list = workflow.get_node('subject_list')
-    t1_norm = workflow.get_node('t1_final_intensity_normalization')
-    preproc_out_node = JoinNode(
-        Function(
-            input_names=['sub_list', 't1_preproc_list', 'flair_preproc_list'],
-            output_names='preproc_out_dict',
-            function=make_output_dict),
-        name='preproc_out_node',
-        joinsource=subject_list,
-        joinfield=['sub_list', 't1_preproc_list', 'flair_preproc_list']
-    )
-    workflow.connect(subject_list, 'subject_id', preproc_out_node, 'sub_list')
-    workflow.connect(t1_norm, 'intensity_normalized', preproc_out_node, 't1_preproc_list')
-    workflow.connect(flair_norm, 'intensity_normalized', preproc_out_node, 'flair_preproc_list')
+    workflow.connect(flair_norm, 'intensity_normalized', preproc_out_node, 'FLAIR_cropped_list')
 
     return workflow
 

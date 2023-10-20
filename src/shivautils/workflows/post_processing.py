@@ -42,20 +42,19 @@ def get_maps_from_dict(subject_id,
         cmb_map = cmb_pred_dict[subject_id]
     else:
         cmb_map = None
-    t1 = preproc_dict[subject_id].t1
+    T1_cropped = preproc_dict[subject_id].T1_cropped
     brainmask = preproc_dict[subject_id].brainmask
     pre_brainmask = preproc_dict[subject_id].pre_brainmask
-    T1_cropped = preproc_dict[subject_id].T1_cropped
     T1_conform = preproc_dict[subject_id].T1_conform
     BBOX1 = preproc_dict[subject_id].BBOX1
     BBOX2 = preproc_dict[subject_id].BBOX2
     CDG_IJK = preproc_dict[subject_id].CDG_IJK
     wf_graph = None  # Placeholder
-    flair = preproc_dict[subject_id].flair
+    FLAIR_cropped = preproc_dict[subject_id].FLAIR_cropped
     swi = preproc_dict[subject_id].swi
-    return (pvs_map, wmh_map, cmb_map, t1, brainmask, pre_brainmask,
-            T1_cropped, T1_conform, BBOX1, BBOX2, CDG_IJK, wf_graph,
-            flair, swi)
+    return (pvs_map, wmh_map, cmb_map, T1_cropped, brainmask, pre_brainmask,
+            T1_conform, BBOX1, BBOX2, CDG_IJK, wf_graph,
+            FLAIR_cropped, swi)
 
 
 def genWorkflow(**kwargs) -> Workflow:
@@ -91,16 +90,15 @@ def genWorkflow(**kwargs) -> Workflow:
                     'pvs_map',
                     'wmh_map',
                     'cmb_map',
-                    't1',
+                    'T1_cropped',
                     'brainmask',
                     'pre_brainmask',
-                    'T1_cropped',
                     'T1_conform',
                     'BBOX1',
                     'BBOX2',
                     'CDG_IJK',
                     'wf_graph',
-                    'flair',
+                    'FLAIR_cropped',
                     'swi'],
                 function=get_maps_from_dict),
             name='post_proc_input_node'
@@ -112,9 +110,8 @@ def genWorkflow(**kwargs) -> Workflow:
         # file selection
         input_node = Node(DataGrabber(infields=['subject_id'],
                                       outfields=['pvs_map', 'wmh_map', 'cmb_map', 'brainmask',
-                                                 'pre_brainmask', 'T1_cropped', 'FLAIR_cropped',
-                                                 'T1_conform', 'CDG_IJK', 'BBOX1', 'BBOX2',
-                                                 'wf_graph']
+                                                 'pre_brainmask', 'T1_cropped', 'FLAIR_cropped', 'T1_conform',
+                                                 'CDG_IJK', 'BBOX1', 'BBOX2', 'wf_graph']
                                       ),
                           name='dataGrabber')
         input_node.inputs.template = '%s/%s/*.nii*'

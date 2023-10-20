@@ -27,25 +27,24 @@ def as_list(input):
 
 
 def make_output_dict(sub_list,
-                     t1_preproc_list,
+                     T1_cropped_list,
                      brainmask_list,
                      pre_brainmask_list,
-                     T1_cropped_list,
                      T1_conform_list,
                      BBOX1_list,
                      BBOX2_list,
                      CDG_IJK_list,
-                     flair_preproc_list=None,
-                     swi_preproc_list=None
+                     FLAIR_cropped_list=None,
+                     SWI_cropped_list=None
                      ):
     """Takes the list participants, all needed lists of preproc data
     and put them in a dict to pass to the next workflow. 
     """
-    if flair_preproc_list is None:
-        flair_preproc_list = [None]*len(sub_list)
-    if swi_preproc_list is None:
-        swi_preproc_list = [None]*len(sub_list)
-    out_dict = {sub: {'t1': t1,
+    if FLAIR_cropped_list is None:
+        FLAIR_cropped_list = [None]*len(sub_list)
+    if SWI_cropped_list is None:
+        SWI_cropped_list = [None]*len(sub_list)
+    out_dict = {sub: {'T1_cropped': T1_cropped,
                       'brainmask': brainmask,
                       'pre_brainmask': pre_brainmask,
                       'T1_cropped': T1_cropped,
@@ -53,30 +52,28 @@ def make_output_dict(sub_list,
                       'BBOX1': BBOX1,
                       'BBOX2': BBOX2,
                       'CDG_IJK': CDG_IJK,
-                      'flair': flair,
-                      'swi': swi
+                      'FLAIR_cropped': FLAIR_cropped,
+                      'SWI_cropped': SWI_cropped
                       } for (sub,
-                             t1,
+                             T1_cropped,
                              brainmask,
                              pre_brainmask,
-                             T1_cropped,
                              T1_conform,
                              BBOX1,
                              BBOX2,
                              CDG_IJK,
-                             flair,
-                             swi
+                             FLAIR_cropped,
+                             SWI_cropped
                              ) in zip(sub_list,
-                                      t1_preproc_list,
+                                      T1_cropped_list,
                                       brainmask_list,
                                       pre_brainmask_list,
-                                      T1_cropped_list,
                                       T1_conform_list,
                                       BBOX1_list,
                                       BBOX2_list,
                                       CDG_IJK_list,
-                                      flair_preproc_list,
-                                      swi_preproc_list)}
+                                      FLAIR_cropped_list,
+                                      SWI_cropped_list)}
     return out_dict
 
 
@@ -109,7 +106,7 @@ def genWorkflow(**kwargs) -> Workflow:
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
     datagrabber.inputs.template = '%s/%s/*.nii*'
-    datagrabber.inputs.template_args = {'main': [['subject_id', 'main']]}
+    datagrabber.inputs.template_args = {'t1': [['subject_id', 't1']]}
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
 
@@ -262,15 +259,39 @@ def genWorkflow(**kwargs) -> Workflow:
     # Prepare output for connection with next workflow
     preproc_out_node = JoinNode(
         Function(
-            input_names=['sub_list', 't1_preproc_list'],
+            input_names=['sub_list',
+                         'T1_cropped_list',
+                         'brainmask_list',
+                         'pre_brainmask_list',
+                         'T1_conform_list',
+                         'BBOX1_list',
+                         'BBOX2_list',
+                         'CDG_IJK_list',
+                         'FLAIR_cropped_list',
+                         'SWI_cropped_list'],
             output_names='preproc_out_dict',
             function=make_output_dict),
         name='preproc_out_node',
         joinsource=subject_list,
-        joinfield=['sub_list', 't1_preproc_list']
+        joinfield=['sub_list',
+                   'T1_cropped_list',
+                   'brainmask_list',
+                   'pre_brainmask_list',
+                   'T1_conform_list',
+                   'BBOX1_list',
+                   'BBOX2_list',
+                   'CDG_IJK_list',
+                   'FLAIR_cropped_list',
+                   'SWI_cropped_list']
     )
     workflow.connect(subject_list, 'subject_id', preproc_out_node, 'sub_list')
-    workflow.connect(t1_norm, 'intensity_normalized', preproc_out_node, 't1_preproc_list')
+    workflow.connect(t1_norm, 'intensity_normalized', preproc_out_node, 'T1_cropped_list')
+    workflow.connect(hard_post_brain_mask, 'thresholded', preproc_out_node, 'brainmask_list')
+    workflow.connect(hard_brain_mask, 'thresholded', preproc_out_node, 'pre_brainmask_list')
+    workflow.connect(conform, 'resampled', preproc_out_node, 'T1_conform_list')
+    workflow.connect(crop, 'bbox1', preproc_out_node, 'BBOX1_list')
+    workflow.connect(crop, 'bbox2', preproc_out_node, 'BBOX2_list')
+    workflow.connect(crop, 'cdg_ijk', preproc_out_node, 'CDG_IJK_list')
 
     return workflow
 
