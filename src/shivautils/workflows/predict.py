@@ -85,7 +85,7 @@ def genWorkflow(**kwargs) -> Workflow:
     predict_out_node = JoinNode(
         Function(
             input_names=['sub_list', 'pred_map_list'],
-            output_names='predict_out_node',
+            output_names='predict_out_dict',
             function=make_output_dict),
         name='predict_out_node',
         joinsource=subject_list,
