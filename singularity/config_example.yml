@@ -10,6 +10,9 @@ parameters:
   percentile: 99.0
   threshold: 0.5
   threshold_clusters: 0.2
+  min_pvs_size: 7
+  min_wmh_size: 1
+  min_cmb_size: 1
   final_dimensions: [160, 214, 176]
   voxels_size: [1.0, 1.0, 1.0]
   grab: '%s/%s/*nii.gz'
