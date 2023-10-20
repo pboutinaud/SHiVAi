@@ -193,7 +193,7 @@ def image_metrics_proxy(
 # --------------------------------------------------------------------------
 def get_clusters_and_filter_image(image, cluster_filter=0):
     """ 
-    Compute clusters and filter out those smaller than "cluster_filter"
+    Compute clusters and filter out those of size "cluster_filter" and smaller
 
     """
     clusters, num_clusters = measure.label(
