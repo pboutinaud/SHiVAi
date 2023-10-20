@@ -33,8 +33,8 @@
 
     {% for pred in pred_stat_dict %}
     <div class="table"></div>
-    <h2> {{ pred_stat_dict[pred].title }}</h2>
-    {{pred_stat_dict[pred].metrics_table | safe}}
+    <h2> {{ pred_stat_dict[pred]['title'] }}</h2>
+    {{pred_stat_dict[pred]['metrics_table'] | safe}}
     <p>Clusters Threshold : {{ clusters_threshold_2 }}</p>
     <p>Clusters Filter : {{ clusters_filter_2 }}</p>
     </div>
