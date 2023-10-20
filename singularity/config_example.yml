@@ -10,7 +10,7 @@ parameters:
   percentile: 99.0
   threshold: 0.5
   threshold_clusters: 0.2
-  final_dimensions: '160 214 176'
-  voxels_size: '1.0 1.0 1.0'
+  final_dimensions: [160, 214, 176]
+  voxels_size: [1.0, 1.0, 1.0]
   grab: '%s/%s/*nii.gz'
   interpolation: 'WelchWindowedSinc'
