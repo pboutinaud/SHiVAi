@@ -105,6 +105,21 @@ def shivaParser():
                         default=0.2,
                         help='Threshold to compute clusters metrics')
 
+    parser.add_argument('--min_pvs_size',  # TODO: add to the yaml config file
+                        type=int,
+                        default=7,
+                        help='Size (in voxels) below which segmented PVS are discarded')
+
+    parser.add_argument('--min_wmh_size',  # TODO: add to the yaml config file
+                        type=int,
+                        default=1,
+                        help='Size (in voxels) below which segmented WMH are discarded')
+
+    parser.add_argument('--min_cmb_size',  # TODO: add to the yaml config file
+                        type=int,
+                        default=1,
+                        help='Size (in voxels) below which segmented CMB are discarded')
+
     parser.add_argument('--final_dimensions',
                         nargs=3, type=int,
                         default=(160, 214, 176),
@@ -166,14 +181,20 @@ def set_args_and_check(inParser):
         args.percentile = parameters['percentile']
         args.threshold = parameters['threshold']
         args.threshold_clusters = parameters['threshold_clusters']
-        args.final_dimensions = (int(dm) for dm in parameters['final_dimensions'].split(' '))
-        args.voxels_size = (float(vx) for vx in parameters['voxels_size'].split(' '))
+        args.final_dimensions = tuple(parameters['final_dimensions'])
+        args.voxels_size = tuple(parameters['voxels_size'])
         args.interpolation = parameters['interpolation']
         args.brainmask_descriptor = parameters['brainmask_descriptor']
         args.pvs_descriptor = parameters['PVS_descriptor']
         args.pvs2_descriptor = parameters['PVS2_descriptor']
         args.wmh_descriptor = parameters['WMH_descriptor']
         args.cmb_descriptor = parameters['CMB_descriptor']
+        if 'min_pvs_size' in parameters.keys():
+            args.min_pvs_size = parameters['min_pvs_size']
+        if 'min_wmh_size' in parameters.keys():
+            args.min_wmh_size = parameters['min_wmh_size']
+        if 'min_cmb_size' in parameters.keys():
+            args.min_cmb_size = parameters['min_cmb_size']
 
     if args.container:
         args.model = '/mnt/model'
@@ -284,6 +305,9 @@ def main():
         'PERCENTILE': args.percentile,
         'THRESHOLD': args.threshold,
         'THRESHOLD_CLUSTERS': args.threshold_clusters,
+        'MIN_PVS_SIZE': args.min_pvs_size,
+        'MIN_WMH_SIZE': args.min_wmh_size,
+        'MIN_CMB_SIZE': args.min_cmb_size,
         'IMAGE_SIZE': tuple(args.final_dimensions),
         'RESOLUTION': tuple(args.voxels_size),
         'ORIENTATION': 'RAS'}
@@ -307,7 +331,7 @@ def main():
     # wf_preproc.run(plugin='Linear')
 
     # Prepare prediction workflows
-    pred_wfs = {}
+    pred_wfs = {}  # Dict that will contain all prediction sub_workflows
     for PRED in args.prediction:
         biomarker = PRED.lower()
         if biomarker == 'pvs2':
@@ -320,19 +344,20 @@ def main():
         wf_pred.config['execution'] = {'remove_unnecessary_outputs': 'False'}
         pred_wfs[biomarker] = wf_pred
 
-    main_wf.add_nodes([wf_preproc] + pred_wfs)
+    wf_post = genWorkflowPost(**wfargs)
+    main_wf.add_nodes([wf_preproc, wf_post] + pred_wfs)
 
-    for wf_pred in pred_wfs.values():
+    main_wf.connect(wf_preproc, 'preproc_out_node.preproc_out_dict', wf_post, 'post_proc_input_node.preproc_dict')
+    for biomarker, wf_pred in pred_wfs.items():
         main_wf.connect(wf_preproc, 'preproc_out_node.preproc_out_dict', wf_pred, 'input_parser.in_dict')
+        main_wf.connect(wf_pred, 'predict_out_node.predict_out_dict', wf_post, f'post_proc_input_node.{biomarker}_pred_dict')
+
+    # wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+    # wf_post.run(plugin='Linear')
 
     main_wf.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
     main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     main_wf.run(plugin='Linear')
-
-    wf_post = genWorkflowPost(**wfargs)
-    # wf_post.get_node('dataGrabber').inputs.base_directory = os.path.join(out_dir, wf_predict.name)
-    wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}  # TODO: Is there even the possibility that it is True?
-    wf_post.run(plugin='Linear')
 
     if 'CMB' in args.prediction:  # TODO: Check if SWI preproc needs T1/dual preproc or is stand-alone
         wfargs.update({'WF_SWI_DIRS': {'preproc': 'shiva_preprocessing_swi', 'pred': 'SWI_predictor_workflow'}})
