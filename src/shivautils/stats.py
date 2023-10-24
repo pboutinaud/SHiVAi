@@ -308,14 +308,19 @@ def overlay_brainmask(img_ref,
     return (op.abspath('qc_overlay_brainmask_T1.png'))
 
 
-def prediction_metrics(array_vol, threshold, cluster_filter):
-    """Get metrics on array Nifti prediction file
+def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
+                       region_dict={'Region_names': ['Whole_brain'], 'Region_labels': [-1]}):
+    """Get metrics on sgmented biomarkers by brain region
 
     Args:
-        array_vol (array): array Nifti prediction file
+        array_vol (array): Biomarker segmentation array (from the nifti file)
         threshold (float): Threshold to compute clusters metrics
         cluster_filter (int): number of voxels (strictly) above which the cluster is counted
-
+        brain_seg_vol (array): Brain segmentation (or brain mask), should be filled with integers
+        region_dict (dict): Dict containing the lists of names and corresponding labels
+                            of the brain regions to use when counting the biomarkers.
+                            '-1' denotes the region encompassing the whole brain segmentation > 0
+                            (usually synonymous with 'Whole_brain')
     Returns:
         Dataframe: Labels and size of each cluster
         Dataframe: Summary metrics of the clusters 
@@ -326,19 +331,75 @@ def prediction_metrics(array_vol, threshold, cluster_filter):
 
     if len(array_vol.shape) > 3:
         array_vol = array_vol.squeeze()
-    thresholded_img = (array_vol > threshold).astype(int)
+    if len(brain_seg_vol.shape) > 3:
+        brain_seg_vol = brain_seg_vol.squeeze()
+
+    # Threshold and mask the biomarker segmentation image
+    brain_mask = (brain_seg_vol > 0)
+    thresholded_img = (array_vol > threshold).astype(int)*brain_mask
+
     _, _, _, clusters_vol, _ = get_clusters_and_filter_image(thresholded_img, cluster_filter)
-    clust_labels, clust_size = np.unique(clusters_vol, return_counts=True)
+    clust_labels, clust_size = np.unique(clusters_vol[clusters_vol > 0], return_counts=True)
+
     cluster_measures = pd.DataFrame(
         {'Biomarker_labels': clust_labels,
          'Biomarker_size': clust_size})
+
+    regions = []
+    biom_tot = []
+    biom_mean = []
+    biom_med = []
+    biom_std = []
+    biom_min = []
+    biom_max = []
+    # Default case: get whole brain metrics
+    if -1 in region_dict['Region_labels']:
+        whole_seg = region_dict['Region_names'][region_dict['Region_labels'].index(-1)]
+        region_dict['Region_names'].remove(whole_seg)
+        region_dict['Region_labels'].remove(-1)
+        regions.append(whole_seg)
+        biom_tot.append(cluster_measures['Biomarker_size'].sum())
+        biom_mean.append(cluster_measures['Biomarker_size'].mean())
+        biom_med.append(cluster_measures['Biomarker_size'].median())
+        biom_std.append(cluster_measures['Biomarker_size'].std())
+        biom_min.append(cluster_measures['Biomarker_size'].min())
+        biom_max.append(cluster_measures['Biomarker_size'].max())
+
+    # Attribution of one region per cluster (i.e. the most represented region in each cluster)
+    if len(region_dict['Region_labels']):
+        clust_reg = []
+        for clust in clust_labels:
+            seg_clust = brain_seg_vol[clusters_vol == clust]
+            reg_in_clust, reg_count = np.unique(seg_clust, return_counts=True)  # There shouldn't be any 0 here
+            seg_attributed_label = reg_in_clust[np.argmax(reg_count)]
+            if seg_attributed_label in region_dict['Region_labels']:
+                seg_attributed = region_dict['Region_names'][region_dict['Region_labels'].index(seg_attributed_label)]
+            else:  # keeping the raw FreeSurfer label if it's not part of the investigated regions
+                seg_attributed = f'FreeSurfer_{seg_attributed_label}'
+            clust_reg.append(seg_attributed)
+
+        cluster_measures['Biomarker_region'] = clust_reg
+
+        regions_seg = [reg for reg in region_dict['Region_names'] if reg in clust_reg]  # Sorted like in the input
+        regions += regions_seg
+
+        for reg in regions_seg:
+            clusts_in_reg = cluster_measures.loc[cluster_measures['Biomarker_region'] == reg]
+            biom_tot.append(clusts_in_reg['Biomarker_size'].sum())
+            biom_mean.append(clusts_in_reg['Biomarker_size'].mean())
+            biom_med.append(clusts_in_reg['Biomarker_size'].median())
+            biom_std.append(clusts_in_reg['Biomarker_size'].std())
+            biom_min.append(clusts_in_reg['Biomarker_size'].min())
+            biom_max.append(clusts_in_reg['Biomarker_size'].max())
+
     cluster_stats = pd.DataFrame(
-        {'Total_biomarker_volume':cluster_measures['Biomarker_size'].sum(),
-         'Mean_biomarker_volume':cluster_measures['Biomarker_size'].mean(),
-         'Median_biomarker_volume':cluster_measures['Biomarker_size'].median(),
-         'StD_biomarker_volume': cluster_measures['Biomarker_size'].std(),
-         'Min_biomarker_volume': cluster_measures['Biomarker_size'].min(),
-         'Max_biomarker_volume': cluster_measures['Biomarker_size'].max()})
+        {'Region': regions,
+         'Total_biomarker_volume': biom_tot,
+         'Mean_biomarker_volume': biom_mean,
+         'Median_biomarker_volume': biom_med,
+         'StD_biomarker_volume': biom_std,
+         'Min_biomarker_volume': biom_min,
+         'Max_biomarker_volume': biom_max})
 
     return cluster_measures, cluster_stats, clusters_vol
 

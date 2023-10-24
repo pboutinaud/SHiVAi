@@ -208,11 +208,10 @@ def get_clusters_and_filter_image(image, cluster_filter=0):
         clusters_f = clusters.copy()
         clusters_f[np.isin(clusters, to_remove)] = 0
 
-        num_clusters_f = []
+        num_clusters_f = num_clusters - len(to_remove)
         for new_i, old_i in enumerate(nums_left):
             new_i += 1  # because starts at 0
             clusters_f[clusters == old_i] = new_i
-            num_clusters_f.append(new_i)
     else:  # filtered clusters are the same
         image_f, clusters_f, num_clusters_f = image, clusters, num_clusters
     return image_f, clusters, num_clusters, clusters_f, num_clusters_f

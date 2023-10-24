@@ -18,6 +18,7 @@ import numpy as np
 import csv
 import weasyprint
 import matplotlib.pyplot as plt
+import pandas as pd
 # from bokeh.io import export_png
 
 import sys
@@ -646,7 +647,7 @@ class MakeOffset(BaseInterface):
         return outputs
 
 
-class Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
+class Regionwise_Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
     """Input parameter to get metrics of prediction file"""
     img = traits.File(exists=True,
                       desc='Nifti file of the biomarker segmentation',
@@ -660,8 +661,23 @@ class Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
                                   desc='Value to threshold segmentation image',
                                   )
 
+    brain_seg = traits.File(exists=True,
+                            desc=('Brain mask or brain segmentation delimiting the parts '
+                                  'of the biomarker segmentation ("img" argument) to explore'),
+                            mandatory=True)
 
-class Prediction_metrics_OutputSpec(TraitedSpec):
+    region_list = traits.List(traits.Str,
+                              value=['Whole_brain'],
+                              desc='List of regions to use from the brain segmentation for the metrics',
+                              mandatory=True)
+
+    brain_seg_type = traits.Str('brain_mask',
+                                desc=(
+                                    'Type of brain segmentation provided. Can be "brain_mask" or "synthseg".'
+                                    'To add more options, do it in the present interface'))
+
+
+class Regionwise_Prediction_metrics_OutputSpec(TraitedSpec):
     """Output class
 
     Args:
@@ -673,22 +689,40 @@ class Prediction_metrics_OutputSpec(TraitedSpec):
     biomarker_stats_csv = traits.File(exists=True,
                                       desc='csv file with statistics on the segmented biomarkers')
     labelled_biomarkers = traits.File(exists=True,
-                                      desc='Nifti file with labelled segmented biomarkers')
+                                      desc='Nifti file with labelled segmented biomarkers, keeping only those inside of the brain')
 
 
-class Prediction_metrics(BaseInterface):
+class Regionwise_Prediction_metrics(BaseInterface):
     """Get cluster metrics about one prediction file"""
-    input_spec = Prediction_metrics_InputSpec
-    output_spec = Prediction_metrics_OutputSpec
+    input_spec = Regionwise_Prediction_metrics_InputSpec
+    output_spec = Regionwise_Prediction_metrics_OutputSpec
 
     def _run_interface(self, runtime):
         path_images = self.inputs.img
         thr_cluster_val = self.inputs.thr_cluster_val
         thr_cluster_size = self.inputs.thr_cluster_size
+        brain_seg = self.inputs.brain_seg
+        region_list = self.inputs.region_list
+        brain_seg_type = self.inputs.brain_seg_type
 
         img = nib.load(path_images)
         segmentation_vol = img.get_fdata()
-        cluster_measures, cluster_stats, clusters_vol = prediction_metrics(segmentation_vol, thr_cluster_val, thr_cluster_size)
+        brain_seg_vol = brain_seg.get_fdata()
+
+        if brain_seg_type == "brain_mask":
+            region_dict = {'Region_names': region_list,
+                           'Region_labels': [-1]}
+            if len(region_list) > 1:
+                raise ValueError('The list of regions given when using only the brain mask can only be 1 '
+                                 '(taking the whole mask)')
+        elif brain_seg_type == 'synthseg':  # Preparing brain segmentation from SynthSeg:
+            # TODO: Implement and create a function that prepares the raw segmentation for periventricular regions, etc.
+            raise NotImplementedError('Sorry, automatic brain segmentation is not implemented yet')
+        else:
+            raise ValueError(f'Unrecognised segmentation type: {brain_seg_type}. Should be "brain_mask" or "synthseg"')
+
+        cluster_measures, cluster_stats, clusters_vol = prediction_metrics(
+            segmentation_vol, thr_cluster_val, thr_cluster_size, brain_seg_vol, region_dict)
 
         cluster_measures.to_csv('biomarker_census.csv')
         cluster_stats.to_csv('biomarker_stats.csv')
@@ -717,7 +751,7 @@ class Join_Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
                             desc='List if csv files containing metrics for individual participants',
                             mandatory=False)
 
-    subject_id = traits.Any(desc="id for each subject")
+    subject_id = traits.List(desc="id for each subject")
 
 
 class Join_Prediction_metrics_OutputSpec(TraitedSpec):
@@ -726,8 +760,8 @@ class Join_Prediction_metrics_OutputSpec(TraitedSpec):
     Args:
         metrics_prediction_csv (csv): csv file with metrics about each prediction
     """
-    metrics_predictions_csv = traits.Any(exists=True,
-                                         desc='csv file with metrics about each prediction')
+    metrics_predictions_csv = traits.File(exists=True,
+                                          desc='csv file with metrics about each prediction')
 
 
 class Join_Prediction_metrics(BaseInterface):
@@ -739,49 +773,20 @@ class Join_Prediction_metrics(BaseInterface):
         """Run join of all cluster metrics in
         one csv file
 
-        Args:
-            runtime (_type_): time to execute the
-            function
-        Return: runtime
         """
         path_csv_files = self.inputs.csv_files
         subject_id = self.inputs.subject_id
 
-        # Create CSV file
-        for i in path_csv_files:
-            with open(i, mode='r', newline='', encoding='utf-8') as file:
-                reader = csv.reader(file)
-                # Read second row
-                try:
-                    next(reader)
-                    second_row = next(reader)
-                except Exception as e:
-                    print("There is no secon row in source file.")
-                    second_row = None
-
-                # Close file source
-                file.close()
-
-            if os.path.isfile('metrics_predictions.csv'):
-                exists = True
-
-            else:
-                exists = False
-
-            with open('metrics_predictions.csv', mode='a', newline='', encoding='utf-8') as file:
-
-                writer = csv.writer(file)
-
-                if exists == False:
-                    # Write header of CSV file
-                    writer.writerow(["Number of voxels", "Number of clusters",
-                                    "Mean clusters size", "Median clusters size", "Minimal clusters size",
-                                     "Maximal clusters size", "Number Lateral Ventricles Clusters",
-                                     "Number Basal Ganglia Clusters"])
-
-                writer.writerow([subject_id] + second_row)
+        csv_list = []
+        for csv_file, sub_id in zip(path_csv_files, subject_id):
+            sub_df = pd.read_csv(csv_file)
+            sub_df.insert(0, 'sub_id', [sub_id]*sub_df.shape[0])
+            csv_list.append(sub_df)
+        all_sub_metrics = pd.concat(csv_list)
+        all_sub_metrics.to_csv('metrics_predictions.csv')
 
         setattr(self, 'metrics_predictions_csv', os.path.abspath("metrics_predictions.csv"))
+        return runtime
 
     def _list_outputs(self):
         """File in the output structure."""
@@ -810,7 +815,7 @@ class Apply_mask_OutputSpec(TraitedSpec):
                                         desc='prediction file filtered with brainmask file')
 
 
-class Apply_mask(BaseInterface):
+class Apply_mask(BaseInterface):  # TODO: Unused, to remove
     """Re-transform an image into the originel dimensions."""
     input_spec = Apply_mask_InputSpec
     output_spec = Apply_mask_OutputSpec
