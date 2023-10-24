@@ -8,7 +8,7 @@ from nipype.interfaces.utility import Function
 from nipype.interfaces.io import DataGrabber
 from nipype.interfaces.utility import IdentityInterface
 
-from shivautils.interfaces.image import (Apply_mask, Prediction_metrics,
+from shivautils.interfaces.image import (Apply_mask, Regionwise_Prediction_metrics,
                                          Join_Prediction_metrics, SummaryReport)
 from shivautils.postprocessing.isocontour import create_edges
 from shivautils.stats import overlay_brainmask
@@ -29,7 +29,8 @@ def get_maps_from_dict(subject_id,
                        pvs_pred_dict=None,
                        wmh_pred_dict=None,
                        cmb_pred_dict=None,
-                       wf_graph=None  # Placeholder
+                       wf_graph=None,  # Placeholder
+                       brain_seg=None  # SynthSeg
                        ):
     if pvs_pred_dict is not None:
         segmentation_pvs = pvs_pred_dict[subject_id]
@@ -54,7 +55,7 @@ def get_maps_from_dict(subject_id,
     SWI_cropped = preproc_dict[subject_id]['SWI_cropped']
     return (segmentation_pvs, segmentation_wmh, cmb_map, T1_cropped, brainmask, pre_brainmask,
             T1_conform, BBOX1, BBOX2, CDG_IJK, wf_graph,
-            FLAIR_cropped, SWI_cropped)
+            FLAIR_cropped, SWI_cropped, brain_seg)
 
 
 def genWorkflow(**kwargs) -> Workflow:
@@ -86,7 +87,8 @@ def genWorkflow(**kwargs) -> Workflow:
                     'pvs_pred_dict',
                     'wmh_pred_dict',
                     'cmb_pred_dict',
-                    'wf_graph'],
+                    'wf_graph',
+                    'brain_seg'],
                 output_names=[
                     'segmentation_pvs',
                     'segmentation_wmh',
@@ -100,7 +102,8 @@ def genWorkflow(**kwargs) -> Workflow:
                     'CDG_IJK',
                     'wf_graph',
                     'FLAIR_cropped',
-                    'SWI_cropped'],
+                    'SWI_cropped',
+                    'brain_seg'],
                 function=get_maps_from_dict),
             name='post_proc_input_node'
         )
@@ -124,25 +127,28 @@ def genWorkflow(**kwargs) -> Workflow:
     # Preparing stats and figures for the report
     # Segmentation part
     if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:  # WARN: None of this is SWOMed compatible
-        mask_on_pred_pvs = Node(Apply_mask(),
-                                name='mask_on_pred_pvs')
-        prediction_metrics_pvs = Node(Prediction_metrics(),
+        prediction_metrics_pvs = Node(Regionwise_Prediction_metrics(),
                                       name="prediction_metrics_pvs")
+        prediction_metrics_pvs.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
+        prediction_metrics_pvs.inputs.thr_cluster_size = kwargs['MIN_PVS_SIZE'] - 1  # "- 1 because thr removes up to given value"
+        # TODO: This is when using only brainmask, we need synthseg for BG
+        workflow.connect(input_node, 'segmentation_pvs', prediction_metrics_pvs, 'img')
+        # if not synthseg:
+        prediction_metrics_pvs.inputs.region_list = ['Whole_brain']
+        workflow.connect(input_node, 'brainmask', prediction_metrics_pvs, 'brain_seg')
+        # else:
+        # prediction_metrics_pvs.inputs.region_list = ['Whole_brain', 'Basal_ganglia']
+        # workflow.connect(input_node, 'brain_seg', prediction_metrics_pvs, 'brain_seg')
         prediction_metrics_pvs_generale = JoinNode(Join_Prediction_metrics(),
                                                    joinsource='subject_list',
                                                    joinfield='csv_files',
                                                    name="prediction_metrics_pvs_generale")
-        prediction_metrics_pvs.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
-        prediction_metrics_pvs.inputs.thr_cluster_size = kwargs['MIN_PVS_SIZE'] - 1  # "- 1 because thr removes up to given value"
-        workflow.connect(input_node, 'segmentation_pvs', mask_on_pred_pvs, 'segmentation')
-        workflow.connect(input_node, 'brainmask', mask_on_pred_pvs, 'brainmask')
-        workflow.connect(mask_on_pred_pvs, 'segmentation_filtered', prediction_metrics_pvs, 'img')
         workflow.connect(prediction_metrics_pvs, 'biomarker_stats_csv', prediction_metrics_pvs_generale, 'csv_files')
 
     if 'WMH' in kwargs['PREDICTION']:
         mask_on_pred_wmh = Node(Apply_mask(),
                                 name='mask_on_pred_wmh')
-        prediction_metrics_wmh = Node(Prediction_metrics(),
+        prediction_metrics_wmh = Node(Regionwise_Prediction_metrics(),
                                       name="prediction_metrics_wmh")
         prediction_metrics_wmh_generale = JoinNode(Join_Prediction_metrics(),
                                                    joinsource='subject_list',
