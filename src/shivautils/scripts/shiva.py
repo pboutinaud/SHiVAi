@@ -93,12 +93,12 @@ def shivaParser():
     parser.add_argument('--percentile',
                         type=float,
                         default=99,
-                        help='Threshold value expressed as percentile')
+                        help='Percentile of the data to keep when doing image normalisation (to remove hotspots)')
 
     parser.add_argument('--threshold',
                         type=float,
                         default=0.5,
-                        help='Value of the treshold to apply to the image')
+                        help='Treshold to binarise estimated brain mask')
 
     parser.add_argument('--threshold_clusters',
                         type=float,

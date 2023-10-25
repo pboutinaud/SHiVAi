@@ -1,211 +1,133 @@
-import nibabel as nb
-import pandas as pd
-from shivautils.stats import save_histogram, bounding_crop
+# from shivautils.stats import save_histogram, bounding_crop
 from jinja2 import Environment, PackageLoader
 import base64
-# from PIL import Image
 
 
 def make_report(
-        metrics_segmentations: list,
-        img_normalized: nb.Nifti1Image,
-        brainmask: nb.Nifti1Image,
-        bbox1: tuple,
-        bbox2: tuple,
-        cdg_ijk: tuple,
-        isocontour_slides_path_FLAIR_T1: str,
-        qc_overlay_brainmask_t1: str,
-        metrics_clusters_path: str,
+        pred_metrics_dict: dict,
+        pred_census_im_dict: dict,
+        brain_vol: float,
+        thr_cluster_val: float,
+        min_seg_size: dict,
+        bounding_crop_path: str,
+        qc_overlay_brainmask_t1: str = None,
+        isocontour_slides_FLAIR_T1: str = None,
         subject_id: int = None,
         image_size: tuple = (160, 214, 176),
         resolution: tuple = (1.0, 1.0, 1.0),
         percentile: int = 99,
         threshold: float = 0.5,
-        sum_workflow_path: str = None,
-        metrics_clusters_2_path: str = None,
-        clusters_bg_pvs_path: str = None,
-        predictions_latventricles_DWMH_path: str = None,
-        swi: bool = 'False'):
+        wf_graph: str = None):
     """
     Individual HTML report:
 
-    - Summary of metrics clusters per subject
-    - Histogram of voxel intensity during t1 normalization
+    - Summary of segmentation metrics per subject
+    - Swarmplot of the size of each segmented biomarker
     - Display of the cropping region on the conformed image
     - T1 on FLAIR isocontour slides 
     - Overlay of final brainmask over cropped t1 images
-    - Preprocessing workflow diagram
+    - Processing workflow diagram
 
     Args:
-        img_normalized (nb.Nifti1Image): t1 nifti file to compute histogram voxels intensity
-        brainmask (nb.Nifti1Image): brainmask nifti file 
-        bbox1 (tuple): first coordoninates point of cropping box
-        bbox2 (tuple): second coordonaites point of cropping box
-        cdg_ijk (tuple): t1 nifti image center of mass used to calculate cropping box
-        isocontour_slides_path_FLAIR_T1 (path): PNG file with the reference image in the background and the edges of the given image on top
-        qc_overlay_brainmask_t1 (path): svg file of cropping box with overlay brainmask
-        metrics_clusters_path (str): csv file about predictions results and clusters metrics (for PVS or CMB)
-        subject_id (int): identified number of subject report
-        image_size (tuple): Final image array size in i, j, k in tuple 
-        resolution (tuple): Voxel size of the final image in tuple
-        percentile (int): value to threshold above this percentile
-        threshold (float): Value of the treshold to apply to the image for brainmask
-        sum_worflow (path): summary of preprocessing step in a svg file
-        metrics_clusters_2_path (path): csv file about predictions results and clusters metrics (for WMH)
-        clusters_bg_pvs_path (path): csv file about predictions results in basal ganglia and deep white matter
-        predictions_latventricles_DWMH_path (path): csv file about predictions results in lateral ventricles and deep white matter hyperintensities
-        swi (bool): boolean value to indicate if the report is about cmb clusters predictions or not
+        pred_metrics_dict (dict): Dict of the dataframes holding statistics for each studied biomaerker (keys)
+        pred_census_im_dict (dic): Dict of the image path to the swarmplot showing each biomarker size repartition
+        brain_vol (float): Intracranial brain volume
+        thr_cluster_val (float): Threshold applied to raw predictions to binarise them
+        min_seg_size (dict): Dict holding the minimal size used to filter each type of biomarker segmentation 
+        bounding_crop_path (path): PNG file showing the crop box.
+        qc_overlay_brainmask_t1 (path): SVG file of cropping box with overlay brainmask
+        isocontour_slides_FLAIR_T1 (path): PNG file with the reference image in the background and the edges of the given image on top
+        subject_id (int): Participant identificator
+        image_size (tuple): Final image dimensions
+        resolution (tuple): Voxel size of the final image
+        percentile (int): Range of values (in percentile) kept during intensity normalisation
+        threshold (float): Treshold applied to binarise the brainmask
+        wf_graph (path): graph of the workflow in an svg file
 
     Returns:
         html file with completed report
     """
 
-    # if swi == 'True':  # TODO: remove
-    #     modality = 'SWI'
-    #     title_metrics_clusters = "Predictions results for Cerebral MicroBleeds (CMB)"
-    # else:
-    #     modality = 'T1w'
-    #     title_metrics_clusters = "Prediction results for PeriVascular Spaces (PVS)"
+    # Preparing of prediction tables and stats in html
+    seg_full_name = {
+        'PVS': 'Perivasculaire spaces',
+        'WMH': 'White-matter hyperintensities',
+        'CMB': 'Cerebral microbleeds'
+    }
+    vol_mm3_per_voxel = resolution[0] * resolution[1] * resolution[2]  # Should be 1.0 mm3 by default
+    brain_vol *= vol_mm3_per_voxel
+    pred_stat_dict = {}
+    for seg, stat_df in pred_metrics_dict:
+        metrics = ['Region',
+                   f'Number of {seg}',
+                   f'Total volume of all {seg} (mm<sup>3</sup>)',
+                   'Mean volume (mm<sup>3</sup>)',
+                   'Median volume (mm<sup>3</sup>)',
+                   'StD of the volume (mm<sup>3</sup>)',
+                   'Min volume (mm<sup>3</sup>)',
+                   'Max volume (mm<sup>3</sup>)',]
+        col_maper = {col: metric for col, metric in zip(stat_df.columns, metrics)}
+        stat_df.rename(col_maper, axis=1, inplace=True)
+        stat_df[f'Total volume of all {seg} (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
+        stat_df['Mean volume (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
+        stat_df['Median volume (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
+        stat_df['StD of the volume (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
+        stat_df['Min volume (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
+        stat_df['Max volume (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
+        stat_df_html = stat_df.to_html(justify='center', escape=False)
 
-    # metrics_clusters_orig = pd.read_csv(metrics_clusters_path)
-    # metrics_clusters = metrics_clusters_orig[['Number of voxels', 'Number of clusters', 'Mean clusters size',
-    #                                           'Median clusters size', 'Minimal clusters size', 'Maximal clusters size']].copy()
-    # cluster_filter = metrics_clusters_orig['Cluster Filter'].values[0]
-    # cluster_threshold = metrics_clusters_orig['Cluster Threshold'].values[0]
-    # columns = metrics_clusters.columns.tolist()
-    # if metrics_clusters_2_path:
-    #     metrics_clusters_2_orig = pd.read_csv(metrics_clusters_2_path)
-    #     metrics_clusters_2 = metrics_clusters_2_orig[['Number of voxels', 'Number of clusters',
-    #                                                   'Mean clusters size', 'Median clusters size',
-    #                                                   'Minimal clusters size', 'Maximal clusters size']].copy()
-    #     clusters_threshold_2 = metrics_clusters_2_orig['Cluster Threshold'].values[0]
-    #     clusters_filter_2 = metrics_clusters_2_orig['Cluster Filter'].values[0]
-    #     columns_2 = metrics_clusters_2.columns.tolist()
-    # else:
-    #     metrics_clusters_2 = None
-    #     clusters_threshold_2 = None
-    #     clusters_filter_2 = None
-    #     columns_2 = None
-
-    try:
-        with open(sum_workflow_path, 'rb') as f:
+        with open(pred_census_im_dict[seg], 'rb') as f:
             image_data = f.read()
-        sum_workflow_data = base64.b64encode(image_data).decode()
-    except:
-        sum_workflow_data = None
+        pred_census_fig = base64.b64encode(image_data).decode()
 
-    # histogram_intensity_path = save_histogram(img_normalized)
-    # with open(histogram_intensity_path, 'rb') as f:
-    #     image_data = f.read()
-    # histogram_intensity_data = base64.b64encode(image_data).decode()
+        pred_stat_dict[seg] = {'title': f'Brain charge statistics for {seg_full_name[seg]} ({seg})',
+                               'metrics_table': stat_df_html,
+                               'brain_volume': brain_vol,
+                               'cluster_threshold': thr_cluster_val,
+                               'cluster_min_vol': min_seg_size[seg],
+                               'census_figure': pred_census_fig
+                               }
 
-    with open(bbox1, 'r') as file:
-        bbox1 = eval(file.readline().strip())
-    with open(bbox2, 'r') as file:
-        bbox2 = eval(file.readline().strip())
-    with open(cdg_ijk, 'r') as file:
-        cdg_ijk = eval(file.readline().strip())
+    if 'CMB' in pred_metrics_dict.keys() and len(pred_metrics_dict.keys()) == 1:
+        modality = 'SWI'
+    else:  # TODO : make this more adaptative
+        modality = 'T1w'
 
-    bounding_crop_path = bounding_crop(img_normalized,
-                                       brainmask,
-                                       bbox1,
-                                       bbox2,
-                                       cdg_ijk)
-    with open(bounding_crop_path, 'rb') as f:
-        image_data = f.read()
-    bounding_crop_data = base64.b64encode(image_data).decode()
-
-    try:
-        with open(isocontour_slides_path_FLAIR_T1, 'rb') as f:
-            image_data = f.read()
-        isocontour_slides_path_FLAIR_T1 = base64.b64encode(image_data).decode()
-
-    except:
-        isocontour_slides_path_FLAIR_T1 = None
-    try:
+    # Conversion of images in base64 objects
+    if qc_overlay_brainmask_t1 is not None:
         with open(qc_overlay_brainmask_t1, 'rb') as f:
             image_data = f.read()
         qc_overlay_brainmask_t1 = base64.b64encode(image_data).decode()
-    except:
-        qc_overlay_brainmask_t1 = None
 
-    clusters_threshold_bg = None
-    clusters_filter_bg = None
-    if clusters_bg_pvs_path:
-        clusters_bg_pvs_orig = pd.read_csv(clusters_bg_pvs_path)
-        clusters_bg_pvs = clusters_bg_pvs_orig[['DWM num clusters', 'DWM num voxels',
-                                                'BG num clusters', 'BG num voxels',
-                                                'Total num clusters', 'Total num voxels']].copy()
-        clusters_threshold_bg = clusters_bg_pvs_orig['Threshold'].values[0]
-        clusters_filter_bg = clusters_bg_pvs_orig['Cluster filter DWM'].values[0]
-        clusters_bg_pvs.columns = [col.replace('_', ' ') for col in clusters_bg_pvs.columns]
-    else:
-        clusters_bg_pvs = None
-        clusters_threshold_bg = None
-        clusters_filter_bg = None
-        columns_bg = None
+    with open(bounding_crop_path, 'rb') as f:
+        image_data = f.read()
+    bounding_crop = base64.b64encode(image_data).decode()
 
-    predictions_latventricles_DWMH = None
-    columns_latventricles = None
-    clusters_threshold_latventricles = None
-    if predictions_latventricles_DWMH_path:
-        predictions_latventricles_DWMH_orig = pd.read_csv(predictions_latventricles_DWMH_path)
-        predictions_latventricles_DWMH = predictions_latventricles_DWMH_orig[['DWMH clusters number', 'DWMH voxels number',
-                                                                              'Lateral Ventricles clusters number', 'Lateral ventricles voxels number',
-                                                                              'Total clusters number', 'Total voxels number']]
-        clusters_threshold_latventricles = predictions_latventricles_DWMH_orig['Cluster Threshold'].values[0]
-        columns_latventricles = predictions_latventricles_DWMH.columns.tolist()
-    else:
-        predictions_latventricles_DWMH = None
-        columns_latventricles = None
-        clusters_threshold_latventricles = None
+    if wf_graph is not None:
+        with open(wf_graph, 'rb') as f:
+            image_data = f.read()
+        wf_graph = base64.b64encode(image_data).decode()
+
+    if isocontour_slides_FLAIR_T1 is not None:
+        with open(isocontour_slides_FLAIR_T1, 'rb') as f:
+            image_data = f.read()
+        isocontour_slides_FLAIR_T1 = base64.b64encode(image_data).decode()
 
     env = Environment(loader=PackageLoader('shivautils', 'postprocessing'))
     tm = env.get_template('report_template.html')
 
-    metrics = ['Number of {seg}',
-               'Mean volume of {seg} (mm<sup>3</sup>)',
-               'Median volume of {seg} (mm<sup>3</sup>)',
-               'Max volume of {seg} (mm<sup>3</sup>)',
-               'Min volume of {seg} (mm<sup>3</sup>)',
-               'Total volume of all {seg} (mm<sup>3</sup>)',
-               'Total volume for the {seg} (mm<sup>3</sup>)']
-
-    stat_df = pd.DataFrame({}, index=['Whole brain'], columns=metrics)
-    stat_df_html = stat_df.to_html(justify='center', escape=False)
-    pred_stat_dict = {'{seg}': {'title': 'Brain charge statistics for {seg_whole_name} ({seg})',
-                                'metrics_table': stat_df_html,
-                                }},
-
-    template_report = tm.render(
+    filled_template_report = tm.render(
         data_origin=subject_id,
         pred_stat_dict=pred_stat_dict,
+        qc_overlay_brainmask_t1=qc_overlay_brainmask_t1,
+        bounding_crop=bounding_crop,
+        modality=modality,
+        image_size=image_size,
+        resolution=resolution,
+        isocontour_slides_FLAIR_T1=isocontour_slides_FLAIR_T1,
+        wf_graph=wf_graph,
+        percentile=percentile,
+        threshold=threshold,
     )
-    # (subject_id=subject_id,
-    # hist_intensity=histogram_intensity_data,
-    # bounding_crop=bounding_crop_data,
-    # isocontour_slides_FLAIR_T1=isocontour_slides_path_FLAIR_T1,
-    # qc_overlay_brainmask_t1=qc_overlay_brainmask_t1,
-    # sum_workflow=sum_workflow_data,
-    # metrics_clusters=metrics_clusters,
-    # columns=columns,
-    # cluster_filter=cluster_filter,
-    # cluster_threshold=cluster_threshold,
-    # columns_2=columns_2,
-    # metrics_clusters_2=metrics_clusters_2,
-    # clusters_threshold_2=clusters_threshold_2,
-    # clusters_filter_2=clusters_filter_2,
-    # clusters_bg_pvs=clusters_bg_pvs,
-    # clusters_threshold_bg=clusters_threshold_bg,
-    # clusters_filter_bg=clusters_filter_bg,
-    # predictions_latventricles_DWMH=predictions_latventricles_DWMH,
-    # columns_latventricles=columns_latventricles,
-    # clusters_threshold_latventricles=clusters_threshold_latventricles,
-    # percentile=percentile,
-    # threshold=threshold,
-    # image_size=image_size,
-    # resolution=resolution,
-    # modality=modality,
-    # title_metrics_clusters=title_metrics_clusters)
 
-    return template_report
+    return filled_template_report

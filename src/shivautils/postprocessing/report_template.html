@@ -35,48 +35,47 @@
     <div class="table"></div>
     <h2> {{ pred_stat_dict[pred]['title'] }}</h2>
     {{pred_stat_dict[pred]['metrics_table'] | safe}}
-    <p>Clusters Threshold : {{ clusters_threshold_2 }}</p>
-    <p>Clusters Filter : {{ clusters_filter_2 }}</p>
+    <p>Brain volume: {{ pred_stat_dict[pred]['brain_volume'] }}</p>
+    <p>Cluster threshold: {{ pred_stat_dict[pred]['cluster_threshold'] }}</p>
+    <p>Cluster size filter: {{ pred_stat_dict[pred]['cluster_min_vol'] }}</p>
+    <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ pred_stat_dict[pred]["census_figure"] }}'
+        width="600" height="400"></object>
     </div>
     {% endfor %}
 
     <div class="test">
         <h1>Quality control</h1>
+        <h2>Crop-box and first brain mask</h2>
+        <p>Display of the cropping region used on the conformed image (256x256x256 at 1.0 mm<sup>3</sup>
+            resolution), as well as the first brain mask used to position the crop-box. The cropped
+            conformed image is what is fed to the deep-learning model.</p>
 
-        <h2>Preprocessed {{ modality }} image histogram</h2>
-        <p>Histogram of the {{ modality }} image that enters the classifier: {{ resolution }} mm<sup>3</sup> with {{
-            image_size }} shape, (within brain mask and with censoring for voxels outside the brain mask)</p>
-        <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ hist_intensity }}' width="400"
-            height="400"></object>
-
-        <h2>Crop box</h2>Display of the cropping region on the conformed image (256x256x256 at 1.0 mm<sup>3</sup>
-        resolution).</p>
         <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ bounding_crop }}' width="600"
             height="400"></object>
+
+        {% if qc_overlay_brainmask_t1 %}
+        <h2>Overlay of final brainmask over cropped {{ modality }}</h2>
+        <p>Overlay of the brainmask on {{ modality }} image: {{ image_size }} voxels at {{ resolution }} mm<sup>3</sup>,
+            (with censoring for voxels outside the brain mask)</p>
+        <img src='data:image/png;base64, {{ qc_overlay_brainmask_t1 }}' width="600" height="300">
+        {% endif %}
 
         {% if isocontour_slides_FLAIR_T1 %}
         <h2>Isocontour Slides for coregistration FLAIR on T1w</h2>
         <p>Isocontour of the FLAIR image coregister on T1w image that enters the classifier: {{ resolution }}
             mm<sup>3</sup> with {{ image_size }}, (within brain mask and with censoring for voxels outside the brain
             mask)</p>
-        <img src='data:image/png;base64, {{ isocontour_slides_FLAIR_T1 }}' width="600" height="300"></img>
-        {% endif %}
-
-        {% if qc_overlay_brainmask_t1 %}
-        <h2>Overlay of final brainmask over cropped {{ modality }}</h2>
-        <p>Overlay of the brainmask on {{ modality }} image : {{ resolution }} mm<sup>3</sup> with {{ image_size }},
-            (with censoring for voxels outside the brain mask)</p>
-        <img src='data:image/png;base64, {{ qc_overlay_brainmask_t1 }}' width="600" height="300"></img>
+        <img src='data:image/png;base64, {{ isocontour_slides_FLAIR_T1 }}' width="600" height="300">
         {% endif %}
     </div>
-    {% if sum_workflow %}
+    {% if wf_graph %}
     <h2>Preprocessing workflow diagram</h2>
-    <p>Parameters : </p>
-    <p>value percentile : {{ percentile }}</p>
-    <p>value threshold : {{ threshold }}</p>
-    <p>final resolution : {{ resolution }} mm<sup>3</p>
-    <p>final dimensions crop : {{ image_size }}</p>
-    <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ sum_workflow }}' width="700" height="500"></object>
+    <p>Other input parameters: </p>
+    <p>- "percentile" (as upper threshold during intensity normalisation): {{ percentile }}</p>
+    <p>- "threshold" (to binarise estimated brain masks): {{ threshold }}</p>
+    <p>- "final_dimensions" (image dimensions output by the AI model): {{ image_size }}</p>
+    <p>- "voxels_size" (resampling resolution, used by the AI model): {{ resolution }} mm<sup>3</p>
+    <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ wf_graph }}' width="700" height="500"></object>
     {% endif %}
 </body>
 

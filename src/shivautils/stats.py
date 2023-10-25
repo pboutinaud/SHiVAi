@@ -6,8 +6,10 @@ from bokeh.resources import CDN
 from jinja2 import Template
 import pandas as pd
 import nibabel as nb
-
+import seaborn as sns
+import matplotlib.pyplot as plt
 from statistics import median
+import os
 
 from shivautils.metrics import get_clusters_and_filter_image
 
@@ -167,16 +169,16 @@ def save_histogram(img_normalized: nb.Nifti1Image,
     return (op.abspath(histogram))
 
 
-def bounding_crop(img_apply_to: nb.Nifti1Image,
-                  brainmask: nb.Nifti1Image,
+def bounding_crop(img_apply_to: str,
+                  brainmask: str,
                   bbox1: tuple,
                   bbox2: tuple,
                   cdg_ijk: tuple):
     """Overlay of brainmask over nifti images
 
     Args:
-        img_apply_to (nb.Nifti1Image): t1 nifti images overlay with brainmask and crop box
-        brainmask (nb.Nifti1Image): nifti brainmask file
+        img_apply_to (path): t1 nifti images overlay with brainmask and crop box
+        brainmask (path): nifti brainmask file
         bbox1 (tuple): first coordoninates point of cropping box
         bbox2 (tuple): second coordonaites point of cropping box
         cdg_ijk (tuple): t1 nifti image center of mass used to calculate cropping box
@@ -191,8 +193,8 @@ def bounding_crop(img_apply_to: nb.Nifti1Image,
     import nibabel as nb
     from matplotlib.colors import ListedColormap
 
-    img_apply_to = img_apply_to.get_fdata()
-    brainmask = brainmask.get_fdata()
+    img_apply_to = nb.load(img_apply_to).get_fdata()
+    brainmask = nb.load(brainmask).get_fdata()
     original_dims = img_apply_to.shape
     # Coordonnées de la boîte de recadrage
     x_start, y_start, z_start = (bbox1[0], bbox1[1], bbox1[2])
@@ -237,7 +239,7 @@ def bounding_crop(img_apply_to: nb.Nifti1Image,
 
     fig.tight_layout()
     plt.savefig('bounding_crop.svg', bbox_inches='tight', pad_inches=0.1)
-    return (op.abspath('bounding_crop.svg'))
+    return op.abspath('bounding_crop.svg')
 
 
 def overlay_brainmask(img_ref,
@@ -346,6 +348,7 @@ def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
          'Biomarker_size': clust_size})
 
     regions = []
+    biom_num = []
     biom_tot = []
     biom_mean = []
     biom_med = []
@@ -358,6 +361,7 @@ def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
         region_dict['Region_names'].remove(whole_seg)
         region_dict['Region_labels'].remove(-1)
         regions.append(whole_seg)
+        biom_num.append(cluster_measures.shape[0])
         biom_tot.append(cluster_measures['Biomarker_size'].sum())
         biom_mean.append(cluster_measures['Biomarker_size'].mean())
         biom_med.append(cluster_measures['Biomarker_size'].median())
@@ -385,6 +389,7 @@ def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
 
         for reg in regions_seg:
             clusts_in_reg = cluster_measures.loc[cluster_measures['Biomarker_region'] == reg]
+            biom_num.append(clusts_in_reg.shape[0])
             biom_tot.append(clusts_in_reg['Biomarker_size'].sum())
             biom_mean.append(clusts_in_reg['Biomarker_size'].mean())
             biom_med.append(clusts_in_reg['Biomarker_size'].median())
@@ -394,6 +399,7 @@ def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
 
     cluster_stats = pd.DataFrame(
         {'Region': regions,
+         'Number_of_biomarkers': biom_num,
          'Total_biomarker_volume': biom_tot,
          'Mean_biomarker_volume': biom_mean,
          'Median_biomarker_volume': biom_med,
@@ -402,6 +408,23 @@ def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
          'Max_biomarker_volume': biom_max})
 
     return cluster_measures, cluster_stats, clusters_vol
+
+
+def swarmplot_from_census(census_csv: str, pred: str):
+    census_df = pd.read_csv(census_csv)
+    save_name = f'{pred}_census_plot.svg'
+    if 'Region_names' not in census_df.columns:
+        ax = sns.swarmplot(census_df, y='Biomarker_size')
+        plt.savefig(save_name, format='svg')
+        plt.show()
+    else:
+        # Change all non-identified regions by "Other"
+        FS_id = ['FreeSurfer_' in reg for reg in census_df['Region_names']]
+        census_df.loc[FS_id, 'Region_names'] = 'Other'
+        ax = sns.swarmplot(census_df, y='Biomarker_size', hue='Region_names')
+        plt.savefig(save_name, format='svg')
+        plt.show()
+    return os.path.abspath(save_name)
 
 
 def get_mask_regions(img: nb.Nifti1Image,

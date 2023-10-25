@@ -11,7 +11,7 @@ from nipype.interfaces.utility import IdentityInterface
 from shivautils.interfaces.image import (Apply_mask, Regionwise_Prediction_metrics,
                                          Join_Prediction_metrics, SummaryReport)
 from shivautils.postprocessing.isocontour import create_edges
-from shivautils.stats import overlay_brainmask
+from shivautils.stats import overlay_brainmask, bounding_crop
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
@@ -41,20 +41,20 @@ def get_maps_from_dict(subject_id,
     else:
         segmentation_wmh = None
     if cmb_pred_dict is not None:
-        cmb_map = cmb_pred_dict[subject_id]
+        segmentation_cmb = cmb_pred_dict[subject_id]
     else:
-        cmb_map = None
+        segmentation_cmb = None
     T1_cropped = preproc_dict[subject_id]['T1_cropped']
     brainmask = preproc_dict[subject_id]['brainmask']
     pre_brainmask = preproc_dict[subject_id]['pre_brainmask']
     T1_conform = preproc_dict[subject_id]['T1_conform']
-    BBOX1 = preproc_dict[subject_id]['BBOX1']
-    BBOX2 = preproc_dict[subject_id]['BBOX2']
-    CDG_IJK = preproc_dict[subject_id]['CDG_IJK']
+    bbox1 = preproc_dict[subject_id]['bbox1']
+    bbox2 = preproc_dict[subject_id]['bbox2']
+    cdg_ijk = preproc_dict[subject_id]['cdg_ijk']
     FLAIR_cropped = preproc_dict[subject_id]['FLAIR_cropped']
     SWI_cropped = preproc_dict[subject_id]['SWI_cropped']
-    return (segmentation_pvs, segmentation_wmh, cmb_map, T1_cropped, brainmask, pre_brainmask,
-            T1_conform, BBOX1, BBOX2, CDG_IJK, wf_graph,
+    return (segmentation_pvs, segmentation_wmh, segmentation_cmb, T1_cropped, brainmask, pre_brainmask,
+            T1_conform, bbox1, bbox2, cdg_ijk, wf_graph,
             FLAIR_cropped, SWI_cropped, brain_seg)
 
 
@@ -92,14 +92,14 @@ def genWorkflow(**kwargs) -> Workflow:
                 output_names=[
                     'segmentation_pvs',
                     'segmentation_wmh',
-                    'cmb_map',
+                    'segmentation_cmb',
                     'T1_cropped',
                     'brainmask',
                     'pre_brainmask',
                     'T1_conform',
-                    'BBOX1',
-                    'BBOX2',
-                    'CDG_IJK',
+                    'bbox1',
+                    'bbox2',
+                    'cdg_ijk',
                     'wf_graph',
                     'FLAIR_cropped',
                     'SWI_cropped',
@@ -113,9 +113,9 @@ def genWorkflow(**kwargs) -> Workflow:
 
         # file selection
         input_node = Node(DataGrabber(infields=['subject_id'],
-                                      outfields=['segmentation_pvs', 'segmentation_wmh', 'cmb_map', 'brainmask',
+                                      outfields=['segmentation_pvs', 'segmentation_wmh', 'segmentation_cmb', 'brainmask',
                                                  'pre_brainmask', 'T1_cropped', 'FLAIR_cropped', 'T1_conform',
-                                                 'CDG_IJK', 'BBOX1', 'BBOX2', 'wf_graph']
+                                                 'cdg_ijk', 'bbox1', 'bbox2', 'wf_graph']  # TODO: Change the SWOMed interface with these variables
                                       ),
                           name='dataGrabber')
         input_node.inputs.template = '%s/%s/*.nii*'
@@ -126,7 +126,9 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # Preparing stats and figures for the report
     # Segmentation part
+    preds = []
     if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:  # WARN: None of this is SWOMed compatible
+        preds.append('PVS')
         prediction_metrics_pvs = Node(Regionwise_Prediction_metrics(),
                                       name="prediction_metrics_pvs")
         prediction_metrics_pvs.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
@@ -146,22 +148,52 @@ def genWorkflow(**kwargs) -> Workflow:
         workflow.connect(prediction_metrics_pvs, 'biomarker_stats_csv', prediction_metrics_pvs_generale, 'csv_files')
 
     if 'WMH' in kwargs['PREDICTION']:
-        mask_on_pred_wmh = Node(Apply_mask(),
-                                name='mask_on_pred_wmh')
+        preds.append('WMH')
         prediction_metrics_wmh = Node(Regionwise_Prediction_metrics(),
                                       name="prediction_metrics_wmh")
+        prediction_metrics_wmh.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
+        prediction_metrics_wmh.inputs.thr_cluster_size = kwargs['MIN_WMH_SIZE'] - 1
+        workflow.connect(input_node, 'segmentation_wmh', prediction_metrics_wmh, 'img')
+        # if not synthseg:
+        prediction_metrics_wmh.inputs.region_list = ['Whole_brain']
+        workflow.connect(input_node, 'brainmask', prediction_metrics_wmh, 'brain_seg')
         prediction_metrics_wmh_generale = JoinNode(Join_Prediction_metrics(),
                                                    joinsource='subject_list',
                                                    joinfield='csv_files',
                                                    name="prediction_metrics_wmh_generale")
-        prediction_metrics_wmh.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
-        prediction_metrics_wmh.inputs.thr_cluster_size = kwargs['MIN_WMH_SIZE'] - 1
-        workflow.connect(input_node, 'segmentation_wmh', mask_on_pred_wmh, 'segmentation')
-        workflow.connect(input_node, 'brainmask', mask_on_pred_wmh, 'brainmask')
-        workflow.connect(mask_on_pred_wmh, 'segmentation_filtered', prediction_metrics_wmh, 'img')
         workflow.connect(prediction_metrics_wmh, 'biomarker_stats_csv', prediction_metrics_wmh_generale, 'csv_files')
 
+    # if 'CMB' in kwargs['PREDICTION']:  # TODO
+    #     preds.append('CMB')
+    #     prediction_metrics_cmb = Node(Regionwise_Prediction_metrics(),
+    #                                   name="prediction_metrics_cmb")
+    #     prediction_metrics_cmb.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
+    #     prediction_metrics_cmb.inputs.thr_cluster_size = kwargs['MIN_CMB_SIZE'] - 1
+    #     workflow.connect(input_node, 'segmentation_cmb', prediction_metrics_cmb, 'img')
+    #     # if not synthseg:
+    #     prediction_metrics_cmb.inputs.region_list = ['Whole_brain']
+    #     workflow.connect(input_node, 'brainmask', prediction_metrics_cmb, 'brain_seg')
+    #     prediction_metrics_cmb_generale = JoinNode(Join_Prediction_metrics(),
+    #                                                joinsource='subject_list',
+    #                                                joinfield='csv_files',
+    #                                                name="prediction_metrics_cmb_generale")
+    #     workflow.connect(prediction_metrics_cmb, 'biomarker_stats_csv', prediction_metrics_cmb_generale, 'csv_files')
+
     # QC part
+    qc_crop_box = Node(Function(input_names=['img_apply_to',
+                                             'brainmask',
+                                             'bbox1',
+                                             'bbox2',
+                                             'cdg_ijk'],
+                                output_names=['crop_brain_img'],
+                                function=bounding_crop),
+                       name='qc_crop_box')
+    workflow.connect(input_node, 'T1_conform', qc_crop_box, 'img_apply_to')
+    workflow.connect(input_node, 'pre_brainmask', qc_crop_box, 'brainmask')
+    workflow.connect(input_node, 'bbox1', qc_crop_box, 'bbox1')
+    workflow.connect(input_node, 'bbox2', qc_crop_box, 'bbox2')
+    workflow.connect(input_node, 'cdg_ijk', qc_crop_box, 'cdg_ijk')
+
     if 'PVS2' in kwargs['PREDICTION'] or 'WMH' in kwargs['PREDICTION']:  # dual
         qc_coreg_FLAIR_T1 = Node(Function(input_names=['path_image', 'path_ref_image', 'path_brainmask', 'nb_of_slices'],
                                           output_names=['qc_coreg'],
@@ -184,10 +216,13 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(subject_list, 'subject_id', summary_report, 'subject_id')
     # Segmentation section
     if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:
-        workflow.connect(prediction_metrics_pvs, 'biomarker_stats_csv', summary_report, 'metrics_clusters')
+        workflow.connect(prediction_metrics_pvs, 'biomarker_stats_csv', summary_report, 'pvs_metrics_csv')
+        workflow.connect(prediction_metrics_pvs, 'biomarker_census_csv', summary_report, 'pvs_census_csv')
     if 'WMH' in kwargs['PREDICTION']:
-        workflow.connect(prediction_metrics_wmh, 'biomarker_stats_csv', summary_report, 'metrics_clusters_2')
-    # TODO: Add SWI, metrics_bg_pvs
+        workflow.connect(prediction_metrics_wmh, 'biomarker_stats_csv', summary_report, 'wmh_metrics_csv')
+        workflow.connect(prediction_metrics_wmh, 'biomarker_census_csv', summary_report, 'wmh_census_csv')
+    # if 'CMB' in kwargs['PREDICTION']:  # TODO: Add SWI, metrics_bg_pvs
+    #     workflow.connect(prediction_metrics_cmb, 'biomarker_stats_csv', summary_report, 'cmb_metrics')
 
     # QC section
     summary_report.inputs.anonymized = kwargs['ANONYMIZED']
@@ -195,13 +230,16 @@ def genWorkflow(**kwargs) -> Workflow:
     summary_report.inputs.threshold = kwargs['THRESHOLD']
     summary_report.inputs.image_size = kwargs['IMAGE_SIZE']
     summary_report.inputs.resolution = kwargs['RESOLUTION']
+    summary_report.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
+    summary_report.inputs.min_seg_size: {
+        'PVS': kwargs['MIN_PVS_SIZE'],
+        'WMH': kwargs['MIN_WMH_SIZE'],
+        'CMB': kwargs['MIN_CMB_SIZE']}
+    summary_report.inputs.pred_list = preds
 
+    workflow.connect(qc_crop_box, 'crop_brain_img', summary_report, 'crop_brain_img')
+    workflow.connect(input_node, 'brainmask', summary_report, 'brainmask')
     workflow.connect(input_node, 'wf_graph', summary_report, 'wf_graph')
-    workflow.connect(input_node, 'BBOX1', summary_report, 'bbox1')
-    workflow.connect(input_node, 'BBOX2', summary_report, 'bbox2')
-    workflow.connect(input_node, 'CDG_IJK', summary_report, 'cdg_ijk')
-    workflow.connect(input_node, 'T1_conform', summary_report, 'img_normalized')
-    workflow.connect(input_node, 'pre_brainmask', summary_report, 'brainmask')
     workflow.connect(qc_overlay_brainmask, 'qc_overlay_brainmask_t1', summary_report, 'qc_overlay_brainmask_t1')
     if 'PVS2' in kwargs['PREDICTION'] or 'WMH' in kwargs['PREDICTION']:
         workflow.connect(qc_coreg_FLAIR_T1, 'qc_coreg', summary_report, 'isocontour_slides_FLAIR_T1')

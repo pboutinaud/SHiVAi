@@ -4,7 +4,7 @@ from shivautils.postprocessing.pvs import quantify_clusters
 from shivautils.postprocessing.report import make_report
 from shivautils.postprocessing.background import create_background_slice_mask
 from shivautils.postprocessing.wmh import metrics_clusters_latventricles
-from shivautils.stats import prediction_metrics, get_mask_regions
+from shivautils.stats import prediction_metrics, get_mask_regions, bounding_crop, swarmplot_from_census
 from shivautils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask
 from nipype.utils.filemanip import split_filename
 from nipype.interfaces.base import isdefined
@@ -373,6 +373,8 @@ class Crop(BaseInterface):
             cdg_ijk,
             self.inputs.default,
             safety_marger=5)
+
+        # TODO: rewrite this using np.savetxt and change reader where needed
         cdg_ijk = cdg_ijk[0], cdg_ijk[1], cdg_ijk[2]
         bbox1 = bbox1[0], bbox1[1], bbox1[2]
         bbox2 = bbox2[0], bbox2[1], bbox2[2]
@@ -853,78 +855,57 @@ class Apply_mask(BaseInterface):  # TODO: Unused, to remove
 class SummaryReportInputSpec(BaseInterfaceInputSpec):
     """Make summary report file in pdf format"""
 
-    # metrics_clusters = traits.File(desc="pandas array of metrics clusters")   # TODO: remove
-
-    # metrics_clusters_2 = traits.File(mandatory=False,  # TODO: remove
-    #                                  desc="""optionnal metris clusters csv file if necessary
-    #                                  (example : dualpreprocessing T1-FLAIR with pvs and wmh clusters metrics)""")
-    metrics_segmentations = traits.List(traits.File,
-                                        desc='List of csv files with metrics for each segmentation',
-                                        mandatory=True)
-
-    metrics_bg_pvs = traits.File(exists=True,
-                                 desc='csv file with metrics about pvs clusters in basal ganglia',
-                                 mandatory=False)
-
-    predictions_latventricles_DWMH = traits.File(exists=True,
-                                                 desc="""csv file with metrics about lateral ventricles and 
-                                                      deep white matter hyperintensities clusters""",
-                                                 mandatory=False)
-
-    subject_id = traits.Any(desc="id for each subject")
-
-    # swi = traits.Str(default='False',
-    #                  desc='Specified if report is about SWI or T1-FLAIR')
-
-    cdg_ijk = traits.File(exists=True,
-                          desc='center of gravity brain_mask in txt file')
-
-    bbox1 = traits.File(exists=True,
-                        desc='bounding box first point in txt file')
-
-    bbox2 = traits.File(exists=True,
-                        desc='bounding box second point in txt file')
-
     anonymized = traits.Bool(False, exists=True,
+                             amandatory=False,
                              desc='Anonymized Subject ID')
 
-    img_normalized = traits.File(exists=True,
-                                 desc='nifti file normalized to produce histogram intensity voxels',
+    subject_id = traits.Str(desc="id for each subject")
+
+    pvs_metrics_csv = traits.File(desc='csv file with pvs stats',
+                                  mandatory=False)
+    wmh_metrics_csv = traits.File(desc='csv file with wmh stats',
+                                  mandatory=False)
+    cmb_metrics_csv = traits.File(desc='csv file with cmb stats',
+                                  mandatory=False)
+    pvs_census_csv = traits.File(desc='csv file compiling each pvs size (and region)',
                                  mandatory=False)
-
+    wmh_census_csv = traits.File(desc='csv file compiling each wmh size (and region)',
+                                 mandatory=False)
+    cmb_census_csv = traits.File(desc='csv file compiling each cmb size (and region)',
+                                 mandatory=False)
+    pred_list = traits.List(traits.Str,
+                            desc='List of the different predictions computed ("PVS", "WMH" or "CMB")')
     brainmask = traits.File(exists=True,
-                            desc='brainmask for overlay with t1 image and cropping box',
-                            mandatory=False)
+                            desc='Nifti file of the brain mask in raw space')
+    crop_brain_img = traits.File(desc='PNG file of the crop box, the first brain mask on the brain')
 
-    isocontour_slides_FLAIR_T1 = traits.File(False,
-                                             mandatory=False,
+    isocontour_slides_FLAIR_T1 = traits.File(desc='PNG file of the FLAIR isocontour on T1 (QC of coregistration)')
+
+    qc_overlay_brainmask_t1 = traits.File(desc='PNG file of the final brain mask on T1')
+
+    wf_graph = traits.File(desc='SVG file of the workflow graph')
+
+    percentile = traits.Float(99.0,
+                              desc='Percentile used during intensity normalisation')
+    threshold = traits.Float(0.5,
+                             desc='Threshold used to binarise brain masks')
+    image_size = traits.Tuple(traits.Int, traits.Int, traits.Int,
+                              default=(160, 214, 176),
+                              usedefault=True,
+                              desc='Dimensions of the cropped image')
+    resolution = traits.Tuple(float, float, float,
+                              desc='Resampled voxel size of the final image')
+    thr_cluster_val = traits.Float(0.2,
+                                   desc='Threshold used to binarise the predictions')
+    min_seg_size = traits.Dict(key_trait=traits.Str, value_trait=traits.Int,
+                               desc='Dictionary holding the minimal size set to filter segmented biomarkers')
+
+    isocontour_slides_FLAIR_T1 = traits.File(mandatory=False,
                                              desc="quality control of coregistration isocontour slides FLAIR on T1")
 
     qc_overlay_brainmask_t1 = traits.File(False,
                                           mandatory=False,
                                           desc="quality control of coregistration isocontour slides brainmask on T1")
-
-    wf_graph = traits.File(False,
-                           mandatory=False,
-                           desc="png of the graph representing the whole workflow")
-
-    percentile = traits.Float(exists=True, desc='value to threshold above this'
-                              'percentile',
-                              mandatory=True)
-
-    threshold = traits.Float(0.5, exists=True, mandatory=True,
-                             desc='Value of the treshold to apply to the image'
-                             )
-
-    image_size = traits.Tuple(traits.Int, traits.Int, traits.Int,
-                              default=(160, 214, 176),
-                              usedefault=True,
-                              desc='The array dimensions for the'
-                              'cropped image.')
-
-    resolution = traits.Tuple(float, float, float,
-                              desc='resampled voxel size',
-                              mandatory=False)
 
 
 class SummaryReportOutputSpec(TraitedSpec):
@@ -947,71 +928,63 @@ class SummaryReport(BaseInterface):
     output_spec = SummaryReportOutputSpec
 
     def _run_interface(self, runtime):
-        """Run reverse crop function
-
-        Args:
-            runtime (_type_): time to execute the
-            function
-        Return: runtime
         """
-        if self.inputs.anonymized:
+        Build the report for the whole workflow. It contains segementation statistics and
+        quality controle figures.
+
+        """
+        if self.inputs.anonymized:  # TODO
             subject_id = None
         else:
             subject_id = self.inputs.subject_id
-        metrics_segmentations = self.inputs.metrics_segmentations
-        # if self.inputs.swi == 'True':   # TODO: remove
-        #     swi = self.inputs.swi
-        # else:
-        #     swi = 'False'
-        img_normalized = nib.load(self.inputs.img_normalized)
-        brainmask = nib.load(self.inputs.brainmask)
-        bbox1 = self.inputs.bbox1
-        bbox2 = self.inputs.bbox2
-        cdg_ijk = self.inputs.cdg_ijk
-        if hasattr(self.inputs, 'isocontour_slides_FLAIR_T1'):
-            isocontour_slides_FLAIR_T1 = self.inputs.isocontour_slides_FLAIR_T1
-        else:
-            isocontour_slides_FLAIR_T1 = None
+        pvs_metrics_csv = self.inputs.pvs_metrics_csv
+        wmh_metrics_csv = self.inputs.wmh_metrics_csv
+        cmb_metrics_csv = self.inputs.cmb_metrics_csv
+        pvs_census_csv = self.inputs.pvs_census_csv
+        wmh_census_csv = self.inputs.wmh_census_csv
+        cmb_census_csv = self.inputs.cmb_census_csv
+        pred_list = self.inputs.pred_list
+        brainmask = self.inputs.brainmask
+        crop_brain_img = self.inputs.crop_brain_img
+        isocontour_slides_FLAIR_T1 = self.inputs.isocontour_slides_FLAIR_T1
         qc_overlay_brainmask_t1 = self.inputs.qc_overlay_brainmask_t1
-        # metrics_clusters = self.inputs.metrics_clusters   # TODO: remove
-        # metrics_clusters_2 = None
-        # if self.inputs.metrics_clusters_2:
-        #     metrics_clusters_2 = self.inputs.metrics_clusters_2
-        metrics_bg_pvs = None
-        if self.inputs.metrics_bg_pvs:
-            metrics_bg_pvs = self.inputs.metrics_bg_pvs
-        predictions_latventricles_DWMH = None
-        if self.inputs.predictions_latventricles_DWMH:
-            predictions_latventricles_DWMH = self.inputs.predictions_latventricles_DWMH
-        wf_graph = None
-        if self.inputs.wf_graph:
-            wf_graph = self.inputs.wf_graph
+        wf_graph = self.inputs.wf_graph
         percentile = self.inputs.percentile
         threshold = self.inputs.threshold
         image_size = self.inputs.image_size
         resolution = self.inputs.resolution
+        thr_cluster_val = self.inputs.thr_cluster_val
+        min_seg_size = self.inputs.min_seg_size
+
+        brain_vol = nib.load(brainmask).get_fdata().astype(bool).sum()
+        pred_metrics_dict = {}  # Will contain the stats dataframe for each biomarker
+        pred_census_im_dict = {}  # Will contain the path to the swarmplot for each biomarker
+        if 'PVS' in pred_list:
+            pred_metrics_dict['PVS'] = pd.read_csv(pvs_metrics_csv)
+            pred_census_im_dict['PVS'] = swarmplot_from_census(pvs_census_csv, 'PVS')
+        if 'WMH' in pred_list:
+            pred_metrics_dict['WMH'] = pd.read_csv(wmh_metrics_csv)
+            pred_census_im_dict['WMH'] = swarmplot_from_census(wmh_census_csv, 'WMH')
+        if 'CMB' in pred_list:
+            pred_metrics_dict['CMB'] = pd.read_csv(cmb_metrics_csv)
+            pred_census_im_dict['CMB'] = swarmplot_from_census(cmb_census_csv, 'CMB')
 
         # process
         summary_report = make_report(
-            metrics_segmentations=metrics_segmentations,
-            img_normalized=img_normalized,
-            brainmask=brainmask,
-            bbox1=bbox1,
-            bbox2=bbox2,
-            cdg_ijk=cdg_ijk,
-            isocontour_slides_path_FLAIR_T1=isocontour_slides_FLAIR_T1,
+            pred_metrics_dict=pred_metrics_dict,
+            pred_census_im_dict=pred_census_im_dict,
+            brain_vol=brain_vol,
+            thr_cluster_val=thr_cluster_val,
+            min_seg_size=min_seg_size,
+            bounding_crop_path=crop_brain_img,
             qc_overlay_brainmask_t1=qc_overlay_brainmask_t1,
-            #  metrics_clusters_path=metrics_clusters,  # TODO: remove
+            isocontour_slides_FLAIR_T1=isocontour_slides_FLAIR_T1,
             subject_id=subject_id,
             image_size=image_size,
             resolution=resolution,
             percentile=percentile,
             threshold=threshold,
-            wf_graph_path=wf_graph,
-            #  metrics_clusters_2_path=metrics_clusters_2,  # TODO: remove
-            clusters_bg_pvs_path=metrics_bg_pvs,
-            predictions_latventricles_DWMH_path=predictions_latventricles_DWMH,
-            #  swi=swi  # TODO: remove
+            wf_graph=wf_graph
         )
 
         with open('summary_report.html', 'w', encoding='utf-8') as fid:

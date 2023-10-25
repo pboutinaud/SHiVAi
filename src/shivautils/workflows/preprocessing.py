@@ -31,9 +31,9 @@ def make_output_dict(sub_list,
                      brainmask_list,
                      pre_brainmask_list,
                      T1_conform_list,
-                     BBOX1_list,
-                     BBOX2_list,
-                     CDG_IJK_list,
+                     bbox1_list,
+                     bbox2_list,
+                     cdg_ijk_list,
                      FLAIR_cropped_list=None,
                      SWI_cropped_list=None
                      ):
@@ -49,9 +49,9 @@ def make_output_dict(sub_list,
                       'pre_brainmask': pre_brainmask,
                       'T1_cropped': T1_cropped,
                       'T1_conform': T1_conform,
-                      'BBOX1': BBOX1,
-                      'BBOX2': BBOX2,
-                      'CDG_IJK': CDG_IJK,
+                      'bbox1': bbox1,
+                      'bbox2': bbox2,
+                      'cdg_ijk': cdg_ijk,
                       'FLAIR_cropped': FLAIR_cropped,
                       'SWI_cropped': SWI_cropped
                       } for (sub,
@@ -59,9 +59,9 @@ def make_output_dict(sub_list,
                              brainmask,
                              pre_brainmask,
                              T1_conform,
-                             BBOX1,
-                             BBOX2,
-                             CDG_IJK,
+                             bbox1,
+                             bbox2,
+                             cdg_ijk,
                              FLAIR_cropped,
                              SWI_cropped
                              ) in zip(sub_list,
@@ -69,9 +69,9 @@ def make_output_dict(sub_list,
                                       brainmask_list,
                                       pre_brainmask_list,
                                       T1_conform_list,
-                                      BBOX1_list,
-                                      BBOX2_list,
-                                      CDG_IJK_list,
+                                      bbox1_list,
+                                      bbox2_list,
+                                      cdg_ijk_list,
                                       FLAIR_cropped_list,
                                       SWI_cropped_list)}
     return out_dict
@@ -264,9 +264,9 @@ def genWorkflow(**kwargs) -> Workflow:
                          'brainmask_list',
                          'pre_brainmask_list',
                          'T1_conform_list',
-                         'BBOX1_list',
-                         'BBOX2_list',
-                         'CDG_IJK_list',
+                         'bbox1_list',
+                         'bbox2_list',
+                         'cdg_ijk_list',
                          'FLAIR_cropped_list',
                          'SWI_cropped_list'],
             output_names='preproc_out_dict',
@@ -278,9 +278,9 @@ def genWorkflow(**kwargs) -> Workflow:
                    'brainmask_list',
                    'pre_brainmask_list',
                    'T1_conform_list',
-                   'BBOX1_list',
-                   'BBOX2_list',
-                   'CDG_IJK_list',
+                   'bbox1_list',
+                   'bbox2_list',
+                   'cdg_ijk_list',
                    'FLAIR_cropped_list',
                    'SWI_cropped_list']
     )
@@ -289,9 +289,9 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(hard_post_brain_mask, 'thresholded', preproc_out_node, 'brainmask_list')
     workflow.connect(hard_brain_mask, 'thresholded', preproc_out_node, 'pre_brainmask_list')
     workflow.connect(conform, 'resampled', preproc_out_node, 'T1_conform_list')
-    workflow.connect(crop, 'bbox1', preproc_out_node, 'BBOX1_list')
-    workflow.connect(crop, 'bbox2', preproc_out_node, 'BBOX2_list')
-    workflow.connect(crop, 'cdg_ijk', preproc_out_node, 'CDG_IJK_list')
+    workflow.connect(crop, 'bbox1', preproc_out_node, 'bbox1_list')
+    workflow.connect(crop, 'bbox2', preproc_out_node, 'bbox2_list')
+    workflow.connect(crop, 'cdg_ijk', preproc_out_node, 'cdg_ijk_list')
 
     return workflow
 
