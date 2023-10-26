@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """Workflow script for singularity container"""
-from shivautils.workflows.SWI_postprocessing import genWorkflow as genWorkflowPostSWI
-from shivautils.workflows.SWI_predict import genWorkflow as genWorkflowPredictSWI
-from shivautils.workflows.SWI_preprocessing import genWorkflow as genWorkflowSWI
+# from shivautils.workflows.SWI_postprocessing import genWorkflow as genWorkflowPostSWI
+# from shivautils.workflows.SWI_predict import genWorkflow as genWorkflowPredictSWI
+# from shivautils.workflows.SWI_preprocessing import genWorkflow as genWorkflowSWI
 from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
 from shivautils.workflows.predict import genWorkflow as genWorkflowPredict
 from shivautils.workflows.dual_predict import genWorkflow as genWorkflowDualPredict
@@ -74,6 +74,10 @@ def shivaParser():
     parser.add_argument('--container',
                         action='store_true',
                         help='Wether or not process is launched from inside a container.')
+
+    parser.add_argument('--retry',
+                        action='store_true',
+                        help='Relaunch the pipeline from where it stopped')
 
     parser.add_argument('--model_config',
                         type=str,
@@ -168,7 +172,9 @@ def set_args_and_check(inParser):
         inParser.error(
             'Using a container (denoted with the "--container" argument) requires '
             'a configuration file (.yml) but none was given.')
-    if os.path.isdir(args.output) and bool(os.listdir(args.output)):
+    if (os.path.isdir(args.output)
+        and bool(os.listdir(args.output))
+            and not args.retry):
         inParser.error(
             'The output directory already exists and is not empty.'
         )
@@ -181,6 +187,12 @@ def set_args_and_check(inParser):
         args.percentile = parameters['percentile']
         args.threshold = parameters['threshold']
         args.threshold_clusters = parameters['threshold_clusters']
+        if 'min_pvs_size' in parameters.keys():
+            args.min_pvs_size = parameters['min_pvs_size']
+        if 'min_wmh_size' in parameters.keys():
+            args.min_wmh_size = parameters['min_wmh_size']
+        if 'min_cmb_size' in parameters.keys():
+            args.min_cmb_size = parameters['min_cmb_size']
         args.final_dimensions = tuple(parameters['final_dimensions'])
         args.voxels_size = tuple(parameters['voxels_size'])
         args.interpolation = parameters['interpolation']
@@ -189,12 +201,6 @@ def set_args_and_check(inParser):
         args.pvs2_descriptor = parameters['PVS2_descriptor']
         args.wmh_descriptor = parameters['WMH_descriptor']
         args.cmb_descriptor = parameters['CMB_descriptor']
-        if 'min_pvs_size' in parameters.keys():
-            args.min_pvs_size = parameters['min_pvs_size']
-        if 'min_wmh_size' in parameters.keys():
-            args.min_wmh_size = parameters['min_wmh_size']
-        if 'min_cmb_size' in parameters.keys():
-            args.min_cmb_size = parameters['min_cmb_size']
 
     if args.container:
         args.model = '/mnt/model'
@@ -321,17 +327,21 @@ def main():
     # Declaration of the workflows
     main_wf = Workflow('full_workflow')
     main_wf.base_dir = wfargs['BASE_DIR']
+    # First, preproc and postproc
     if dual:
         wf_preproc = genWorkflowDualPreproc(**wfargs)
     else:
         wf_preproc = genWorkflowPreproc(**wfargs)
     wf_preproc = update_wf_grabber(wf_preproc, args.input_type, dual)
     wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-    # wf_preproc.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
-    # wf_preproc.run(plugin='Linear')
+    # wf_preproc.write_graph(graph2use='exec', dotfilename='graph.svg', format='svg')
 
-    # Prepare prediction workflows
-    pred_wfs = {}  # Dict that will contain all prediction sub_workflows
+    wf_post = genWorkflowPost(**wfargs)
+    main_wf.add_nodes([wf_preproc, wf_post])
+
+    main_wf.connect(wf_preproc, 'preproc_out_node.preproc_out_dict', wf_post, 'post_proc_input_node.preproc_dict')
+
+    # Then prediction workflows and their connections
     for PRED in args.prediction:
         biomarker = PRED.lower()
         if biomarker == 'pvs2':
@@ -340,37 +350,30 @@ def main():
             wf_pred = genWorkflowDualPredict(**wfargs, PRED=PRED)
         else:
             wf_pred = genWorkflowPredict(**wfargs, PRED=PRED)
-        wf_pred.name = f'{biomarker}_predictor_workflow'
         wf_pred.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-        pred_wfs[biomarker] = wf_pred
-
-    wf_post = genWorkflowPost(**wfargs)
-    main_wf.add_nodes([wf_preproc, wf_post] + pred_wfs)
-
-    main_wf.connect(wf_preproc, 'preproc_out_node.preproc_out_dict', wf_post, 'post_proc_input_node.preproc_dict')
-    for biomarker, wf_pred in pred_wfs.items():
+        main_wf.add_nodes([wf_pred])
         main_wf.connect(wf_preproc, 'preproc_out_node.preproc_out_dict', wf_pred, 'input_parser.in_dict')
         main_wf.connect(wf_pred, 'predict_out_node.predict_out_dict', wf_post, f'post_proc_input_node.{biomarker}_pred_dict')
 
     # wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     # wf_post.run(plugin='Linear')
 
-    main_wf.write_graph(graph2use='orig', dotfilename='graph.svg', format='svg')
+    main_wf.write_graph(graph2use='hierarchical', dotfilename='graph.svg', format='svg')
     main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     main_wf.run(plugin='Linear')
 
-    if 'CMB' in args.prediction:  # TODO: Check if SWI preproc needs T1/dual preproc or is stand-alone
-        wfargs.update({'WF_SWI_DIRS': {'preproc': 'shiva_preprocessing_swi', 'pred': 'SWI_predictor_workflow'}})
-        swi_wf_preproc = genWorkflowSWI(**wfargs)
-        swi_wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-        swi_wf_preproc.run(plugin='Linear')
+    # if 'CMB' in args.prediction:  # TODO: Check if SWI preproc needs T1/dual preproc or is stand-alone
+    #     wfargs.update({'WF_SWI_DIRS': {'preproc': 'shiva_preprocessing_swi', 'pred': 'SWI_predictor_workflow'}})
+    #     swi_wf_preproc = genWorkflowSWI(**wfargs)
+    #     swi_wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+    #     swi_wf_preproc.run(plugin='Linear')
 
-        swi_wf_predict = genWorkflowPredictSWI(**wfargs)
-        swi_wf_predict.run(plugin='Linear')
+    #     swi_wf_predict = genWorkflowPredictSWI(**wfargs)
+    #     swi_wf_predict.run(plugin='Linear')
 
-        swi_wf_post = genWorkflowPostSWI(**wfargs)
-        swi_wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-        swi_wf_post.run(plugin='Linear')
+    #     swi_wf_post = genWorkflowPostSWI(**wfargs)
+    #     swi_wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+    #     swi_wf_post.run(plugin='Linear')
 
 
 if __name__ == "__main__":

@@ -13,9 +13,9 @@ dummy_args = {'SUBJECT_LIST': ['BIOMIST::SUBJECT_LIST'],
 
 
 def get_input_files(subject_id, in_dict):
-    t1 = in_dict[subject_id]['t1']
-    flair = in_dict[subject_id]['flair']
-    return t1, flair,
+    t1 = in_dict[subject_id]['T1_cropped']
+    flair = in_dict[subject_id]['FLAIR_cropped']
+    return t1, flair
 
 
 def make_output_dict(sub_list, pred_map_list):
@@ -29,8 +29,6 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    workflow = Workflow('seg_predictor_workflow')
-    workflow.base_dir = kwargs['BASE_DIR']
 
     if 'PRED' in kwargs.keys():  # When called from a bigger wf (shiva.py)
         PRED = kwargs['PRED']
@@ -40,6 +38,10 @@ def genWorkflow(**kwargs) -> Workflow:
     else:  # placeholders
         pred = 'seg'
         PRED = 'SEG'
+
+    wf_name = f'{pred}_predictor_workflow'
+    workflow = Workflow(wf_name)
+    workflow.base_dir = kwargs['BASE_DIR']
 
     subject_list = Node(
         IdentityInterface(

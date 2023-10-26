@@ -47,7 +47,6 @@ def make_output_dict(sub_list,
     out_dict = {sub: {'T1_cropped': T1_cropped,
                       'brainmask': brainmask,
                       'pre_brainmask': pre_brainmask,
-                      'T1_cropped': T1_cropped,
                       'T1_conform': T1_conform,
                       'bbox1': bbox1,
                       'bbox2': bbox2,
@@ -91,9 +90,10 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
-    subject_list = Node(IdentityInterface(
-        fields=['subject_id'],
-        mandatory_inputs=True),
+    subject_list = Node(
+        IdentityInterface(
+            fields=['subject_id'],
+            mandatory_inputs=True),
         name="subject_list")
     subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
@@ -280,10 +280,8 @@ def genWorkflow(**kwargs) -> Workflow:
                    'T1_conform_list',
                    'bbox1_list',
                    'bbox2_list',
-                   'cdg_ijk_list',
-                   'FLAIR_cropped_list',
-                   'SWI_cropped_list']
-    )
+                   'cdg_ijk_list'])
+
     workflow.connect(subject_list, 'subject_id', preproc_out_node, 'sub_list')
     workflow.connect(t1_norm, 'intensity_normalized', preproc_out_node, 'T1_cropped_list')
     workflow.connect(hard_post_brain_mask, 'thresholded', preproc_out_node, 'brainmask_list')
