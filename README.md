@@ -218,7 +218,7 @@ Individual HTML / PDF Report (path folder 'subject_{id}/summary_report'):
 - Overlay of final brainmask over cropped main images
 - Preprocessing workflow diagram
 
-General CSV file (path folder 'metrics_predictions_{pvs/wmh}_generale'):
+General CSV file (path folder 'prediction_metrics_{pvs/wmh}_all'):
 
 - Sum of metrics clusters with one arrow per subjects.
 

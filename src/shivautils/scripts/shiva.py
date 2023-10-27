@@ -382,12 +382,12 @@ def main():
         main_wf.connect(wf_preproc, 't1_final_intensity_normalization.intensity_normalized', pvs_predictor_node, "t1")
         main_wf.connect(pvs_predictor_node, 'segmentation', wf_post, 'prediction_metrics_pvs.img')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_pvs.brain_seg')  # TODO: SynthSeg
-        prediction_metrics_pvs_generale = JoinNode(Join_Prediction_metrics(),
-                                                   joinsource=subject_iterator,
-                                                   joinfield=['csv_files', 'subject_id'],
-                                                   name="prediction_metrics_pvs_generale")
-        main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv', prediction_metrics_pvs_generale, 'csv_files')
-        main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_pvs_generale, 'subject_id')
+        prediction_metrics_pvs_all = JoinNode(Join_Prediction_metrics(),
+                                              joinsource=subject_iterator,
+                                              joinfield=['csv_files', 'subject_id'],
+                                              name="prediction_metrics_pvs_all")
+        main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv', prediction_metrics_pvs_all, 'csv_files')
+        main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_pvs_all, 'subject_id')
 
     # WMH
     if 'WMH' in args.prediction:
@@ -399,12 +399,12 @@ def main():
         main_wf.connect(wf_preproc, 'flair_final_intensity_normalization.intensity_normalized', wmh_predictor_node, "flair")
         main_wf.connect(wmh_predictor_node, 'segmentation', wf_post, 'prediction_metrics_wmh.img')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_wmh.brain_seg')  # TODO: SynthSeg
-        prediction_metrics_wmh_generale = JoinNode(Join_Prediction_metrics(),
-                                                   joinsource=subject_iterator,
-                                                   joinfield=['csv_files', 'subject_id'],
-                                                   name="prediction_metrics_wmh_generale")
-        main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_stats_csv', prediction_metrics_wmh_generale, 'csv_files')
-        main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_wmh_generale, 'subject_id')
+        prediction_metrics_wmh_all = JoinNode(Join_Prediction_metrics(),
+                                              joinsource=subject_iterator,
+                                              joinfield=['csv_files', 'subject_id'],
+                                              name="prediction_metrics_wmh_all")
+        main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_stats_csv', prediction_metrics_wmh_all, 'csv_files')
+        main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_wmh_all, 'subject_id')
 
     # CMB
     if 'CMB' in args.prediction:  # TODO: make it work
@@ -415,12 +415,12 @@ def main():
         main_wf.connect(wf_preproc, 't1_final_intensity_normalization.intensity_normalized', cmb_predictor_node, "t1")  # TODO: adapt to actual preproc and inputs
         main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'prediction_metrics_cmb.img')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_cmb.brain_seg')  # TODO: SynthSeg
-        prediction_metrics_cmb_generale = JoinNode(Join_Prediction_metrics(),
-                                                   joinsource=subject_iterator,
-                                                   joinfield=['csv_files', 'subject_id'],
-                                                   name="prediction_metrics_cmb_generale")
-        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', prediction_metrics_cmb_generale, 'csv_files')
-        main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_cmb_generale, 'subject_id')
+        prediction_metrics_cmb_all = JoinNode(Join_Prediction_metrics(),
+                                              joinsource=subject_iterator,
+                                              joinfield=['csv_files', 'subject_id'],
+                                              name="prediction_metrics_cmb_all")
+        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', prediction_metrics_cmb_all, 'csv_files')
+        main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_cmb_all, 'subject_id')
 
     wf_graph = main_wf.write_graph(graph2use='hierarchical', dotfilename='graph.svg', format='svg')
     wf_post.get_node('summary_report').inputs.wf_graph = os.path.abspath(wf_graph)

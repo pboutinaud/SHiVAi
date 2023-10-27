@@ -138,11 +138,6 @@ def genWorkflow(**kwargs) -> Workflow:
     #     # if not synthseg:  # TODO
     #     prediction_metrics_cmb.inputs.brain_seg_type = 'brain_mask'
     #     prediction_metrics_cmb.inputs.region_list = ['Whole_brain']
-    #     prediction_metrics_cmb_generale = JoinNode(Join_Prediction_metrics(),
-    #                                                joinsource='subject_list',
-    #                                                joinfield='csv_files',
-    #                                                name="prediction_metrics_cmb_generale")
-    #     workflow.connect(prediction_metrics_cmb, 'biomarker_stats_csv', prediction_metrics_cmb_generale, 'csv_files')
 
     # QC part
     qc_crop_box = Node(Function(input_names=['img_apply_to',
