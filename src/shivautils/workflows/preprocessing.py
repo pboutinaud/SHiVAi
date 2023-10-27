@@ -26,56 +26,6 @@ def as_list(input):
     return [input]
 
 
-def make_output_dict(sub_list,
-                     T1_cropped_list,
-                     brainmask_list,
-                     pre_brainmask_list,
-                     T1_conform_list,
-                     bbox1_list,
-                     bbox2_list,
-                     cdg_ijk_list,
-                     FLAIR_cropped_list=None,
-                     SWI_cropped_list=None
-                     ):
-    """Takes the list participants, all needed lists of preproc data
-    and put them in a dict to pass to the next workflow. 
-    """
-    if FLAIR_cropped_list is None:
-        FLAIR_cropped_list = [None]*len(sub_list)
-    if SWI_cropped_list is None:
-        SWI_cropped_list = [None]*len(sub_list)
-    out_dict = {sub: {'T1_cropped': T1_cropped,
-                      'brainmask': brainmask,
-                      'pre_brainmask': pre_brainmask,
-                      'T1_conform': T1_conform,
-                      'bbox1': bbox1,
-                      'bbox2': bbox2,
-                      'cdg_ijk': cdg_ijk,
-                      'FLAIR_cropped': FLAIR_cropped,
-                      'SWI_cropped': SWI_cropped
-                      } for (sub,
-                             T1_cropped,
-                             brainmask,
-                             pre_brainmask,
-                             T1_conform,
-                             bbox1,
-                             bbox2,
-                             cdg_ijk,
-                             FLAIR_cropped,
-                             SWI_cropped
-                             ) in zip(sub_list,
-                                      T1_cropped_list,
-                                      brainmask_list,
-                                      pre_brainmask_list,
-                                      T1_conform_list,
-                                      bbox1_list,
-                                      bbox2_list,
-                                      cdg_ijk_list,
-                                      FLAIR_cropped_list,
-                                      SWI_cropped_list)}
-    return out_dict
-
-
 def genWorkflow(**kwargs) -> Workflow:
     """Generate a nipype workflow
 
@@ -255,41 +205,6 @@ def genWorkflow(**kwargs) -> Workflow:
                      t1_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      t1_norm, 'brain_mask')
-
-    # Prepare output for connection with next workflow
-    # preproc_out_node = JoinNode(
-    #     Function(
-    #         input_names=['sub_list',
-    #                      'T1_cropped_list',
-    #                      'brainmask_list',
-    #                      'pre_brainmask_list',
-    #                      'T1_conform_list',
-    #                      'bbox1_list',
-    #                      'bbox2_list',
-    #                      'cdg_ijk_list',
-    #                      'FLAIR_cropped_list',
-    #                      'SWI_cropped_list'],
-    #         output_names='preproc_out_dict',
-    #         function=make_output_dict),
-    #     name='preproc_out_node',
-    #     joinsource=subject_list,
-    #     joinfield=['sub_list',
-    #                'T1_cropped_list',
-    #                'brainmask_list',
-    #                'pre_brainmask_list',
-    #                'T1_conform_list',
-    #                'bbox1_list',
-    #                'bbox2_list',
-    #                'cdg_ijk_list'])
-
-    # workflow.connect(subject_list, 'subject_id', preproc_out_node, 'sub_list')
-    # workflow.connect(t1_norm, 'intensity_normalized', preproc_out_node, 'T1_cropped_list')
-    # workflow.connect(hard_post_brain_mask, 'thresholded', preproc_out_node, 'brainmask_list')
-    # workflow.connect(hard_brain_mask, 'thresholded', preproc_out_node, 'pre_brainmask_list')
-    # workflow.connect(conform, 'resampled', preproc_out_node, 'T1_conform_list')
-    # workflow.connect(crop, 'bbox1', preproc_out_node, 'bbox1_list')
-    # workflow.connect(crop, 'bbox2', preproc_out_node, 'bbox2_list')
-    # workflow.connect(crop, 'cdg_ijk', preproc_out_node, 'cdg_ijk_list')
 
     return workflow
 

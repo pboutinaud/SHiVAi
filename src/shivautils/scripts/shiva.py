@@ -6,7 +6,7 @@
 from shivautils.interfaces.shiva import Predict
 from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
 # from shivautils.workflows.predict import genWorkflow as genWorkflowPredict
-from shivautils.workflows.dual_predict import genWorkflow as genWorkflowDualPredict
+# from shivautils.workflows.dual_predict import genWorkflow as genWorkflowDualPredict
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowDualPreproc
 from nipype import config
@@ -340,53 +340,70 @@ def main():
     wf_post = genWorkflowPost(**wfargs)
     main_wf.add_nodes([wf_preproc, wf_post])
 
-    # main_wf.connect(wf_preproc, 'preproc_out_node.preproc_out_dict', wf_post, 'post_proc_input_node.preproc_dict')
+    # All connections between preproc and postproc
+    main_wf.connect(wf_preproc, 'subject_list.subject_id', wf_post, 'summary_report.subject_id')
+    main_wf.connect(wf_preproc, 'conform.resampled', wf_post, 'qc_crop_box.img_apply_to')
+    main_wf.connect(wf_preproc, 'hard_brain_mask.thresholded', wf_post, 'qc_crop_box.brainmask')
+    main_wf.connect(wf_preproc, 'crop.bbox1', wf_post, 'qc_crop_box.bbox1')
+    main_wf.connect(wf_preproc, 'crop.bbox2', wf_post, 'qc_crop_box.bbox2')
+    main_wf.connect(wf_preproc, 'crop.cdg_ijk', wf_post, 'qc_crop_box.cdg_ijk')
+    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'qc_overlay_brainmask.brainmask')
+    main_wf.connect(wf_preproc, 't1_norm.intensity_normalized', wf_post, 'qc_overlay_brainmask.img_ref')
+    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'summary_report.brainmask')
 
-    # Then prediction workflows and their connections
+    # Then prediction nodes and their connections
+    # PVS
     if 'PVS' in args.prediction or 'PVS2' in args.prediction:
         pvs_predictor_node = Node(Predict(), name=f"predict_pvs")
         pvs_predictor_node.inputs.out_filename = 'pvs_map.nii.gz'
-        pvs_predictor_node.inputs.model = kwargs['MODELS_PATH']
+        pvs_predictor_node.inputs.model = wfargs['MODELS_PATH']
         if dual:
-            pvs_predictor_node.inputs.descriptor = kwargs['PVS2_DESCRIPTOR']
+            pvs_predictor_node.inputs.descriptor = wfargs['PVS2_DESCRIPTOR']
             main_wf.connect(wf_preproc, 'flair_norm.intensity_normalized', pvs_predictor_node, "t1")
         else:
-            pvs_predictor_node.inputs.descriptor = kwargs['PVS_DESCRIPTOR']
-        main_wf.connect(wf_preproc, 't1_norm.intensity_normalized', pvs_predictor_node, "t1")
-
-    workflow.connect(input_node, "t1", predictor_node, "t1")
-    for PRED in args.prediction:
-        biomarker = PRED.lower()
-        if biomarker == 'pvs2':
-            biomarker = 'pvs'
-        if dual:
-            wf_pred = genWorkflowDualPredict(**wfargs, PRED=PRED)
-        else:
-            wf_pred = genWorkflowPredict(**wfargs, PRED=PRED)
-        wf_pred.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-        main_wf.add_nodes([wf_pred])
-        main_wf.connect(wf_preproc, 'preproc_out_node.preproc_out_dict', wf_pred, 'input_parser.in_dict')
-        main_wf.connect(wf_pred, 'predict_out_node.predict_out_dict', wf_post, f'post_proc_input_node.{biomarker}_pred_dict')
+            pvs_predictor_node.inputs.descriptor = wfargs['PVS_DESCRIPTOR']
+        main_wf.connect(wf_preproc, 't1_norm.intensity_normalized', pvs_predictor_node, "flair")
+        main_wf.connect(pvs_predictor_node, 'segmentation', wf_post, 'prediction_metrics_pvs.img')
+        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_pvs.brain_seg')  # TODO: SynthSeg
+    # WMH
+    if 'WMH' in args.prediction:
+        wmh_predictor_node = Node(Predict(), name=f"predict_wmh")
+        wmh_predictor_node.inputs.out_filename = 'wmh_map.nii.gz'
+        wmh_predictor_node.inputs.model = wfargs['MODELS_PATH']
+        wmh_predictor_node.inputs.descriptor = wfargs['WMH_DESCRIPTOR']
+        main_wf.connect(wf_preproc, 't1_norm.intensity_normalized', wmh_predictor_node, "t1")
+        main_wf.connect(wf_preproc, 'flair_norm.intensity_normalized', wmh_predictor_node, "flair")
+        main_wf.connect(wmh_predictor_node, 'segmentation', wf_post, 'prediction_metrics_wmh.img')
+        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_wmh.brain_seg')  # TODO: SynthSeg
+    # CMB
+    if 'CMB' in args.prediction:  # TODO: make it work
+        cmb_predictor_node = Node(Predict(), name=f"predict_cmb")
+        cmb_predictor_node.inputs.out_filename = 'cmb_map.nii.gz'
+        cmb_predictor_node.inputs.model = wfargs['MODELS_PATH']
+        cmb_predictor_node.inputs.descriptor = wfargs['CMB_DESCRIPTOR']
+        main_wf.connect(wf_preproc, 't1_norm.intensity_normalized', cmb_predictor_node, "t1")  # TODO: adapt to actual preproc and inputs
+        main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'prediction_metrics_cmb.img')
+        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_cmb.brain_seg')  # TODO: SynthSeg
+    # for PRED in args.prediction:
+    #     biomarker = PRED.lower()
+    #     if biomarker == 'pvs2':
+    #         biomarker = 'pvs'
+    #     if dual:
+    #         wf_pred = genWorkflowDualPredict(**wfargs, PRED=PRED)
+    #     else:
+    #         wf_pred = genWorkflowPredict(**wfargs, PRED=PRED)
+    #     wf_pred.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+    #     main_wf.add_nodes([wf_pred])
+    #     main_wf.connect(wf_preproc, 'preproc_out_node.preproc_out_dict', wf_pred, 'input_parser.in_dict')
+    #     main_wf.connect(wf_pred, 'predict_out_node.predict_out_dict', wf_post, f'post_proc_input_node.{biomarker}_pred_dict')
 
     # wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     # wf_post.run(plugin='Linear')
 
-    main_wf.write_graph(graph2use='hierarchical', dotfilename='graph.svg', format='svg')
+    wf_graph = main_wf.write_graph(graph2use='hierarchical', dotfilename='graph.svg', format='svg')
+    wf_post.get_node('summary_report').inputs.wf_graph = os.path.abspath(wf_graph)
     main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     main_wf.run(plugin='Linear')
-
-    # if 'CMB' in args.prediction:  # TODO: Check if SWI preproc needs T1/dual preproc or is stand-alone
-    #     wfargs.update({'WF_SWI_DIRS': {'preproc': 'shiva_preprocessing_swi', 'pred': 'SWI_predictor_workflow'}})
-    #     swi_wf_preproc = genWorkflowSWI(**wfargs)
-    #     swi_wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-    #     swi_wf_preproc.run(plugin='Linear')
-
-    #     swi_wf_predict = genWorkflowPredictSWI(**wfargs)
-    #     swi_wf_predict.run(plugin='Linear')
-
-    #     swi_wf_post = genWorkflowPostSWI(**wfargs)
-    #     swi_wf_post.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-    #     swi_wf_post.run(plugin='Linear')
 
 
 if __name__ == "__main__":
