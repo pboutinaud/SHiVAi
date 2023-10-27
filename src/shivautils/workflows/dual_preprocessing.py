@@ -31,8 +31,6 @@ def genWorkflow(**kwargs) -> Workflow:
     """
     # Import single img preproc workflow to build uppon
     workflow = genWorkflowPreproc(**kwargs)
-    wf_name = 'shiva_dual_preprocessing'
-    workflow.name = wf_name
 
     # file selection
     datagrabber = workflow.get_node('datagrabber')

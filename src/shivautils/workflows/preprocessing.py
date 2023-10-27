@@ -37,7 +37,7 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    wf_name = 'shiva_mono_preprocessing'
+    wf_name = 'shiva_preprocessing'
     workflow = Workflow(wf_name)
     workflow.base_dir = kwargs['BASE_DIR']
 

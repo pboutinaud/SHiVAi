@@ -425,7 +425,7 @@ def main():
     wf_graph = main_wf.write_graph(graph2use='hierarchical', dotfilename='graph.svg', format='svg')
     wf_post.get_node('summary_report').inputs.wf_graph = os.path.abspath(wf_graph)
     main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-    # main_wf.run(plugin='Linear')
+    main_wf.run(plugin='Linear')
 
 
 if __name__ == "__main__":
