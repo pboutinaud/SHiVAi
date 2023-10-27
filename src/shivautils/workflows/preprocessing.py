@@ -46,7 +46,7 @@ def genWorkflow(**kwargs) -> Workflow:
     # file selection
     datagrabber = Node(DataGrabber(
         infields=['subject_id'],
-        outfields=['t1']),
+        outfields=['t1', 'flair']),  # TODO: swi cmb
         name='datagrabber')
     datagrabber.inputs.base_directory = kwargs['DATA_DIR']
     datagrabber.inputs.raise_on_empty = True

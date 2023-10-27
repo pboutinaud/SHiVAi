@@ -91,10 +91,6 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      flair_norm, 'brain_mask')
 
-    # Prepare output for connection with next workflow
-    preproc_out_node = workflow.get_node('preproc_out_node')
-    workflow.connect(flair_norm, 'intensity_normalized', preproc_out_node, 'FLAIR_cropped_list')
-
     return workflow
 
 
