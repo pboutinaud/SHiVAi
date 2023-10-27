@@ -709,7 +709,7 @@ class Regionwise_Prediction_metrics(BaseInterface):
 
         img = nib.load(path_images)
         segmentation_vol = img.get_fdata()
-        brain_seg_vol = brain_seg.get_fdata()
+        brain_seg_vol = nib.load(brain_seg).get_fdata()
 
         if brain_seg_type == "brain_mask":
             region_dict = {'Region_names': region_list,
@@ -781,7 +781,7 @@ class Join_Prediction_metrics(BaseInterface):
 
         csv_list = []
         for csv_file, sub_id in zip(path_csv_files, subject_id):
-            sub_df = pd.read_csv(csv_file)
+            sub_df = pd.read_csv(csv_file, index_col=0)
             sub_df.insert(0, 'sub_id', [sub_id]*sub_df.shape[0])
             csv_list.append(sub_df)
         all_sub_metrics = pd.concat(csv_list)
@@ -879,7 +879,10 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
                             desc='Nifti file of the brain mask in raw space')
     crop_brain_img = traits.File(desc='PNG file of the crop box, the first brain mask on the brain')
 
-    isocontour_slides_FLAIR_T1 = traits.File(desc='PNG file of the FLAIR isocontour on T1 (QC of coregistration)')
+    isocontour_slides_FLAIR_T1 = traits.File(None,
+                                             usedefault=True,
+                                             mandatory=False,
+                                             desc='PNG file of the FLAIR isocontour on T1 (QC of coregistration)')
 
     qc_overlay_brainmask_t1 = traits.File(desc='PNG file of the final brain mask on T1')
 
@@ -899,9 +902,6 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
                                    desc='Threshold used to binarise the predictions')
     min_seg_size = traits.Dict(key_trait=traits.Str, value_trait=traits.Int,
                                desc='Dictionary holding the minimal size set to filter segmented biomarkers')
-
-    isocontour_slides_FLAIR_T1 = traits.File(mandatory=False,
-                                             desc="quality control of coregistration isocontour slides FLAIR on T1")
 
     qc_overlay_brainmask_t1 = traits.File(False,
                                           mandatory=False,
@@ -960,13 +960,13 @@ class SummaryReport(BaseInterface):
         pred_metrics_dict = {}  # Will contain the stats dataframe for each biomarker
         pred_census_im_dict = {}  # Will contain the path to the swarmplot for each biomarker
         if 'PVS' in pred_list:
-            pred_metrics_dict['PVS'] = pd.read_csv(pvs_metrics_csv)
+            pred_metrics_dict['PVS'] = pd.read_csv(pvs_metrics_csv, index_col=0)
             pred_census_im_dict['PVS'] = swarmplot_from_census(pvs_census_csv, 'PVS')
         if 'WMH' in pred_list:
-            pred_metrics_dict['WMH'] = pd.read_csv(wmh_metrics_csv)
+            pred_metrics_dict['WMH'] = pd.read_csv(wmh_metrics_csv, index_col=0)
             pred_census_im_dict['WMH'] = swarmplot_from_census(wmh_census_csv, 'WMH')
         if 'CMB' in pred_list:
-            pred_metrics_dict['CMB'] = pd.read_csv(cmb_metrics_csv)
+            pred_metrics_dict['CMB'] = pd.read_csv(cmb_metrics_csv, index_col=0)
             pred_census_im_dict['CMB'] = swarmplot_from_census(cmb_census_csv, 'CMB')
 
         # process

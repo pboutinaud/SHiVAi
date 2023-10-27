@@ -57,7 +57,7 @@ def make_report(
     vol_mm3_per_voxel = resolution[0] * resolution[1] * resolution[2]  # Should be 1.0 mm3 by default
     brain_vol *= vol_mm3_per_voxel
     pred_stat_dict = {}
-    for seg, stat_df in pred_metrics_dict:
+    for seg, stat_df in pred_metrics_dict.items():
         metrics = ['Region',
                    f'Number of {seg}',
                    f'Total volume of all {seg} (mm<sup>3</sup>)',
@@ -74,6 +74,7 @@ def make_report(
         stat_df['StD of the volume (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
         stat_df['Min volume (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
         stat_df['Max volume (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
+        stat_df.set_index('Region', inplace=True)
         stat_df_html = stat_df.to_html(justify='center', escape=False)
 
         with open(pred_census_im_dict[seg], 'rb') as f:

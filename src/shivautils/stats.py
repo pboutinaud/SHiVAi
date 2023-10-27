@@ -413,17 +413,20 @@ def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
 def swarmplot_from_census(census_csv: str, pred: str):
     census_df = pd.read_csv(census_csv)
     save_name = f'{pred}_census_plot.svg'
+    plt.ioff()
     if 'Region_names' not in census_df.columns:
-        ax = sns.swarmplot(census_df, y='Biomarker_size')
+        fig = plt.figure()
+        sns.swarmplot(census_df, y='Biomarker_size')
         plt.savefig(save_name, format='svg')
-        plt.show()
+        plt.close(fig)
     else:
         # Change all non-identified regions by "Other"
         FS_id = ['FreeSurfer_' in reg for reg in census_df['Region_names']]
         census_df.loc[FS_id, 'Region_names'] = 'Other'
-        ax = sns.swarmplot(census_df, y='Biomarker_size', hue='Region_names')
+        fig = plt.figure()
+        sns.swarmplot(census_df, y='Biomarker_size', hue='Region_names')
         plt.savefig(save_name, format='svg')
-        plt.show()
+        plt.close(fig)
     return os.path.abspath(save_name)
 
 

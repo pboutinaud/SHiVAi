@@ -12,7 +12,6 @@ from nipype.interfaces.utility import Function
 
 from shivautils.interfaces.image import Normalization
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
-from shivautils.workflows.preprocessing import make_output_dict
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
               "BASE_DIR": os.path.normpath(os.path.expanduser('~')),
@@ -36,7 +35,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.name = wf_name
 
     # file selection
-    datagrabber = workflow.get_node('dataGrabber')
+    datagrabber = workflow.get_node('datagrabber')
     datagrabber.inputs.outfields = ['t1', 'flair']
     datagrabber.inputs.template_args = {
         't1': [['subject_id', 't1']],

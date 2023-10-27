@@ -3,6 +3,8 @@
     Nipype workflow for image preprocessing, with conformation and preparation before AI segmentation.
     Defacing of native and final images. This also handles back-registration from
     conformed-crop to T1.
+
+    Its datagrabber requires to be connected to an outsite 'subject_id' from an iterable
 """
 import os
 
@@ -40,25 +42,17 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.base_dir = kwargs['BASE_DIR']
 
     # get a list of subjects to iterate on
-    subject_list = Node(
-        IdentityInterface(
-            fields=['subject_id'],
-            mandatory_inputs=True),
-        name="subject_list")
-    subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
     # file selection
     datagrabber = Node(DataGrabber(
         infields=['subject_id'],
         outfields=['t1']),
-        name='dataGrabber')
+        name='datagrabber')
     datagrabber.inputs.base_directory = kwargs['DATA_DIR']
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
     datagrabber.inputs.template = '%s/%s/*.nii*'
     datagrabber.inputs.template_args = {'t1': [['subject_id', 't1']]}
-
-    workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
 
     # conform t1 to 1 mm isotropic, freesurfer-style
     conform = Node(Conform(),

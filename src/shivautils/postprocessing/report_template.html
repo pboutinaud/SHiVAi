@@ -35,7 +35,7 @@
     <div class="table"></div>
     <h2> {{ pred_stat_dict[pred]['title'] }}</h2>
     {{pred_stat_dict[pred]['metrics_table'] | safe}}
-    <p>Brain volume: {{ pred_stat_dict[pred]['brain_volume'] }}</p>
+    <p>Brain volume: {{ pred_stat_dict[pred]['brain_volume'] }} mm<sup>3</sup></p>
     <p>Cluster threshold: {{ pred_stat_dict[pred]['cluster_threshold'] }}</p>
     <p>Cluster size filter: {{ pred_stat_dict[pred]['cluster_min_vol'] }}</p>
     <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ pred_stat_dict[pred]["census_figure"] }}'
@@ -69,7 +69,7 @@
         {% endif %}
     </div>
     {% if wf_graph %}
-    <h2>Preprocessing workflow diagram</h2>
+    <h2>Processing workflow diagram</h2>
     <p>Other input parameters: </p>
     <p>- "percentile" (as upper threshold during intensity normalisation): {{ percentile }}</p>
     <p>- "threshold" (to binarise estimated brain masks): {{ threshold }}</p>

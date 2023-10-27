@@ -113,14 +113,11 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_pvs.inputs.thr_cluster_size = kwargs['MIN_PVS_SIZE'] - 1  # "- 1 because thr removes up to given value"
         # TODO: This is when using only brainmask, we need synthseg for BG
         # if not synthseg:
+        prediction_metrics_pvs.inputs.brain_seg_type = 'brain_mask'
         prediction_metrics_pvs.inputs.region_list = ['Whole_brain']
         # else:
+        # prediction_metrics_pvs.inputs.brain_seg_type = 'synthseg'
         # prediction_metrics_pvs.inputs.region_list = ['Whole_brain', 'Basal_ganglia']
-        prediction_metrics_pvs_generale = JoinNode(Join_Prediction_metrics(),
-                                                   joinsource='subject_list',
-                                                   joinfield='csv_files',
-                                                   name="prediction_metrics_pvs_generale")
-        workflow.connect(prediction_metrics_pvs, 'biomarker_stats_csv', prediction_metrics_pvs_generale, 'csv_files')
 
     if 'WMH' in kwargs['PREDICTION']:
         preds.append('WMH')
@@ -129,12 +126,8 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_wmh.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
         prediction_metrics_wmh.inputs.thr_cluster_size = kwargs['MIN_WMH_SIZE'] - 1
         # if not synthseg:  # TODO
+        prediction_metrics_wmh.inputs.brain_seg_type = 'brain_mask'
         prediction_metrics_wmh.inputs.region_list = ['Whole_brain']
-        prediction_metrics_wmh_generale = JoinNode(Join_Prediction_metrics(),
-                                                   joinsource='subject_list',
-                                                   joinfield='csv_files',
-                                                   name="prediction_metrics_wmh_generale")
-        workflow.connect(prediction_metrics_wmh, 'biomarker_stats_csv', prediction_metrics_wmh_generale, 'csv_files')
 
     # if 'CMB' in kwargs['PREDICTION']:  # TODO
     #     preds.append('CMB')
@@ -142,7 +135,8 @@ def genWorkflow(**kwargs) -> Workflow:
     #                                   name="prediction_metrics_cmb")
     #     prediction_metrics_cmb.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
     #     prediction_metrics_cmb.inputs.thr_cluster_size = kwargs['MIN_CMB_SIZE'] - 1
-    #     # if not synthseg:
+    #     # if not synthseg:  # TODO
+    #     prediction_metrics_cmb.inputs.brain_seg_type = 'brain_mask'
     #     prediction_metrics_cmb.inputs.region_list = ['Whole_brain']
     #     prediction_metrics_cmb_generale = JoinNode(Join_Prediction_metrics(),
     #                                                joinsource='subject_list',
@@ -170,7 +164,7 @@ def genWorkflow(**kwargs) -> Workflow:
     qc_overlay_brainmask = Node(Function(input_names=['img_ref', 'brainmask'],
                                          output_names=['qc_overlay_brainmask_t1'],
                                          function=overlay_brainmask),
-                                name='overlay_brainmask')
+                                name='qc_overlay_brainmask')
 
     # Building the actual report (html then pdf)
     summary_report = Node(SummaryReport(), name="summary_report")
@@ -191,7 +185,7 @@ def genWorkflow(**kwargs) -> Workflow:
     summary_report.inputs.image_size = kwargs['IMAGE_SIZE']
     summary_report.inputs.resolution = kwargs['RESOLUTION']
     summary_report.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
-    summary_report.inputs.min_seg_size: {
+    summary_report.inputs.min_seg_size = {
         'PVS': kwargs['MIN_PVS_SIZE'],
         'WMH': kwargs['MIN_WMH_SIZE'],
         'CMB': kwargs['MIN_CMB_SIZE']}
