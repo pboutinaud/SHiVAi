@@ -3,13 +3,14 @@
 # from shivautils.workflows.SWI_postprocessing import genWorkflow as genWorkflowPostSWI
 # from shivautils.workflows.SWI_predict import genWorkflow as genWorkflowPredictSWI
 # from shivautils.workflows.SWI_preprocessing import genWorkflow as genWorkflowSWI
+from shivautils.interfaces.shiva import Predict
 from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
-from shivautils.workflows.predict import genWorkflow as genWorkflowPredict
+# from shivautils.workflows.predict import genWorkflow as genWorkflowPredict
 from shivautils.workflows.dual_predict import genWorkflow as genWorkflowDualPredict
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowDualPreproc
 from nipype import config
-from nipype.pipeline.engine import Workflow
+from nipype.pipeline.engine import Workflow, Node
 import os
 import argparse
 import json
@@ -339,9 +340,21 @@ def main():
     wf_post = genWorkflowPost(**wfargs)
     main_wf.add_nodes([wf_preproc, wf_post])
 
-    main_wf.connect(wf_preproc, 'preproc_out_node.preproc_out_dict', wf_post, 'post_proc_input_node.preproc_dict')
+    # main_wf.connect(wf_preproc, 'preproc_out_node.preproc_out_dict', wf_post, 'post_proc_input_node.preproc_dict')
 
     # Then prediction workflows and their connections
+    if 'PVS' in args.prediction or 'PVS2' in args.prediction:
+        pvs_predictor_node = Node(Predict(), name=f"predict_pvs")
+        pvs_predictor_node.inputs.out_filename = 'pvs_map.nii.gz'
+        pvs_predictor_node.inputs.model = kwargs['MODELS_PATH']
+        if dual:
+            pvs_predictor_node.inputs.descriptor = kwargs['PVS2_DESCRIPTOR']
+            main_wf.connect(wf_preproc, 'flair_norm.intensity_normalized', pvs_predictor_node, "t1")
+        else:
+            pvs_predictor_node.inputs.descriptor = kwargs['PVS_DESCRIPTOR']
+        main_wf.connect(wf_preproc, 't1_norm.intensity_normalized', pvs_predictor_node, "t1")
+
+    workflow.connect(input_node, "t1", predictor_node, "t1")
     for PRED in args.prediction:
         biomarker = PRED.lower()
         if biomarker == 'pvs2':
