@@ -38,6 +38,8 @@ def genWorkflow(**kwargs) -> Workflow:
         workflow
     """
     wf_name = 'shiva_preprocessing'
+    if 'wf_name' in kwargs.keys():
+        wf_name = kwargs['wf_name']
     workflow = Workflow(wf_name)
     workflow.base_dir = kwargs['BASE_DIR']
 
@@ -46,7 +48,7 @@ def genWorkflow(**kwargs) -> Workflow:
     # file selection
     datagrabber = Node(DataGrabber(
         infields=['subject_id'],
-        outfields=['t1', 'flair']),  # TODO: swi cmb
+        outfields=['t1', 'flair', 'swi']),  # TODO: swi cmb
         name='datagrabber')
     datagrabber.inputs.base_directory = kwargs['DATA_DIR']
     datagrabber.inputs.raise_on_empty = True

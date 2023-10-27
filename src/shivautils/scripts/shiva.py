@@ -225,27 +225,19 @@ def check_input_for_pred(wfargs):
             raise FileNotFoundError(errormsg)
 
 
-def update_wf_grabber(wf, data_struct, dual):
+def update_wf_grabber(wf, data_struct, acquisitions):
     """Updates the workflow datagrabber to work with the different types on input
     """
     datagrabber = wf.get_node('datagrabber')
-
+    temp = {acq: f'%s/anat/%s_{acq.upper()}_raw.nii.gz' for acq in acquisitions}
+    temp2 = {acq: [['subject_id', 'subject_id']] for acq in acquisitions}
     if data_struct in ['standard', 'json']:
-        if dual:
-            datagrabber.inputs.field_template = {'t1': '%s/%s/*_raw.nii.gz',
-                                                 'flair': '%s/%s/*_raw.nii.gz'}
-            datagrabber.inputs.template_args = {'t1': [['subject_id', 't1']],
-                                                'flair': [['subject_id', 'flair']]}
-        else:
-            datagrabber.inputs.field_template = {'t1': '%s/%s/*_raw.nii.gz'}
-            datagrabber.inputs.template_args = {'t1': [['subject_id', 't1']]}
+        datagrabber.inputs.field_template = {acq: '%s/%s/*_raw.nii.gz' for acq in acquisitions}
+        datagrabber.inputs.template_args = {acq: [['subject_id', acq]] for acq in acquisitions}
 
     if data_struct == 'BIDS':
-        if dual:
-            datagrabber.inputs.field_template = {'t1': '%s/anat/%s_T1_raw.nii.gz',
-                                                 'flair': '%s/anat/%s_FLAIR_raw.nii.gz'}
-            datagrabber.inputs.template_args = {'t1': [['subject_id', 'subject_id']],
-                                                'flair': [['subject_id', 'subject_id']]}
+        datagrabber.inputs.field_template = {acq: f'%s/anat/%s_{acq.upper()}_raw.nii.gz' for acq in acquisitions}
+        datagrabber.inputs.template_args = {acq: [['subject_id', 'subject_id']] for acq in acquisitions}
         else:
             datagrabber.inputs.field_template = {'t1': '%s/anat/%s_T1_raw.nii.gz'}
             datagrabber.inputs.template_args = {'t1': [['subject_id', 'subject_id']]}
@@ -290,7 +282,7 @@ def main():
         pvs2_descriptor = os.path.join(args.model, args.pvs2_descriptor)
         cmb_descriptor = os.path.join(args.model, args.cmb_descriptor)
 
-    if args.prediction == ['PVS']:
+    if args.prediction == ['PVS'] or args.prediction == ['CMB']:
         dual = False
     elif 'PVS2' in args.prediction or 'WMH' in args.prediction:
         dual = True
@@ -340,19 +332,25 @@ def main():
     subject_iterator.iterables = ('subject_id', wfargs['SUBJECT_LIST'])
 
     # First, preproc and postproc
-    if dual:
-        wf_preproc = genWorkflowDualPreproc(**wfargs)
-    else:
-        wf_preproc = genWorkflowPreproc(**wfargs)
-    wf_preproc = update_wf_grabber(wf_preproc, args.input_type, dual)
-    wf_preproc.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-    # wf_preproc.write_graph(graph2use='exec', dotfilename='graph.svg', format='svg')
+    if any(pred in args.prediction for pred in ['PVS', 'PVS2', 'WMH']):
+        if dual:
+            wf_preproc = genWorkflowDualPreproc(**wfargs, wf_name='shiva_mono_preprocessing')
+            acquisitions = ['t1', 'flair']
+        else:
+            wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_dual_preprocessing')
+            acquisitions = ['t1']
+        wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions)
+        if 'CMB' in args.prediction:
+            wf_preproc_cmb = genWorkflowPreproc(**wfargs, wf_name='shiva_cmb_preprocessing')
+            wf_preproc_cmb = update_wf_grabber(wf_preproc_cmb, args.input_type, ['swi'])
+    elif args.prediction == ['CMB']  # only CMB pred
+        wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_cmb_preprocessing')
+        wf_preproc = update_wf_grabber(wf_preproc, args.input_type, ['swi'])
 
     wf_post = genWorkflowPost(**wfargs)
     main_wf.add_nodes([wf_preproc, wf_post])
 
     # All connections between preproc and postproc
-
     main_wf.connect(subject_iterator, 'subject_id', wf_preproc, 'datagrabber.subject_id')
     main_wf.connect(subject_iterator, 'subject_id', wf_post, 'summary_report.subject_id')
     main_wf.connect(wf_preproc, 'conform.resampled', wf_post, 'qc_crop_box.img_apply_to')
@@ -382,6 +380,7 @@ def main():
         main_wf.connect(wf_preproc, 't1_final_intensity_normalization.intensity_normalized', pvs_predictor_node, "t1")
         main_wf.connect(pvs_predictor_node, 'segmentation', wf_post, 'prediction_metrics_pvs.img')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_pvs.brain_seg')  # TODO: SynthSeg
+        # Merge all csv files
         prediction_metrics_pvs_all = JoinNode(Join_Prediction_metrics(),
                                               joinsource=subject_iterator,
                                               joinfield=['csv_files', 'subject_id'],
@@ -399,6 +398,7 @@ def main():
         main_wf.connect(wf_preproc, 'flair_final_intensity_normalization.intensity_normalized', wmh_predictor_node, "flair")
         main_wf.connect(wmh_predictor_node, 'segmentation', wf_post, 'prediction_metrics_wmh.img')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_wmh.brain_seg')  # TODO: SynthSeg
+        # Merge all csv files
         prediction_metrics_wmh_all = JoinNode(Join_Prediction_metrics(),
                                               joinsource=subject_iterator,
                                               joinfield=['csv_files', 'subject_id'],
@@ -415,6 +415,7 @@ def main():
         main_wf.connect(wf_preproc, 't1_final_intensity_normalization.intensity_normalized', cmb_predictor_node, "t1")  # TODO: adapt to actual preproc and inputs
         main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'prediction_metrics_cmb.img')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_cmb.brain_seg')  # TODO: SynthSeg
+        # Merge all csv files
         prediction_metrics_cmb_all = JoinNode(Join_Prediction_metrics(),
                                               joinsource=subject_iterator,
                                               joinfield=['csv_files', 'subject_id'],
