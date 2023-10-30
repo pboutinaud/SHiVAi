@@ -53,11 +53,11 @@
         <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ bounding_crop }}' width="600"
             height="400"></object>
 
-        {% if qc_overlay_brainmask_t1 %}
+        {% if overlayed_brainmask_1 %}
         <h2>Overlay of final brainmask over cropped {{ modality }}</h2>
         <p>Overlay of the brainmask on {{ modality }} image: {{ image_size }} voxels at {{ resolution }} mm<sup>3</sup>,
             (with censoring for voxels outside the brain mask)</p>
-        <img src='data:image/png;base64, {{ qc_overlay_brainmask_t1 }}' width="600" height="300">
+        <img src='data:image/png;base64, {{ overlayed_brainmask_1 }}' width="600" height="300">
         {% endif %}
 
         {% if isocontour_slides_FLAIR_T1 %}
@@ -67,6 +67,14 @@
             mask)</p>
         <img src='data:image/png;base64, {{ isocontour_slides_FLAIR_T1 }}' width="600" height="300">
         {% endif %}
+
+        {% if overlayed_brainmask_2 %}
+        <h2>Overlay of final brainmask over cropped SWI</h2>
+        <p>Overlay of the brainmask on SWI image: {{ image_size }} voxels at {{ resolution }} mm<sup>3</sup>,
+            (with censoring for voxels outside the brain mask)</p>
+        <img src='data:image/png;base64, {{ overlayed_brainmask_2 }}' width="600" height="300">
+        {% endif %}
+
     </div>
     {% if wf_graph %}
     <h2>Processing workflow diagram</h2>

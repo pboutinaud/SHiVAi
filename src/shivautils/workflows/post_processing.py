@@ -157,9 +157,15 @@ def genWorkflow(**kwargs) -> Workflow:
         qc_coreg_FLAIR_T1.inputs.nb_of_slices = 5  # Should be enough
 
     qc_overlay_brainmask = Node(Function(input_names=['img_ref', 'brainmask'],
-                                         output_names=['qc_overlay_brainmask_t1'],
+                                         output_names=['overlayed_brainmask'],
                                          function=overlay_brainmask),
                                 name='qc_overlay_brainmask')
+
+    if 'CMB' in kwargs['PREDICTION'] and not kwargs['PREDICTION'] == ['CMB']:
+        qc_overlay_brainmask_swi = Node(Function(input_names=['img_ref', 'brainmask'],
+                                                 output_names=['overlayed_brainmask'],
+                                                 function=overlay_brainmask),
+                                        name='qc_overlay_brainmask_swi')
 
     # Building the actual report (html then pdf)
     summary_report = Node(SummaryReport(), name="summary_report")
@@ -187,7 +193,9 @@ def genWorkflow(**kwargs) -> Workflow:
     summary_report.inputs.pred_list = preds
 
     workflow.connect(qc_crop_box, 'crop_brain_img', summary_report, 'crop_brain_img')
-    workflow.connect(qc_overlay_brainmask, 'qc_overlay_brainmask_t1', summary_report, 'qc_overlay_brainmask_t1')
+    workflow.connect(qc_overlay_brainmask, 'overlayed_brainmask', summary_report, 'overlayed_brainmask_1')
+    if 'CMB' in kwargs['PREDICTION'] and not kwargs['PREDICTION'] == ['CMB']:
+        workflow.connect(qc_overlay_brainmask_swi, 'overlayed_brainmask', summary_report, 'overlayed_brainmask_2')
     if 'PVS2' in kwargs['PREDICTION'] or 'WMH' in kwargs['PREDICTION']:
         workflow.connect(qc_coreg_FLAIR_T1, 'qc_coreg', summary_report, 'isocontour_slides_FLAIR_T1')
 

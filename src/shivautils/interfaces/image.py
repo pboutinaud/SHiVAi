@@ -884,7 +884,12 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
                                              mandatory=False,
                                              desc='PNG file of the FLAIR isocontour on T1 (QC of coregistration)')
 
-    qc_overlay_brainmask_t1 = traits.File(desc='PNG file of the final brain mask on T1')
+    overlayed_brainmask_1 = traits.File(desc='PNG file of the final brain mask on first acquisition (T1 or SWI)')
+
+    overlayed_brainmask_2 = traits.File(None,
+                                        usedefault=True,
+                                        mandatory=False,
+                                        desc='PNG file of the final brain mask on second independent acquisition (SWI)')
 
     wf_graph = traits.File(desc='SVG file of the workflow graph')
 
@@ -902,10 +907,6 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
                                    desc='Threshold used to binarise the predictions')
     min_seg_size = traits.Dict(key_trait=traits.Str, value_trait=traits.Int,
                                desc='Dictionary holding the minimal size set to filter segmented biomarkers')
-
-    qc_overlay_brainmask_t1 = traits.File(False,
-                                          mandatory=False,
-                                          desc="quality control of coregistration isocontour slides brainmask on T1")
 
 
 class SummaryReportOutputSpec(TraitedSpec):
@@ -937,54 +938,38 @@ class SummaryReport(BaseInterface):
             subject_id = None
         else:
             subject_id = self.inputs.subject_id
-        pvs_metrics_csv = self.inputs.pvs_metrics_csv
-        wmh_metrics_csv = self.inputs.wmh_metrics_csv
-        cmb_metrics_csv = self.inputs.cmb_metrics_csv
-        pvs_census_csv = self.inputs.pvs_census_csv
-        wmh_census_csv = self.inputs.wmh_census_csv
-        cmb_census_csv = self.inputs.cmb_census_csv
-        pred_list = self.inputs.pred_list
-        brainmask = self.inputs.brainmask
-        crop_brain_img = self.inputs.crop_brain_img
-        isocontour_slides_FLAIR_T1 = self.inputs.isocontour_slides_FLAIR_T1
-        qc_overlay_brainmask_t1 = self.inputs.qc_overlay_brainmask_t1
-        wf_graph = self.inputs.wf_graph
-        percentile = self.inputs.percentile
-        threshold = self.inputs.threshold
-        image_size = self.inputs.image_size
-        resolution = self.inputs.resolution
-        thr_cluster_val = self.inputs.thr_cluster_val
-        min_seg_size = self.inputs.min_seg_size
 
-        brain_vol = nib.load(brainmask).get_fdata().astype(bool).sum()
+        brain_vol = nib.load(self.inputs.brainmask).get_fdata().astype(bool).sum()
         pred_metrics_dict = {}  # Will contain the stats dataframe for each biomarker
         pred_census_im_dict = {}  # Will contain the path to the swarmplot for each biomarker
+        pred_list = self.inputs.pred_list
         if 'PVS' in pred_list:
-            pred_metrics_dict['PVS'] = pd.read_csv(pvs_metrics_csv, index_col=0)
-            pred_census_im_dict['PVS'] = swarmplot_from_census(pvs_census_csv, 'PVS')
+            pred_metrics_dict['PVS'] = pd.read_csv(self.inputs.pvs_metrics_csv, index_col=0)
+            pred_census_im_dict['PVS'] = swarmplot_from_census(self.inputs.pvs_census_csv, 'PVS')
         if 'WMH' in pred_list:
-            pred_metrics_dict['WMH'] = pd.read_csv(wmh_metrics_csv, index_col=0)
-            pred_census_im_dict['WMH'] = swarmplot_from_census(wmh_census_csv, 'WMH')
+            pred_metrics_dict['WMH'] = pd.read_csv(self.inputs.wmh_metrics_csv, index_col=0)
+            pred_census_im_dict['WMH'] = swarmplot_from_census(self.inputs.wmh_census_csv, 'WMH')
         if 'CMB' in pred_list:
-            pred_metrics_dict['CMB'] = pd.read_csv(cmb_metrics_csv, index_col=0)
-            pred_census_im_dict['CMB'] = swarmplot_from_census(cmb_census_csv, 'CMB')
+            pred_metrics_dict['CMB'] = pd.read_csv(self.inputs.cmb_metrics_csv, index_col=0)
+            pred_census_im_dict['CMB'] = swarmplot_from_census(self.inputs.cmb_census_csv, 'CMB')
 
         # process
         summary_report = make_report(
             pred_metrics_dict=pred_metrics_dict,
             pred_census_im_dict=pred_census_im_dict,
             brain_vol=brain_vol,
-            thr_cluster_val=thr_cluster_val,
-            min_seg_size=min_seg_size,
-            bounding_crop_path=crop_brain_img,
-            qc_overlay_brainmask_t1=qc_overlay_brainmask_t1,
-            isocontour_slides_FLAIR_T1=isocontour_slides_FLAIR_T1,
+            thr_cluster_val=self.inputs.thr_cluster_val,
+            min_seg_size=self.inputs.min_seg_size,
+            bounding_crop_path=self.inputs.crop_brain_img,
+            overlayed_brainmask_1=self.inputs.overlayed_brainmask_1,
+            overlayed_brainmask_2=self.inputs.overlayed_brainmask_2,
+            isocontour_slides_FLAIR_T1=self.inputs.isocontour_slides_FLAIR_T1,
             subject_id=subject_id,
-            image_size=image_size,
-            resolution=resolution,
-            percentile=percentile,
-            threshold=threshold,
-            wf_graph=wf_graph
+            image_size=self.inputs.image_size,
+            resolution=self.inputs.resolution,
+            percentile=self.inputs.percentile,
+            threshold=self.inputs.threshold,
+            wf_graph=self.inputs.wf_graph
         )
 
         with open('summary_report.html', 'w', encoding='utf-8') as fid:

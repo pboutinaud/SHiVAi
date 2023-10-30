@@ -10,7 +10,8 @@ def make_report(
         thr_cluster_val: float,
         min_seg_size: dict,
         bounding_crop_path: str,
-        qc_overlay_brainmask_t1: str = None,
+        overlayed_brainmask_1: str = None,
+        overlayed_brainmask_2: str = None,
         isocontour_slides_FLAIR_T1: str = None,
         subject_id: int = None,
         image_size: tuple = (160, 214, 176),
@@ -35,7 +36,8 @@ def make_report(
         thr_cluster_val (float): Threshold applied to raw predictions to binarise them
         min_seg_size (dict): Dict holding the minimal size used to filter each type of biomarker segmentation 
         bounding_crop_path (path): PNG file showing the crop box.
-        qc_overlay_brainmask_t1 (path): SVG file of cropping box with overlay brainmask
+        overlayed_brainmask_1 (path): SVG file of cropping box with overlay brainmask
+        overlayed_brainmask_2 (path): SVG file of cropping box with overlay brainmask (for SWI if done at the same time as non-CMB predictions)
         isocontour_slides_FLAIR_T1 (path): PNG file with the reference image in the background and the edges of the given image on top
         subject_id (int): Participant identificator
         image_size (tuple): Final image dimensions
@@ -95,10 +97,15 @@ def make_report(
         modality = 'T1w'
 
     # Conversion of images in base64 objects
-    if qc_overlay_brainmask_t1 is not None:
-        with open(qc_overlay_brainmask_t1, 'rb') as f:
+    if overlayed_brainmask_1 is not None:
+        with open(overlayed_brainmask_1, 'rb') as f:
             image_data = f.read()
-        qc_overlay_brainmask_t1 = base64.b64encode(image_data).decode()
+        overlayed_brainmask_1 = base64.b64encode(image_data).decode()
+
+    if overlayed_brainmask_2 is not None:
+        with open(overlayed_brainmask_2, 'rb') as f:
+            image_data = f.read()
+        overlayed_brainmask_2 = base64.b64encode(image_data).decode()
 
     with open(bounding_crop_path, 'rb') as f:
         image_data = f.read()
@@ -120,7 +127,8 @@ def make_report(
     filled_template_report = tm.render(
         data_origin=subject_id,
         pred_stat_dict=pred_stat_dict,
-        qc_overlay_brainmask_t1=qc_overlay_brainmask_t1,
+        overlayed_brainmask_1=overlayed_brainmask_1,
+        overlayed_brainmask_2=overlayed_brainmask_2,
         bounding_crop=bounding_crop,
         modality=modality,
         image_size=image_size,

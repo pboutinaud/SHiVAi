@@ -351,6 +351,8 @@ def main():
     main_wf.add_nodes([wf_preproc, wf_post])
     if 'CMB' in args.prediction and not args.prediction == ['CMB']:
         main_wf.add_nodes([wf_preproc_cmb])
+        main_wf.connect(wf_preproc_cmb, 'hard_post_brain_mask.thresholded', wf_post, 'qc_overlay_brainmask_swi.brainmask')
+        main_wf.connect(wf_preproc_cmb, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'qc_overlay_brainmask_swi.img_ref')
 
     # All connections between preproc and postproc
     main_wf.connect(subject_iterator, 'subject_id', wf_preproc, 'datagrabber.subject_id')
