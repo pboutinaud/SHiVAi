@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-"""Nipype workflow for DICOM to NII image conversion, conformation and preparation before deep
-   learning, with accessory image coregistation to cropped space (through ANTS),
+"""Add accessory image (flair) coregistation to cropped space (through ANTS),
    and defacing of native and final images. This also handles back-registration from
    conformed-crop to t1.
    """
