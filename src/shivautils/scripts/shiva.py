@@ -237,12 +237,12 @@ def update_wf_grabber(wf, data_struct, acquisitions):
     datagrabber = wf.get_node('datagrabber')
     if data_struct in ['standard', 'json']:
         # e.g: {'img1': '%s/t1/%s_T1_raw.nii.gz'}
-        datagrabber.inputs.field_template = {acq[0]: f'%s/{acq[1]}/*_raw.nii.gz' for acq in acquisitions}
+        datagrabber.inputs.field_template = {acq[0]: f'%s/{acq[1]}/*_raw.nii*' for acq in acquisitions}
         datagrabber.inputs.template_args = {acq[0]: [['subject_id']] for acq in acquisitions}
 
     if data_struct == 'BIDS':
         # e.g: {'img1': '%s/anat/%s_T1_raw.nii.gz}
-        datagrabber.inputs.field_template = {acq[0]: f'%s/anat/%s_{acq[1].upper()}_raw.nii.gz' for acq in acquisitions}
+        datagrabber.inputs.field_template = {acq[0]: f'%s/anat/%s_{acq[1].upper()}_raw.nii*' for acq in acquisitions}
         datagrabber.inputs.template_args = {acq[0]: [['subject_id', 'subject_id']] for acq in acquisitions}
     return wf
 
@@ -356,6 +356,7 @@ def main():
     main_wf.add_nodes([wf_preproc, wf_post])
     if 'CMB' in args.prediction and not args.prediction == ['CMB']:
         main_wf.add_nodes([wf_preproc_cmb])
+        main_wf.connect(subject_iterator, 'subject_id', wf_preproc_cmb, 'datagrabber.subject_id')
         main_wf.connect(wf_preproc_cmb, 'hard_post_brain_mask.thresholded', wf_post, 'qc_overlay_brainmask_swi.brainmask')
         main_wf.connect(wf_preproc_cmb, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'qc_overlay_brainmask_swi.img_ref')
 
@@ -396,7 +397,7 @@ def main():
         if 'CMB' in args.prediction:
             main_wf.connect(wf_preproc_cmb, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'swi_preproc')
             main_wf.connect(wf_preproc_cmb, 'hard_post_brain_mask.thresholded', sink_node_subjects, 'swi_preproc.brain_mask')
-            main_wf.connect(wf_preproc_cmb, 'crop.bbox1_file', sink_node_subjects, 'swi_preproc')
+            main_wf.connect(wf_preproc_cmb, 'crop.bbox1_file', sink_node_subjects, 'swi_preproc.@bb1')
             main_wf.connect(wf_preproc_cmb, 'crop.bbox2_file', sink_node_subjects, 'swi_preproc.@bb2')
             main_wf.connect(wf_preproc_cmb, 'crop.cdg_ijk_file', sink_node_subjects, 'swi_preproc.@cdg')
     elif args.prediction == ['CMB']:
