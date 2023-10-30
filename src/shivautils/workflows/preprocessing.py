@@ -89,7 +89,7 @@ def genWorkflow(**kwargs) -> Workflow:
     pre_brain_mask.inputs.out_filename = 'pre_brain_mask.nii.gz'
 
     workflow.connect(preconf_normalization, 'intensity_normalized',
-                     pre_brain_mask, 'img1')
+                     pre_brain_mask, 't1')
 
     # send mask from preconformed space to
     # conformed space 256 256 256, same as anatomical conformed image
@@ -143,7 +143,7 @@ def genWorkflow(**kwargs) -> Workflow:
     post_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
     post_brain_mask.inputs.out_filename = 'post_brain_mask.nii.gz'
     workflow.connect(crop_normalized, 'cropped',
-                     post_brain_mask, 'img1')
+                     post_brain_mask, 't1')
 
     # binarize post brain mask
     hard_post_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="hard_post_brain_mask")
