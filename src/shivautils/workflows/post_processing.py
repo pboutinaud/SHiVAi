@@ -129,15 +129,15 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_wmh.inputs.brain_seg_type = 'brain_mask'
         prediction_metrics_wmh.inputs.region_list = ['Whole_brain']
 
-    # if 'CMB' in kwargs['PREDICTION']:  # TODO
-    #     preds.append('CMB')
-    #     prediction_metrics_cmb = Node(Regionwise_Prediction_metrics(),
-    #                                   name="prediction_metrics_cmb")
-    #     prediction_metrics_cmb.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
-    #     prediction_metrics_cmb.inputs.thr_cluster_size = kwargs['MIN_CMB_SIZE'] - 1
-    #     # if not synthseg:  # TODO
-    #     prediction_metrics_cmb.inputs.brain_seg_type = 'brain_mask'
-    #     prediction_metrics_cmb.inputs.region_list = ['Whole_brain']
+    if 'CMB' in kwargs['PREDICTION']:
+        preds.append('CMB')
+        prediction_metrics_cmb = Node(Regionwise_Prediction_metrics(),
+                                      name="prediction_metrics_cmb")
+        prediction_metrics_cmb.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
+        prediction_metrics_cmb.inputs.thr_cluster_size = kwargs['MIN_CMB_SIZE'] - 1
+        # if not synthseg:  # TODO
+        prediction_metrics_cmb.inputs.brain_seg_type = 'brain_mask'
+        prediction_metrics_cmb.inputs.region_list = ['Whole_brain']
 
     # QC part
     qc_crop_box = Node(Function(input_names=['img_apply_to',

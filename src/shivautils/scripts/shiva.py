@@ -238,9 +238,6 @@ def update_wf_grabber(wf, data_struct, acquisitions):
     if data_struct == 'BIDS':
         datagrabber.inputs.field_template = {acq: f'%s/anat/%s_{acq.upper()}_raw.nii.gz' for acq in acquisitions}
         datagrabber.inputs.template_args = {acq: [['subject_id', 'subject_id']] for acq in acquisitions}
-        else:
-            datagrabber.inputs.field_template = {'t1': '%s/anat/%s_T1_raw.nii.gz'}
-            datagrabber.inputs.template_args = {'t1': [['subject_id', 'subject_id']]}
     return wf
 
 
@@ -340,15 +337,17 @@ def main():
             wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_dual_preprocessing')
             acquisitions = ['t1']
         wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions)
-        if 'CMB' in args.prediction:
+        if 'CMB' in args.prediction:  # TODO: to include in the normal preproc by getting the T1 to SWI transform and getting the mask and crop-box
             wf_preproc_cmb = genWorkflowPreproc(**wfargs, wf_name='shiva_cmb_preprocessing')
             wf_preproc_cmb = update_wf_grabber(wf_preproc_cmb, args.input_type, ['swi'])
-    elif args.prediction == ['CMB']  # only CMB pred
+    elif args.prediction == ['CMB']:  # only CMB pred
         wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_cmb_preprocessing')
         wf_preproc = update_wf_grabber(wf_preproc, args.input_type, ['swi'])
 
     wf_post = genWorkflowPost(**wfargs)
     main_wf.add_nodes([wf_preproc, wf_post])
+    if 'CMB' in args.prediction and not args.prediction == ['CMB']:
+        main_wf.add_nodes([wf_preproc_cmb])
 
     # All connections between preproc and postproc
     main_wf.connect(subject_iterator, 'subject_id', wf_preproc, 'datagrabber.subject_id')
@@ -359,11 +358,11 @@ def main():
     main_wf.connect(wf_preproc, 'crop.bbox2', wf_post, 'qc_crop_box.bbox2')
     main_wf.connect(wf_preproc, 'crop.cdg_ijk', wf_post, 'qc_crop_box.cdg_ijk')
     main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'qc_overlay_brainmask.brainmask')
-    main_wf.connect(wf_preproc, 't1_final_intensity_normalization.intensity_normalized', wf_post, 'qc_overlay_brainmask.img_ref')
+    main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'qc_overlay_brainmask.img_ref')
     main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'summary_report.brainmask')
     if dual:
         main_wf.connect(wf_preproc, 'flair_final_intensity_normalization.intensity_normalized', wf_post, 'qc_coreg_FLAIR_T1.path_image')
-        main_wf.connect(wf_preproc, 't1_final_intensity_normalization.intensity_normalized', wf_post, 'qc_coreg_FLAIR_T1.path_ref_image')
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'qc_coreg_FLAIR_T1.path_ref_image')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'qc_coreg_FLAIR_T1.path_brainmask')
 
     # Then prediction nodes and their connections
@@ -377,7 +376,7 @@ def main():
             main_wf.connect(wf_preproc, 'flair_final_intensity_normalization.intensity_normalized', pvs_predictor_node, "flair")
         else:
             pvs_predictor_node.inputs.descriptor = wfargs['PVS_DESCRIPTOR']
-        main_wf.connect(wf_preproc, 't1_final_intensity_normalization.intensity_normalized', pvs_predictor_node, "t1")
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', pvs_predictor_node, "t1")
         main_wf.connect(pvs_predictor_node, 'segmentation', wf_post, 'prediction_metrics_pvs.img')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_pvs.brain_seg')  # TODO: SynthSeg
         # Merge all csv files
@@ -394,7 +393,7 @@ def main():
         wmh_predictor_node.inputs.out_filename = 'wmh_map.nii.gz'
         wmh_predictor_node.inputs.model = wfargs['MODELS_PATH']
         wmh_predictor_node.inputs.descriptor = wfargs['WMH_DESCRIPTOR']
-        main_wf.connect(wf_preproc, 't1_final_intensity_normalization.intensity_normalized', wmh_predictor_node, "t1")
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wmh_predictor_node, "t1")
         main_wf.connect(wf_preproc, 'flair_final_intensity_normalization.intensity_normalized', wmh_predictor_node, "flair")
         main_wf.connect(wmh_predictor_node, 'segmentation', wf_post, 'prediction_metrics_wmh.img')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_wmh.brain_seg')  # TODO: SynthSeg
@@ -412,16 +411,24 @@ def main():
         cmb_predictor_node.inputs.out_filename = 'cmb_map.nii.gz'
         cmb_predictor_node.inputs.model = wfargs['MODELS_PATH']
         cmb_predictor_node.inputs.descriptor = wfargs['CMB_DESCRIPTOR']
-        main_wf.connect(wf_preproc, 't1_final_intensity_normalization.intensity_normalized', cmb_predictor_node, "t1")  # TODO: adapt to actual preproc and inputs
-        main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'prediction_metrics_cmb.img')
-        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_cmb.brain_seg')  # TODO: SynthSeg
-        # Merge all csv files
         prediction_metrics_cmb_all = JoinNode(Join_Prediction_metrics(),
                                               joinsource=subject_iterator,
                                               joinfield=['csv_files', 'subject_id'],
                                               name="prediction_metrics_cmb_all")
-        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', prediction_metrics_cmb_all, 'csv_files')
-        main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_cmb_all, 'subject_id')
+        if args.prediction == ['CMB']:
+            main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', cmb_predictor_node, "swi")
+            main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'prediction_metrics_cmb.img')
+            main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_cmb.brain_seg')  # TODO: SynthSeg
+            # Merge all csv files
+            main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', prediction_metrics_cmb_all, 'csv_files')
+            main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_cmb_all, 'subject_id')
+        else:
+            main_wf.connect(wf_preproc_cmb, 'img1_final_intensity_normalization.intensity_normalized', cmb_predictor_node, "swi")
+            main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'prediction_metrics_cmb.img')
+            main_wf.connect(wf_preproc_cmb, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_cmb.brain_seg')  # TODO: SynthSeg
+            # Merge all csv files
+            main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', prediction_metrics_cmb_all, 'csv_files')
+            main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_cmb_all, 'subject_id')
 
     wf_graph = main_wf.write_graph(graph2use='hierarchical', dotfilename='graph.svg', format='svg')
     wf_post.get_node('summary_report').inputs.wf_graph = os.path.abspath(wf_graph)
