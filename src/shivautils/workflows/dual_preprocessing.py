@@ -34,10 +34,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # file selection
     datagrabber = workflow.get_node('datagrabber')
-    datagrabber.inputs.outfields = ['t1', 'flair']
-    datagrabber.inputs.template_args = {
-        't1': [['subject_id', 't1']],
-        'flair': [['subject_id', 'flair']]}
+    datagrabber.inputs.outfields = ['img1', 'img2']
 
     # compute 6-dof coregistration parameters of accessory scan
     # to cropped t1 image
@@ -63,7 +60,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     crop = workflow.get_node('crop')
     hard_post_brain_mask = workflow.get_node('hard_post_brain_mask')
-    workflow.connect(datagrabber, "flair",
+    workflow.connect(datagrabber, "img2",
                      coreg, 'moving_image')
     workflow.connect(crop, 'cropped',
                      coreg, 'fixed_image')
@@ -71,23 +68,23 @@ def genWorkflow(**kwargs) -> Workflow:
                      coreg, 'fixed_image_masks')
 
     # write mask to flair in native space
-    mask_to_flair = Node(ants.ApplyTransforms(), name="mask_to_flair")
-    mask_to_flair.inputs.interpolation = 'NearestNeighbor'
-    mask_to_flair.inputs.invert_transform_flags = [True]
+    mask_to_img2 = Node(ants.ApplyTransforms(), name="mask_to_img2")
+    mask_to_img2.inputs.interpolation = 'NearestNeighbor'
+    mask_to_img2.inputs.invert_transform_flags = [True]
 
     workflow.connect(coreg, 'forward_transforms',
-                     mask_to_flair, 'transforms')
+                     mask_to_img2, 'transforms')
     workflow.connect(hard_post_brain_mask, 'thresholded',
-                     mask_to_flair, 'input_image')
-    workflow.connect(datagrabber, 'flair',
-                     mask_to_flair, 'reference_image')
+                     mask_to_img2, 'input_image')
+    workflow.connect(datagrabber, 'img2',
+                     mask_to_img2, 'reference_image')
 
     # Intensity normalize coregistered image for tensorflow (ENDPOINT 2)
-    flair_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="flair_final_intensity_normalization")
+    img2_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="img2_final_intensity_normalization")
     workflow.connect(coreg, 'warped_image',
-                     flair_norm, 'input_image')
+                     img2_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
-                     flair_norm, 'brain_mask')
+                     img2_norm, 'brain_mask')
 
     return workflow
 
