@@ -285,10 +285,10 @@ def main():
         pvs2_descriptor = os.path.join(args.model, args.pvs2_descriptor)
         cmb_descriptor = os.path.join(args.model, args.cmb_descriptor)
 
-    if args.prediction == ['PVS'] or args.prediction == ['CMB']:
-        dual = False
-    elif 'PVS2' in args.prediction or 'WMH' in args.prediction:
+    if 'PVS2' in args.prediction or 'WMH' in args.prediction:
         dual = True
+    else:
+        dual = False
 
     wfargs = {
         'SUB_WF': True,  # Denotes that the workflows are stringed together
@@ -338,10 +338,10 @@ def main():
     if any(pred in args.prediction for pred in ['PVS', 'PVS2', 'WMH']):
         if dual:
             acquisitions = [('img1', 't1'), ('img2', 'flair')]
-            wf_preproc = genWorkflowDualPreproc(**wfargs, wf_name='shiva_mono_preprocessing')
+            wf_preproc = genWorkflowDualPreproc(**wfargs, wf_name='shiva_dual_preprocessing')
         else:
             acquisitions = [('img1', 't1')]
-            wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_dual_preprocessing')
+            wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_mono_preprocessing')
         wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions)
         if 'CMB' in args.prediction:
             acquisitions_cmb = [('img1', 'swi')]
