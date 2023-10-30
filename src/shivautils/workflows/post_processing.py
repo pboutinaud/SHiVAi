@@ -176,8 +176,9 @@ def genWorkflow(**kwargs) -> Workflow:
     if 'WMH' in kwargs['PREDICTION']:
         workflow.connect(prediction_metrics_wmh, 'biomarker_stats_csv', summary_report, 'wmh_metrics_csv')
         workflow.connect(prediction_metrics_wmh, 'biomarker_census_csv', summary_report, 'wmh_census_csv')
-    # if 'CMB' in kwargs['PREDICTION']:  # TODO: Add SWI
-    #     workflow.connect(prediction_metrics_cmb, 'biomarker_stats_csv', summary_report, 'cmb_metrics')
+    if 'CMB' in kwargs['PREDICTION']:
+        workflow.connect(prediction_metrics_cmb, 'biomarker_stats_csv', summary_report, 'cmb_metrics')
+        workflow.connect(prediction_metrics_cmb, 'biomarker_census_csv', summary_report, 'cmb_census_csv')
 
     # QC section
     summary_report.inputs.anonymized = kwargs['ANONYMIZED']

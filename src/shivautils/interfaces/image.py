@@ -331,13 +331,19 @@ class CropOutputSpec(TraitedSpec):
                           desc='nib.Nifti1Image: preprocessed image')
 
     cdg_ijk = traits.Tuple(traits.Int, traits.Int, traits.Int,
-                           desc='center of gravity brain_mask')
+                           desc="brain_mask's center of gravity")
 
     bbox1 = traits.Tuple(traits.Int, traits.Int, traits.Int,
                          desc='bounding box first point')
 
     bbox2 = traits.Tuple(traits.Int, traits.Int, traits.Int,
                          desc='bounding box second point')
+
+    cdg_ijk_file = traits.File(desc='Saved center of gravity of the brain_mask')
+
+    bbox1_file = traits.File(desc='Saved bounding box first point')
+
+    bbox2_file = traits.File(desc='Saved bounding box second point')
 
 
 class Crop(BaseInterface):
@@ -381,15 +387,22 @@ class Crop(BaseInterface):
 
         with open('cdg_ijk.txt', 'w') as fid:
             fid.write(str(cdg_ijk))
+        cdg_ijk_file = os.path.abspath('cdg_ijk.txt')
         with open('bbox1.txt', 'w') as fid:
             fid.write(str(bbox1))
+        bbox1_file = os.path.abspath('bbox1.txt')
         with open('bbox2.txt', 'w') as fid:
             fid.write(str(bbox2))
+        bbox2_file = os.path.abspath('bbox2.txt')
 
         # Save it for later use in _list_outputs
         setattr(self, 'cdg_ijk', cdg_ijk)
         setattr(self, 'bbox1', bbox1)
         setattr(self, 'bbox2', bbox2)
+        setattr(self, 'cdg_ijk_file', cdg_ijk_file)
+        setattr(self, 'bbox1_file', bbox1_file)
+        setattr(self, 'bbox2_file', bbox2_file)
+
         _, base, _ = split_filename(self.inputs.apply_to)
         nib.save(cropped, base + '_cropped.nii.gz')
 
@@ -400,6 +413,9 @@ class Crop(BaseInterface):
         outputs['cdg_ijk'] = getattr(self, 'cdg_ijk')
         outputs['bbox1'] = getattr(self, 'bbox1')
         outputs['bbox2'] = getattr(self, 'bbox2')
+        outputs['cdg_ijk_file'] = getattr(self, 'cdg_ijk_file')
+        outputs['bbox1_file'] = getattr(self, 'bbox1_file')
+        outputs['bbox2_file'] = getattr(self, 'bbox2_file')
         _, base, _ = split_filename(fname)
         outputs["cropped"] = os.path.abspath(base + '_cropped.nii.gz')
 
