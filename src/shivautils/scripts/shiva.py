@@ -227,17 +227,18 @@ def check_input_for_pred(wfargs):
 
 def update_wf_grabber(wf, data_struct, acquisitions):
     """Updates the workflow datagrabber to work with the different types on input
+    acquisitions example: [('img1', 't1'), ('img2', 'flair')]
     """
     datagrabber = wf.get_node('datagrabber')
-    temp = {acq: f'%s/anat/%s_{acq.upper()}_raw.nii.gz' for acq in acquisitions}
-    temp2 = {acq: [['subject_id', 'subject_id']] for acq in acquisitions}
     if data_struct in ['standard', 'json']:
-        datagrabber.inputs.field_template = {acq: '%s/%s/*_raw.nii.gz' for acq in acquisitions}
-        datagrabber.inputs.template_args = {acq: [['subject_id', acq]] for acq in acquisitions}
+        # e.g: {'img1': '%s/t1/%s_T1_raw.nii.gz'}
+        datagrabber.inputs.field_template = {acq[0]: f'%s/{acq[1]}/*_raw.nii.gz' for acq in acquisitions}
+        datagrabber.inputs.template_args = {acq[0]: [['subject_id']] for acq in acquisitions}
 
     if data_struct == 'BIDS':
-        datagrabber.inputs.field_template = {acq: f'%s/anat/%s_{acq.upper()}_raw.nii.gz' for acq in acquisitions}
-        datagrabber.inputs.template_args = {acq: [['subject_id', 'subject_id']] for acq in acquisitions}
+        # e.g: {'img1': '%s/anat/%s_T1_raw.nii.gz}
+        datagrabber.inputs.field_template = {acq[0]: f'%s/anat/%s_{acq[1].upper()}_raw.nii.gz' for acq in acquisitions}
+        datagrabber.inputs.template_args = {acq[0]: [['subject_id', 'subject_id']] for acq in acquisitions}
     return wf
 
 
@@ -331,18 +332,20 @@ def main():
     # First, preproc and postproc
     if any(pred in args.prediction for pred in ['PVS', 'PVS2', 'WMH']):
         if dual:
+            acquisitions = [('img1', 't1'), ('img2', 'flair')]
             wf_preproc = genWorkflowDualPreproc(**wfargs, wf_name='shiva_mono_preprocessing')
-            acquisitions = ['t1', 'flair']
         else:
+            acquisitions = [('img1', 't1')]
             wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_dual_preprocessing')
-            acquisitions = ['t1']
         wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions)
-        if 'CMB' in args.prediction:  # TODO: to include in the normal preproc by getting the T1 to SWI transform and getting the mask and crop-box
+        if 'CMB' in args.prediction:
+            acquisitions_cmb = [('img1', 'swi')]
             wf_preproc_cmb = genWorkflowPreproc(**wfargs, wf_name='shiva_cmb_preprocessing')
-            wf_preproc_cmb = update_wf_grabber(wf_preproc_cmb, args.input_type, ['swi'])
+            wf_preproc_cmb = update_wf_grabber(wf_preproc_cmb, args.input_type, acquisitions_cmb)
     elif args.prediction == ['CMB']:  # only CMB pred
+        acquisitions_cmb = [('img1', 'swi')]
         wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_cmb_preprocessing')
-        wf_preproc = update_wf_grabber(wf_preproc, args.input_type, ['swi'])
+        wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions_cmb)
 
     wf_post = genWorkflowPost(**wfargs)
     main_wf.add_nodes([wf_preproc, wf_post])
@@ -361,7 +364,7 @@ def main():
     main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'qc_overlay_brainmask.img_ref')
     main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'summary_report.brainmask')
     if dual:
-        main_wf.connect(wf_preproc, 'flair_final_intensity_normalization.intensity_normalized', wf_post, 'qc_coreg_FLAIR_T1.path_image')
+        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', wf_post, 'qc_coreg_FLAIR_T1.path_image')
         main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'qc_coreg_FLAIR_T1.path_ref_image')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'qc_coreg_FLAIR_T1.path_brainmask')
 
@@ -373,7 +376,7 @@ def main():
         pvs_predictor_node.inputs.model = wfargs['MODELS_PATH']
         if dual:
             pvs_predictor_node.inputs.descriptor = wfargs['PVS2_DESCRIPTOR']
-            main_wf.connect(wf_preproc, 'flair_final_intensity_normalization.intensity_normalized', pvs_predictor_node, "flair")
+            main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', pvs_predictor_node, "flair")
         else:
             pvs_predictor_node.inputs.descriptor = wfargs['PVS_DESCRIPTOR']
         main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', pvs_predictor_node, "t1")
@@ -394,7 +397,7 @@ def main():
         wmh_predictor_node.inputs.model = wfargs['MODELS_PATH']
         wmh_predictor_node.inputs.descriptor = wfargs['WMH_DESCRIPTOR']
         main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wmh_predictor_node, "t1")
-        main_wf.connect(wf_preproc, 'flair_final_intensity_normalization.intensity_normalized', wmh_predictor_node, "flair")
+        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', wmh_predictor_node, "flair")
         main_wf.connect(wmh_predictor_node, 'segmentation', wf_post, 'prediction_metrics_wmh.img')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_wmh.brain_seg')  # TODO: SynthSeg
         # Merge all csv files
@@ -411,6 +414,10 @@ def main():
         cmb_predictor_node.inputs.out_filename = 'cmb_map.nii.gz'
         cmb_predictor_node.inputs.model = wfargs['MODELS_PATH']
         cmb_predictor_node.inputs.descriptor = wfargs['CMB_DESCRIPTOR']
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', cmb_predictor_node, "swi")  # TODO: adapt to actual preproc and inputs
+        main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'prediction_metrics_cmb.img')
+        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_cmb.brain_seg')  # TODO: SynthSeg
+        # Merge all csv files
         prediction_metrics_cmb_all = JoinNode(Join_Prediction_metrics(),
                                               joinsource=subject_iterator,
                                               joinfield=['csv_files', 'subject_id'],
