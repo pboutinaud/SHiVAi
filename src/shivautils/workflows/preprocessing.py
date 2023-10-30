@@ -8,14 +8,13 @@
 """
 import os
 
-from nipype.pipeline.engine import Node, JoinNode, Workflow
+from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces import ants
 from nipype.interfaces.io import DataGrabber
-from nipype.interfaces.utility import IdentityInterface, Function
 
 from shivautils.interfaces.image import (Threshold, Normalization,
                                          Conform, Crop)
-from shivautils.interfaces.shiva import PredictSingularity, Predict
+from shivautils.interfaces.shiva import Predict
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
