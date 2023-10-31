@@ -18,7 +18,7 @@ def gen_workflow_swi(**kwargs) -> Workflow:
 
     external connections required: 
         full_wf.connect(wf1, 'datagrabber.img3', wf_swi, 'conform.img')
-        full_wf.connect(wf1, 'crop.cropped', wf_swi, 't1_to_swi.moving_image')
+        full_wf.connect(wf1, 'crop.cropped', wf_swi, 'swi_to_t1.moving_image')
         full_wf.connect(wf1, 'hard_post_brain_mask.thresholded', wf_swi, 'mask_to_swi.input_image')
     Returns:
         workflow
@@ -37,34 +37,35 @@ def gen_workflow_swi(**kwargs) -> Workflow:
     conform.inputs.voxel_size = kwargs['RESOLUTION']
     conform.inputs.orientation = kwargs['ORIENTATION']
 
-    # compute 6-dof coregistration parameters of t1 croped image
-    # to conformed swi
-    t1_to_swi = Node(ants.Registration(),
-                     name='t1_to_swi')
-    t1_to_swi.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}  # TODO: would it work with other schedulers?
-    t1_to_swi.inputs.transforms = ['Rigid']
-    t1_to_swi.inputs.transform_parameters = [(0.1,)]
-    t1_to_swi.inputs.metric = ['MI']
-    t1_to_swi.inputs.radius_or_number_of_bins = [64]
-    t1_to_swi.inputs.interpolation = 'WelchWindowedSinc'
-    t1_to_swi.inputs.shrink_factors = [[8, 4, 2, 1]]
-    t1_to_swi.inputs.output_warped_image = True
-    t1_to_swi.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
-    t1_to_swi.inputs.num_threads = 8
-    t1_to_swi.inputs.number_of_iterations = [[1000, 500, 250, 125]]
-    t1_to_swi.inputs.sampling_strategy = ['Regular']
-    t1_to_swi.inputs.sampling_percentage = [0.25]
-    t1_to_swi.inputs.output_transform_prefix = "t1_to_swi_"
-    t1_to_swi.inputs.verbose = True
-    t1_to_swi.inputs.winsorize_lower_quantile = 0.005
-    t1_to_swi.inputs.winsorize_upper_quantile = 0.995
+    # compute 6-dof coregistration parameters of conformed swi
+    # to t1 croped image
+    swi_to_t1 = Node(ants.Registration(),
+                     name='swi_to_t1')
+    swi_to_t1.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}  # TODO: would it work with other schedulers?
+    swi_to_t1.inputs.transforms = ['Rigid']
+    swi_to_t1.inputs.transform_parameters = [(0.1,)]
+    swi_to_t1.inputs.metric = ['MI']
+    swi_to_t1.inputs.radius_or_number_of_bins = [64]
+    swi_to_t1.inputs.interpolation = 'WelchWindowedSinc'
+    swi_to_t1.inputs.shrink_factors = [[8, 4, 2, 1]]
+    swi_to_t1.inputs.output_warped_image = True
+    swi_to_t1.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
+    swi_to_t1.inputs.num_threads = 8
+    swi_to_t1.inputs.number_of_iterations = [[1000, 500, 250, 125]]
+    swi_to_t1.inputs.sampling_strategy = ['Regular']
+    swi_to_t1.inputs.sampling_percentage = [0.25]
+    swi_to_t1.inputs.output_transform_prefix = "swi_to_t1_"
+    swi_to_t1.inputs.verbose = True
+    swi_to_t1.inputs.winsorize_lower_quantile = 0.005
+    swi_to_t1.inputs.winsorize_upper_quantile = 0.995
 
-    workflow.connect(conform, 'resampled', t1_to_swi, 'fixed_image')
+    workflow.connect(conform, 'resampled', swi_to_t1, 'moving_image')
 
     # Aplpication of the t1 to swi transformation to the t1 mask
     mask_to_swi = Node(ants.ApplyTransforms(), name="mask_to_swi")
     mask_to_swi.inputs.interpolation = 'NearestNeighbor'
-    workflow.connect(t1_to_swi, 'forward_transforms', mask_to_swi, 'transforms')
+    mask_to_swi.inputs.invert_transform_flags = [True]
+    workflow.connect(swi_to_t1, 'forward_transforms', mask_to_swi, 'transforms')
     workflow.connect(conform, 'resampled', mask_to_swi, 'reference_image')
 
     # Crop SWI image

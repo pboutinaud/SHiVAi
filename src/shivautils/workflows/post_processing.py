@@ -34,15 +34,14 @@ if CMB:
    """
 import os
 
-from nipype.pipeline.engine import Node, Workflow, JoinNode
+from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.utility import Function
-from nipype.interfaces.io import DataGrabber
-from nipype.interfaces.utility import IdentityInterface
+from nipype.interfaces import ants
 
-from shivautils.interfaces.image import (Apply_mask, Regionwise_Prediction_metrics,
-                                         Join_Prediction_metrics, SummaryReport)
+from shivautils.interfaces.image import Regionwise_Prediction_metrics, SummaryReport
 from shivautils.postprocessing.isocontour import create_edges
 from shivautils.stats import overlay_brainmask, bounding_crop
+from shivautils.scripts.shiva import set_wf_shapers
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
@@ -98,6 +97,9 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
+    # Setting up the different cases to build the workflows (should clarify things)
+    with_t1, with_flair, with_swi = set_wf_shapers(kwargs['PREDICTION'])
+
     name_workflow = "post_processing_workflow"
     workflow = Workflow(name_workflow)
     workflow.base_dir = kwargs['BASE_DIR']
@@ -138,6 +140,9 @@ def genWorkflow(**kwargs) -> Workflow:
         # if not synthseg:  # TODO
         prediction_metrics_cmb.inputs.brain_seg_type = 'brain_mask'
         prediction_metrics_cmb.inputs.region_list = ['Whole_brain']
+        if with_t1:  # The metrics are computed on the segmentation put in T1 space, for coherence
+            swi_pred_to_t1 = Node(ants.ApplyTransforms(), name="swi_pred_to_t1")
+            workflow.connect(swi_pred_to_t1, 'output_image', prediction_metrics_cmb, 'img')
 
     # QC part
     qc_crop_box = Node(Function(input_names=['img_apply_to',
@@ -149,19 +154,19 @@ def genWorkflow(**kwargs) -> Workflow:
                                 function=bounding_crop),
                        name='qc_crop_box')
 
-    if 'PVS2' in kwargs['PREDICTION'] or 'WMH' in kwargs['PREDICTION']:  # dual
+    qc_overlay_brainmask = Node(Function(input_names=['img_ref', 'brainmask'],
+                                         output_names=['overlayed_brainmask'],
+                                         function=overlay_brainmask),
+                                name='qc_overlay_brainmask')
+
+    if with_flair:  # dual
         qc_coreg_FLAIR_T1 = Node(Function(input_names=['path_image', 'path_ref_image', 'path_brainmask', 'nb_of_slices'],
                                           output_names=['qc_coreg'],
                                           function=create_edges),
                                  name='qc_coreg_FLAIR_T1')
         qc_coreg_FLAIR_T1.inputs.nb_of_slices = 5  # Should be enough
 
-    qc_overlay_brainmask = Node(Function(input_names=['img_ref', 'brainmask'],
-                                         output_names=['overlayed_brainmask'],
-                                         function=overlay_brainmask),
-                                name='qc_overlay_brainmask')
-
-    if 'CMB' in kwargs['PREDICTION'] and not kwargs['PREDICTION'] == ['CMB']:
+    if with_swi and with_t1:
         qc_overlay_brainmask_swi = Node(Function(input_names=['img_ref', 'brainmask'],
                                                  output_names=['overlayed_brainmask'],
                                                  function=overlay_brainmask),
@@ -170,13 +175,13 @@ def genWorkflow(**kwargs) -> Workflow:
     # Building the actual report (html then pdf)
     summary_report = Node(SummaryReport(), name="summary_report")
     # Segmentation section
-    if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:
+    if 'PVS' in preds:
         workflow.connect(prediction_metrics_pvs, 'biomarker_stats_csv', summary_report, 'pvs_metrics_csv')
         workflow.connect(prediction_metrics_pvs, 'biomarker_census_csv', summary_report, 'pvs_census_csv')
-    if 'WMH' in kwargs['PREDICTION']:
+    if 'WMH' in preds:
         workflow.connect(prediction_metrics_wmh, 'biomarker_stats_csv', summary_report, 'wmh_metrics_csv')
         workflow.connect(prediction_metrics_wmh, 'biomarker_census_csv', summary_report, 'wmh_census_csv')
-    if 'CMB' in kwargs['PREDICTION']:
+    if 'CMB' in preds:
         workflow.connect(prediction_metrics_cmb, 'biomarker_stats_csv', summary_report, 'cmb_metrics_csv')
         workflow.connect(prediction_metrics_cmb, 'biomarker_census_csv', summary_report, 'cmb_census_csv')
 
@@ -195,9 +200,9 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(qc_crop_box, 'crop_brain_img', summary_report, 'crop_brain_img')
     workflow.connect(qc_overlay_brainmask, 'overlayed_brainmask', summary_report, 'overlayed_brainmask_1')
-    if 'CMB' in kwargs['PREDICTION'] and not kwargs['PREDICTION'] == ['CMB']:
+    if with_swi and with_t1:
         workflow.connect(qc_overlay_brainmask_swi, 'overlayed_brainmask', summary_report, 'overlayed_brainmask_2')
-    if 'PVS2' in kwargs['PREDICTION'] or 'WMH' in kwargs['PREDICTION']:
+    if with_flair:
         workflow.connect(qc_coreg_FLAIR_T1, 'qc_coreg', summary_report, 'isocontour_slides_FLAIR_T1')
 
     return workflow

@@ -1,14 +1,10 @@
 #!/usr/bin/env python
 """Workflow script for singularity container"""
-# from shivautils.workflows.SWI_postprocessing import genWorkflow as genWorkflowPostSWI
-# from shivautils.workflows.SWI_predict import genWorkflow as genWorkflowPredictSWI
-# from shivautils.workflows.SWI_preprocessing import genWorkflow as genWorkflowSWI
 from shivautils.interfaces.shiva import Predict
 from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
-# from shivautils.workflows.predict import genWorkflow as genWorkflowPredict
-# from shivautils.workflows.dual_predict import genWorkflow as genWorkflowDualPredict
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowDualPreproc
+from shivautils.workflows.preprocessing_swi_reg import gen_workflow_swi
 from shivautils.interfaces.image import Join_Prediction_metrics
 from nipype import config
 from nipype.pipeline.engine import Workflow, Node, JoinNode
@@ -221,6 +217,9 @@ def set_args_and_check(inParser):
 
 
 def check_input_for_pred(wfargs):
+    """
+    Checks if the AI model is available for the predictions that are supposed to run
+    """
     # wfargs['PREDICTION'] is a combination of ['PVS', 'PVS2', 'WMH', 'CMB']
     for pred in wfargs['PREDICTION']:
         if not os.path.exists(wfargs[f'{pred}_DESCRIPTOR']):
@@ -245,6 +244,29 @@ def update_wf_grabber(wf, data_struct, acquisitions):
         datagrabber.inputs.field_template = {acq[0]: f'%s/anat/%s_{acq[1].upper()}_raw.nii*' for acq in acquisitions}
         datagrabber.inputs.template_args = {acq[0]: [['subject_id', 'subject_id']] for acq in acquisitions}
     return wf
+
+
+def set_wf_shapers(predictions: list(str)):
+    """
+    Set with_t1, with_flair, and with_swi with the corresponding value depending on the
+    segmentations (predictions) that will be done.
+    The tree boolean variables are used to shape the main workflow
+    (e.g. if doing PVS and CMB, the wf will use T1 and SWI)
+    """
+    # Setting up the different cases to build the workflows (should clarify things up)
+    if any(pred in predictions for pred in ['PVS', 'PVS2', 'WMH']):  # all which requires T1
+        with_t1 = True
+    else:
+        with_t1 = False
+    if 'PVS2' in predictions or 'WMH' in predictions:
+        with_flair = True
+    else:
+        with_flair = False
+    if 'CMB' in predictions:
+        with_swi = True
+    else:
+        with_swi = False
+    return with_t1, with_flair, with_swi
 
 
 def main():
@@ -285,11 +307,6 @@ def main():
         pvs2_descriptor = os.path.join(args.model, args.pvs2_descriptor)
         cmb_descriptor = os.path.join(args.model, args.cmb_descriptor)
 
-    if 'PVS2' in args.prediction or 'WMH' in args.prediction:
-        dual = True
-    else:
-        dual = False
-
     wfargs = {
         'SUB_WF': True,  # Denotes that the workflows are stringed together
         'SUBJECT_LIST': subject_list,
@@ -316,13 +333,17 @@ def main():
         'RESOLUTION': tuple(args.voxels_size),
         'ORIENTATION': 'RAS'}
 
+    # Check if the AI models aire available for the predictions
     check_input_for_pred(wfargs)
+
+    # Set the booleans to shape the main workflow
+    with_t1, with_flair, with_swi = set_wf_shapers(wfargs['PREDICTION'])
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     print(f'Working directory set to: {out_dir}')
 
-    # Declaration of the workflows
+    # Declaration of the main workflow, it is modular and will contain smaller workflows
     main_wf = Workflow('full_workflow')
     main_wf.base_dir = wfargs['BASE_DIR']
 
@@ -335,30 +356,24 @@ def main():
     subject_iterator.iterables = ('subject_id', wfargs['SUBJECT_LIST'])
 
     # First, preproc and postproc
-    if any(pred in args.prediction for pred in ['PVS', 'PVS2', 'WMH']):
-        if dual:
-            acquisitions = [('img1', 't1'), ('img2', 'flair')]
+    if with_t1:
+        acquisitions = [('img1', 't1')]
+        if with_flair:
+            acquisitions.append(('img2', 'flair'))
             wf_preproc = genWorkflowDualPreproc(**wfargs, wf_name='shiva_dual_preprocessing')
         else:
-            acquisitions = [('img1', 't1')]
-            wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_mono_preprocessing')
+            wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_t1_preprocessing')
+        if with_swi:  # Adding another preproc wf for swi, using t1 mask
+            acquisitions.append(('img3', 'swi'))
+            wf_preproc_cmb = gen_workflow_swi(**wfargs, wf_name='shiva_swi_preprocessing')
         wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions)
-        if 'CMB' in args.prediction:
-            acquisitions_cmb = [('img1', 'swi')]
-            wf_preproc_cmb = genWorkflowPreproc(**wfargs, wf_name='shiva_cmb_preprocessing')
-            wf_preproc_cmb = update_wf_grabber(wf_preproc_cmb, args.input_type, acquisitions_cmb)
-    elif args.prediction == ['CMB']:  # only CMB pred
-        acquisitions_cmb = [('img1', 'swi')]
-        wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_cmb_preprocessing')
-        wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions_cmb)
+    elif with_swi and not with_t1:  # CMB alone
+        acquisitions = [('img1', 'swi')]
+        wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_swi_preprocessing')
+        wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions)
 
     wf_post = genWorkflowPost(**wfargs)
     main_wf.add_nodes([wf_preproc, wf_post])
-    if 'CMB' in args.prediction and not args.prediction == ['CMB']:
-        main_wf.add_nodes([wf_preproc_cmb])
-        main_wf.connect(subject_iterator, 'subject_id', wf_preproc_cmb, 'datagrabber.subject_id')
-        main_wf.connect(wf_preproc_cmb, 'hard_post_brain_mask.thresholded', wf_post, 'qc_overlay_brainmask_swi.brainmask')
-        main_wf.connect(wf_preproc_cmb, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'qc_overlay_brainmask_swi.img_ref')
 
     # All connections between preproc and postproc
     main_wf.connect(subject_iterator, 'subject_id', wf_preproc, 'datagrabber.subject_id')
@@ -371,41 +386,19 @@ def main():
     main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'qc_overlay_brainmask.brainmask')
     main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'qc_overlay_brainmask.img_ref')
     main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'summary_report.brainmask')
-    if dual:
+
+    if with_flair:
         main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', wf_post, 'qc_coreg_FLAIR_T1.path_image')
         main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'qc_coreg_FLAIR_T1.path_ref_image')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'qc_coreg_FLAIR_T1.path_brainmask')
 
-    # Initialising the data sinks
-    sink_node_subjects = Node(DataSink(), name='sink_node_subjects')
-    sink_node_subjects.inputs.base_directory = os.path.join(wfargs['BASE_DIR'], 'results')
-    main_wf.connect(subject_iterator, 'subject_id', sink_node_subjects, 'container')
-    main_wf.connect(wf_post, 'summary_report.summary', sink_node_subjects, 'report')
-
-    sink_node_all = Node(DataSink(infields=['wf_graph']), name='sink_node_all')
-    sink_node_all.inputs.base_directory = os.path.join(wfargs['BASE_DIR'], 'results')
-    sink_node_all.inputs.container = 'results_summary'
-
-    if any(pred in args.prediction for pred in ['PVS', 'PVS2', 'WMH']):  # With T1
-        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, 't1_preproc')
-        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, 't1_preproc.brain_mask')
-        main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, 't1_preproc.@bb1')
-        main_wf.connect(wf_preproc, 'crop.bbox2_file', sink_node_subjects, 't1_preproc.@bb2')
-        main_wf.connect(wf_preproc, 'crop.cdg_ijk_file', sink_node_subjects, 't1_preproc.@cdg')
-        if dual:
-            main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'flair_preproc')
-        if 'CMB' in args.prediction:
-            main_wf.connect(wf_preproc_cmb, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'swi_preproc')
-            main_wf.connect(wf_preproc_cmb, 'hard_post_brain_mask.thresholded', sink_node_subjects, 'swi_preproc.brain_mask')
-            main_wf.connect(wf_preproc_cmb, 'crop.bbox1_file', sink_node_subjects, 'swi_preproc.@bb1')
-            main_wf.connect(wf_preproc_cmb, 'crop.bbox2_file', sink_node_subjects, 'swi_preproc.@bb2')
-            main_wf.connect(wf_preproc_cmb, 'crop.cdg_ijk_file', sink_node_subjects, 'swi_preproc.@cdg')
-    elif args.prediction == ['CMB']:
-        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'swi_preproc')
-        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, 'swi_preproc.brain_mask')
-        main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, 'swi_preproc.@bb1')
-        main_wf.connect(wf_preproc, 'crop.bbox2_file', sink_node_subjects, 'swi_preproc.@bb2')
-        main_wf.connect(wf_preproc, 'crop.cdg_ijk_file', sink_node_subjects, 'swi_preproc.@cdg')
+    if with_t1 and with_swi:
+        main_wf.add_nodes([wf_preproc_cmb])
+        main_wf.connect(wf_preproc, 'datagrabber.img3', wf_preproc_cmb, 'conform.img')
+        main_wf.connect(wf_preproc, 'crop.cropped', wf_preproc_cmb, 'swi_to_t1.fixed_image')
+        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_preproc_cmb, 'mask_to_swi.input_image')
+        main_wf.connect(wf_preproc_cmb, 'mask_to_swi.output_image', wf_post, 'qc_overlay_brainmask_swi.brainmask')
+        main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', wf_post, 'qc_overlay_brainmask_swi.img_ref')
 
     # Then prediction nodes and their connections
     # PVS
@@ -413,7 +406,7 @@ def main():
         pvs_predictor_node = Node(Predict(), name=f"predict_pvs")
         pvs_predictor_node.inputs.out_filename = 'pvs_map.nii.gz'
         pvs_predictor_node.inputs.model = wfargs['MODELS_PATH']
-        if dual:
+        if with_flair:
             pvs_predictor_node.inputs.descriptor = wfargs['PVS2_DESCRIPTOR']
             main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', pvs_predictor_node, "flair")
         else:
@@ -428,11 +421,6 @@ def main():
                                               name="prediction_metrics_pvs_all")
         main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv', prediction_metrics_pvs_all, 'csv_files')
         main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_pvs_all, 'subject_id')
-        main_wf.connect(pvs_predictor_node, 'segmentation', sink_node_subjects, 'pvs_segmentation')
-        main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv', sink_node_subjects, 'pvs_segmentation.@metrics')
-        main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_census_csv', sink_node_subjects, 'pvs_segmentation.@census')
-        main_wf.connect(wf_post, 'prediction_metrics_pvs.labelled_biomarkers', sink_node_subjects, 'pvs_segmentation.@labeled')
-        main_wf.connect(prediction_metrics_pvs_all, 'metrics_predictions_csv', sink_node_all, 'pvs_metrics')
 
     # WMH
     if 'WMH' in args.prediction:
@@ -451,14 +439,9 @@ def main():
                                               name="prediction_metrics_wmh_all")
         main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_stats_csv', prediction_metrics_wmh_all, 'csv_files')
         main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_wmh_all, 'subject_id')
-        main_wf.connect(wmh_predictor_node, 'segmentation', sink_node_subjects, 'wmh_segmentation')
-        main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_stats_csv', sink_node_subjects, 'wmh_segmentation.@metrics')
-        main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_census_csv', sink_node_subjects, 'wmh_segmentation.@census')
-        main_wf.connect(wf_post, 'prediction_metrics_wmh.labelled_biomarkers', sink_node_subjects, 'wmh_segmentation.@labeled')
-        main_wf.connect(prediction_metrics_wmh_all, 'metrics_predictions_csv', sink_node_all, 'wmh_metrics')
 
     # CMB
-    if 'CMB' in args.prediction:  # TODO: make it work
+    if 'CMB' in args.prediction:
         cmb_predictor_node = Node(Predict(), name=f"predict_cmb")
         cmb_predictor_node.inputs.out_filename = 'cmb_map.nii.gz'
         cmb_predictor_node.inputs.model = wfargs['MODELS_PATH']
@@ -468,26 +451,86 @@ def main():
                                               joinsource=subject_iterator,
                                               joinfield=['csv_files', 'subject_id'],
                                               name="prediction_metrics_cmb_all")
-        main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'prediction_metrics_cmb.img')
         main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', prediction_metrics_cmb_all, 'csv_files')
         main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_cmb_all, 'subject_id')
-
-        main_wf.connect(cmb_predictor_node, 'segmentation', sink_node_subjects, 'cmb_segmentation')
-        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', sink_node_subjects, 'cmb_segmentation.@metrics')
-        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_census_csv', sink_node_subjects, 'cmb_segmentation.@census')
-        main_wf.connect(wf_post, 'prediction_metrics_cmb.labelled_biomarkers', sink_node_subjects, 'cmb_segmentation.@labeled')
-        main_wf.connect(prediction_metrics_cmb_all, 'metrics_predictions_csv', sink_node_all, 'cmb_metrics')
-        if args.prediction == ['CMB']:
-            main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', cmb_predictor_node, "swi")
-            main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_cmb.brain_seg')  # TODO: SynthSeg
+        if with_t1:
+            main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', cmb_predictor_node, "swi")
+            main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'swi_pred_to_t1.moving_image')
+            main_wf.connect(wf_preproc_cmb, 'mask_to_swi.forward_transforms', wf_post, 'swi_pred_to_t1.transforms')
+            main_wf.connect(wf_preproc, 'crop.cropped', wf_post, 'swi_pred_to_t1.reference_image')
         else:
-            main_wf.connect(wf_preproc_cmb, 'img1_final_intensity_normalization.intensity_normalized', cmb_predictor_node, "swi")
-            main_wf.connect(wf_preproc_cmb, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_cmb.brain_seg')  # TODO: SynthSeg
+            main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'prediction_metrics_cmb.img')
+            main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', cmb_predictor_node, "swi")
+        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_cmb.brain_seg')  # TODO: SynthSeg
 
+    # The workflow graph
     wf_graph = main_wf.write_graph(graph2use='hierarchical', dotfilename='graph.svg', format='svg')
-    sink_node_all.inputs.wf_graph = wf_graph
     wf_post.get_node('summary_report').inputs.wf_graph = os.path.abspath(wf_graph)
 
+    # Finally the data sinks
+    # Initialising the data sinks
+    sink_node_subjects = Node(DataSink(), name='sink_node_subjects')
+    sink_node_subjects.inputs.base_directory = os.path.join(wfargs['BASE_DIR'], 'results')
+    main_wf.connect(subject_iterator, 'subject_id', sink_node_subjects, 'container')
+    main_wf.connect(wf_post, 'summary_report.summary', sink_node_subjects, 'report')
+
+    sink_node_all = Node(DataSink(infields=['wf_graph']), name='sink_node_all')
+    sink_node_all.inputs.base_directory = os.path.join(wfargs['BASE_DIR'], 'results')
+    sink_node_all.inputs.container = 'results_summary'
+
+    # Connecting the sinks
+    if with_t1:
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, 't1_preproc')
+        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, 't1_preproc.brain_mask')
+        main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, 't1_preproc.@bb1')
+        main_wf.connect(wf_preproc, 'crop.bbox2_file', sink_node_subjects, 't1_preproc.@bb2')
+        main_wf.connect(wf_preproc, 'crop.cdg_ijk_file', sink_node_subjects, 't1_preproc.@cdg')
+        if with_flair:
+            main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'flair_preproc')
+        if with_swi:
+            main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', sink_node_subjects, 'swi_preproc')
+            main_wf.connect(wf_preproc_cmb, 'mask_to_swi.output_image', sink_node_subjects, 'swi_preproc.brain_mask')
+            main_wf.connect(wf_preproc_cmb, 'swi_to_t1.output_image', sink_node_subjects, 'swi_preproc.reg_to_t1')
+            main_wf.connect(wf_preproc_cmb, 'crop.bbox1_file', sink_node_subjects, 'swi_preproc.@bb1')
+            main_wf.connect(wf_preproc_cmb, 'crop.bbox2_file', sink_node_subjects, 'swi_preproc.@bb2')
+            main_wf.connect(wf_preproc_cmb, 'crop.cdg_ijk_file', sink_node_subjects, 'swi_preproc.@cdg')
+    elif with_swi and not with_t1:
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'swi_preproc')
+        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, 'swi_preproc.brain_mask')
+        main_wf.connect(wf_preproc, 'crop_swi.bbox1_file', sink_node_subjects, 'swi_preproc.@bb1')
+        main_wf.connect(wf_preproc, 'crop_swi.bbox2_file', sink_node_subjects, 'swi_preproc.@bb2')
+        main_wf.connect(wf_preproc, 'crop_swi.cdg_ijk_file', sink_node_subjects, 'swi_preproc.@cdg')
+
+    if 'PVS' in args.prediction or 'PVS2' in args.prediction:
+        main_wf.connect(pvs_predictor_node, 'segmentation', sink_node_subjects, 'pvs_segmentation')
+        main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv', sink_node_subjects, 'pvs_segmentation.@metrics')
+        main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_census_csv', sink_node_subjects, 'pvs_segmentation.@census')
+        main_wf.connect(wf_post, 'prediction_metrics_pvs.labelled_biomarkers', sink_node_subjects, 'pvs_segmentation.@labeled')
+        main_wf.connect(prediction_metrics_pvs_all, 'metrics_predictions_csv', sink_node_all, 'pvs_metrics')
+
+    if 'WMH' in args.prediction:
+        main_wf.connect(wmh_predictor_node, 'segmentation', sink_node_subjects, 'wmh_segmentation')
+        main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_stats_csv', sink_node_subjects, 'wmh_segmentation.@metrics')
+        main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_census_csv', sink_node_subjects, 'wmh_segmentation.@census')
+        main_wf.connect(wf_post, 'prediction_metrics_wmh.labelled_biomarkers', sink_node_subjects, 'wmh_segmentation.@labeled')
+        main_wf.connect(prediction_metrics_wmh_all, 'metrics_predictions_csv', sink_node_all, 'wmh_metrics')
+
+    if 'CMB' in args.prediction:
+        if with_t1:
+            space = 't1_space'
+            main_wf.connect(cmb_predictor_node, 'segmentation', sink_node_subjects, 'cmb_segmentation_swi_space')
+            main_wf.connect(wf_post, 'swi_pred_to_t1.output_image', sink_node_subjects, f'cmb_segmentation_{space}')
+        else:
+            space = 'swi_space'
+            main_wf.connect(cmb_predictor_node, 'segmentation', sink_node_subjects, f'cmb_segmentation_{space}')
+        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', sink_node_subjects, f'cmb_segmentation_{space}.@metrics')
+        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_census_csv', sink_node_subjects, f'cmb_segmentation_{space}.@census')
+        main_wf.connect(wf_post, 'prediction_metrics_cmb.labelled_biomarkers', sink_node_subjects, f'cmb_segmentation_{space}.@labeled')
+        main_wf.connect(prediction_metrics_cmb_all, 'metrics_predictions_csv', sink_node_all, f'cmb_metrics_{space}')
+
+    sink_node_all.inputs.wf_graph = wf_graph
+
+    # Run the workflow
     main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     main_wf.run(plugin='Linear')
 
