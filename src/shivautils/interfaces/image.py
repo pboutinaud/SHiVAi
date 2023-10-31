@@ -82,10 +82,6 @@ class Conform(BaseInterface):
 
     def _run_interface(self, runtime):
         """Run main programm
-
-        Args:
-            runtime (_type_): time to execute the
-                               function
         Return: runtime
         """
         fname = self.inputs.img
@@ -117,6 +113,75 @@ class Conform(BaseInterface):
         _, base, _ = split_filename(fname)
         outputs["resampled"] = os.path.abspath(base +
                                                'resampled.nii.gz')
+        return outputs
+
+
+class Resample_from_to_InputSpec(BaseInterfaceInputSpec):
+    """Input parameter to apply Resample_from_to function on the
+    image """
+    moving_image = traits.File(exists=True,
+                               desc='NIfTI file to resample',
+                               mandatory=True)
+
+    fixed_image = traits.File(exists=True,
+                              desc='NIfTI file to use as reference for the resampling',
+                              mandatory=True)
+
+    splin_order = traits.Int(3,
+                             desc="Order of spline interpolation",
+                             usedefault=True)
+
+
+class Resample_from_to_OutputSpec(TraitedSpec):
+    """Output class
+
+    Args:
+        conform (nib.Nifti1Image): transformed image
+    """
+    resampled = traits.File(exists=True,
+                            desc='Nifti file of the image after resampling')
+
+
+class Resample_from_to(BaseInterface):
+    """Apply the nibabel function resample_from_to: put a Nifti image in the
+    space (dimensions and resolution) of another Nifti image, while keeping
+    the correct orientation and spatial position 
+
+    Attributes:
+        input_spec:
+            moving_image: NIfTI file to resample
+            fixed_image: NIfTI file used as template for the resampling
+            splin_order: order used for the splin interpolation (see scipy.ndimage.affine_transform)
+        output_spec: 
+            resampled_image: Nifti file resampled
+
+    Methods:
+        _run_interface(runtime):
+            Resample an image based on the dimensions and resolution of another
+    """
+    input_spec = Resample_from_to_InputSpec
+    output_spec = Resample_from_to_OutputSpec
+
+    def _run_interface(self, runtime):
+        """Run main programm
+
+        Return: runtime
+        """
+        in_img = nib.funcs.squeeze_image(nib.load(self.inputs.moving_image))
+        ref_img = nib.funcs.squeeze_image(nib.load(self.inputs.fixed_image))
+        resampled = nip.resample_from_to(in_img,
+                                         ref_img,
+                                         self.inputs.splin_order)
+
+        nib.save(resampled, 'resampled.nii.gz')
+        # Save it for later use in _list_outputs
+        setattr(self, 'resampled_image', os.path.abspath('resampled.nii.gz'))
+        return runtime
+
+    def _list_outputs(self):
+        """Just get the absolute path to the scheme file name."""
+        outputs = self.output_spec().trait_get()
+        outputs["resampled"] = getattr(self, 'resampled')
         return outputs
 
 
