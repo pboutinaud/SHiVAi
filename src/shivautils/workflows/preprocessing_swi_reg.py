@@ -5,36 +5,77 @@ segmentation while a T1 is available from another segmentation
 """
 from nipype.interfaces import ants
 from nipype.pipeline.engine import Node, Workflow
+from shivautils.interfaces.image import Normalization, Conform, Crop
 
 
-def genWorkflow_swi_pluggin(in_workflow, **kwargs) -> Workflow:
+def gen_workflow_swi(**kwargs) -> Workflow:
     """
-    Plugin workflow to add coregistration steps from SWI to T1 when doing CMB
-    segmentation while a T1 is available from another segmentation
+    Workflow for SWI preprocessing when doing CMB
+    segmentation using the T1-defined mask from another segmentation preproc.
+    Also uses the data grabber from the other workflow.
+    It's basically a pluggin of the T1 workflow
 
+
+    external connections required: 
+        full_wf.connect(wf1, 'datagrabber.img3', wf_swi, 'conform.img')
+        full_wf.connect(wf1, 'crop.cropped', wf_swi, 't1_to_swi.moving_image')
+        full_wf.connect(wf1, 'hard_post_brain_mask.thresholded', wf_swi, 'mask_to_swi.input_image')
     Returns:
         workflow
     """
-    # compute 6-dof coregistration parameters of t1 croped image
-    # to raw swi
-    coreg = Node(ants.Registration(),
-                 name='coregister')
-    coreg.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}  # TODO: would it work with other schedulers?
-    coreg.inputs.transforms = ['Rigid']
-    coreg.inputs.transform_parameters = [(0.1,)]
-    coreg.inputs.metric = ['MI']
-    coreg.inputs.radius_or_number_of_bins = [64]
-    coreg.inputs.interpolation = 'WelchWindowedSinc'
-    coreg.inputs.shrink_factors = [[8, 4, 2, 1]]
-    coreg.inputs.output_warped_image = True
-    coreg.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
-    coreg.inputs.num_threads = 8
-    coreg.inputs.number_of_iterations = [[1000, 500, 250, 125]]
-    coreg.inputs.sampling_strategy = ['Regular']
-    coreg.inputs.sampling_percentage = [0.25]
-    coreg.inputs.output_transform_prefix = "t1_to_swi_"
-    coreg.inputs.verbose = True
-    coreg.inputs.winsorize_lower_quantile = 0.005
-    coreg.inputs.winsorize_upper_quantile = 0.995
 
-    seg_to_native = Node(ants.ApplyTransforms(), name="seg_to_native")
+    wf_name = 'shiva_cmb_preprocessing'
+    if 'wf_name' in kwargs.keys():
+        wf_name = kwargs['wf_name']
+    workflow = Workflow(wf_name)
+    workflow.base_dir = kwargs['BASE_DIR']
+
+    # Conforms the SWI image, must be connected to the datagrabber from the other workflow
+    conform = Node(Conform(),
+                   name="conform")
+    conform.inputs.dimensions = (256, 256, 256)
+    conform.inputs.voxel_size = kwargs['RESOLUTION']
+    conform.inputs.orientation = kwargs['ORIENTATION']
+
+    # compute 6-dof coregistration parameters of t1 croped image
+    # to conformed swi
+    t1_to_swi = Node(ants.Registration(),
+                     name='t1_to_swi')
+    t1_to_swi.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}  # TODO: would it work with other schedulers?
+    t1_to_swi.inputs.transforms = ['Rigid']
+    t1_to_swi.inputs.transform_parameters = [(0.1,)]
+    t1_to_swi.inputs.metric = ['MI']
+    t1_to_swi.inputs.radius_or_number_of_bins = [64]
+    t1_to_swi.inputs.interpolation = 'WelchWindowedSinc'
+    t1_to_swi.inputs.shrink_factors = [[8, 4, 2, 1]]
+    t1_to_swi.inputs.output_warped_image = True
+    t1_to_swi.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
+    t1_to_swi.inputs.num_threads = 8
+    t1_to_swi.inputs.number_of_iterations = [[1000, 500, 250, 125]]
+    t1_to_swi.inputs.sampling_strategy = ['Regular']
+    t1_to_swi.inputs.sampling_percentage = [0.25]
+    t1_to_swi.inputs.output_transform_prefix = "t1_to_swi_"
+    t1_to_swi.inputs.verbose = True
+    t1_to_swi.inputs.winsorize_lower_quantile = 0.005
+    t1_to_swi.inputs.winsorize_upper_quantile = 0.995
+
+    workflow.connect(conform, 'resampled', t1_to_swi, 'fixed_image')
+
+    # Aplpication of the t1 to swi transformation to the t1 mask
+    mask_to_swi = Node(ants.ApplyTransforms(), name="mask_to_swi")
+    mask_to_swi.inputs.interpolation = 'NearestNeighbor'
+    workflow.connect(t1_to_swi, 'forward_transforms', mask_to_swi, 'transforms')
+    workflow.connect(conform, 'resampled', mask_to_swi, 'reference_image')
+
+    # Crop SWI image
+    crop_swi = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),
+                    name="crop_swi")
+    workflow.connect(conform, 'resampled', crop_swi, 'apply_to')
+    workflow.connect(mask_to_swi, 'output_image', crop_swi, 'roi_mask')
+
+    # Intensity normalisation of the cropped image for the segmentation (ENDPOINT)
+    swi_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="swi_intensity_normalisation")
+    workflow.connect(crop_swi, 'cropped', swi_norm, 'input_image')
+    workflow.connect(mask_to_swi, 'output_image', swi_norm, 'brain_mask')
+
+    return workflow
