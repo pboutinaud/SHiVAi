@@ -13,7 +13,7 @@ from nipype.interfaces import ants
 from nipype.interfaces.io import DataGrabber
 
 from shivautils.interfaces.image import (Threshold, Normalization,
-                                         Conform, Crop)
+                                         Conform, Crop, Resample_from_to)
 from shivautils.interfaces.shiva import Predict
 
 
@@ -151,51 +151,15 @@ def genWorkflow(**kwargs) -> Workflow:
     hard_post_brain_mask.inputs.clusterCheck = 'size'
     workflow.connect(post_brain_mask, 'segmentation', hard_post_brain_mask, 'img')
 
-    # compute 3-dof (translations) coregistration parameters of cropped to native img1
-    crop_to_img1 = Node(ants.Registration(),
-                        name='crop_to_img1')
-    crop_to_img1.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}  # TODO: Check why it's used
-    crop_to_img1.inputs.transforms = ['Rigid']
-    crop_to_img1.inputs.restrict_deformation = [[1, 0, 0,], [1, 0, 0,], [1, 0, 0]]
-    crop_to_img1.inputs.transform_parameters = [(0.1,)]
-    crop_to_img1.inputs.metric = ['MI']
-    crop_to_img1.inputs.radius_or_number_of_bins = [64]
-    crop_to_img1.inputs.shrink_factors = [[8, 4, 2, 1]]
-    crop_to_img1.inputs.output_warped_image = False
-    crop_to_img1.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
-    crop_to_img1.inputs.num_threads = 8
-    crop_to_img1.inputs.number_of_iterations = [[1000, 500, 250, 125]]
-    crop_to_img1.inputs.sampling_strategy = ['Regular']
-    crop_to_img1.inputs.sampling_percentage = [0.25]
-    crop_to_img1.inputs.output_transform_prefix = "cropped_to_source_"
-    crop_to_img1.inputs.verbose = True
-    crop_to_img1.inputs.winsorize_lower_quantile = 0.0
-    crop_to_img1.inputs.winsorize_upper_quantile = 1.0
-
-    workflow.connect(datagrabber, "img1",
-                     crop_to_img1, 'fixed_image')
-    workflow.connect(crop, 'cropped',
-                     crop_to_img1, 'moving_image')
-
-    # write brain seg on img1 in native space
-    mask_to_img1 = Node(ants.ApplyTransforms(), name="mask_to_img1")
-    mask_to_img1.inputs.interpolation = 'NearestNeighbor'
-    workflow.connect(crop_to_img1, 'forward_transforms', mask_to_img1, 'transforms')
-    workflow.connect(hard_post_brain_mask, 'thresholded', mask_to_img1, 'input_image')
-    workflow.connect(datagrabber, "img1", mask_to_img1, 'reference_image')
-
-    # write original image into img1 crop space
-    img1_to_mask = Node(ants.ApplyTransforms(), name="img1_to_mask")
-    img1_to_mask.inputs.invert_transform_flags = [True]
-    img1_to_mask.inputs.interpolation = kwargs['INTERPOLATION']
-
-    workflow.connect(crop_to_img1, 'forward_transforms', img1_to_mask, 'transforms')
-    workflow.connect(datagrabber, "img1", img1_to_mask, 'input_image')
-    workflow.connect(hard_post_brain_mask, 'thresholded', img1_to_mask, 'reference_image')
+    # brain seg from img1 back to native space
+    mask_to_img1 = Node(Resample_from_to, name="mask_to_img1")
+    mask_to_img1.inputs.spline_order = 0  # should be equivalent to NearestNeighbor(?)
+    workflow.connect(hard_post_brain_mask, 'thresholded', mask_to_img1, 'moving_image')
+    workflow.connect(datagrabber, "img1", mask_to_img1, 'fixed_image')
 
     # Intensity normalize coregistered image for tensorflow (ENDPOINT 1)
     img1_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="img1_final_intensity_normalization")
-    workflow.connect(img1_to_mask, 'output_image',
+    workflow.connect(crop, 'cropped',
                      img1_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      img1_norm, 'brain_mask')
