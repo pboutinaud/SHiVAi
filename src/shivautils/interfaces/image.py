@@ -127,9 +127,9 @@ class Resample_from_to_InputSpec(BaseInterfaceInputSpec):
                               desc='NIfTI file to use as reference for the resampling',
                               mandatory=True)
 
-    splin_order = traits.Int(3,
-                             desc="Order of spline interpolation",
-                             usedefault=True)
+    spline_order = traits.Int(3,
+                              desc="Order of spline interpolation",
+                              usedefault=True)
 
 
 class Resample_from_to_OutputSpec(TraitedSpec):
@@ -138,8 +138,8 @@ class Resample_from_to_OutputSpec(TraitedSpec):
     Args:
         conform (nib.Nifti1Image): transformed image
     """
-    resampled = traits.File(exists=True,
-                            desc='Nifti file of the image after resampling')
+    resampled_image = traits.File(exists=True,
+                                  desc='Nifti file of the image after resampling')
 
 
 class Resample_from_to(BaseInterface):
@@ -171,7 +171,7 @@ class Resample_from_to(BaseInterface):
         ref_img = nib.funcs.squeeze_image(nib.load(self.inputs.fixed_image))
         resampled = nip.resample_from_to(in_img,
                                          ref_img,
-                                         self.inputs.splin_order)
+                                         self.inputs.spline_order)
 
         nib.save(resampled, 'resampled.nii.gz')
         # Save it for later use in _list_outputs
@@ -181,7 +181,7 @@ class Resample_from_to(BaseInterface):
     def _list_outputs(self):
         """Just get the absolute path to the scheme file name."""
         outputs = self.output_spec().trait_get()
-        outputs["resampled"] = getattr(self, 'resampled')
+        outputs['resampled_image'] = getattr(self, 'resampled_image')
         return outputs
 
 

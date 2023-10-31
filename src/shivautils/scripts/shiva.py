@@ -2,6 +2,7 @@
 """Workflow script for singularity container"""
 from shivautils.interfaces.shiva import Predict
 from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
+from shivautils.workflows.post_processing import set_wf_shapers
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowDualPreproc
 from shivautils.workflows.preprocessing_swi_reg import gen_workflow_swi
@@ -246,29 +247,6 @@ def update_wf_grabber(wf, data_struct, acquisitions):
     return wf
 
 
-def set_wf_shapers(predictions: list(str)):
-    """
-    Set with_t1, with_flair, and with_swi with the corresponding value depending on the
-    segmentations (predictions) that will be done.
-    The tree boolean variables are used to shape the main workflow
-    (e.g. if doing PVS and CMB, the wf will use T1 and SWI)
-    """
-    # Setting up the different cases to build the workflows (should clarify things up)
-    if any(pred in predictions for pred in ['PVS', 'PVS2', 'WMH']):  # all which requires T1
-        with_t1 = True
-    else:
-        with_t1 = False
-    if 'PVS2' in predictions or 'WMH' in predictions:
-        with_flair = True
-    else:
-        with_flair = False
-    if 'CMB' in predictions:
-        with_swi = True
-    else:
-        with_swi = False
-    return with_t1, with_flair, with_swi
-
-
 def main():
 
     parser = shivaParser()
@@ -455,8 +433,8 @@ def main():
         main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_cmb_all, 'subject_id')
         if with_t1:
             main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', cmb_predictor_node, "swi")
-            main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'swi_pred_to_t1.moving_image')
-            main_wf.connect(wf_preproc_cmb, 'mask_to_swi.forward_transforms', wf_post, 'swi_pred_to_t1.transforms')
+            main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'swi_pred_to_t1.input_image')
+            main_wf.connect(wf_preproc_cmb, 'swi_to_t1.forward_transforms', wf_post, 'swi_pred_to_t1.transforms')
             main_wf.connect(wf_preproc, 'crop.cropped', wf_post, 'swi_pred_to_t1.reference_image')
         else:
             main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'prediction_metrics_cmb.img')
@@ -464,7 +442,7 @@ def main():
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_cmb.brain_seg')  # TODO: SynthSeg
 
     # The workflow graph
-    wf_graph = main_wf.write_graph(graph2use='hierarchical', dotfilename='graph.svg', format='svg')
+    wf_graph = main_wf.write_graph(graph2use='colored', dotfilename='graph.svg', format='svg')
     wf_post.get_node('summary_report').inputs.wf_graph = os.path.abspath(wf_graph)
 
     # Finally the data sinks
@@ -482,6 +460,7 @@ def main():
     if with_t1:
         main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, 't1_preproc')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, 't1_preproc.brain_mask')
+        main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, 't1_preproc.brain_mask_raw_space')
         main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, 't1_preproc.@bb1')
         main_wf.connect(wf_preproc, 'crop.bbox2_file', sink_node_subjects, 't1_preproc.@bb2')
         main_wf.connect(wf_preproc, 'crop.cdg_ijk_file', sink_node_subjects, 't1_preproc.@cdg')
@@ -490,13 +469,14 @@ def main():
         if with_swi:
             main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', sink_node_subjects, 'swi_preproc')
             main_wf.connect(wf_preproc_cmb, 'mask_to_swi.output_image', sink_node_subjects, 'swi_preproc.brain_mask')
-            main_wf.connect(wf_preproc_cmb, 'swi_to_t1.output_image', sink_node_subjects, 'swi_preproc.reg_to_t1')
-            main_wf.connect(wf_preproc_cmb, 'crop.bbox1_file', sink_node_subjects, 'swi_preproc.@bb1')
-            main_wf.connect(wf_preproc_cmb, 'crop.bbox2_file', sink_node_subjects, 'swi_preproc.@bb2')
-            main_wf.connect(wf_preproc_cmb, 'crop.cdg_ijk_file', sink_node_subjects, 'swi_preproc.@cdg')
+            main_wf.connect(wf_preproc_cmb, 'swi_to_t1.warped_image', sink_node_subjects, 'swi_preproc.reg_to_t1')
+            main_wf.connect(wf_preproc_cmb, 'crop_swi.bbox1_file', sink_node_subjects, 'swi_preproc.@bb1')
+            main_wf.connect(wf_preproc_cmb, 'crop_swi.bbox2_file', sink_node_subjects, 'swi_preproc.@bb2')
+            main_wf.connect(wf_preproc_cmb, 'crop_swi.cdg_ijk_file', sink_node_subjects, 'swi_preproc.@cdg')
     elif with_swi and not with_t1:
         main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'swi_preproc')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, 'swi_preproc.brain_mask')
+        main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, 'swi_preproc.brain_mask_raw_space')
         main_wf.connect(wf_preproc, 'crop_swi.bbox1_file', sink_node_subjects, 'swi_preproc.@bb1')
         main_wf.connect(wf_preproc, 'crop_swi.bbox2_file', sink_node_subjects, 'swi_preproc.@bb2')
         main_wf.connect(wf_preproc, 'crop_swi.cdg_ijk_file', sink_node_subjects, 'swi_preproc.@cdg')

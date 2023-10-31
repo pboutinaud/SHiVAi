@@ -5,7 +5,7 @@ segmentation while a T1 is available from another segmentation
 """
 from nipype.interfaces import ants
 from nipype.pipeline.engine import Node, Workflow
-from shivautils.interfaces.image import Normalization, Conform, Crop
+from shivautils.interfaces.image import Normalization, Conform, Crop, Resample_from_to
 
 
 def gen_workflow_swi(**kwargs) -> Workflow:
@@ -74,9 +74,16 @@ def gen_workflow_swi(**kwargs) -> Workflow:
     workflow.connect(conform, 'resampled', crop_swi, 'apply_to')
     workflow.connect(mask_to_swi, 'output_image', crop_swi, 'roi_mask')
 
+    # Confromed mask (256x256x256) to cropped space
+    mask_to_crop = Node(Resample_from_to(),
+                        name='mask_to_crop')
+    mask_to_crop.inputs.spline_order = 0
+    workflow.connect(mask_to_swi, 'output_image', mask_to_crop, 'moving_image')
+    workflow.connect(crop_swi, 'cropped', mask_to_crop, 'fixed_image')
+
     # Intensity normalisation of the cropped image for the segmentation (ENDPOINT)
     swi_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="swi_intensity_normalisation")
     workflow.connect(crop_swi, 'cropped', swi_norm, 'input_image')
-    workflow.connect(mask_to_swi, 'output_image', swi_norm, 'brain_mask')
+    workflow.connect(mask_to_crop, 'resampled_image', swi_norm, 'brain_mask')
 
     return workflow

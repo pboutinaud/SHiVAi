@@ -152,7 +152,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(post_brain_mask, 'segmentation', hard_post_brain_mask, 'img')
 
     # brain seg from img1 back to native space
-    mask_to_img1 = Node(Resample_from_to, name="mask_to_img1")
+    mask_to_img1 = Node(Resample_from_to(), name="mask_to_img1")
     mask_to_img1.inputs.spline_order = 0  # should be equivalent to NearestNeighbor(?)
     workflow.connect(hard_post_brain_mask, 'thresholded', mask_to_img1, 'moving_image')
     workflow.connect(datagrabber, "img1", mask_to_img1, 'fixed_image')
