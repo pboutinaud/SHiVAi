@@ -53,7 +53,6 @@ def genWorkflow(**kwargs) -> Workflow:
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
     datagrabber.inputs.template = '%s/%s/*.nii*'
-    datagrabber.inputs.template_args = {'img1': [['subject_id', 'img1']]}
 
     # conform img1 to 1 mm isotropic, freesurfer-style
     conform = Node(Conform(),
