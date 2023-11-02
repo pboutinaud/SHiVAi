@@ -83,7 +83,7 @@ def main():
     bind = ','.join(bind_list)
 
     command_list = ["singularity exec --nv --bind", bind, singularity_image,
-                    "shiva.py --container", input, output, input_type, pred, config,
+                    "shiva --container", input, output, input_type, pred, config,
                     plugin]
 
     if args.run_plugin_args:
