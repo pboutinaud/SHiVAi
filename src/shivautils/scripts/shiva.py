@@ -107,6 +107,10 @@ def shivaParser():
                               '--pvs2_descriptor --wmh_descriptor --cmb_descriptor).'),
                         default=None)
 
+    parser.add_argument('--keep_all',
+                        action='store_true',
+                        help='Keep all intermediary file, which is usually necessary for debuggin.')
+
     # Manual input
     parser.add_argument('--model',
                         default=None,
@@ -530,7 +534,8 @@ def main():
     sink_node_all.inputs.wf_graph = wf_graph
 
     # Run the workflow
-    main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+    if args.keep_all:
+        main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     main_wf.run(plugin=args.run_plugin, plugin_args=args.run_plugin_args)
 
 
