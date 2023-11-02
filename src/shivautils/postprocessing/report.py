@@ -1,7 +1,9 @@
 # from shivautils.stats import save_histogram, bounding_crop
 from shivautils import __version__ as version
 from jinja2 import Environment, PackageLoader
+from shivautils.postprocessing import __file__ as postproc_init
 import base64
+import os
 
 
 def make_report(
@@ -71,14 +73,13 @@ def make_report(
                    'Max volume (mm<sup>3</sup>)',]
         col_maper = {col: metric for col, metric in zip(stat_df.columns, metrics)}
         stat_df.rename(col_maper, axis=1, inplace=True)
-        stat_df[f'Total volume of all {seg} (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
-        stat_df['Mean volume (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
-        stat_df['Median volume (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
-        stat_df['StD of the volume (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
-        stat_df['Min volume (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
-        stat_df['Max volume (mm<sup>3</sup>)'] *= vol_mm3_per_voxel
+        # Putting the voxel results in mm3 and in str with 2 decimal floats
+        mm3_cols = metrics[2:]
+        for col in mm3_cols:
+            stat_df[col] = (stat_df[col] * vol_mm3_per_voxel).map('{:.2f}'.format)
         stat_df.set_index('Region', inplace=True)
         stat_df_html = stat_df.to_html(justify='center', escape=False)
+        stat_df_html = stat_df_html.replace('table border="1"', 'table')  # quick fix to a weird formatting
 
         with open(pred_census_im_dict[seg], 'rb') as f:
             image_data = f.read()
@@ -98,6 +99,13 @@ def make_report(
         modality = 'T1w'
 
     # Conversion of images in base64 objects
+    # postproc_dir = os.path.dirname(postproc_init)
+    # shiva_logo = os.path.join(postproc_dir, 'logo_shiva.png')
+    # with open(shiva_logo, 'rb') as f:
+    #     image_data = f.read()
+    # shiva_logo = base64.b64encode(image_data).decode()
+    shiva_logo = None  # TODO: make it work
+
     if overlayed_brainmask_1 is not None:
         with open(overlayed_brainmask_1, 'rb') as f:
             image_data = f.read()
@@ -126,6 +134,7 @@ def make_report(
     tm = env.get_template('report_template.html')
 
     filled_template_report = tm.render(
+        shiva_logo=shiva_logo,
         data_origin=subject_id,
         pred_stat_dict=pred_stat_dict,
         overlayed_brainmask_1=overlayed_brainmask_1,

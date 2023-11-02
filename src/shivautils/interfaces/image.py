@@ -6,6 +6,7 @@ from shivautils.postprocessing.background import create_background_slice_mask
 from shivautils.postprocessing.wmh import metrics_clusters_latventricles
 from shivautils.stats import prediction_metrics, get_mask_regions, bounding_crop, swarmplot_from_census
 from shivautils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask
+from shivautils.postprocessing import __file__ as postproc_init
 from nipype.utils.filemanip import split_filename
 from nipype.interfaces.base import isdefined
 
@@ -16,7 +17,7 @@ import nibabel.processing as nip
 import nibabel as nib
 import numpy as np
 import csv
-import weasyprint
+from weasyprint import HTML, CSS
 import matplotlib.pyplot as plt
 import pandas as pd
 # from bokeh.io import export_png
@@ -1060,7 +1061,11 @@ class SummaryReport(BaseInterface):
             fid.write(summary_report)
 
         # Convertir le fichier HTML en PDF
-        weasyprint.HTML('summary_report.html').write_pdf('summary.pdf', presentational_hints=True)
+        postproc_dir = os.path.dirname(postproc_init)
+        css = os.path.join(postproc_dir, 'report_styling.css')
+        HTML('summary_report.html').write_pdf('summary.pdf',
+                                              presentational_hints=True,
+                                              stylesheets=[CSS(css)])
 
         setattr(self, 'summary_report', os.path.abspath('summary_report.html'))
         setattr(self, 'summary', os.path.abspath('summary.pdf'))
