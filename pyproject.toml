@@ -63,4 +63,4 @@ shiva_predict = "shivautils.scripts.predict:main"
 shiva_contained = "shivautils.scripts.run_shiva:main"
 
 [tool.setuptools.dynamic]
-version = { attr = "package.__version__" }
+version = { attr = "shivautils.__version__" }
