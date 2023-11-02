@@ -27,7 +27,7 @@ The scripts should be available in the command line prompt.
 The SHIVA application requires a Linux machine with a GPU (with 16GB of dedicated memory), and **AppTainer** intalled (previously known as **Singularity**):
 https://apptainer.org/docs/user/main/quick_start.html
 
-AppTainer is a container solution, meaning that you will need an AppTainer image (a file with the *.sif* extension) containing all the software and environment necessary to run SHIVA. You can get it from us (**TODO**) or build it yourself.
+AppTainer is a container solution, meaning that you will need an AppTainer image (a file with the *.sif* extension) containing all the software and environment necessary to run SHIVA. You can get it from us (https://cloud.efixia.com/sharing/TAHaV6ZgZ) or build it yourself.
 
 To build the AppTainer image, you need a machine on which you are *root* user. Then, from the **shivautils/singularity** directory, run the following command to build the SHIVA AppTainer container image :
 
