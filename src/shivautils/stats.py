@@ -416,7 +416,7 @@ def swarmplot_from_census(census_csv: str, pred: str):
     plt.ioff()
     if 'Region_names' not in census_df.columns:
         fig = plt.figure()
-        sns.swarmplot(census_df, y='Biomarker_size')
+        sns.stripplot(census_df, y='Biomarker_size')  # replaced swamplot
         plt.savefig(save_name, format='svg')
         plt.close(fig)
     else:
@@ -424,7 +424,7 @@ def swarmplot_from_census(census_csv: str, pred: str):
         FS_id = ['FreeSurfer_' in reg for reg in census_df['Region_names']]
         census_df.loc[FS_id, 'Region_names'] = 'Other'
         fig = plt.figure()
-        sns.swarmplot(census_df, y='Biomarker_size', hue='Region_names')
+        sns.stripplot(census_df, y='Biomarker_size', hue='Region_names')
         plt.savefig(save_name, format='svg')
         plt.close(fig)
     return os.path.abspath(save_name)
