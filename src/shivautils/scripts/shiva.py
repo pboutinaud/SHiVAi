@@ -290,16 +290,16 @@ def main():
         'SUBJECT_LIST': subject_list,
         'DATA_DIR': subject_directory,  # Default base_directory for the datagrabber
         'BASE_DIR': out_dir,  # Default base_dir for each workflow
-        'PREDICTION': args.prediction,  # TODO: remove?
+        'PREDICTION': args.prediction,  # Needed by the postproc for now
         'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
         'WMH_DESCRIPTOR': wmh_descriptor,
         'PVS_DESCRIPTOR': pvs_descriptor,
-        'PVS2_DESCRIPTOR': pvs2_descriptor,  # TODO: Compatible SMOmed ?
+        'PVS2_DESCRIPTOR': pvs2_descriptor,
         'CMB_DESCRIPTOR': cmb_descriptor,
         'CONTAINER': not args.use_container,  # store "False" because of legacy meaning of the variable. Only when used by SMOmed usually
         'MODELS_PATH': args.model,
         'GPU': args.gpu,
-        'ANONYMIZED': args.anonymize,  # TODO: Why False though?
+        'ANONYMIZED': args.anonymize,  # TODO: Improve + defacing
         'INTERPOLATION': args.interpolation,
         'PERCENTILE': args.percentile,
         'THRESHOLD': args.threshold,
@@ -322,10 +322,10 @@ def main():
     print(f'Working directory set to: {out_dir}')
 
     # Declaration of the main workflow, it is modular and will contain smaller workflows
-    main_wf = Workflow('full_workflow')
+    main_wf = Workflow('main_workflow')
     main_wf.base_dir = wfargs['BASE_DIR']
 
-    # Start by initialisin the iterable
+    # Start by initialising the iterable
     subject_iterator = Node(
         IdentityInterface(
             fields=['subject_id'],
@@ -333,7 +333,7 @@ def main():
         name="subject_iterator")
     subject_iterator.iterables = ('subject_id', wfargs['SUBJECT_LIST'])
 
-    # First, preproc and postproc
+    # First, initialise the proper preproc and update its datagrabber
     if with_t1:
         acquisitions = [('img1', 't1')]
         if with_flair:
@@ -350,10 +350,11 @@ def main():
         wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_swi_preprocessing')
         wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions)
 
+    # Then initialise the post proc and add the nodes to the main wf
     wf_post = genWorkflowPost(**wfargs)
     main_wf.add_nodes([wf_preproc, wf_post])
 
-    # All connections between preproc and postproc
+    # Set all the connections between preproc and postproc
     main_wf.connect(subject_iterator, 'subject_id', wf_preproc, 'datagrabber.subject_id')
     main_wf.connect(subject_iterator, 'subject_id', wf_post, 'summary_report.subject_id')
     main_wf.connect(wf_preproc, 'conform.resampled', wf_post, 'qc_crop_box.img_apply_to')
