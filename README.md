@@ -14,10 +14,10 @@ The deep learning relies on Tensorflow 2.7.13, and a GPU with 16Gb of memory is 
 
 ## Package Installation
 
-To deploy the python package, from the project directory (containing the 'setup.py' file), use the following command line: 
+To deploy the python package, from the project directory (containing the 'pyproject.toml' file), use the following command line: 
 
 ```bash
-python -m build --wheel
+python -m pip install .
 ```
 
 The scripts should be available in the command line prompt.
