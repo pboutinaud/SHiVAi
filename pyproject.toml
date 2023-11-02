@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "shivautils"
-version = "0.2.1"
+dynamic = ["version"]
 authors = [
     { name = "Yann RIO", email = "yrio@fealinx.com" },
     { name = "Pierre-Yves HERVE", email = "pyherve@fealinx.com" },
@@ -61,3 +61,6 @@ shiva = "shivautils.scripts.shiva:main"
 shiva_preproc = "shivautils.scripts.preprocess:main"
 shiva_predict = "shivautils.scripts.predict:main"
 shiva_contained = "shivautils.scripts.run_shiva:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "package.__version__" }
