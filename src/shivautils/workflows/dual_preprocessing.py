@@ -39,7 +39,6 @@ def genWorkflow(**kwargs) -> Workflow:
     # to cropped t1 image
     coreg = Node(ants.Registration(),
                  name='coregister')
-    coreg.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}  # TODO: would it work with other schedulers?
     coreg.inputs.transforms = ['Rigid']
     coreg.inputs.transform_parameters = [(0.1,)]
     coreg.inputs.metric = ['MI']

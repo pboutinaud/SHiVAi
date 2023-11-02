@@ -41,7 +41,6 @@ def gen_workflow_swi(**kwargs) -> Workflow:
     # to t1 croped image
     swi_to_t1 = Node(ants.Registration(),
                      name='swi_to_t1')
-    swi_to_t1.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}  # TODO: would it work with other schedulers?
     swi_to_t1.inputs.transforms = ['Rigid']
     swi_to_t1.inputs.transform_parameters = [(0.1,)]
     swi_to_t1.inputs.metric = ['MI']
