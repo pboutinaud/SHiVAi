@@ -444,7 +444,7 @@ def main():
 
     # The workflow graph
     wf_graph = main_wf.write_graph(graph2use='colored', dotfilename='graph.svg', format='svg')
-    wf_post.get_node('summary_report').inputs.wf_graph = os.path.abspath(wf_graph)
+    # wf_post.get_node('summary_report').inputs.wf_graph = os.path.abspath(wf_graph)
 
     # Finally the data sinks
     # Initialising the data sinks

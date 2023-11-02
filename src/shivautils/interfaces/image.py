@@ -972,7 +972,10 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
                                         mandatory=False,
                                         desc='PNG file of the final brain mask on second independent acquisition (SWI)')
 
-    wf_graph = traits.File(desc='SVG file of the workflow graph')
+    wf_graph = traits.File(None,
+                           usedefault=True,
+                           mandatory=False,
+                           desc='SVG file of the workflow graph')
 
     percentile = traits.Float(99.0,
                               desc='Percentile used during intensity normalisation')
