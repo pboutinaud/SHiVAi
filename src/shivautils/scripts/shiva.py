@@ -376,7 +376,7 @@ def main():
         main_wf.connect(wf_preproc, 'datagrabber.img3', wf_preproc_cmb, 'conform.img')
         main_wf.connect(wf_preproc, 'crop.cropped', wf_preproc_cmb, 'swi_to_t1.fixed_image')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_preproc_cmb, 'mask_to_swi.input_image')
-        main_wf.connect(wf_preproc_cmb, 'mask_to_swi.output_image', wf_post, 'qc_overlay_brainmask_swi.brainmask')
+        main_wf.connect(wf_preproc_cmb, 'mask_to_crop.resampled_image', wf_post, 'qc_overlay_brainmask_swi.brainmask')
         main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', wf_post, 'qc_overlay_brainmask_swi.img_ref')
 
     # Then prediction nodes and their connections
