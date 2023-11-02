@@ -1,4 +1,5 @@
 # from shivautils.stats import save_histogram, bounding_crop
+from shivautils import __version__ as version
 from jinja2 import Environment, PackageLoader
 import base64
 
@@ -137,6 +138,7 @@ def make_report(
         wf_graph=wf_graph,
         percentile=percentile,
         threshold=threshold,
+        version=version
     )
 
     return filled_template_report

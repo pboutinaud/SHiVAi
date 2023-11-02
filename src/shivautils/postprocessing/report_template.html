@@ -76,13 +76,16 @@
         {% endif %}
 
     </div>
-    {% if wf_graph %}
-    <h2>Processing workflow diagram</h2>
-    <p>Other input parameters: </p>
+    <h2>Addiotional workflow informations and parameters</h2>
+    <p>Shiva version: {{ version }}</p>
+    <p>Input parameters:</p>
     <p>- "percentile" (as upper threshold during intensity normalisation): {{ percentile }}</p>
     <p>- "threshold" (to binarise estimated brain masks): {{ threshold }}</p>
     <p>- "final_dimensions" (image dimensions output by the AI model): {{ image_size }}</p>
     <p>- "voxels_size" (resampling resolution, used by the AI model): {{ resolution }} mm<sup>3</p>
+
+    {% if wf_graph %}
+    <h2>Processing workflow diagram</h2>
     <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ wf_graph }}' width="700" height="500"></object>
     {% endif %}
 </body>
