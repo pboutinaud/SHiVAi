@@ -60,3 +60,4 @@ crash*
 /test
 tmp_test.py
 test_tmp.py
+*.sif
