@@ -14,11 +14,10 @@ Stage: build
     apt-get install -y libpangocairo-1.0-0
     pip install build
     pip install pybids nibabel scipy pandas scikit-image pydot pydotplus matplotlib nipype weasyprint
-    chmod 755 /usr/local/src/shivautils/scripts/*
+    chmod 755 /usr/local/src/shivautils/src/shivautils/scripts/*
     cd /usr/local/src/shivautils
-    python -m build --wheel
+    python -m pip install .
     apt-get -y install wget unzip
-    pip install dist/shivautils-0.1.0-py3-none-any.whl
     cd /opt
     wget https://github.com/ANTsX/ANTs/releases/download/v2.4.3/ants-2.4.3-ubuntu-20.04-X64-gcc.zip 
     unzip ants-2.4.3-ubuntu-20.04-X64-gcc.zip
