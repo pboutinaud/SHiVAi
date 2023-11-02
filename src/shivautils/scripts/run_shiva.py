@@ -39,6 +39,23 @@ def singParser():
                               "- 'CMB' for the segmentation of cerebral microbleeds (requires SWI scans)\n"
                               "- 'all' for doing 'PVS2', 'WMH', and 'CMB' segmentation (requires T1, FLAIR, and SWI scans)"),
                         default=['PVS'])
+    parser.add_argument('-r', '--retry',
+                        action='store_true',
+                        help='Relaunch the pipeline from where it stopped')
+    parser.add_argument('--keep_all',
+                        action='store_true',
+                        help='Keep all intermediary file, which is usually necessary for debuggin.')
+    parser.add_argument('--run_plugin',
+                        default='Linear',
+                        help=('Type of plugin used by Nipype to run the workflow.\n'
+                              '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
+                              'for more details )'))
+    parser.add_argument('--run_plugin_args',
+                        type=str,
+                        help=('Configuration file (.yml) for the plugin used by Nipype to run the workflow.\n'
+                              'It will be imported as a dictionnary and given plugin_args '
+                              '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
+                              'for more details )'))
     return parser
 
 
@@ -60,12 +77,24 @@ def main():
     input_type = f"--input_type {args.input_type}"
     config = f"--model_config {args.config}"
     pred = f"--prediction {' '.join(args.prediction)}"
+    plugin = f'--run_plugin {args.run_plugin}'
 
     bind_list = [bind_model, bind_input, bind_output]
     bind = ','.join(bind_list)
 
     command_list = ["singularity exec --nv --bind", bind, singularity_image,
-                    "shiva.py --container", input, output, input_type, pred, config]
+                    "shiva.py --container", input, output, input_type, pred, config,
+                    plugin]
+
+    if args.plugin_args:
+        plugin_args = f'--run_plugin_args {args.run_plugin_args}'
+        command_list.append(plugin_args)
+
+    if args.retry:
+        command_list.append('--retry')
+
+    if args.keep_all:
+        command_list.append('--keep_all')
 
     command = ' '.join(command_list)
 
