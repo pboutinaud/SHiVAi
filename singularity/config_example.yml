@@ -1,5 +1,5 @@
 model_path: /myHome/myProject/Shiva_AI_models
-singularity_image: /myHome/myProject/shiva.sif
+apptainer_image: /myHome/myProject/shiva.sif
 
 parameters:
   brainmask_descriptor: "brainmask/V0/model_info.json"

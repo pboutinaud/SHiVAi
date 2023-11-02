@@ -10,7 +10,7 @@ The package includes an Apptainer (Singularity) container image recipe file.
 
 ## Dependencies
 
-The deep learning relies on Tensorflow 2.7.13, and a GPU with 16Gb of memory is necessary. The preprocessing pipelines are implemented with Nipype and make use of ANTS for image registration. Quality control reporting uses DOG contours from: https://github.com/neurolabusc/PyDog.
+The deep learning relies on Tensorflow 2.7.13, and a GPU with 16Gb of memory is necessary. The processing pipelines are implemented with Nipype and make use of ANTS for image registration. Quality control reporting uses DOG contours from: https://github.com/neurolabusc/PyDog.
 
 ## Package Installation
 
@@ -24,19 +24,19 @@ The scripts should be available in the command line prompt.
 
 ## Apptainer image
 
-The SHIVA application requires a Linux machine with a GPU (with 16GB of dedicated memory), and **Singularity** intalled (now known as **AppTainer**):
+The SHIVA application requires a Linux machine with a GPU (with 16GB of dedicated memory), and **AppTainer** intalled (previously known as **Singularity**):
 https://apptainer.org/docs/user/main/quick_start.html
 
-Singularity is a container solution, meaning that you will need a singularity image (a file with the *.sif* extension) containing all the software and environment necessary to run SHIVA. You can get it from us (**TODO**) or build it yourself.
+AppTainer is a container solution, meaning that you will need an AppTainer image (a file with the *.sif* extension) containing all the software and environment necessary to run SHIVA. You can get it from us (**TODO**) or build it yourself.
 
-To build the singularity image, you need a machine on which you are *root* user. Then, from the **shivautils/singularity** directory, run the following command to build the SHIVA singularity container image :
+To build the AppTainer image, you need a machine on which you are *root* user. Then, from the **shivautils/singularity** directory, run the following command to build the SHIVA AppTainer container image :
 
 ```bash
-singularity build shiva.sif singularity_tf.recipe
+apptainer build shiva.sif apptainer_tf.recipe
 ```
-Then you can move the singularity image on any computer with Singularity installed and run the processing even without being a root user on that machine.
+Then you can move the AppTainer image on any computer with AppTainer installed and run the processing even without being a root user on that machine.
 
-Note that if you are on a **Windows** computer, you can use WSL (Windows Subsystem for Linux) to run singularity and build the image. You can find more info here https://learn.microsoft.com/windows/wsl/install. With WSL installed, open a command prompt, type `wsl` and you will have access to a Linux terminal where you can install and run Singularity.
+Note that if you are on a **Windows** computer, you can use WSL (Windows Subsystem for Linux) to run AppTainer and build the image. You can find more info here https://learn.microsoft.com/windows/wsl/install. With WSL installed, open a command prompt, type `wsl` and you will have access to a Linux terminal where you can install and run AppTainer.
 There are also similar options for **Mac** users (check the dedicated section from https://apptainer.org/docs/admin/main/installation.html).
 
 ### Other files
@@ -46,10 +46,10 @@ To use it (see below), you will also need a minimal python environment with the 
 
 You will need to obtain the trained AI model accompanying the Shiva project. Let's consider that you stored it in `/myHome/myProject/Shiva_AI_models` for the following parts.
 
-You now need to prepare a configuration file that will hold diverse parameters as well as the path to the AI model and to the singularity image.
+You now need to prepare a configuration file that will hold diverse parameters as well as the path to the AI model and to the apptainer image.
 You can find the `config_example.yml` example configuration file in `shivautils/singularity`.
 
-There, you should change the placeholder paths for `model_path` and `singularity_image` with your own paths.
+There, you should change the placeholder paths for `model_path` and `apptainer_image` with your own paths.
 Normally you shouldn't have to modify the `parameters` part, except maybe the `SWI` parameter that you can swap to `False` if you don't have SWI acquisitions in your dataset. Let's say that you now have the config file prepared in `/myHome/myProject/myConfig.yml`.
 
 ## Running the process
@@ -59,7 +59,7 @@ Normally you shouldn't have to modify the `parameters` part, except maybe the `S
 To run the shiva process, you will need:
 - The `run_shiva.py` script that you can find in the present repository (shivautils/singularity/run_shiva.py)
 - The input dataset (see below for example of accepted file strucures)
-- The singularity image (*shiva.sif* above)
+- The apptainer image (*shiva.sif* above)
 - The trained AI model (that we provide)
 - A configuration file (.yml) that will contain all the options and various paths needed for the workflow
 

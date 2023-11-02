@@ -54,7 +54,7 @@ def main():
     if not (os.path.exists(args.output) and os.path.isdir(args.output)):
         os.makedirs(args.output)
     bind_output = f"{args.output}:/mnt/data/output:rw"
-    singularity_image = f"{yaml_content['singularity_image']}"
+    apptainer_image = f"{yaml_content['apptainer_image']}"
     input = f"--in /mnt/data/input"
     output = f"--out /mnt/data/output"
     input_type = f"--input_type {args.input_type}"
@@ -64,7 +64,7 @@ def main():
     bind_list = [bind_model, bind_input, bind_output]
     bind = ','.join(bind_list)
 
-    command_list = ["singularity exec --nv --bind", bind, singularity_image,
+    command_list = ["apptainer exec --nv --bind", bind, apptainer_image,
                     "shiva.py --container", input, output, input_type, pred, config]
 
     command = ' '.join(command_list)
