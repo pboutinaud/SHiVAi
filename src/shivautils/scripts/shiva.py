@@ -84,6 +84,19 @@ def shivaParser():
                         action='store_true',
                         help='Anonymize the report')
 
+    parser.add_argument('--run_plugin',
+                        default='Linear',
+                        help=('Type of plugin used by Nipype to run the workflow.\n'
+                              '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
+                              'for more details )'))
+
+    parser.add_argument('--run_plugin_args',
+                        type=str,
+                        help=('Configuration file (.yml) for the plugin used by Nipype to run the workflow.\n'
+                              'It will be imported as a dictionnary and given plugin_args '
+                              '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
+                              'for more details )'))
+
     parser.add_argument('--model_config',
                         type=str,
                         help=('Configuration file (.yml) containing the information and parameters for the '
@@ -206,6 +219,11 @@ def set_args_and_check(inParser):
         args.pvs2_descriptor = parameters['PVS2_descriptor']
         args.wmh_descriptor = parameters['WMH_descriptor']
         args.cmb_descriptor = parameters['CMB_descriptor']
+
+    if args.run_plugin_args:  # Parse the plugin arguments
+        with open(args.run_plugin_args, 'r') as file:
+            yaml_content = yaml.safe_load(file)
+        args.run_plugin_args = yaml_content
 
     if args.container:
         args.model = '/mnt/model'
@@ -513,7 +531,7 @@ def main():
 
     # Run the workflow
     main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
-    main_wf.run(plugin='Linear')
+    main_wf.run(plugin=args.run_plugin, plugin_args=args.run_plugin_args)
 
 
 if __name__ == "__main__":
