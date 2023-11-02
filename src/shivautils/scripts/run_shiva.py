@@ -86,7 +86,7 @@ def main():
                     "shiva.py --container", input, output, input_type, pred, config,
                     plugin]
 
-    if args.plugin_args:
+    if args.run_plugin_args:
         plugin_args = f'--run_plugin_args {args.run_plugin_args}'
         command_list.append(plugin_args)
 
