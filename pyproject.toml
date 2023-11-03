@@ -64,3 +64,9 @@ shiva_contained = "shivautils.scripts.run_shiva:main"
 
 [tool.setuptools.dynamic]
 version = { attr = "shivautils.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"shivautils.postprocessing" = ["*.html", "*.css", "*.png"]
