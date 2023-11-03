@@ -73,8 +73,6 @@ def main():
         os.makedirs(args.output)
     bind_output = f"{args.output}:/mnt/data/output:rw"
     bind_config = f"{op.dirname(op.abspath(args.config))}:/mnt/config:rw"
-    if args.run_plugin_args:
-        bind_plugin = f"{op.dirname(op.abspath(args.run_plugin_args))}:/mnt/plugin:rw"
     singularity_image = f"{yaml_content['singularity_image']}"
     input = f"--in /mnt/data/input"
     output = f"--out /mnt/data/output"
@@ -83,7 +81,10 @@ def main():
     pred = f"--prediction {' '.join(args.prediction)}"
     plugin = f'--run_plugin {args.run_plugin}'
 
-    bind_list = [bind_model, bind_input, bind_output]
+    bind_list = [bind_model, bind_input, bind_output, bind_config]
+    if args.run_plugin_args:
+        bind_plugin = f"{op.dirname(op.abspath(args.run_plugin_args))}:/mnt/plugin:rw"
+        bind_list.append(bind_plugin)
     bind = ','.join(bind_list)
 
     command_list = ["singularity exec --nv --bind", bind, singularity_image,
