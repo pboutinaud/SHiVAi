@@ -1,9 +1,7 @@
 # from shivautils.stats import save_histogram, bounding_crop
 from shivautils import __version__ as version
 from jinja2 import Environment, PackageLoader
-from shivautils.postprocessing import __file__ as postproc_init
 import base64
-import os
 
 
 def make_report(
