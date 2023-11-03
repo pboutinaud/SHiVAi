@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 import yaml
 import os
+import os.path as op
 
 
 def singParser():
@@ -68,14 +69,17 @@ def main():
 
     bind_model = f"{yaml_content['model_path']}:/mnt/model:ro"
     bind_input = f"{args.input}:/mnt/data/input:rw"
-    if not (os.path.exists(args.output) and os.path.isdir(args.output)):
+    if not (op.exists(args.output) and op.isdir(args.output)):
         os.makedirs(args.output)
     bind_output = f"{args.output}:/mnt/data/output:rw"
+    bind_config = f"{op.dirname(op.abspath(args.config))}:/mnt/config:rw"
+    if args.run_plugin_args:
+        bind_plugin = f"{op.dirname(op.abspath(args.run_plugin_args))}:/mnt/plugin:rw"
     singularity_image = f"{yaml_content['singularity_image']}"
     input = f"--in /mnt/data/input"
     output = f"--out /mnt/data/output"
     input_type = f"--input_type {args.input_type}"
-    config = f"--model_config {args.config}"
+    config = f"--model_config /mnt/config/{op.basename(args.config)}"
     pred = f"--prediction {' '.join(args.prediction)}"
     plugin = f'--run_plugin {args.run_plugin}'
 
@@ -87,7 +91,7 @@ def main():
                     plugin]
 
     if args.run_plugin_args:
-        plugin_args = f'--run_plugin_args {args.run_plugin_args}'
+        plugin_args = f'--run_plugin_args /mnt/plugin/{op.basename(args.run_plugin_args)}'
         command_list.append(plugin_args)
 
     if args.retry:
