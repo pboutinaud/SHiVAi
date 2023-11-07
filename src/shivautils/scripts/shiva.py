@@ -6,7 +6,7 @@ from shivautils.workflows.post_processing import set_wf_shapers
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowDualPreproc
 from shivautils.workflows.preprocessing_swi_reg import gen_workflow_swi
-from shivautils.interfaces.image import Join_Prediction_metrics
+from shivautils.interfaces.post import Join_Prediction_metrics
 from nipype import config
 from nipype.pipeline.engine import Workflow, Node, JoinNode
 from nipype.interfaces.utility import IdentityInterface
