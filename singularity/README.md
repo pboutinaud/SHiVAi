@@ -152,9 +152,9 @@ Preprocessing steps
 Reporting
 =========
 
-Individual CSV file (path folder 'subject_{id}/metrics_predictions_{pvs/wmh}'):
+Individual CSV file (path folder 'subject_{id}/prediction_metrics_{pvs/wmh}'):
 
-In the 'metrics_predictions_pvs' folder or 'metrics_prediction_wmh' of the main folder, there will be a *.csv* file describing all cluster metrics for the perivascular spaces or white matter hyperintensities :
+In the 'prediction_metrics_pvs' folder or 'prediction_metrics_wmh' of the main folder, there will be a *.csv* file describing all cluster metrics for the perivascular spaces or white matter hyperintensities :
 - Number of voxels
 - Number of clusters
 - Mean clusters size
@@ -173,6 +173,6 @@ Individual HTML / PDF Report (path folder 'subject_{id}/summary_report'):
 - Overlay of final brainmask over cropped main images
 - Preprocessing workflow diagram
 
-General *.csv* file (path folder 'metrics_predictions_{pvs/wmh}_generale'):
+General *.csv* file (path folder 'prediction_metrics_{pvs/wmh}_generale'):
 
  - Sum of cluster metrics with one row per subject.

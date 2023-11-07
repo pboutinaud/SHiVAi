@@ -509,14 +509,14 @@ def main():
         main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv', sink_node_subjects, 'pvs_segmentation.@metrics')
         main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_census_csv', sink_node_subjects, 'pvs_segmentation.@census')
         main_wf.connect(wf_post, 'prediction_metrics_pvs.labelled_biomarkers', sink_node_subjects, 'pvs_segmentation.@labeled')
-        main_wf.connect(prediction_metrics_pvs_all, 'metrics_predictions_csv', sink_node_all, 'pvs_metrics')
+        main_wf.connect(prediction_metrics_pvs_all, 'prediction_metrics_csv', sink_node_all, 'pvs_metrics')
 
     if 'WMH' in args.prediction:
         main_wf.connect(wmh_predictor_node, 'segmentation', sink_node_subjects, 'wmh_segmentation')
         main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_stats_csv', sink_node_subjects, 'wmh_segmentation.@metrics')
         main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_census_csv', sink_node_subjects, 'wmh_segmentation.@census')
         main_wf.connect(wf_post, 'prediction_metrics_wmh.labelled_biomarkers', sink_node_subjects, 'wmh_segmentation.@labeled')
-        main_wf.connect(prediction_metrics_wmh_all, 'metrics_predictions_csv', sink_node_all, 'wmh_metrics')
+        main_wf.connect(prediction_metrics_wmh_all, 'prediction_metrics_csv', sink_node_all, 'wmh_metrics')
 
     if 'CMB' in args.prediction:
         if with_t1:
@@ -529,7 +529,7 @@ def main():
         main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', sink_node_subjects, f'cmb_segmentation_{space}.@metrics')
         main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_census_csv', sink_node_subjects, f'cmb_segmentation_{space}.@census')
         main_wf.connect(wf_post, 'prediction_metrics_cmb.labelled_biomarkers', sink_node_subjects, f'cmb_segmentation_{space}.@labeled')
-        main_wf.connect(prediction_metrics_cmb_all, 'metrics_predictions_csv', sink_node_all, f'cmb_metrics_{space}')
+        main_wf.connect(prediction_metrics_cmb_all, 'prediction_metrics_csv', sink_node_all, f'cmb_metrics_{space}')
 
     sink_node_all.inputs.wf_graph = wf_graph
 

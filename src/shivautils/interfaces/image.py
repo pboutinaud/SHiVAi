@@ -762,7 +762,7 @@ class Regionwise_Prediction_metrics_OutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        metrics_prediction_csv (csv): csv file with metrics about the cluster prediction
+        prediction_metrics_csv (csv): csv file with metrics about the cluster prediction
         file
     """
     biomarker_census_csv = traits.File(exists=True,
@@ -1098,7 +1098,7 @@ class PVSQuantificationibGOutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        metrics_prediction_pvs (nib.Nifti1Image): CSV file with metrics about clusters and voxels Basal Ganglia and Deep White Matters regions
+        prediction_metrics_pvs (nib.Nifti1Image): CSV file with metrics about clusters and voxels Basal Ganglia and Deep White Matters regions
     """
     metrics_bg_pvs = traits.File(exists=True,
                                  desc='CSV file with metrics about clusters and voxels Basal Ganglia and Deep White Matters regions')

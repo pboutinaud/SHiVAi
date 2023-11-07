@@ -197,7 +197,7 @@ pvs models are processed
 
 ### Reporting
 
-Individual CSV file (path folder 'subject_{id}/metrics_predictions_{pvs/wmh}'):
+Individual CSV file (path folder 'subject_{id}/prediction_metrics_{pvs/wmh}'):
 
 - Cluster Threshold
 - Cluster Filter

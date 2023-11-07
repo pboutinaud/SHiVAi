@@ -496,9 +496,9 @@ class Join_Prediction_metrics_OutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        metrics_prediction_csv (csv): csv file with metrics about each prediction
+        prediction_metrics_csv (csv): csv file with metrics about each prediction
     """
-    metrics_predictions_csv = traits.File(exists=True,
+    prediction_metrics_csv = traits.File(exists=True,
                                           desc='csv file with metrics about each prediction')
 
 
@@ -521,15 +521,15 @@ class Join_Prediction_metrics(BaseInterface):
             sub_df.insert(0, 'sub_id', [sub_id]*sub_df.shape[0])
             csv_list.append(sub_df)
         all_sub_metrics = pd.concat(csv_list)
-        all_sub_metrics.to_csv('metrics_predictions.csv')
+        all_sub_metrics.to_csv('prediction_metrics.csv')
 
-        setattr(self, 'metrics_predictions_csv', os.path.abspath("metrics_predictions.csv"))
+        setattr(self, 'prediction_metrics_csv', os.path.abspath("prediction_metrics.csv"))
         return runtime
 
     def _list_outputs(self):
         """File in the output structure."""
         outputs = self.output_spec().trait_get()
-        outputs['metrics_predictions_csv'] = getattr(self, 'metrics_predictions_csv')
+        outputs['prediction_metrics_csv'] = getattr(self, 'prediction_metrics_csv')
         return outputs
 
 
