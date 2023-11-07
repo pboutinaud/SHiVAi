@@ -344,25 +344,38 @@ class QC_metrics_Input(BaseInterfaceInputSpec):
     )
 
     main_norm_peak = traits.Float(
-        exists=True,
         mandatory=True,
-        desc="Peak from the histogram of the 'main' iamge (t1 or swi)"
+        desc="Peak from the histogram of the 'main' image (t1 or swi)"
     )
 
-    flair_reg_mat = traits.File(
+    flair_norm_peak = traits.Float(
         None,
         usedefault=True,
-        exists=True,
         mandatory=False,
-        desc="Affine matrix (.mat) of registration between flair and t1"
+        desc="Peak from the histogram of the flair image"
+    )
+
+    swi_norm_peak = traits.Float(
+        None,
+        usedefault=True,
+        mandatory=False,
+        desc="Peak from the histogram of the swi image"
+    )
+
+    flair_reg_mat = traits.List(
+        traits.File(exists=True),
+        default=[],
+        usedefault=True,
+        mandatory=False,
+        desc="List of one affine matrix file (.mat) of registration between flair and t1"
     )
 
     swi_reg_mat = traits.File(
-        None,
+        traits.File(exists=True),
+        default=[],
         usedefault=True,
-        exists=True,
         mandatory=False,
-        desc="Affine matrix (.mat) of registration between swi and t1"
+        desc="List of one affine matrix file (.mat) of registration between swi and t1"
     )
 
 
@@ -386,13 +399,13 @@ class QC_metrics(BaseInterface):
         qc_dict['brain_mask_size'] = brain_size
         qc_dict['main_im_hist_peak'] = self.input_spec.main_norm_peak
 
-        if self.input_spec.flair_reg_mat is not None:
-            rotation_flair_reg, translation_flair_reg = transf_from_affine(self.input_spec.flair_reg_mat)
+        if self.input_spec.flair_reg_mat:
+            rotation_flair_reg, translation_flair_reg = transf_from_affine(self.input_spec.flair_reg_mat[0])
             qc_dict['rotation_flair_reg'] = rotation_flair_reg
             qc_dict['translation_flair_reg'] = translation_flair_reg
 
-        if self.input_spec.swi_reg_mat is not None:
-            rotation_swi_reg, translation_swi_reg = transf_from_affine(self.input_spec.swi_reg_mat)
+        if self.input_spec.swi_reg_mat:
+            rotation_swi_reg, translation_swi_reg = transf_from_affine(self.input_spec.swi_reg_mat[0])
             qc_dict['rotation_swi_reg'] = rotation_swi_reg
             qc_dict['translation_swi_reg'] = translation_swi_reg
 
