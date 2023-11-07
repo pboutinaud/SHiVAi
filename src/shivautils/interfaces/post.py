@@ -6,11 +6,14 @@ Contains custom interfaces wrapping scripts/functions used by the nipype workflo
 """
 import os
 import os.path as op
+import json
 
 import numpy as np
 import nibabel as nib
 import pandas as pd
 from weasyprint import HTML, CSS
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 from nipype.interfaces.base import (traits, File, TraitedSpec,
                                     BaseInterface, BaseInterfaceInputSpec,
@@ -499,7 +502,7 @@ class Join_Prediction_metrics_OutputSpec(TraitedSpec):
         prediction_metrics_csv (csv): csv file with metrics about each prediction
     """
     prediction_metrics_csv = traits.File(exists=True,
-                                          desc='csv file with metrics about each prediction')
+                                         desc='csv file with metrics about each prediction')
 
 
 class Join_Prediction_metrics(BaseInterface):
@@ -595,17 +598,23 @@ class QC_metrics(BaseInterface):
         brain_vol = nib.load(self.input_spec.brain_mask).get_fdata().astype(bool)
         brain_size = brain_vol.sum()
         qc_dict['brain_mask_size'] = brain_size
-        qc_dict['main_im_hist_peak'] = self.input_spec.main_norm_peak
+        qc_dict['main_norm_peak'] = self.input_spec.main_norm_peak
 
         if self.input_spec.flair_reg_mat:
             rotation_flair_reg, translation_flair_reg = transf_from_affine(self.input_spec.flair_reg_mat[0])
             qc_dict['rotation_flair_reg'] = rotation_flair_reg
             qc_dict['translation_flair_reg'] = translation_flair_reg
 
+        if self.input_spec.flair_norm_peak:
+            qc_dict['flair_norm_peak'] = self.input_spec.flair_norm_peak
+
         if self.input_spec.swi_reg_mat:
             rotation_swi_reg, translation_swi_reg = transf_from_affine(self.input_spec.swi_reg_mat[0])
             qc_dict['rotation_swi_reg'] = rotation_swi_reg
             qc_dict['translation_swi_reg'] = translation_swi_reg
+
+        if self.input_spec.swi_norm_peak:
+            qc_dict['swi_norm_peak'] = self.input_spec.swi_norm_peak
 
         qc_df = pd.DataFrame(qc_dict)
         qc_file = 'qc_metrics.csv'
@@ -617,4 +626,115 @@ class QC_metrics(BaseInterface):
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs['csv_qc_metrics'] = getattr(self, 'csv_qc_metrics')
+        return outputs
+
+
+class Join_QC_metrics_InputSpec(BaseInterfaceInputSpec):
+    """Input parameter to get metrics of prediction file"""
+    csv_files = traits.List(traits.File(exists=True),
+                            desc='List if csv files containing qc metrics for individual participants',)
+
+    subject_id = traits.List(desc="id for each subject")
+
+
+class Join_QC_metrics_OutputSpec(TraitedSpec):
+    """Output class
+    """
+    qc_metrics_csv = traits.File(exists=True,
+                                 desc='csv file with metrics about each qc')
+
+    bad_qc_subs = traits.File(exists=True,
+                              desc='json file containing the subjects with bad qc and their bad metrics')
+
+
+class Join_QC_metrics(BaseInterface):
+    """Get metrics about each subject's SQ, join them in a csv file and 
+    check if there are some outliers
+    """
+    input_spec = Join_QC_metrics_InputSpec
+    output_spec = Join_QC_metrics_OutputSpec
+
+    def _run_interface(self, runtime):
+        """Join of all qc metrics in
+        one csv file
+
+        """
+        path_csv_files = self.inputs.csv_files
+        subject_id = self.inputs.subject_id
+
+        csv_list = []
+        for csv_file, sub_id in zip(path_csv_files, subject_id):
+            sub_df = pd.read_csv(csv_file, index_col=0)
+            sub_df.insert(0, 'sub_id', [sub_id]*sub_df.shape[0])
+            csv_list.append(sub_df)
+        all_sub_metrics = pd.concat(csv_list)
+
+        csv_out_file = 'qc_metrics.csv'
+        all_sub_metrics.to_csv(csv_out_file)
+
+        all_sub_metrics.set_index('sub_id', inplace=True)
+
+        save_name = 'qc_metrics_plot.svg'
+        bad_subjects = {}
+        if len(all_sub_metrics) >= 10:  # We need at least a few subject to detect outliers
+            # Plot boxplot of each metrics with labeled outliers
+            # Using the boxplot way (1.5 times the interquartile distance)
+            flierprops = {
+                'markerfacecolor': (1, 0, 0),
+                'markersize': 5,
+                'markeredgewidth': 0,
+                'linewidth': 0}
+            fig = plt.figure()
+            sns.boxplot(all_sub_metrics, flierprops=flierprops)
+            q1 = all_sub_metrics.quantile(0.25)
+            q3 = all_sub_metrics.quantile(0.75)
+            min_thr = q1 - 1.5*(q3 - q1)
+            max_thr = q3 + 1.5*(q3 - q1)
+            for id, row in all_sub_metrics.iterrows():
+                badmetrics = []
+                for metric, val in row.items():
+                    if val < min_thr.loc[metric] or val > max_thr[metric]:
+                        badmetrics.append(metric)
+                        # plot the name of the subject next to the outlier point
+                        plt.text(metric, val, id, ha='left', va='center')
+                if badmetrics:
+                    bad_subjects[id] = badmetrics
+            plt.savefig(save_name, format='svg')
+            plt.close(fig)
+        else:
+            # Simple swarmplot if few subjects for a quick check
+            # Labels may overlap but outliers should stand out
+            fig = plt.figure()
+            sns.swarmplot(all_sub_metrics)
+            for id, row in all_sub_metrics.iterrows():
+                for metric, val in row.items():
+                    plt.text(metric, val, id, ha='left', va='center')
+
+        # Checking if the histogram peaks of normalised images are between 0 and 1
+        for metric in all_sub_metrics:
+            if '_norm_peak' in metric:
+                metric_series = all_sub_metrics[metric]
+                bad_norm = metric_series.index[(metric_series > 1) | (metric_series < 0)]
+                for id in bad_norm:
+                    if id not in bad_subjects.keys():
+                        bad_subjects[id] = [metric]
+                    else:
+                        bad_subjects[id].append(metric)  # May create duplicates, but it doesn't really matter
+
+        # Save the bad subject and bad metrics
+
+        bad_subjects_file = 'failed_qc.json'
+        with open(bad_subjects_file, 'w') as fp:
+            json.dump(bad_subjects, fp, sort_keys=True, indent=4)
+
+        setattr(self, 'prediction_metrics_csv', os.path.abspath(csv_out_file))
+        setattr(self, 'bad_qc_subs', os.path.abspath(bad_subjects_file))
+
+        return runtime
+
+    def _list_outputs(self):
+        """File in the output structure."""
+        outputs = self.output_spec().trait_get()
+        outputs['prediction_metrics_csv'] = getattr(self, 'prediction_metrics_csv')
+        outputs['bad_qc_subs'] = getattr(self, 'bad_qc_subs')
         return outputs
