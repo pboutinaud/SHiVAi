@@ -38,7 +38,8 @@ from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.utility import Function
 from nipype.interfaces import ants
 
-from shivautils.interfaces.image import Regionwise_Prediction_metrics, SummaryReport
+from shivautils.interfaces.post import SummaryReport
+from shivautils.interfaces.image import Regionwise_Prediction_metrics
 from shivautils.postprocessing.isocontour import create_edges
 from shivautils.stats import overlay_brainmask, bounding_crop
 

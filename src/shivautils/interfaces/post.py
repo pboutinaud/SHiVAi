@@ -10,6 +10,7 @@ import os.path as op
 import numpy as np
 import nibabel as nib
 import pandas as pd
+from weasyprint import HTML, CSS
 
 from nipype.interfaces.base import (traits, File, TraitedSpec,
                                     BaseInterface, BaseInterfaceInputSpec,
@@ -22,6 +23,9 @@ from nipype.utils.filemanip import ensure_list, simplify_list
 
 from string import Template
 from shivautils.stats import transf_from_affine
+from shivautils.postprocessing.report import make_report
+from shivautils.stats import swarmplot_from_census
+from shivautils.postprocessing import __file__ as postproc_init
 
 
 class CustomIntensityNormalizationInputSpec(BaseInterfaceInputSpec):
@@ -332,6 +336,151 @@ class SPMApplyDeformation(SPMCommand):
         for filename in self.inputs.in_files:
             _, fname = os.path.split(filename)
             outputs["out_files"].append(op.realpath("w%s" % fname))
+        return outputs
+
+
+class SummaryReportInputSpec(BaseInterfaceInputSpec):
+    """Make summary report file in pdf format"""
+
+    anonymized = traits.Bool(False, exists=True,
+                             amandatory=False,
+                             desc='Anonymized Subject ID')
+
+    subject_id = traits.Str(desc="id for each subject")
+
+    pvs_metrics_csv = traits.File(desc='csv file with pvs stats',
+                                  mandatory=False)
+    wmh_metrics_csv = traits.File(desc='csv file with wmh stats',
+                                  mandatory=False)
+    cmb_metrics_csv = traits.File(desc='csv file with cmb stats',
+                                  mandatory=False)
+    pvs_census_csv = traits.File(desc='csv file compiling each pvs size (and region)',
+                                 mandatory=False)
+    wmh_census_csv = traits.File(desc='csv file compiling each wmh size (and region)',
+                                 mandatory=False)
+    cmb_census_csv = traits.File(desc='csv file compiling each cmb size (and region)',
+                                 mandatory=False)
+    pred_list = traits.List(traits.Str,
+                            desc='List of the different predictions computed ("PVS", "WMH" or "CMB")')
+    brainmask = traits.File(exists=True,
+                            desc='Nifti file of the brain mask in raw space')
+    crop_brain_img = traits.File(desc='PNG file of the crop box, the first brain mask on the brain')
+
+    isocontour_slides_FLAIR_T1 = traits.File(None,
+                                             usedefault=True,
+                                             mandatory=False,
+                                             desc='PNG file of the FLAIR isocontour on T1 (QC of coregistration)')
+
+    overlayed_brainmask_1 = traits.File(desc='PNG file of the final brain mask on first acquisition (T1 or SWI)')
+
+    overlayed_brainmask_2 = traits.File(None,
+                                        usedefault=True,
+                                        mandatory=False,
+                                        desc='PNG file of the final brain mask on second independent acquisition (SWI)')
+
+    wf_graph = traits.File(None,
+                           usedefault=True,
+                           mandatory=False,
+                           desc='SVG file of the workflow graph')
+
+    percentile = traits.Float(99.0,
+                              desc='Percentile used during intensity normalisation')
+    threshold = traits.Float(0.5,
+                             desc='Threshold used to binarise brain masks')
+    image_size = traits.Tuple(traits.Int, traits.Int, traits.Int,
+                              default=(160, 214, 176),
+                              usedefault=True,
+                              desc='Dimensions of the cropped image')
+    resolution = traits.Tuple(float, float, float,
+                              desc='Resampled voxel size of the final image')
+    thr_cluster_val = traits.Float(0.2,
+                                   desc='Threshold used to binarise the predictions')
+    min_seg_size = traits.Dict(key_trait=traits.Str, value_trait=traits.Int,
+                               desc='Dictionary holding the minimal size set to filter segmented biomarkers')
+
+
+class SummaryReportOutputSpec(TraitedSpec):
+    """Output class
+
+    Args:
+        summary_report (html): summary report for each subject
+        summary_report (pdf): summary report for each subject
+    """
+    summary_report = traits.Any(exists=True,
+                                desc='summary html report')
+
+    summary = traits.Any(exists=True,
+                         desc='summary pdf report')
+
+
+class SummaryReport(BaseInterface):
+    """Make a summary report of preprocessing and prediction"""
+    input_spec = SummaryReportInputSpec
+    output_spec = SummaryReportOutputSpec
+
+    def _run_interface(self, runtime):
+        """
+        Build the report for the whole workflow. It contains segementation statistics and
+        quality controle figures.
+
+        """
+        if self.inputs.anonymized:  # TODO
+            subject_id = None
+        else:
+            subject_id = self.inputs.subject_id
+
+        brain_vol = nib.load(self.inputs.brainmask).get_fdata().astype(bool).sum()
+        pred_metrics_dict = {}  # Will contain the stats dataframe for each biomarker
+        pred_census_im_dict = {}  # Will contain the path to the swarmplot for each biomarker
+        pred_list = self.inputs.pred_list
+        if 'PVS' in pred_list:
+            pred_metrics_dict['PVS'] = pd.read_csv(self.inputs.pvs_metrics_csv, index_col=0)
+            pred_census_im_dict['PVS'] = swarmplot_from_census(self.inputs.pvs_census_csv, 'PVS')
+        if 'WMH' in pred_list:
+            pred_metrics_dict['WMH'] = pd.read_csv(self.inputs.wmh_metrics_csv, index_col=0)
+            pred_census_im_dict['WMH'] = swarmplot_from_census(self.inputs.wmh_census_csv, 'WMH')
+        if 'CMB' in pred_list:
+            pred_metrics_dict['CMB'] = pd.read_csv(self.inputs.cmb_metrics_csv, index_col=0)
+            pred_census_im_dict['CMB'] = swarmplot_from_census(self.inputs.cmb_census_csv, 'CMB')
+
+        # process
+        summary_report = make_report(
+            pred_metrics_dict=pred_metrics_dict,
+            pred_census_im_dict=pred_census_im_dict,
+            brain_vol=brain_vol,
+            thr_cluster_val=self.inputs.thr_cluster_val,
+            min_seg_size=self.inputs.min_seg_size,
+            bounding_crop_path=self.inputs.crop_brain_img,
+            overlayed_brainmask_1=self.inputs.overlayed_brainmask_1,
+            overlayed_brainmask_2=self.inputs.overlayed_brainmask_2,
+            isocontour_slides_FLAIR_T1=self.inputs.isocontour_slides_FLAIR_T1,
+            subject_id=subject_id,
+            image_size=self.inputs.image_size,
+            resolution=self.inputs.resolution,
+            percentile=self.inputs.percentile,
+            threshold=self.inputs.threshold,
+            wf_graph=self.inputs.wf_graph
+        )
+
+        with open('summary_report.html', 'w', encoding='utf-8') as fid:
+            fid.write(summary_report)
+
+        # Convertir le fichier HTML en PDF
+        postproc_dir = os.path.dirname(postproc_init)
+        css = os.path.join(postproc_dir, 'report_styling.css')
+        HTML('summary_report.html').write_pdf('summary.pdf',
+                                              presentational_hints=True,
+                                              stylesheets=[CSS(css)])
+
+        setattr(self, 'summary_report', os.path.abspath('summary_report.html'))
+        setattr(self, 'summary', os.path.abspath('summary.pdf'))
+
+    def _list_outputs(self):
+        """Fill in the output structure."""
+        outputs = self.output_spec().trait_get()
+        outputs['summary_report'] = getattr(self, 'summary_report')
+        outputs['summary'] = getattr(self, 'summary')
+
         return outputs
 
 
