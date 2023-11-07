@@ -38,7 +38,7 @@ def genWorkflow(**kwargs) -> Workflow:
     # compute 6-dof coregistration parameters of accessory scan
     # to cropped t1 image
     coreg = Node(ants.Registration(),
-                 name='coregister')
+                 name='flair_to_t1')
     coreg.inputs.transforms = ['Rigid']
     coreg.inputs.transform_parameters = [(0.1,)]
     coreg.inputs.metric = ['MI']
