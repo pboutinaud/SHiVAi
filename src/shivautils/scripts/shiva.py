@@ -6,7 +6,7 @@ from shivautils.workflows.post_processing import set_wf_shapers
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowDualPreproc
 from shivautils.workflows.preprocessing_swi_reg import gen_workflow_swi
-from shivautils.interfaces.post import Join_Prediction_metrics
+from shivautils.interfaces.post import Join_Prediction_metrics, Join_QC_metrics
 from nipype import config
 from nipype.pipeline.engine import Workflow, Node, JoinNode
 from nipype.interfaces.utility import IdentityInterface
@@ -379,27 +379,41 @@ def main():
     # Set all the connections between preproc and postproc
     main_wf.connect(subject_iterator, 'subject_id', wf_preproc, 'datagrabber.subject_id')
     main_wf.connect(subject_iterator, 'subject_id', wf_post, 'summary_report.subject_id')
-    main_wf.connect(wf_preproc, 'conform.resampled', wf_post, 'qc_crop_box.img_apply_to')
-    main_wf.connect(wf_preproc, 'hard_brain_mask.thresholded', wf_post, 'qc_crop_box.brainmask')
-    main_wf.connect(wf_preproc, 'crop.bbox1', wf_post, 'qc_crop_box.bbox1')
-    main_wf.connect(wf_preproc, 'crop.bbox2', wf_post, 'qc_crop_box.bbox2')
-    main_wf.connect(wf_preproc, 'crop.cdg_ijk', wf_post, 'qc_crop_box.cdg_ijk')
-    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'qc_overlay_brainmask.brainmask')
-    main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'qc_overlay_brainmask.img_ref')
+    main_wf.connect(wf_preproc, 'conform.resampled', wf_post, 'preproc_qc_workflow.qc_crop_box.img_apply_to')
+    main_wf.connect(wf_preproc, 'hard_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_crop_box.brainmask')
+    main_wf.connect(wf_preproc, 'crop.bbox1', wf_post, 'preproc_qc_workflow.qc_crop_box.bbox1')
+    main_wf.connect(wf_preproc, 'crop.bbox2', wf_post, 'preproc_qc_workflow.qc_crop_box.bbox2')
+    main_wf.connect(wf_preproc, 'crop.cdg_ijk', wf_post, 'preproc_qc_workflow.qc_crop_box.cdg_ijk')
+    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask.brainmask')
+    main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask.img_ref')
+    main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.save_hist_final.img_normalized')
     main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'summary_report.brainmask')
+    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'summary_report.qc_metrics.brain_mask')
 
     if with_flair:
-        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', wf_post, 'qc_coreg_FLAIR_T1.path_image')
-        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'qc_coreg_FLAIR_T1.path_ref_image')
-        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'qc_coreg_FLAIR_T1.path_brainmask')
+        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.path_image')
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.path_ref_image')
+        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.path_brainmask')
+        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.mode', wf_post, 'preproc_qc_workflow.qc_metrics.flair_norm_peak')
+        main_wf.connect(wf_preproc, 'flair_to_t1.forward_transforms', wf_post, 'preproc_qc_workflow.qc_metrics.flair_reg_mat')
 
     if with_t1 and with_swi:
         main_wf.add_nodes([wf_preproc_cmb])
         main_wf.connect(wf_preproc, 'datagrabber.img3', wf_preproc_cmb, 'conform.img')
         main_wf.connect(wf_preproc, 'crop.cropped', wf_preproc_cmb, 'swi_to_t1.fixed_image')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_preproc_cmb, 'mask_to_swi.input_image')
-        main_wf.connect(wf_preproc_cmb, 'mask_to_crop.resampled_image', wf_post, 'qc_overlay_brainmask_swi.brainmask')
-        main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', wf_post, 'qc_overlay_brainmask_swi.img_ref')
+        main_wf.connect(wf_preproc_cmb, 'mask_to_crop.resampled_image', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask_swi.brainmask')
+        main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask_swi.img_ref')
+        main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.mode', wf_post, 'preproc_qc_workflow.qc_metrics.swi_norm_peak')
+        main_wf.connect(wf_preproc_cmb, 'swi_to_t1.forward_transforms', wf_post, 'preproc_qc_workflow.qc_metrics.swi_reg_mat')
+
+    # Joining the individual QC metrics
+    qc_joiner = JoinNode(Join_QC_metrics(),
+                         joinsource=subject_iterator,
+                         joinfield=['csv_files', 'subject_id'],
+                         name='qc_joiner')
+    main_wf.connect(wf_post, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', qc_joiner, 'csv_files')
+    main_wf.connect(subject_iterator, 'subject_id', qc_joiner, 'subject_id')
 
     # Then prediction nodes and their connections
     # PVS
@@ -531,6 +545,8 @@ def main():
         main_wf.connect(wf_post, 'prediction_metrics_cmb.labelled_biomarkers', sink_node_subjects, f'cmb_segmentation_{space}.@labeled')
         main_wf.connect(prediction_metrics_cmb_all, 'prediction_metrics_csv', sink_node_all, f'cmb_metrics_{space}')
 
+    main_wf.connect(qc_joiner, 'qc_metrics_csv', sink_node_all, 'preproc_qc')
+    main_wf.connect(qc_joiner, 'bad_qc_subs', sink_node_all, 'preproc_qc.@bad_qc_subs')
     sink_node_all.inputs.wf_graph = wf_graph
 
     # Run the workflow

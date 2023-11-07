@@ -10,7 +10,7 @@ from shivautils.postprocessing.isocontour import create_edges
 from shivautils.interfaces.post import QC_metrics
 
 
-def gen_qc_wf() -> Workflow:
+def gen_qc_wf(workflow_name) -> Workflow:
     """
     Quality control workflow for the preprocessing of the 'main' image (t1 or swi)
 
@@ -48,8 +48,7 @@ def gen_qc_wf() -> Workflow:
     ____.connect(____, 'swi_to_t1.forward_transforms', ____, 'qc_metrics.swi_reg_mat')
 
     """
-    name_workflow = "preproc_qc_workflow"
-    workflow = Workflow(name_workflow)
+    workflow = Workflow(workflow_name)
 
     crop_box = Node(Function(input_names=['img_apply_to',
                                           'brainmask',

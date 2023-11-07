@@ -40,8 +40,7 @@ from nipype.interfaces import ants
 
 from shivautils.interfaces.post import SummaryReport
 from shivautils.interfaces.image import Regionwise_Prediction_metrics
-from shivautils.postprocessing.isocontour import create_edges
-from shivautils.stats import overlay_brainmask, bounding_crop
+from shivautils.workflows.qc_preproc import gen_qc_wf, qc_wf_add_flair, qc_wf_add_swi
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
@@ -168,32 +167,13 @@ def genWorkflow(**kwargs) -> Workflow:
             workflow.connect(swi_pred_to_t1, 'output_image', prediction_metrics_cmb, 'img')
 
     # QC part
-    qc_crop_box = Node(Function(input_names=['img_apply_to',
-                                             'brainmask',
-                                             'bbox1',
-                                             'bbox2',
-                                             'cdg_ijk'],
-                                output_names=['crop_brain_img'],
-                                function=bounding_crop),
-                       name='qc_crop_box')
-
-    qc_overlay_brainmask = Node(Function(input_names=['img_ref', 'brainmask'],
-                                         output_names=['overlayed_brainmask'],
-                                         function=overlay_brainmask),
-                                name='qc_overlay_brainmask')
-
-    if with_flair:  # dual
-        qc_coreg_FLAIR_T1 = Node(Function(input_names=['path_image', 'path_ref_image', 'path_brainmask', 'nb_of_slices'],
-                                          output_names=['qc_coreg'],
-                                          function=create_edges),
-                                 name='qc_coreg_FLAIR_T1')
-        qc_coreg_FLAIR_T1.inputs.nb_of_slices = 5  # Should be enough
-
+    # Initialising the QC sub-workflow
+    qc_wf = gen_qc_wf('preproc_qc_workflow')  # We may move this in preproc...
+    if with_flair:  # dual predictions
+        qc_wf = qc_wf_add_flair(qc_wf)
     if with_swi and with_t1:
-        qc_overlay_brainmask_swi = Node(Function(input_names=['img_ref', 'brainmask'],
-                                                 output_names=['overlayed_brainmask'],
-                                                 function=overlay_brainmask),
-                                        name='qc_overlay_brainmask_swi')
+        qc_wf = qc_wf_add_swi(qc_wf)
+    workflow.add_nodes([qc_wf])
 
     # Building the actual report (html then pdf)
     summary_report = Node(SummaryReport(), name="summary_report")
@@ -221,12 +201,12 @@ def genWorkflow(**kwargs) -> Workflow:
         'CMB': kwargs['MIN_CMB_SIZE']}
     summary_report.inputs.pred_list = preds
 
-    workflow.connect(qc_crop_box, 'crop_brain_img', summary_report, 'crop_brain_img')
-    workflow.connect(qc_overlay_brainmask, 'overlayed_brainmask', summary_report, 'overlayed_brainmask_1')
+    workflow.connect(qc_wf, 'qc_crop_box.crop_brain_img', summary_report, 'crop_brain_img')
+    workflow.connect(qc_wf, 'qc_overlay_brainmask.overlayed_brainmask', summary_report, 'overlayed_brainmask_1')
     if with_swi and with_t1:
-        workflow.connect(qc_overlay_brainmask_swi, 'overlayed_brainmask', summary_report, 'overlayed_brainmask_2')
+        workflow.connect(qc_wf, 'qc_overlay_brainmask_swi.overlayed_brainmask', summary_report, 'overlayed_brainmask_2')
     if with_flair:
-        workflow.connect(qc_coreg_FLAIR_T1, 'qc_coreg', summary_report, 'isocontour_slides_FLAIR_T1')
+        workflow.connect(qc_wf, 'qc_coreg_FLAIR_T1.qc_coreg', summary_report, 'isocontour_slides_FLAIR_T1')
 
     return workflow
 
