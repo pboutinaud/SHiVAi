@@ -230,7 +230,8 @@ def genWorkflow(**kwargs) -> Workflow:
                      t1_norm, 'brain_mask')
 
     save_hist_final = Node(Function(input_names=['img_normalized'],
-                                    output_names=['hist'], function=save_histogram), name='save_hist_final')
+                                    output_names=['hist', 'peak'],
+                                    function=save_histogram), name='save_hist_final')
 
     workflow.connect(t1_norm, 'intensity_normalized', save_hist_final, 'img_normalized')
 
