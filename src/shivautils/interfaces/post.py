@@ -335,6 +335,55 @@ class SPMApplyDeformation(SPMCommand):
         return outputs
 
 
+class Join_Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
+    """Input parameter to get metrics of prediction file"""
+    csv_files = traits.List(traits.File(exists=True),
+                            desc='List if csv files containing metrics for individual participants',)
+
+    subject_id = traits.List(desc="id for each subject")
+
+
+class Join_Prediction_metrics_OutputSpec(TraitedSpec):
+    """Output class
+
+    Args:
+        metrics_prediction_csv (csv): csv file with metrics about each prediction
+    """
+    metrics_predictions_csv = traits.File(exists=True,
+                                          desc='csv file with metrics about each prediction')
+
+
+class Join_Prediction_metrics(BaseInterface):
+    """Get metrics about each prediction file"""
+    input_spec = Join_Prediction_metrics_InputSpec
+    output_spec = Join_Prediction_metrics_OutputSpec
+
+    def _run_interface(self, runtime):
+        """Run join of all cluster metrics in
+        one csv file
+
+        """
+        path_csv_files = self.inputs.csv_files
+        subject_id = self.inputs.subject_id
+
+        csv_list = []
+        for csv_file, sub_id in zip(path_csv_files, subject_id):
+            sub_df = pd.read_csv(csv_file, index_col=0)
+            sub_df.insert(0, 'sub_id', [sub_id]*sub_df.shape[0])
+            csv_list.append(sub_df)
+        all_sub_metrics = pd.concat(csv_list)
+        all_sub_metrics.to_csv('metrics_predictions.csv')
+
+        setattr(self, 'metrics_predictions_csv', os.path.abspath("metrics_predictions.csv"))
+        return runtime
+
+    def _list_outputs(self):
+        """File in the output structure."""
+        outputs = self.output_spec().trait_get()
+        outputs['metrics_predictions_csv'] = getattr(self, 'metrics_predictions_csv')
+        return outputs
+
+
 class QC_metrics_Input(BaseInterfaceInputSpec):
 
     brain_mask = traits.File(
