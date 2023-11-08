@@ -571,7 +571,7 @@ class QC_metrics_Input(BaseInterfaceInputSpec):
         desc="List of one affine matrix file (.mat) of registration between flair and t1"
     )
 
-    swi_reg_mat = traits.File(
+    swi_reg_mat = traits.List(
         traits.File(exists=True),
         default=[],
         usedefault=True,
@@ -595,26 +595,26 @@ class QC_metrics(BaseInterface):
 
     def _run_interface(self, runtime):
         qc_dict = {}
-        brain_vol = nib.load(self.input_spec.brain_mask).get_fdata().astype(bool)
+        brain_vol = nib.load(self.inputs.brain_mask).get_fdata().astype(bool)
         brain_size = brain_vol.sum()
-        qc_dict['brain_mask_size'] = brain_size
-        qc_dict['main_norm_peak'] = self.input_spec.main_norm_peak
+        qc_dict['brain_mask_size'] = [brain_size]
+        qc_dict['main_norm_peak'] = [self.inputs.main_norm_peak]
 
-        if self.input_spec.flair_reg_mat:
-            rotation_flair_reg, translation_flair_reg = transf_from_affine(self.input_spec.flair_reg_mat[0])
-            qc_dict['rotation_flair_reg'] = rotation_flair_reg
-            qc_dict['translation_flair_reg'] = translation_flair_reg
+        if self.inputs.flair_reg_mat:
+            rotation_flair_reg, translation_flair_reg = transf_from_affine(self.inputs.flair_reg_mat[0])
+            qc_dict['rotation_flair_reg'] = [rotation_flair_reg]
+            qc_dict['translation_flair_reg'] = [translation_flair_reg]
 
-        if self.input_spec.flair_norm_peak:
-            qc_dict['flair_norm_peak'] = self.input_spec.flair_norm_peak
+        if self.inputs.flair_norm_peak:
+            qc_dict['flair_norm_peak'] = [self.inputs.flair_norm_peak]
 
-        if self.input_spec.swi_reg_mat:
-            rotation_swi_reg, translation_swi_reg = transf_from_affine(self.input_spec.swi_reg_mat[0])
-            qc_dict['rotation_swi_reg'] = rotation_swi_reg
-            qc_dict['translation_swi_reg'] = translation_swi_reg
+        if self.inputs.swi_reg_mat:
+            rotation_swi_reg, translation_swi_reg = transf_from_affine(self.inputs.swi_reg_mat[0])
+            qc_dict['rotation_swi_reg'] = [rotation_swi_reg]
+            qc_dict['translation_swi_reg'] = [translation_swi_reg]
 
-        if self.input_spec.swi_norm_peak:
-            qc_dict['swi_norm_peak'] = self.input_spec.swi_norm_peak
+        if self.inputs.swi_norm_peak:
+            qc_dict['swi_norm_peak'] = [self.inputs.swi_norm_peak]
 
         qc_df = pd.DataFrame(qc_dict)
         qc_file = 'qc_metrics.csv'
@@ -732,7 +732,7 @@ class Join_QC_metrics(BaseInterface):
         with open(bad_subjects_file, 'w') as fp:
             json.dump(bad_subjects, fp, sort_keys=True, indent=4)
 
-        setattr(self, 'prediction_metrics_csv', os.path.abspath(csv_out_file))
+        setattr(self, 'qc_metrics_csv', os.path.abspath(csv_out_file))
         setattr(self, 'bad_qc_subs', os.path.abspath(bad_subjects_file))
         setattr(self, 'qc_plot_svg', os.path.abspath(qc_plot_svg))
 
@@ -741,7 +741,7 @@ class Join_QC_metrics(BaseInterface):
     def _list_outputs(self):
         """File in the output structure."""
         outputs = self.output_spec().trait_get()
-        outputs['prediction_metrics_csv'] = getattr(self, 'prediction_metrics_csv')
+        outputs['qc_metrics_csv'] = getattr(self, 'qc_metrics_csv')
         outputs['bad_qc_subs'] = getattr(self, 'bad_qc_subs')
         outputs['qc_plot_svg'] = getattr(self, 'qc_plot_svg')
         return outputs

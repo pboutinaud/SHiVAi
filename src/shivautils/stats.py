@@ -138,8 +138,8 @@ def histogram(array, percentile, bins):
     return template_hist, mode
 
 
-def save_histogram(img_normalized: nb.Nifti1Image,
-                   bins: int = 64):
+def save_histogram(img_normalized,
+                   bins=64):
     """Save histogram of intensity normalization voxels on the disk
 
     Args:
@@ -157,7 +157,7 @@ def save_histogram(img_normalized: nb.Nifti1Image,
     from shivautils.stats import get_mode
 
     if not isinstance(img_normalized, nb.Nifti1Image):
-        if os.path.isfile(img_normalized):
+        if op.isfile(img_normalized):
             img_normalized = nb.load(img_normalized)
         else:
             raise ValueError('The input should have been a Nifti1Image or a nifti file, but was neither.')
