@@ -646,6 +646,9 @@ class Join_QC_metrics_OutputSpec(TraitedSpec):
     bad_qc_subs = traits.File(exists=True,
                               desc='json file containing the subjects with bad qc and their bad metrics')
 
+    qc_plot_svg = traits.File(exists=True,
+                              desc='svg filedisplaying the qc values for each metric and each subject')
+
 
 class Join_QC_metrics(BaseInterface):
     """Get metrics about each subject's SQ, join them in a csv file and 
@@ -674,7 +677,7 @@ class Join_QC_metrics(BaseInterface):
 
         all_sub_metrics.set_index('sub_id', inplace=True)
 
-        save_name = 'qc_metrics_plot.svg'
+        qc_plot_svg = 'qc_metrics_plot.svg'
         bad_subjects = {}
         if len(all_sub_metrics) >= 10:  # We need at least a few subject to detect outliers
             # Plot boxplot of each metrics with labeled outliers
@@ -699,7 +702,7 @@ class Join_QC_metrics(BaseInterface):
                         plt.text(metric, val, id, ha='left', va='center')
                 if badmetrics:
                     bad_subjects[id] = badmetrics
-            plt.savefig(save_name, format='svg')
+            plt.savefig(qc_plot_svg, format='svg')
             plt.close(fig)
         else:
             # Simple swarmplot if few subjects for a quick check
@@ -709,6 +712,8 @@ class Join_QC_metrics(BaseInterface):
             for id, row in all_sub_metrics.iterrows():
                 for metric, val in row.items():
                     plt.text(metric, val, id, ha='left', va='center')
+            plt.savefig(qc_plot_svg, format='svg')
+            plt.close(fig)
 
         # Checking if the histogram peaks of normalised images are between 0 and 1
         for metric in all_sub_metrics:
@@ -729,6 +734,7 @@ class Join_QC_metrics(BaseInterface):
 
         setattr(self, 'prediction_metrics_csv', os.path.abspath(csv_out_file))
         setattr(self, 'bad_qc_subs', os.path.abspath(bad_subjects_file))
+        setattr(self, 'qc_plot_svg', os.path.abspath(qc_plot_svg))
 
         return runtime
 
@@ -737,4 +743,5 @@ class Join_QC_metrics(BaseInterface):
         outputs = self.output_spec().trait_get()
         outputs['prediction_metrics_csv'] = getattr(self, 'prediction_metrics_csv')
         outputs['bad_qc_subs'] = getattr(self, 'bad_qc_subs')
+        outputs['qc_plot_svg'] = getattr(self, 'qc_plot_svg')
         return outputs
