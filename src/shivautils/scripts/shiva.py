@@ -388,7 +388,7 @@ def main():
     main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask.img_ref')
     main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.save_hist_final.img_normalized')
     main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'summary_report.brainmask')
-    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'summary_report.qc_metrics.brain_mask')
+    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_metrics.brain_mask')
 
     if with_flair:
         main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.path_image')
@@ -494,30 +494,29 @@ def main():
     sink_node_all.inputs.container = 'results_summary'
 
     # Connecting the sinks
+    # Preproc
     if with_t1:
-        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, 't1_preproc')
-        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, 't1_preproc.brain_mask')
-        main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, 't1_preproc.brain_mask_raw_space')
-        main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, 't1_preproc.@bb1')
-        main_wf.connect(wf_preproc, 'crop.bbox2_file', sink_node_subjects, 't1_preproc.@bb2')
-        main_wf.connect(wf_preproc, 'crop.cdg_ijk_file', sink_node_subjects, 't1_preproc.@cdg')
-        if with_flair:
-            main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'flair_preproc')
-        if with_swi:
-            main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', sink_node_subjects, 'swi_preproc')
-            main_wf.connect(wf_preproc_cmb, 'mask_to_swi.output_image', sink_node_subjects, 'swi_preproc.brain_mask')
-            main_wf.connect(wf_preproc_cmb, 'swi_to_t1.warped_image', sink_node_subjects, 'swi_preproc.reg_to_t1')
-            main_wf.connect(wf_preproc_cmb, 'crop_swi.bbox1_file', sink_node_subjects, 'swi_preproc.@bb1')
-            main_wf.connect(wf_preproc_cmb, 'crop_swi.bbox2_file', sink_node_subjects, 'swi_preproc.@bb2')
-            main_wf.connect(wf_preproc_cmb, 'crop_swi.cdg_ijk_file', sink_node_subjects, 'swi_preproc.@cdg')
+        img1 = 't1'
     elif with_swi and not with_t1:
-        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'swi_preproc')
-        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, 'swi_preproc.brain_mask')
-        main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, 'swi_preproc.brain_mask_raw_space')
-        main_wf.connect(wf_preproc, 'crop_swi.bbox1_file', sink_node_subjects, 'swi_preproc.@bb1')
-        main_wf.connect(wf_preproc, 'crop_swi.bbox2_file', sink_node_subjects, 'swi_preproc.@bb2')
-        main_wf.connect(wf_preproc, 'crop_swi.cdg_ijk_file', sink_node_subjects, 'swi_preproc.@cdg')
+        img1 = 'swi'
+    main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, f'{img1}_preproc')
+    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, f'{img1}_preproc.brain_mask')
+    main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, f'{img1}_preproc.brain_mask_raw_space')
+    main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, f'{img1}_preproc.@bb1')
+    main_wf.connect(wf_preproc, 'crop.bbox2_file', sink_node_subjects, f'{img1}_preproc.@bb2')
+    main_wf.connect(wf_preproc, 'crop.cdg_ijk_file', sink_node_subjects, f'{img1}_preproc.@cdg')
+    if with_flair:
+        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'flair_preproc')
+    if with_swi and with_t1:
+        main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', sink_node_subjects, 'swi_preproc')
+        main_wf.connect(wf_preproc_cmb, 'mask_to_swi.output_image', sink_node_subjects, 'swi_preproc.brain_mask')
+        main_wf.connect(wf_preproc_cmb, 'swi_to_t1.warped_image', sink_node_subjects, 'swi_preproc.reg_to_t1')
+        main_wf.connect(wf_preproc_cmb, 'crop_swi.bbox1_file', sink_node_subjects, 'swi_preproc.@bb1')
+        main_wf.connect(wf_preproc_cmb, 'crop_swi.bbox2_file', sink_node_subjects, 'swi_preproc.@bb2')
+        main_wf.connect(wf_preproc_cmb, 'crop_swi.cdg_ijk_file', sink_node_subjects, 'swi_preproc.@cdg')
 
+    # Pred and postproc
+    main_wf.connect(wf_post, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', sink_node_subjects, 'qc_metrics')
     if 'PVS' in args.prediction or 'PVS2' in args.prediction:
         main_wf.connect(pvs_predictor_node, 'segmentation', sink_node_subjects, 'pvs_segmentation')
         main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv', sink_node_subjects, 'pvs_segmentation.@metrics')
@@ -547,6 +546,7 @@ def main():
 
     main_wf.connect(qc_joiner, 'qc_metrics_csv', sink_node_all, 'preproc_qc')
     main_wf.connect(qc_joiner, 'bad_qc_subs', sink_node_all, 'preproc_qc.@bad_qc_subs')
+    main_wf.connect(qc_joiner, 'qc_plot_svg', sink_node_all, 'preproc_qc.@qc_plot_svg')
     sink_node_all.inputs.wf_graph = wf_graph
 
     # Run the workflow
