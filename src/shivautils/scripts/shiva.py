@@ -17,7 +17,7 @@ import json
 import sys
 import yaml
 
-sys.path.append('/mnt/devt')
+# sys.path.append('/mnt/devt')
 
 config.enable_provenance()
 
