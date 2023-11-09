@@ -64,6 +64,7 @@ shiva = "shivautils.scripts.shiva:main"
 shiva_preproc = "shivautils.scripts.preprocess:main"
 shiva_predict = "shivautils.scripts.predict:main"
 shiva_contained = "shivautils.scripts.run_shiva:main"
+prep_json = "shivautils.scripts.prep_json:main"
 
 [tool.setuptools.dynamic]
 version = { attr = "shivautils.__version__" }
