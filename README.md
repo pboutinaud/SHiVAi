@@ -23,7 +23,7 @@ In all these situations, **you will also need** to obtain the trained deep-learn
 
 Let's consider that you stored them in `/myHome/myProject/Shiva_AI_models` for the following parts.
 
->**/!\\** For the process too work, a `model_info.json` must be present in the folder containing the AI model files (the .h5 files). If it's not the case, see the [Create missing model_info.json file](create-missing-model_info.json-file) section, and don't forget to update the config file (see [Fully contained process](#fully-contained-process)) if you use one.
+>**/!\\** For the process too work, a `model_info.json` must be present in the folder containing the AI model files (the .h5 files). If it's not the case, see the [Create missing json file](#create-missing-json-file) section, and don't forget to update the config file (see [Fully contained process](#fully-contained-process)) if you use one.
 
 ### Fully contained process
 
@@ -191,7 +191,7 @@ Example of `json` structure input:
 
 ## Additional info
 
-### Create missing model_info.json file
+### Create missing json file
 
 In some cases, the model_info.json might be missing from the model folder you downloaded. To create it, you need to use the `prep_json.py` script, found in src/shivautils/scripts/prep_json.py.
 
