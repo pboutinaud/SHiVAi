@@ -95,3 +95,7 @@ def main():
     json_file = os.path.join(base_dir, h5_dir, 'model_info.json')
     with open(json_file, 'w') as fp:
         json.dump(model_dict, fp, indent=2)
+
+
+if __name__ == "__main__":
+    main()
