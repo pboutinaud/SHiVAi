@@ -23,6 +23,8 @@ In all these situations, **you will also need** to obtain the trained deep-learn
 
 Let's consider that you stored them in `/myHome/myProject/Shiva_AI_models` for the following parts.
 
+**/!\\** For the process too work, a `model_info.json` must be present in the folder containing the AI model files (the .h5 files). If it's not the case, see the [Create missing model_info.json file](create-missing-model_info.json-file) section, and don't forget to update the config file (see [Fully contained process](#fully-contained-process)) if you use one.
+
 ### Fully contained process
 
 1. You will need to have **Apptainer** installed (previously known as **Singularity**):
@@ -40,7 +42,7 @@ and
 4. `config_example.yml`
 
     You now need to prepare this configuration file, it will hold diverse parameters as well as the path to the AI model and to the apptainer image.
-    There, you should change the placeholder paths for `model_path` and `apptainer_image` with your own paths (e.g. `/myHome/myProject/Shiva_AI_models` and `/myHome/myProject/shiva.sif`).
+    There, you should change the placeholder paths for `model_path` and `apptainer_image` with your own paths (e.g. `/myHome/myProject/Shiva_AI_models` and `/myHome/myProject/shiva.sif`). You may also have to set the model descriptors (like `PVS_descriptor` or `WMH_descriptor` with the path to the `model_info.json` file)
     Normally you shouldn't have to modify the `parameters` part, except if you need to change some specific settings like the  size filter (*min_\*_size*) for the different biomarkers.
 
     For the rest of this readme, let's assume that you now have the config file prepared in `/myHome/myProject/myConfig.yml`.
@@ -188,6 +190,22 @@ Example of `json` structure input:
 ```
 
 ## Additional info
+
+### Create missing model_info.json file
+
+In some cases, the model_info.json might be missing from the model folder you downloaded. To create it, you need to use the `prep_json.py` script, found in src/shivautils/scripts/prep_json.py.
+
+Let's assume you downloaded the T1-PVS model (for PVS detection using only T1 images), you should now have it in `/myHome/myProject/Shiva_AI_models/T1-PVS` (or something close to this).
+
+If you directly download `prep_json.py` it, you can run it with:
+```bash
+python prep_json.py --folder /myHome/myProject/Shiva_AI_models/T1-PVS
+```
+
+If you installed the shivautils package, you can directly run the command line:
+```bash
+prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
+```
 
 ### Apptainer image
 
