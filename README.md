@@ -47,7 +47,7 @@ and
 
 5. Finally, set-up a minimal Python virtual environment with the `pyyaml` package installed.
 
-Next, see [Running a contained process](#running-a-contained-shiv-ai)
+Next, see [Running a contained SHIV-AI](#running-a-contained-shiv-ai)
 
 ### Traditional python install
 
