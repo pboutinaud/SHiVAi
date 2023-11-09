@@ -1,90 +1,127 @@
-# SHIVA preprocessing and deep learning segmentation workflows
+# SHIV-AI: SHIVA preprocessing and deep learning segmentation workflow
 
 This package includes a set of image analysis tools for the study of covert cerebrovascular diseases with structural Magnetic Resonance Imaging.
 
-The SHIVA segmentation tools currently include cerebral microbleeds, Virchow Robin Spaces (perivascular spaces, PVS) and White Matter Hyperintensities (WMH). The 3D-Unet model weights are available separately at https://github.com/pboutinaud.
+The SHIVA segmentation tools currently include Cerebral MicroBleeds (CMB),  PeriVascular Spaces (PVS) (also known as Virchow Robin Spaces - VRS), and White Matter Hyperintensities (WMH). The 3D-Unet model weights are available separately at https://github.com/pboutinaud.
 
-The tools cover preprocessing (image resampling and cropping to match the required size for the deep learning models, coregistration for multimodal segmentation tools), predictions (model weights available ), and reporting (QC and results).
+The tools cover preprocessing (image resampling and cropping to match the required size for the deep learning models, coregistration for multimodal segmentation tools), segmentation (model weights available ), and reporting (QC and results).
 
-The package includes an Apptainer (Singularity) container image recipe file. 
+## Dependencies and hardware requirements
 
-## Dependencies
+The SHIV-AI application requires a Linux machine with a GPU (with 16GB of dedicated memory).
 
-The deep learning relies on Tensorflow 2.7.13, and a GPU with 16Gb of memory is necessary. The processing pipelines are implemented with Nipype and make use of ANTS for image registration. Quality control reporting uses DOG contours from: https://github.com/neurolabusc/PyDog.
+The deep-learning models relies on Tensorflow 2.7.13. The processing pipelines are implemented with Nipype and make use of ANTs for image registration. Quality control reporting uses (among others) DOG contours from: https://github.com/neurolabusc/PyDog. Building and/or using the container image relies on Apptainer (https://apptainer.org). More details about Apptainer in the [Apptainer image](#apptainer-image) section.
 
 ## Package Installation
 
-To deploy the python package, from the project directory (containing the 'pyproject.toml' file), use the following command line: 
+Depending on your situation you may want to deploy SHIV-AI in different ways:
+- **Fully contained process**: The simplest approach. All the computation is done through the Apptainer image. It accounts for most of the local environment set-up, which simplifies the installation and ensure portability.
+- **Traditional python install**: does not require singularity as all the dependencies will have to be installed locally. Useful for full control and development of the package, however it may lead to problems due to the finicky nature of TensorFlow and CUDA.
+- *Mixed approach (NOT IMPLEMENTED YET)*: Local installation of the package without TensorFlow (and so without troubles), but using the Apptainer image to run the deep-learning processes (using TensorFlow).Ideal for parallelization of the processes and use on HPC clusters.
 
-```bash
-python -m pip install .
-```
+In all these situations, **you will also need** to obtain the trained deep-learning models you want to use (for PVS, WMH, and CMB segmentation). They are available at https://github.com/pboutinaud
 
-The scripts should be available in the command line prompt.
+Let's consider that you stored them in `/myHome/myProject/Shiva_AI_models` for the following parts.
 
-## Apptainer image
+### Fully contained process
 
-The SHIVA application requires a Linux machine with a GPU (with 16GB of dedicated memory), and **AppTainer** intalled (previously known as **Singularity**):
+1. You will need to have **Apptainer** installed (previously known as **Singularity**):
 https://apptainer.org/docs/user/main/quick_start.html
+    Let's assume you saved it in `/myHome/myProject/shiva.sif`
 
-AppTainer is a container solution, meaning that you will need an AppTainer image (a file with the *.sif* extension) containing all the software and environment necessary to run SHIVA. You can get it from us (https://cloud.efixia.com/sharing/TAHaV6ZgZ) or build it yourself.
+2. Download the Apptainer image (.sif file) from https://cloud.efixia.com/sharing/TAHaV6ZgZ.
 
-To build the AppTainer image, you need a machine on which you are *root* user. Then, from the **shivautils/singularity** directory, run the following command to build the SHIVA AppTainer container image :
+From the shivautils repository (where you are reading this), go to the 'singularity' folder and download:
+
+3. `run_shiva.py`
+
+and
+
+4. `config_example.yml`
+
+    You now need to prepare this configuration file, it will hold diverse parameters as well as the path to the AI model and to the apptainer image.
+    There, you should change the placeholder paths for `model_path` and `apptainer_image` with your own paths (e.g. `/myHome/myProject/Shiva_AI_models` and `/myHome/myProject/shiva.sif`).
+    Normally you shouldn't have to modify the `parameters` part, except if you need to change some specific settings like the  size filter (*min_\*_size*) for the different biomarkers.
+
+    For the rest of this readme, let's assume that you now have the config file prepared in `/myHome/myProject/myConfig.yml`.
+
+5. Finally, set-up a minimal Python virtual environment with the `pyyaml` package installed.
+
+Next, see [Running a contained process](#running-a-contained-shiv-ai)
+
+### Traditional python install
+
+To deploy the python package, create a Python 3.9 virtual environment, clone or download the shivautils project and use the following command line from the project's directory (containing the 'pyproject.toml' file): 
 
 ```bash
-apptainer build shiva.sif apptainer_tf.recipe
+python -m pip install .[TF]
 ```
-Then you can move the AppTainer image on any computer with AppTainer installed and run the processing even without being a root user on that machine.
 
-Note that if you are on a **Windows** computer, you can use WSL (Windows Subsystem for Linux) to run AppTainer and build the image. You can find more info here https://learn.microsoft.com/windows/wsl/install. With WSL installed, open a command prompt, type `wsl` and you will have access to a Linux terminal where you can install and run AppTainer.
-There are also similar options for **Mac** users (check the dedicated section from https://apptainer.org/docs/admin/main/installation.html).
+The scripts should then be available from the command line prompt.
 
-### Other files
+Optionally, you can download and prepare the `config_example.yml` like explained in the [Fully contained process](#fully-contained-process) section. This will ease the command call as a lot of arguments will be given through the yaml file (instead of manually entered with the command).
 
-You will need to copy the `run_shiva.py` script (available in `shivautils/singularity/run_shiva.py`) to the computer that will run the process.
-To use it (see below), you will also need a minimal python environment with the pyyaml library installed.
+Next, see [Running SHIV-AI from direct package commands](#running-shiv-ai-from-direct-package-commands)
 
-You will need to obtain the trained AI model accompanying the Shiva project. Let's consider that you stored it in `/myHome/myProject/Shiva_AI_models` for the following parts.
+### Mixed approach (WIP)
 
-You now need to prepare a configuration file that will hold diverse parameters as well as the path to the AI model and to the apptainer image.
-You can find the `config_example.yml` example configuration file in `shivautils/singularity`.
-
-There, you should change the placeholder paths for `model_path` and `apptainer_image` with your own paths.
-Normally you shouldn't have to modify the `parameters` part, except maybe the `SWI` parameter that you can swap to `False` if you don't have SWI acquisitions in your dataset. Let's say that you now have the config file prepared in `/myHome/myProject/myConfig.yml`.
+*WORK IN PROGRESS*
 
 ## Running the process
 
-### Requirements
+### Running a contained SHIV-AI
 
 To run the shiva process, you will need:
-- The `run_shiva.py` script that you can find in the present repository (shivautils/singularity/run_shiva.py)
-- The input dataset (see below for example of accepted file strucures)
+- The `run_shiva.py` (mentioned above)
+- The input dataset (see [Data structures accepted by SHIV-AI](#data-structures-accepted-by-shiv-ai))
 - The apptainer image (*shiva.sif* above)
-- The trained AI model (that we provide)
+- The trained AI model (that we provide and you should have downloaded)
 - A configuration file (.yml) that will contain all the options and various paths needed for the workflow
 
-### Command line arguments (with `run_shiva.py`)
+**Command line arguments (with `run_shiva.py`):**
 
-    --in (path): Path of the input dataset
-    --out (path): Path to where the generated files will be saved
-    --input_type (str): Type of structure file, way to capture and manage nifti files : standard, BIDS or json
-    --config (path): File with configuration options for the workflow
+    --in: Path of the input dataset
+    --out: Path to where the generated files will be saved
+    --input_type: Type of structure file, way to capture and manage nifti files : standard, BIDS or json
+    --prediction: Choice of the type of prediction (i.e. segmentation) you want to compute (PVS, PVS2, WMH, CMB, all). Give a combination of these labels separated by blanc spaces.
+    --config: File with configuration options for the workflow
 
-### Command line examples
+**Command line examples**
 
 Locally running the processing (from the directory where you stored `run_shiva.py`): 
 
 ```bash
-python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --config /myHome/myProject/myConfig.yml
+python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config /myHome/myProject/myConfig.yml
 ```
 
 Using SLURM to run on a grid (with GPU resources configured): 
 
 ```bash
-srun –gpus 1 python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --config  /myHome/myProject/myConfig.yml
+srun –gpus 1 python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config  /myHome/myProject/myConfig.yml
 ```
- 
-### Data structures accepted by `run_shiva.py`
+
+### Running SHIV-AI from direct package commands
+
+From the virtual environment where you installed shivautils, run the command `shiva` (calling the `shiva.py` script).
+
+To see the detailed help for this command, you can call:
+```bash
+shiva -h
+```
+
+Here is an example of a shiva call, using a config .yml file:
+```bash
+shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --model_config /myHome/myProject/myConfig.yml --gpu 0 --retry 
+```
+
+## Results
+
+The results will be stored in the `results` folder in your output folder (so `/myHome/myProject/shiva_results/results` in our example). There you will find the results for individual participants as well as a results_summary folder that contains grouped data like statistics about each subjects segmentation and quality control (QC).
+
+You will also find a PDF report for each participant detailing statics about their segmentation and QC in `results/participantXXXX/report/_subject_id_participantXXXX/summary.pdf`
+
+
+## Data structures accepted by SHIV-AI
 
 Example of `BIDS` structure folders:
 
@@ -150,31 +187,44 @@ Example of `json` structure input:
 }
 ```
 
-### More info on the .yml configuration file:
+## Additional info
 
-Options configuration in yaml file:
+### Apptainer image
 
-    --model_path (path) : bind mount path for the tensorflow models directory
-    --singularity_image (path): path of singularity container file
-    --brainmask_descriptor (path): path to brain_mask tensorflow model descriptor
-    --WMH_descriptor (path): path of White Matter HyperIntensities tensorflow model descriptor
-    --PVS_descriptor (path): path of Peri-Vascular Spaces tensorflow model descriptor
-    --CMB_descriptor (path) path of Cerebral MicroBleeds tensorflow model descriptor
-    --percentile (float) : Threshold value expressed as percentile
-    --threshold (float) : Value of the treshold to apply to the image for brainmask, default value : 0.5
-    --threshold_clusters (float) : Threshold to compute clusters metrics, default value : 0.2
-    --final_dimensions (str) : Final image array size in i, j, k. Example : '160 214 176'.
-    --voxels_size (str) : Voxel size of the final image, example : '1.0 1.0 1.0'
-    --grab : data grabber
-    --SWI (str) : if a second workflow for CMB is required, example : 'True' or 'False' 
-    --interpolation (str): image resampling method, default interpolation : 'WelchWindowedSinc', others ANTS interpolation possibilities : 'Linear', 'NearestNeighbor', 'CosineWindowedSinc', 'HammingWindowedSinc', 'LanczosWindowedSinc', 'BSpline', 'MultiLabel', 'Gaussian', 'GenericLabel'
+Apptainer is a container solution, meaning that you can run SHIV-AI using an Apptainer image (a file with the *.sif* extension) containing all the software and environment necessary. You can get the SHIV-AI image from us (https://cloud.efixia.com/sharing/TAHaV6ZgZ) or build it yourself.
 
-## Pipeline description
+To build the Apptainer image, you need a machine on which you are *root* user. Then, from the **shivautils/singularity** directory, run the following command to build the SHIVA Apptainer container image :
 
-SHIVA preprocessing for deep learning predictors. Perform resampling of a structural NIfTI head image, 
-followed by intensity normalization, and cropping centered on the brain. A nipype workflow is used to 
-preprocess a lot of images at the same time. In the last step the file segmentations with the wmh and 
-pvs models are processed
+```bash
+apptainer build shiva.sif apptainer_tf.recipe
+```
+Then you can move the Apptainer image on any computer with Apptainer installed and run the processing even without being a root user on that machine.
+
+Note that if you are on a **Windows** computer, you can use WSL (Windows Subsystem for Linux) to run Apptainer and build the image. You can find more info here https://learn.microsoft.com/windows/wsl/install. With WSL installed, open a command prompt, type `wsl` and you will have access to a Linux terminal where you can install and run Apptainer.
+There are also similar options for **Mac** users (check the dedicated section from https://apptainer.org/docs/admin/main/installation.html).
+
+### More info on the .yml configuration file
+
+- **model_path** (path) : bind mount path for the tensorflow models directory
+- **singularity_image** (path): path of singularity container file
+- **brainmask_descriptor** (path): path to brain_mask tensorflow model descriptor
+- **PVS_descriptor** (path): path of Peri-Vascular Spaces tensorflow model descriptor
+- **PVS2_descriptor**  (path): path of Peri-Vascular Spaces tensorflow model descriptor using t1 and flair together
+- **WMH_descriptor** (path): path of White Matter HyperIntensities tensorflow model descriptor
+- **CMB_descriptor** (path) path of Cerebral MicroBleeds tensorflow model descriptor
+- **percentile** (float) : Threshold value for the intensity normalization, expressed as percentile
+- **threshold** (float) : Value of the threshold used to binarize brain masks, default value : 0.5
+- **threshold_clusters** (float) : Threshold to binarize clusters after the segmentation, default value : 0.2
+- **min_pvs_size** (int): Filter size (in voxels) for detected PVS under which the cluster is discarded
+- **min_wmh_size** (int): Filter size (in voxels) for detected WMH under which the cluster is discarded
+- **min_cmb_size** (int): Filter size (in voxels) for detected CMB under which the cluster is discarded
+- **final_dimensions** (list) : Final image array size in i, j, k. Example : [160, 214, 176].
+- **voxels_size** (list) : Voxel size of the final image, example : [1.0, 1.0, 1.0]
+- **interpolation** (str): image resampling method, default interpolation : 'WelchWindowedSinc', others ANTS interpolation possibilities : 'Linear', 'NearestNeighbor', 'CosineWindowedSinc', 'HammingWindowedSinc', 'LanczosWindowedSinc', 'BSpline', 'MultiLabel', 'Gaussian', 'GenericLabel'
+
+### Pipeline description
+
+Performs resampling of a structural NIfTI brain image, followed by intensity normalization, and cropping centering on the brain. Then, PVS, WMH, and CMB are segmented (depending on the input) using a deep-learning model. Finally, quality control measures are generated and all th results are aggregated in a pdf report.   
 
 
 ### Preprocessing
@@ -188,38 +238,10 @@ pvs models are processed
 
 4. **Threshold**: Create a binarized brain_mask by putting all the values below the 'threshold' to 0
 
-5. **Crop**: adjust the real-world referential and crop image. With the pre brainmask prediction, the procedure uses the center of mass of the mask to center the bounding box. If no mask is supplied, and default is set to 'xyz' the procedure computes the ijk coordiantes of the affine referential coordinates origin. If set to 'ijk', the middle of the image is used.
+5. **Crop**: adjust the real-world referential and crop image. With the pre brainmask prediction, the procedure uses the center of mass of the mask to center the bounding box. If no mask is supplied, and default is set to 'xyz' the procedure computes the ijk coordinates of the affine referential coordinates origin. If set to 'ijk', the middle of the image is used.
 
 6. **Final Brainmask**: Run predict to segment brainmask from cropping images with Tensorflow model. 
 
 7. **Coregistration** : Register a FLAIR images on T1w images either through the full interface to the ANTs registration method.
-
-
-### Reporting
-
-Individual CSV file (path folder 'subject_{id}/prediction_metrics_{pvs/wmh}'):
-
-- Cluster Threshold
-- Cluster Filter
-- Number of voxels
-- Number of clusters 
-- Mean clusters size
-- Median clusters size
-- Minimal clusters size 
-- Maximal clusters size
-
-
-Individual HTML / PDF Report (path folder 'subject_{id}/summary_report'):
-
-- Summary of metrics clusters per subject
-- Histogram of voxel intensity during main normalization
-- Display of the cropping region on the conformed image
-- T1 on FLAIR isocontour slides 
-- Overlay of final brainmask over cropped main images
-- Preprocessing workflow diagram
-
-General CSV file (path folder 'prediction_metrics_{pvs/wmh}_all'):
-
-- Sum of metrics clusters with one arrow per subjects.
 
 
