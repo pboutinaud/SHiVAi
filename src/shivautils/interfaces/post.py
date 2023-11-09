@@ -677,8 +677,13 @@ class Join_QC_metrics(BaseInterface):
 
         all_sub_metrics.set_index('sub_id', inplace=True)
 
-        qc_plot_svg = 'qc_metrics_plot.svg'
         bad_subjects = {}
+        qc_plot_svg = 'qc_metrics_plot.svg'
+        plot_per_row = 4
+        n_rows = 1 + (len(all_sub_metrics.columns) - 1)//plot_per_row
+        n_cols = min(len(all_sub_metrics.columns), plot_per_row)
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(3*n_cols, 3*n_rows))
+        fig.tight_layout(pad=3)
         if len(all_sub_metrics) >= 10:  # We need at least a few subject to detect outliers
             # Plot boxplot of each metrics with labeled outliers
             # Using the boxplot way (1.5 times the interquartile distance)
@@ -687,33 +692,35 @@ class Join_QC_metrics(BaseInterface):
                 'markersize': 5,
                 'markeredgewidth': 0,
                 'linewidth': 0}
-            fig = plt.figure()
-            sns.boxplot(all_sub_metrics, flierprops=flierprops)
-            q1 = all_sub_metrics.quantile(0.25)
-            q3 = all_sub_metrics.quantile(0.75)
-            min_thr = q1 - 1.5*(q3 - q1)
-            max_thr = q3 + 1.5*(q3 - q1)
-            for id, row in all_sub_metrics.iterrows():
-                badmetrics = []
-                for metric, val in row.items():
-                    if val < min_thr.loc[metric] or val > max_thr[metric]:
-                        badmetrics.append(metric)
+            q1_all = all_sub_metrics.quantile(0.25)
+            q3_all = all_sub_metrics.quantile(0.75)
+            min_thr_all = q1_all - 1.5*(q3_all - q1_all)
+            max_thr_all = q3_all + 1.5*(q3_all - q1_all)
+            for metric, ax in zip(all_sub_metrics.columns, np.nditer(axes, flags=['refs_ok'], op_flags=['readwrite'])):
+                ax = ax.item()
+                metric_vals = all_sub_metrics[metric]
+                sns.boxplot(data=metric_vals, flierprops=flierprops, ax=ax)
+                for id, val in metric_vals.items():
+                    min_thr = min_thr_all[metric]
+                    max_thr = max_thr_all[metric]
+                    if val < min_thr or val > max_thr:
                         # plot the name of the subject next to the outlier point
-                        plt.text(metric, val, id, ha='left', va='center')
-                if badmetrics:
-                    bad_subjects[id] = badmetrics
-            plt.savefig(qc_plot_svg, format='svg')
-            plt.close(fig)
+                        ax.annotate(id, xy=(0, val), xytext=(5, -2), textcoords='offset points')
+                        if id not in bad_subjects.keys():
+                            bad_subjects[id] = [metric]
+                        else:
+                            bad_subjects[id].append(metric)
         else:
             # Simple swarmplot if few subjects for a quick check
             # Labels may overlap but outliers should stand out
-            fig = plt.figure()
-            sns.swarmplot(all_sub_metrics)
-            for id, row in all_sub_metrics.iterrows():
-                for metric, val in row.items():
-                    plt.text(metric, val, id, ha='left', va='center')
-            plt.savefig(qc_plot_svg, format='svg')
-            plt.close(fig)
+            for metric, ax in zip(all_sub_metrics.columns, np.nditer(axes, flags=['refs_ok'], op_flags=['readwrite'])):
+                ax = ax.item()
+                metric_vals = all_sub_metrics[metric]
+                sns.swarmplot(data=metric_vals, ax=ax)
+                for id, val in metric_vals.items():
+                    ax.annotate(id, xy=(0, val), xytext=(5, -2), textcoords='offset points')
+        plt.savefig(qc_plot_svg, format='svg')
+        plt.close(fig)
 
         # Checking if the histogram peaks of normalised images are between 0 and 1
         for metric in all_sub_metrics:
