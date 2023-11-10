@@ -438,6 +438,7 @@ def main():
     main_wf.connect(subject_iterator, 'subject_id', qc_joiner, 'subject_id')
 
     # Then prediction nodes and their connections
+    segmentation_wf = Workflow('Segmentation')  # facultative workflow for organization purpose
     # PVS
     if 'PVS' in args.prediction or 'PVS2' in args.prediction:
         pvs_predictor_node = Node(Predict(), name=f"predict_pvs")
@@ -445,12 +446,16 @@ def main():
         pvs_predictor_node.inputs.model = wfargs['MODELS_PATH']
         if with_flair:
             pvs_predictor_node.inputs.descriptor = wfargs['PVS2_DESCRIPTOR']
-            main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', pvs_predictor_node, "flair")
         else:
             pvs_predictor_node.inputs.descriptor = wfargs['PVS_DESCRIPTOR']
-        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', pvs_predictor_node, "t1")
-        main_wf.connect(pvs_predictor_node, 'segmentation', wf_post, 'prediction_metrics_pvs.img')
+
+        segmentation_wf.add_nodes([pvs_predictor_node])
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', segmentation_wf, 'pvs_predictor_node.t1')
+        if with_flair:
+            main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', segmentation_wf, 'pvs_predictor_node.flair')
+        main_wf.connect(segmentation_wf, 'pvs_predictor_node.segmentation', wf_post, 'prediction_metrics_pvs.img')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_pvs.brain_seg')  # TODO: SynthSeg
+
         # Merge all csv files
         prediction_metrics_pvs_all = JoinNode(Join_Prediction_metrics(),
                                               joinsource=subject_iterator,
@@ -465,9 +470,12 @@ def main():
         wmh_predictor_node.inputs.out_filename = 'wmh_map.nii.gz'
         wmh_predictor_node.inputs.model = wfargs['MODELS_PATH']
         wmh_predictor_node.inputs.descriptor = wfargs['WMH_DESCRIPTOR']
-        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wmh_predictor_node, "t1")
-        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', wmh_predictor_node, "flair")
-        main_wf.connect(wmh_predictor_node, 'segmentation', wf_post, 'prediction_metrics_wmh.img')
+
+        segmentation_wf.add_nodes([wmh_predictor_node])
+
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', segmentation_wf, 'wmh_predictor_node.t1')
+        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', segmentation_wf, 'wmh_predictor_node.flair')
+        main_wf.connect(segmentation_wf, 'wmh_predictor_node.segmentation', wf_post, 'prediction_metrics_wmh.img')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_wmh.brain_seg')  # TODO: SynthSeg
         # Merge all csv files
         prediction_metrics_wmh_all = JoinNode(Join_Prediction_metrics(),
@@ -483,6 +491,9 @@ def main():
         cmb_predictor_node.inputs.out_filename = 'cmb_map.nii.gz'
         cmb_predictor_node.inputs.model = wfargs['MODELS_PATH']
         cmb_predictor_node.inputs.descriptor = wfargs['CMB_DESCRIPTOR']
+
+        segmentation_wf.add_nodes([cmb_predictor_node])
+
         # Merge all csv files
         prediction_metrics_cmb_all = JoinNode(Join_Prediction_metrics(),
                                               joinsource=subject_iterator,
@@ -491,13 +502,13 @@ def main():
         main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', prediction_metrics_cmb_all, 'csv_files')
         main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_cmb_all, 'subject_id')
         if with_t1:
-            main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', cmb_predictor_node, "swi")
-            main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'swi_pred_to_t1.input_image')
+            main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', segmentation_wf, 'cmb_predictor_node.swi')
+            main_wf.connect(segmentation_wf, 'cmb_predictor_node.segmentation', wf_post, 'swi_pred_to_t1.input_image')
             main_wf.connect(wf_preproc_cmb, 'swi_to_t1.forward_transforms', wf_post, 'swi_pred_to_t1.transforms')
             main_wf.connect(wf_preproc, 'crop.cropped', wf_post, 'swi_pred_to_t1.reference_image')
         else:
-            main_wf.connect(cmb_predictor_node, 'segmentation', wf_post, 'prediction_metrics_cmb.img')
-            main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', cmb_predictor_node, "swi")
+            main_wf.connect(segmentation_wf, 'cmb_predictor_node.segmentation', wf_post, 'prediction_metrics_cmb.img')
+            main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', segmentation_wf, 'cmb_predictor_node.swi')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_cmb.brain_seg')  # TODO: SynthSeg
 
     # The workflow graph
@@ -540,14 +551,14 @@ def main():
     # Pred and postproc
     main_wf.connect(wf_post, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', sink_node_subjects, 'qc_metrics')
     if 'PVS' in args.prediction or 'PVS2' in args.prediction:
-        main_wf.connect(pvs_predictor_node, 'segmentation', sink_node_subjects, 'pvs_segmentation')
+        main_wf.connect(segmentation_wf, 'pvs_predictor_node.segmentation', sink_node_subjects, 'pvs_segmentation')
         main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv', sink_node_subjects, 'pvs_segmentation.@metrics')
         main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_census_csv', sink_node_subjects, 'pvs_segmentation.@census')
         main_wf.connect(wf_post, 'prediction_metrics_pvs.labelled_biomarkers', sink_node_subjects, 'pvs_segmentation.@labeled')
         main_wf.connect(prediction_metrics_pvs_all, 'prediction_metrics_csv', sink_node_all, 'pvs_metrics')
 
     if 'WMH' in args.prediction:
-        main_wf.connect(wmh_predictor_node, 'segmentation', sink_node_subjects, 'wmh_segmentation')
+        main_wf.connect(segmentation_wf, 'wmh_predictor_node.segmentation', sink_node_subjects, 'wmh_segmentation')
         main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_stats_csv', sink_node_subjects, 'wmh_segmentation.@metrics')
         main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_census_csv', sink_node_subjects, 'wmh_segmentation.@census')
         main_wf.connect(wf_post, 'prediction_metrics_wmh.labelled_biomarkers', sink_node_subjects, 'wmh_segmentation.@labeled')
@@ -556,11 +567,11 @@ def main():
     if 'CMB' in args.prediction:
         if with_t1:
             space = 't1_space'
-            main_wf.connect(cmb_predictor_node, 'segmentation', sink_node_subjects, 'cmb_segmentation_swi_space')
+            main_wf.connect(segmentation_wf, 'cmb_predictor_node.segmentation', sink_node_subjects, 'cmb_segmentation_swi_space')
             main_wf.connect(wf_post, 'swi_pred_to_t1.output_image', sink_node_subjects, f'cmb_segmentation_{space}')
         else:
             space = 'swi_space'
-            main_wf.connect(cmb_predictor_node, 'segmentation', sink_node_subjects, f'cmb_segmentation_{space}')
+            main_wf.connect(segmentation_wf, 'cmb_predictor_node.segmentation', sink_node_subjects, f'cmb_segmentation_{space}')
         main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', sink_node_subjects, f'cmb_segmentation_{space}.@metrics')
         main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_census_csv', sink_node_subjects, f'cmb_segmentation_{space}.@census')
         main_wf.connect(wf_post, 'prediction_metrics_cmb.labelled_biomarkers', sink_node_subjects, f'cmb_segmentation_{space}.@labeled')
