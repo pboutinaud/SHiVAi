@@ -26,7 +26,7 @@ def shivaParser():
     DESCRIPTION = """SHIVA pipeline for deep-learning imaging biomarkers computation. Performs resampling and coregistration 
                 of a set of structural NIfTI head image, followed by intensity normalization, and cropping centered on the brain.
                 A nipype workflow is used to preprocess a lot of images at the same time.
-                The segmentations from the wmh, cmb and pvs models are generated depending on the inputs. A Report is generated.
+                The segmentation from the wmh, cmb and pvs models are generated depending on the inputs. A Report is generated.
                 
                 Input data can be staged in BIDS or a simplified file arborescence, or described with a JSON file (for the 3D Slicer extension)."""
 
@@ -70,7 +70,7 @@ def shivaParser():
 
     parser.add_argument('--use_container',
                         action='store_true',
-                        help='Wether or not to use containerised processes (mainly for SWOmed).')
+                        help='Wether or not to use containerized processes (mainly for SWOmed).')
 
     parser.add_argument('--container',
                         action='store_true',
@@ -93,7 +93,7 @@ def shivaParser():
     parser.add_argument('--run_plugin_args',
                         type=str,
                         help=('Configuration file (.yml) for the plugin used by Nipype to run the workflow.\n'
-                              'It will be imported as a dictionnary and given plugin_args '
+                              'It will be imported as a dictionary and given plugin_args '
                               '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
                               'for more details )'))
 
@@ -109,7 +109,7 @@ def shivaParser():
 
     parser.add_argument('--keep_all',
                         action='store_true',
-                        help='Keep all intermediary file, which is usually necessary for debuggin.')
+                        help='Keep all intermediary file, which is usually necessary for debugging.')
 
     # Manual input
     parser.add_argument('--model',
@@ -124,7 +124,7 @@ def shivaParser():
     parser.add_argument('--threshold',
                         type=float,
                         default=0.5,
-                        help='Treshold to binarise estimated brain mask')
+                        help='Threshold to binarise estimated brain mask')
 
     parser.add_argument('--threshold_clusters',
                         type=float,
@@ -333,7 +333,7 @@ def main():
         'RESOLUTION': tuple(args.voxels_size),
         'ORIENTATION': 'RAS'}
 
-    # Check if the AI models aire available for the predictions
+    # Check if the AI models are available for the predictions
     check_input_for_pred(wfargs)
 
     # Set the booleans to shape the main workflow
@@ -347,7 +347,7 @@ def main():
     main_wf = Workflow('main_workflow')
     main_wf.base_dir = wfargs['BASE_DIR']
 
-    # Start by initialising the iterable
+    # Start by initializing the iterable
     subject_iterator = Node(
         IdentityInterface(
             fields=['subject_id'],
@@ -401,6 +401,7 @@ def main():
         main_wf.add_nodes([wf_preproc_cmb])
         main_wf.connect(wf_preproc, 'datagrabber.img3', wf_preproc_cmb, 'conform.img')
         main_wf.connect(wf_preproc, 'crop.cropped', wf_preproc_cmb, 'swi_to_t1.fixed_image')
+        main_wf.connect(wf_preproc, ('hard_post_brain_mask.thresholded', lambda input: [input]), wf_preproc_cmb, 'swi_to_t1.fixed_image_masks')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_preproc_cmb, 'mask_to_swi.input_image')
         main_wf.connect(wf_preproc_cmb, 'mask_to_crop.resampled_image', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask_swi.brainmask')
         main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask_swi.img_ref')
@@ -483,7 +484,7 @@ def main():
     # wf_post.get_node('summary_report').inputs.wf_graph = os.path.abspath(wf_graph)
 
     # Finally the data sinks
-    # Initialising the data sinks
+    # Initializing the data sinks
     sink_node_subjects = Node(DataSink(), name='sink_node_subjects')
     sink_node_subjects.inputs.base_directory = os.path.join(wfargs['BASE_DIR'], 'results')
     main_wf.connect(subject_iterator, 'subject_id', sink_node_subjects, 'container')

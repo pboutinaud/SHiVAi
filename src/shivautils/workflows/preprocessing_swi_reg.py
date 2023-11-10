@@ -19,6 +19,7 @@ def gen_workflow_swi(**kwargs) -> Workflow:
     external connections required: 
         full_wf.connect(wf1, 'datagrabber.img3', wf_swi, 'conform.img')
         full_wf.connect(wf1, 'crop.cropped', wf_swi, 'swi_to_t1.moving_image')
+        full_wf.connect(wf1, ('hard_post_brain_mask.thresholded', lambda input: [input]), wf_swi, 'swi_to_t1.fixed_image_masks')
         full_wf.connect(wf1, 'hard_post_brain_mask.thresholded', wf_swi, 'mask_to_swi.input_image')
     Returns:
         workflow
