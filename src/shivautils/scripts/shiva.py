@@ -64,6 +64,10 @@ def shivaParser():
                         action='store_true',
                         help='Optional FreeSurfer segmentation of regions to compute metrics clusters of specific regions')
 
+    parser.add_argument('--masked',
+                        action='store_true',
+                        help='Select this if the input images are masked (i.e. with the brain extracted)')
+
     parser.add_argument('--gpu',
                         type=int,
                         help='Force GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
@@ -252,20 +256,28 @@ def check_input_for_pred(wfargs):
             raise FileNotFoundError(errormsg)
 
 
-def update_wf_grabber(wf, data_struct, acquisitions):
-    """Updates the workflow datagrabber to work with the different types on input
-    acquisitions example: [('img1', 't1'), ('img2', 'flair')]
+def update_wf_grabber(wf, data_struct, acquisitions, seg=None):
+    """
+    Updates the workflow datagrabber to work with the different types on input
+        wf: workflow with the datagrabber
+        data_struct ('standard', 'BIDS', 'json')
+        acquisitions example: [('img1', 't1'), ('img2', 'flair')]
+        seg ('masked', 'synthseg'): type of brain segmentation available (if any)
     """
     datagrabber = wf.get_node('datagrabber')
     if data_struct in ['standard', 'json']:
         # e.g: {'img1': '%s/t1/%s_T1_raw.nii.gz'}
-        datagrabber.inputs.field_template = {acq[0]: f'%s/{acq[1]}/*_raw.nii*' for acq in acquisitions}
+        datagrabber.inputs.field_template = {acq[0]: f'%s/{acq[1]}/*.nii*' for acq in acquisitions}
         datagrabber.inputs.template_args = {acq[0]: [['subject_id']] for acq in acquisitions}
 
     if data_struct == 'BIDS':
         # e.g: {'img1': '%s/anat/%s_T1_raw.nii.gz}
-        datagrabber.inputs.field_template = {acq[0]: f'%s/anat/%s_{acq[1].upper()}_raw.nii*' for acq in acquisitions}
+        datagrabber.inputs.field_template = {acq[0]: f'%s/anat/%s_{acq[1].upper()}*.nii*' for acq in acquisitions}
         datagrabber.inputs.template_args = {acq[0]: [['subject_id', 'subject_id']] for acq in acquisitions}
+
+    if seg == 'masked':
+        datagrabber.inputs.field_template['mask'] = datagrabber.inputs.field_template['img1']
+        datagrabber.inputs.template_args['mask'] = datagrabber.inputs.template_args['img1']
     return wf
 
 
@@ -356,8 +368,17 @@ def main():
     subject_iterator.iterables = ('subject_id', wfargs['SUBJECT_LIST'])
 
     # First, initialise the proper preproc and update its datagrabber
+    if args.synthseg:
+        raise NotImplemented('Sorry, using MRI Synthseg results is not implemented yet')
+        # seg = 'synthseg'
+    elif args.masked:
+        seg = 'masked'
+    else:
+        seg = None
+
+    acquisitions = []
     if with_t1:
-        acquisitions = [('img1', 't1')]
+        acquisitions.append([('img1', 't1')])
         if with_flair:
             acquisitions.append(('img2', 'flair'))
             wf_preproc = genWorkflowDualPreproc(**wfargs, wf_name='shiva_dual_preprocessing')
@@ -366,11 +387,11 @@ def main():
         if with_swi:  # Adding another preproc wf for swi, using t1 mask
             acquisitions.append(('img3', 'swi'))
             wf_preproc_cmb = gen_workflow_swi(**wfargs, wf_name='shiva_swi_preprocessing')
-        wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions)
+        wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions, seg)
     elif with_swi and not with_t1:  # CMB alone
-        acquisitions = [('img1', 'swi')]
+        acquisitions.append([('img1', 'swi')])
         wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_swi_preprocessing')
-        wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions)
+        wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions, seg)
 
     # Then initialise the post proc and add the nodes to the main wf
     wf_post = genWorkflowPost(**wfargs)
