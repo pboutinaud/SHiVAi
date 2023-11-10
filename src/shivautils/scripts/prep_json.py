@@ -75,8 +75,10 @@ def main():
             model_dict['modalities'] = mod
 
     h5_files = glob.glob(os.path.join(in_dir, '*', '*.h5'))
+    if not h5_files:
+        h5_files = glob.glob(os.path.join(in_dir, '*.h5'))
     base_dir = os.path.dirname(in_dir)
-    h5_files = [f[len(base_dir) + 1:] for f in h5_files]  # removing the base_dir part
+    h5_files = [f[len(base_dir) + len(os.sep):] for f in h5_files]  # removing the base_dir part
     h5_dirs = list(set([os.path.dirname(f) for f in h5_files]))
     if len(h5_dirs) > 1:
         if not args.version:
@@ -86,6 +88,8 @@ def main():
             h5_dir = [d for d in h5_dirs if args.version in d.split(os.sep)][0]
         if len(h5_dir) == 0:
             raise ValueError(f'No folder path containing the specified version {args.version} (as a sub-folders).')
+    else:
+        h5_dir = h5_dirs[0]
     h5_files = [f for f in h5_files if h5_dir in f]
     h5_dict = [{'name': f, 'md5': md5(os.path.join(base_dir, f))} for f in h5_files]
     model_dict['files'] = h5_dict
