@@ -111,7 +111,7 @@ def threshold(img: nb.Nifti1Image,
         array = array.astype(np.uint8)
     else:
         raise ValueError(f'Unsupported sign argument value {sign} (+ or -)...')
-    
+
     if open:
         if binarize:
             array = binary_opening(array, footprint=ball(open)).astype(np.uint8)
@@ -120,14 +120,14 @@ def threshold(img: nb.Nifti1Image,
     if clusterCheck in ('top', 'size') or minVol:
         labeled_clusters = label(array)
         clst,  clst_cnt = np.unique(  # already sorted by size
-            labeled_clusters[labeled_clusters>0],
+            labeled_clusters[labeled_clusters > 0],
             return_counts=True)
         if minVol:
             clst = clst[clst_cnt > minVol]
         if clusterCheck in ('top', 'size'):
             maxInd = []
             for c in clst:
-                zmax = np.where(labeled_clusters==c)[2].max()
+                zmax = np.where(labeled_clusters == c)[2].max()
                 maxInd.append(zmax)
             topClst = clst[np.argmax(maxInd)]  # Highest (z-axis) cluster
             if clusterCheck == 'top':
@@ -139,7 +139,7 @@ def threshold(img: nb.Nifti1Image,
                         'the top of the brain. Check the data for that participant.')
                 cluster_mask = (labeled_clusters == clst[0])
         array *= cluster_mask
-        
+
     thresholded = nip.Nifti1Image(array, img.affine)
 
     return thresholded
@@ -212,7 +212,7 @@ def crop(roi_mask: nb.Nifti1Image,
             raise ValueError(f"`dimensions` must have {required_ndim} values")
         cdg_ijk = np.ceil(np.array(
             ndimage.center_of_mass(
-                roi_mask.get_fdata()))).astype(int)
+                roi_mask.get_fdata()))).astype(bool).astype(int)
 
     # Calculation of the center of gravity of the mask, we round and convert
     # to integers
@@ -241,7 +241,7 @@ def crop(roi_mask: nb.Nifti1Image,
     print(f"span: {span}")
     print(f"offset: {offset_ijk}")
 
-    vec = np.sum(roi_mask.get_fdata(), axis=(0, 1))
+    vec = np.sum(roi_mask.get_fdata().astype(bool), axis=(0, 1))
     top_mask_slice_index = np.where(np.squeeze(vec != 0))[0].tolist()[-1]
 
     if bbox2[2] <= top_mask_slice_index:
