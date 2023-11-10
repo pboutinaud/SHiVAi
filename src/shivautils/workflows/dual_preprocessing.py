@@ -28,7 +28,7 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    # Import single img preproc workflow to build uppon
+    # Import single img preproc workflow to build upon
     workflow = genWorkflowPreproc(**kwargs)
 
     # file selection
@@ -43,7 +43,7 @@ def genWorkflow(**kwargs) -> Workflow:
     coreg.inputs.transform_parameters = [(0.1,)]
     coreg.inputs.metric = ['MI']
     coreg.inputs.radius_or_number_of_bins = [64]
-    coreg.inputs.interpolation = 'WelchWindowedSinc'
+    coreg.inputs.interpolation = kwargs['INTERPOLATION']
     coreg.inputs.shrink_factors = [[8, 4, 2, 1]]
     coreg.inputs.output_warped_image = True
     coreg.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
@@ -77,7 +77,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(datagrabber, 'img2',
                      mask_to_img2, 'reference_image')
 
-    # Intensity normalize coregistered image for tensorflow (ENDPOINT 2)
+    # Intensity normalize co-registered image for tensorflow (ENDPOINT 2)
     img2_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="img2_final_intensity_normalization")
     workflow.connect(coreg, 'warped_image',
                      img2_norm, 'input_image')
