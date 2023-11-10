@@ -4,7 +4,7 @@
     Defacing of native and final images. This also handles back-registration from
     conformed-crop to T1 or SWI ('img1').
 
-    Its datagrabber requires to be connected to an outsite 'subject_id' from an iterable
+    Its datagrabber requires to be connected to an external 'subject_id' from an iterable
 """
 import os
 
@@ -32,7 +32,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     "conformed" = (256, 256, 256) 1x1x1mm3
     "preconformed" = (160, 214, 176) = pred model dim (no specific resolution in mm3)
-    "unpreconformed" = "preconfored" sent in "conformed" space
+    "unpreconformed" = "preconformed" sent in "conformed" space
     Returns:
         workflow
     """
@@ -157,7 +157,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(hard_post_brain_mask, 'thresholded', mask_to_img1, 'moving_image')
     workflow.connect(datagrabber, "img1", mask_to_img1, 'fixed_image')
 
-    # Intensity normalize coregistered image for tensorflow (ENDPOINT 1)
+    # Intensity normalize co-registered image for tensorflow (ENDPOINT 1)
     img1_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="img1_final_intensity_normalization")
     workflow.connect(crop, 'cropped',
                      img1_norm, 'input_image')
