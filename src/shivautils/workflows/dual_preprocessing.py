@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Add accessory image (flair) coregistation to cropped space (through ANTS),
+"""Add accessory image (flair) co-registration to cropped space (through ANTS),
    and defacing of native and final images. This also handles back-registration from
    conformed-crop to t1.
    """
@@ -37,40 +37,40 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # compute 6-dof coregistration parameters of accessory scan
     # to cropped t1 image
-    coreg = Node(ants.Registration(),
-                 name='flair_to_t1')
-    coreg.inputs.transforms = ['Rigid']
-    coreg.inputs.transform_parameters = [(0.1,)]
-    coreg.inputs.metric = ['MI']
-    coreg.inputs.radius_or_number_of_bins = [64]
-    coreg.inputs.interpolation = kwargs['INTERPOLATION']
-    coreg.inputs.shrink_factors = [[8, 4, 2, 1]]
-    coreg.inputs.output_warped_image = True
-    coreg.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
-    coreg.inputs.num_threads = 8
-    coreg.inputs.number_of_iterations = [[1000, 500, 250, 125]]
-    coreg.inputs.sampling_strategy = ['Regular']
-    coreg.inputs.sampling_percentage = [0.25]
-    coreg.inputs.output_transform_prefix = "t1_to_flair_"
-    coreg.inputs.verbose = True
-    coreg.inputs.winsorize_lower_quantile = 0.005
-    coreg.inputs.winsorize_upper_quantile = 0.995
+    flair_to_t1 = Node(ants.Registration(),
+                       name='flair_to_t1')
+    flair_to_t1.inputs.transforms = ['Rigid']
+    flair_to_t1.inputs.transform_parameters = [(0.1,)]
+    flair_to_t1.inputs.metric = ['MI']
+    flair_to_t1.inputs.radius_or_number_of_bins = [64]
+    flair_to_t1.inputs.interpolation = kwargs['INTERPOLATION']
+    flair_to_t1.inputs.shrink_factors = [[8, 4, 2, 1]]
+    flair_to_t1.inputs.output_warped_image = True
+    flair_to_t1.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
+    flair_to_t1.inputs.num_threads = 8
+    flair_to_t1.inputs.number_of_iterations = [[1000, 500, 250, 125]]
+    flair_to_t1.inputs.sampling_strategy = ['Regular']
+    flair_to_t1.inputs.sampling_percentage = [0.25]
+    flair_to_t1.inputs.output_transform_prefix = "t1_to_flair_"
+    flair_to_t1.inputs.verbose = True
+    flair_to_t1.inputs.winsorize_lower_quantile = 0.005
+    flair_to_t1.inputs.winsorize_upper_quantile = 0.995
 
     crop = workflow.get_node('crop')
     hard_post_brain_mask = workflow.get_node('hard_post_brain_mask')
     workflow.connect(datagrabber, "img2",
-                     coreg, 'moving_image')
+                     flair_to_t1, 'moving_image')
     workflow.connect(crop, 'cropped',
-                     coreg, 'fixed_image')
+                     flair_to_t1, 'fixed_image')
     workflow.connect(hard_post_brain_mask, ('thresholded', as_list),
-                     coreg, 'fixed_image_masks')
+                     flair_to_t1, 'fixed_image_masks')
 
     # write mask to flair in native space
     mask_to_img2 = Node(ants.ApplyTransforms(), name="mask_to_img2")
     mask_to_img2.inputs.interpolation = 'NearestNeighbor'
     mask_to_img2.inputs.invert_transform_flags = [True]
 
-    workflow.connect(coreg, 'forward_transforms',
+    workflow.connect(flair_to_t1, 'forward_transforms',
                      mask_to_img2, 'transforms')
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      mask_to_img2, 'input_image')
@@ -79,7 +79,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # Intensity normalize co-registered image for tensorflow (ENDPOINT 2)
     img2_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="img2_final_intensity_normalization")
-    workflow.connect(coreg, 'warped_image',
+    workflow.connect(flair_to_t1, 'warped_image',
                      img2_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      img2_norm, 'brain_mask')
