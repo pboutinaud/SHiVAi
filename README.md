@@ -23,15 +23,15 @@ In all these situations, **you will also need** to obtain the trained deep-learn
 
 Let's consider that you stored them in `/myHome/myProject/Shiva_AI_models` for the following parts.
 
->**/!\\** For the process too work, a `model_info.json` must be present in the folder containing the AI model files (the .h5 files). If it's not the case, see the [Create missing json file](#create-missing-json-file) section, and don't forget to update the config file (see [Fully contained process](#fully-contained-process)) if you use one.
+> ⚠️For the process too work, a `model_info.json` must be present in the folder containing the AI model files (the .h5 files). If it's not the case, see the [Create missing json file](#create-missing-json-file) section, and don't forget to update the config file (see [Fully contained process](#fully-contained-process)) if you use one.
 
 ### Fully contained process
 
 1. You will need to have **Apptainer** installed (previously known as **Singularity**):
 https://apptainer.org/docs/user/main/quick_start.html
-    Let's assume you saved it in `/myHome/myProject/shiva.sif`
 
 2. Download the Apptainer image (.sif file) from https://cloud.efixia.com/sharing/TAHaV6ZgZ.
+    Let's assume you saved it in `/myHome/myProject/shiva.sif`
 
 From the shivautils repository (where you are reading this), go to the 'singularity' folder and download:
 
