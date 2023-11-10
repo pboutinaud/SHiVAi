@@ -6,6 +6,7 @@ from shivautils.workflows.post_processing import set_wf_shapers
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowDualPreproc
 from shivautils.workflows.preprocessing_swi_reg import gen_workflow_swi
+from shivautils.workflows.preprocessing_premasked import genWorkflow as genWorkflow_preproc_masked
 from shivautils.interfaces.post import Join_Prediction_metrics, Join_QC_metrics
 from nipype import config
 from nipype.pipeline.engine import Workflow, Node, JoinNode
@@ -323,12 +324,21 @@ def main():
         pvs2_descriptor = os.path.join(args.model, args.pvs2_descriptor)
         cmb_descriptor = os.path.join(args.model, args.cmb_descriptor)
 
+    if args.synthseg:
+        raise NotImplemented('Sorry, using MRI Synthseg results is not implemented yet')
+        # seg = 'synthseg'
+    elif args.masked:
+        seg = 'masked'
+    else:
+        seg = None
+
     wfargs = {
         'SUB_WF': True,  # Denotes that the workflows are stringed together
         'SUBJECT_LIST': subject_list,
         'DATA_DIR': subject_directory,  # Default base_directory for the datagrabber
         'BASE_DIR': out_dir,  # Default base_dir for each workflow
         'PREDICTION': args.prediction,  # Needed by the postproc for now
+        'BRAIN_SEG': seg,
         'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
         'WMH_DESCRIPTOR': wmh_descriptor,
         'PVS_DESCRIPTOR': pvs_descriptor,
@@ -372,13 +382,6 @@ def main():
     subject_iterator.iterables = ('subject_id', wfargs['SUBJECT_LIST'])
 
     # First, initialise the proper preproc and update its datagrabber
-    if args.synthseg:
-        raise NotImplemented('Sorry, using MRI Synthseg results is not implemented yet')
-        # seg = 'synthseg'
-    elif args.masked:
-        seg = 'masked'
-    else:
-        seg = None
 
     acquisitions = []
     if with_t1:
@@ -387,14 +390,22 @@ def main():
             acquisitions.append(('img2', 'flair'))
             wf_preproc = genWorkflowDualPreproc(**wfargs, wf_name='shiva_dual_preprocessing')
         else:
-            wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_t1_preprocessing')
+            wf_name = 'shiva_t1_preprocessing'
+            if wfargs['BRAIN_SEG'] is not None:
+                wf_preproc = genWorkflow_preproc_masked(**wfargs, wf_name=wf_name)
+            else:
+                wf_preproc = genWorkflowPreproc(**wfargs, wf_name=wf_name)
         if with_swi:  # Adding another preproc wf for swi, using t1 mask
             acquisitions.append(('img3', 'swi'))
             wf_preproc_cmb = gen_workflow_swi(**wfargs, wf_name='shiva_swi_preprocessing')
         wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions, seg)
     elif with_swi and not with_t1:  # CMB alone
         acquisitions.append(('img1', 'swi'))
-        wf_preproc = genWorkflowPreproc(**wfargs, wf_name='shiva_swi_preprocessing')
+        wf_name = 'shiva_swi_preprocessing'
+        if wfargs['BRAIN_SEG'] is not None:
+            wf_preproc = genWorkflow_preproc_masked(**wfargs, wf_name=wf_name)
+        else:
+            wf_preproc = genWorkflowPreproc(**wfargs, wf_name=wf_name)
         wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions, seg)
 
     # Then initialise the post proc and add the nodes to the main wf

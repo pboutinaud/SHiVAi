@@ -11,6 +11,8 @@ from nipype.interfaces.utility import Function
 
 from shivautils.interfaces.image import Normalization
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
+from shivautils.workflows.preprocessing_premasked import genWorkflow as genWorkflow_preproc_masked
+
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
               "BASE_DIR": os.path.normpath(os.path.expanduser('~')),
@@ -29,7 +31,10 @@ def genWorkflow(**kwargs) -> Workflow:
         workflow
     """
     # Import single img preproc workflow to build upon
-    workflow = genWorkflowPreproc(**kwargs)
+    if kwargs['BRAIN_SEG'] is not None:
+        workflow = genWorkflow_preproc_masked(**kwargs)
+    else:
+        workflow = genWorkflowPreproc(**kwargs)
 
     # file selection
     datagrabber = workflow.get_node('datagrabber')
