@@ -67,6 +67,7 @@ class Conform(BaseInterface):
         input_spec (nib.Nifti1Image):
             NIfTI image file to process
             dimensions (int, int, int): minimal dimension
+            order (int): Order of spline interpolation
             voxel_size (float, float, float): Voxel size of final image
             orientation (string): orientation of the volume brain
         output_spec (nib.Nifti1Image): file img brain mask IRM nifti
