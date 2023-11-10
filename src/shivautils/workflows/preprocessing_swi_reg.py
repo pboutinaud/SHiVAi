@@ -13,7 +13,7 @@ def gen_workflow_swi(**kwargs) -> Workflow:
     Workflow for SWI preprocessing when doing CMB
     segmentation using the T1-defined mask from another segmentation preproc.
     Also uses the data grabber from the other workflow.
-    It's basically a pluggin of the T1 workflow
+    It's basically a plugin of the T1 workflow
 
 
     external connections required: 
@@ -38,7 +38,7 @@ def gen_workflow_swi(**kwargs) -> Workflow:
     conform.inputs.orientation = kwargs['ORIENTATION']
 
     # compute 6-dof coregistration parameters of conformed swi
-    # to t1 croped image
+    # to t1 cropped image
     swi_to_t1 = Node(ants.Registration(),
                      name='swi_to_t1')
     swi_to_t1.inputs.transforms = ['Rigid']
@@ -60,7 +60,7 @@ def gen_workflow_swi(**kwargs) -> Workflow:
 
     workflow.connect(conform, 'resampled', swi_to_t1, 'moving_image')
 
-    # Aplpication of the t1 to swi transformation to the t1 mask
+    # Application of the t1 to swi transformation to the t1 mask
     mask_to_swi = Node(ants.ApplyTransforms(), name="mask_to_swi")
     mask_to_swi.inputs.interpolation = 'NearestNeighbor'
     mask_to_swi.inputs.invert_transform_flags = [True]
@@ -73,14 +73,14 @@ def gen_workflow_swi(**kwargs) -> Workflow:
     workflow.connect(conform, 'resampled', crop_swi, 'apply_to')
     workflow.connect(mask_to_swi, 'output_image', crop_swi, 'roi_mask')
 
-    # Confromed mask (256x256x256) to cropped space
+    # Conformed mask (256x256x256) to cropped space
     mask_to_crop = Node(Resample_from_to(),
                         name='mask_to_crop')
     mask_to_crop.inputs.spline_order = 0
     workflow.connect(mask_to_swi, 'output_image', mask_to_crop, 'moving_image')
     workflow.connect(crop_swi, 'cropped', mask_to_crop, 'fixed_image')
 
-    # Intensity normalisation of the cropped image for the segmentation (ENDPOINT)
+    # Intensity normalization of the cropped image for the segmentation (ENDPOINT)
     swi_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="swi_intensity_normalisation")
     workflow.connect(crop_swi, 'cropped', swi_norm, 'input_image')
     workflow.connect(mask_to_crop, 'resampled_image', swi_norm, 'brain_mask')
