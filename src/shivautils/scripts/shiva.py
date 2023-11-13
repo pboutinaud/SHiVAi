@@ -419,7 +419,7 @@ def main():
     if wfargs['BRAIN_SEG'] is None:
         main_wf.connect(wf_preproc, 'hard_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_crop_box.brainmask')
     else:
-        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_crop_box.brainmask')
+        main_wf.connect(wf_preproc, 'datagrabber.brainmask', wf_post, 'preproc_qc_workflow.qc_crop_box.brainmask')
     main_wf.connect(wf_preproc, 'crop.bbox1', wf_post, 'preproc_qc_workflow.qc_crop_box.bbox1')
     main_wf.connect(wf_preproc, 'crop.bbox2', wf_post, 'preproc_qc_workflow.qc_crop_box.bbox2')
     main_wf.connect(wf_preproc, 'crop.cdg_ijk', wf_post, 'preproc_qc_workflow.qc_crop_box.cdg_ijk')

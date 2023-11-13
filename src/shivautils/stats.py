@@ -201,7 +201,7 @@ def bounding_crop(img_apply_to: str,
     from matplotlib.colors import ListedColormap
 
     img_apply_to = nb.load(img_apply_to).get_fdata()
-    brainmask = nb.load(brainmask).get_fdata()
+    brainmask = nb.load(brainmask).get_fdata().astype(bool)
     original_dims = img_apply_to.shape
     # Coordonnées de la boîte de recadrage
     x_start, y_start, z_start = (bbox1[0], bbox1[1], bbox1[2])
