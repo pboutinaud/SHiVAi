@@ -84,7 +84,7 @@ def genWorkflow(**kwargs) -> Workflow:
         pre_brain_mask.inputs.gpu_number = kwargs['GPU']
 
     if kwargs['MASK_ON_CPU']:
-        post_brain_mask.inputs.gpu_number = -1
+        pre_brain_mask.inputs.gpu_number = -1
 
     pre_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
     pre_brain_mask.inputs.out_filename = 'pre_brain_mask.nii.gz'
