@@ -75,7 +75,7 @@ def shivaParser():
 
     parser.add_argument('--gpu',
                         type=int,
-                        help='Force GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
+                        help='ID of the GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
 
     parser.add_argument('--mask_on_gpu',
                         action='store_true',
