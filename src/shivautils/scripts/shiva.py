@@ -281,8 +281,8 @@ def update_wf_grabber(wf, data_struct, acquisitions, seg=None):
         datagrabber.inputs.template_args = {acq[0]: [['subject_id', 'subject_id']] for acq in acquisitions}
 
     if seg == 'masked':
-        datagrabber.inputs.field_template['mask'] = datagrabber.inputs.field_template['img1']
-        datagrabber.inputs.template_args['mask'] = datagrabber.inputs.template_args['img1']
+        datagrabber.inputs.field_template['brainmask'] = datagrabber.inputs.field_template['img1']
+        datagrabber.inputs.template_args['brainmask'] = datagrabber.inputs.template_args['img1']
     return wf
 
 
@@ -416,7 +416,10 @@ def main():
     main_wf.connect(subject_iterator, 'subject_id', wf_preproc, 'datagrabber.subject_id')
     main_wf.connect(subject_iterator, 'subject_id', wf_post, 'summary_report.subject_id')
     main_wf.connect(wf_preproc, 'conform.resampled', wf_post, 'preproc_qc_workflow.qc_crop_box.img_apply_to')
-    main_wf.connect(wf_preproc, 'hard_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_crop_box.brainmask')
+    if wfargs['BRAIN_SEG'] is None:
+        main_wf.connect(wf_preproc, 'hard_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_crop_box.brainmask')
+    else:
+        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_crop_box.brainmask')
     main_wf.connect(wf_preproc, 'crop.bbox1', wf_post, 'preproc_qc_workflow.qc_crop_box.bbox1')
     main_wf.connect(wf_preproc, 'crop.bbox2', wf_post, 'preproc_qc_workflow.qc_crop_box.bbox2')
     main_wf.connect(wf_preproc, 'crop.cdg_ijk', wf_post, 'preproc_qc_workflow.qc_crop_box.cdg_ijk')
@@ -549,7 +552,8 @@ def main():
         img1 = 'swi'
     main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, f'{img1}_preproc')
     main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, f'{img1}_preproc.brain_mask')
-    main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, f'{img1}_preproc.brain_mask_raw_space')
+    if wfargs['BRAIN_SEG'] is None:
+        main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, f'{img1}_preproc.brain_mask_raw_space')
     main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, f'{img1}_preproc.@bb1')
     main_wf.connect(wf_preproc, 'crop.bbox2_file', sink_node_subjects, f'{img1}_preproc.@bb2')
     main_wf.connect(wf_preproc, 'crop.cdg_ijk_file', sink_node_subjects, f'{img1}_preproc.@cdg')
