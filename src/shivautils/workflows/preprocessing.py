@@ -80,10 +80,10 @@ def genWorkflow(**kwargs) -> Workflow:
         pre_brain_mask = Node(Predict(), "pre_brain_mask")
         pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
 
-    if kwargs['GPU'] is not None:
-        pre_brain_mask.inputs.gpu_number = kwargs['GPU']
-
-    if kwargs['MASK_ON_CPU']:
+    if kwargs['MASK_ON_GPU']:
+        if kwargs['GPU'] is not None:
+            pre_brain_mask.inputs.gpu_number = kwargs['GPU']
+    else:
         pre_brain_mask.inputs.gpu_number = -1
 
     pre_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
@@ -138,10 +138,10 @@ def genWorkflow(**kwargs) -> Workflow:
         post_brain_mask = Node(Predict(), "post_brain_mask")
         post_brain_mask.inputs.model = kwargs['MODELS_PATH']
 
-    if kwargs['GPU'] is not None:
-        post_brain_mask.inputs.gpu_number = kwargs['GPU']
-
-    if kwargs['MASK_ON_CPU']:
+    if kwargs['MASK_ON_GPU']:
+        if kwargs['GPU'] is not None:
+            post_brain_mask.inputs.gpu_number = kwargs['GPU']
+    else:
         post_brain_mask.inputs.gpu_number = -1
 
     post_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']

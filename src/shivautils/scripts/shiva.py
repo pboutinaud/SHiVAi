@@ -77,9 +77,9 @@ def shivaParser():
                         type=int,
                         help='Force GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
 
-    parser.add_argument('--mask_on_cpu',
+    parser.add_argument('--mask_on_gpu',
                         action='store_true',
-                        help='Use CPU to compute the brain mask.')
+                        help='Use GPU to compute the brain mask.')
 
     parser.add_argument('--use_container',
                         action='store_true',
@@ -351,7 +351,7 @@ def main():
         'CONTAINER': not args.use_container,  # store "False" because of legacy meaning of the variable. Only when used by SMOmed usually
         'MODELS_PATH': args.model,
         'GPU': args.gpu,
-        'MASK_ON_CPU': args.mask_on_cpu,
+        'MASK_ON_GPU': args.mask_on_gpu,
         'ANONYMIZED': args.anonymize,  # TODO: Improve + defacing
         'INTERPOLATION': args.interpolation,
         'PERCENTILE': args.percentile,
