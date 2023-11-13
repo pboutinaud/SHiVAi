@@ -212,7 +212,7 @@ def crop(roi_mask: nb.Nifti1Image,
             raise ValueError(f"`dimensions` must have {required_ndim} values")
         cdg_ijk = np.ceil(np.array(
             ndimage.center_of_mass(
-                roi_mask.get_fdata()))).astype(bool).astype(int)
+                roi_mask.get_fdata().astype(bool)))).astype(int)
 
     # Calculation of the center of gravity of the mask, we round and convert
     # to integers
