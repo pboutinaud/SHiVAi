@@ -138,6 +138,9 @@ def genWorkflow(**kwargs) -> Workflow:
     if kwargs['GPU'] is not None:
         post_brain_mask.inputs.gpu_number = kwargs['GPU']
 
+    if kwargs['MASK_ON_CPU']:
+        post_brain_mask.inputs.gpu_number = -1
+
     post_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
     post_brain_mask.inputs.out_filename = 'post_brain_mask.nii.gz'
     workflow.connect(crop_normalized, 'cropped',
