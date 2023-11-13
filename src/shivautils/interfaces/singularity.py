@@ -53,7 +53,7 @@ class SingularityInputSpec(CommandLineInputSpec):
     snglrt_no_net = traits.Bool(False,
                                 argstr="--nonet",
                                 mandatory=False,
-                                desc="diasble network conection")
+                                desc="disable network connection")
 
     snglrt_enable_nvidia = traits.Bool(False,
                                        argstr='--nv',
@@ -89,14 +89,14 @@ class SingularityCommandLine(CommandLine):
 
     @property
     def cmdline(self):
-        """Add a 'singularity exec' command to begining of actual command."""
+        """Add a 'singularity exec' command to beginning of actual command."""
         self._check_mandatory_inputs()
         result = ['singularity exec'] + self._singularity_parse_inputs()
         result.append(super(SingularityCommandLine, self).cmdline)
         return ' '.join(result)
 
     def _singularity_format_arg(self, name, spec, value):
-        """Custom argument formating for singularity."""
+        """Custom argument formatting for singularity."""
         if name == 'snglrt_bind':
             return spec.argstr % (','.join([':'.join(b) for b in value]))
         return super(SingularityCommandLine, self)._format_arg(name,
@@ -197,9 +197,11 @@ class SgDcm2niiInputSpec(Dcm2niiInputSpec, SingularityInputSpec):
     """Double inheritance so as to create a singularity Dcm2nii class."""
     pass
 
-# Example of double inheritance as mentionned just above...
-# create a new singularity class that inherits from both singularity and the preexisting 
+# Example of double inheritance as mentioned just above...
+# create a new singularity class that inherits from both singularity and the preexisting
 # command line wrapper, et voilà...
+
+
 class SgDcm2nii(Dcm2nii, SingularityCommandLine):
     """To run dcm2nii through singularity."""
 
