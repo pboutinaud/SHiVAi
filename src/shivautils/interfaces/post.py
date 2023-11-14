@@ -44,7 +44,7 @@ class CustomIntensityNormalizationOutputSpec(TraitedSpec):
 
 
 class CustomIntensityNormalization(BaseInterface):
-    """ Denoising algorithm for T1/T2flair images in MATLAB """
+    """ De-noising algorithm for T1/T2flair images in MATLAB """
 
     input_spec = CustomIntensityNormalizationInputSpec
     output_spec = CustomIntensityNormalizationOutputSpec
@@ -190,7 +190,7 @@ class SynthSegSegmentationMap(CommandLine):
 
 class CoregQCInputSpec(CommandLineInputSpec):
 
-    """Create coregistrations qc endpoints:
+    """Create co-registrations qc endpoints:
 
      1) create coreg isocontour image
      2) compute the cost function of FLIRT coregistration
@@ -198,7 +198,7 @@ class CoregQCInputSpec(CommandLineInputSpec):
      coreg_QC.sh <COREGISTERED_IMG> <REF(T1)_BRAIN> <REF(T1)_BRAIN_MASK> <OUTPUT_BASENAME>
 
      creates <OUTPUT_BASENAME>.png with isocontours image and <OUTPUT_BASENAME>.txt
-     with costfunction value
+     with cost function value
     """
 
     in_file = traits.Str(mandatory=True,
@@ -255,7 +255,7 @@ class coregQC(CommandLine):
 
 class MaskOverlayQCplot(CommandLine):
     """
-    Creates multi-slice axial plot with Slicer showing mask overlaied on
+    Creates multi-slice axial plot with Slicer showing mask overlaid on
     background image.
     """
     import shivautils.interfaces as wf_interfaces
@@ -423,8 +423,8 @@ class SummaryReport(BaseInterface):
 
     def _run_interface(self, runtime):
         """
-        Build the report for the whole workflow. It contains segementation statistics and
-        quality controle figures.
+        Build the report for the whole workflow. It contains segmentation statistics and
+        quality control figures.
 
         """
         if self.inputs.anonymized:  # TODO
@@ -434,7 +434,7 @@ class SummaryReport(BaseInterface):
 
         brain_vol = nib.load(self.inputs.brainmask).get_fdata().astype(bool).sum()
         pred_metrics_dict = {}  # Will contain the stats dataframe for each biomarker
-        pred_census_im_dict = {}  # Will contain the path to the swarmplot for each biomarker
+        pred_census_im_dict = {}  # Will contain the path to the swarm plot for each biomarker
         pred_list = self.inputs.pred_list
         if 'PVS' in pred_list:
             pred_metrics_dict['PVS'] = pd.read_csv(self.inputs.pvs_metrics_csv, index_col=0)
@@ -468,7 +468,7 @@ class SummaryReport(BaseInterface):
         with open('summary_report.html', 'w', encoding='utf-8') as fid:
             fid.write(summary_report)
 
-        # Convertir le fichier HTML en PDF
+        # Convert the HTML file to PDF
         postproc_dir = os.path.dirname(postproc_init)
         css = os.path.join(postproc_dir, 'report_styling.css')
         HTML('summary_report.html').write_pdf('summary.pdf',
@@ -587,7 +587,7 @@ class QC_metrics_Output(TraitedSpec):
 
 class QC_metrics(BaseInterface):
     """
-    Compute and gather the quality control metrics for the corrent subject
+    Compute and gather the quality control metrics for the current subject
     This can be used to automatically detect subject with bad preprocessing
     """
     input_spec = QC_metrics_Input
@@ -636,6 +636,11 @@ class Join_QC_metrics_InputSpec(BaseInterfaceInputSpec):
 
     subject_id = traits.List(desc="id for each subject")
 
+    population_csv_file = traits.File(None,
+                                      usedefault=True,
+                                      mandatory=False,
+                                      desc='optional csv file from previous analysis to help sort-out outliers')
+
 
 class Join_QC_metrics_OutputSpec(TraitedSpec):
     """Output class
@@ -647,7 +652,13 @@ class Join_QC_metrics_OutputSpec(TraitedSpec):
                               desc='json file containing the subjects with bad qc and their bad metrics')
 
     qc_plot_svg = traits.File(exists=True,
-                              desc='svg filedisplaying the qc values for each metric and each subject')
+                              desc='svg file displaying the qc values for each metric and each subject')
+
+    csv_pop_file = traits.File(exists=False,
+                               desc='optional csv file with the new metrics concatenated to the population metrics')
+
+    pop_bad_subjects = traits.File(exists=False,
+                                   desc='optional json file with the subjects from the population csv input with outlier metrics')
 
 
 class Join_QC_metrics(BaseInterface):
@@ -664,6 +675,7 @@ class Join_QC_metrics(BaseInterface):
         """
         path_csv_files = self.inputs.csv_files
         subject_id = self.inputs.subject_id
+        population_csv_file = self.inputs.population_csv_file
 
         csv_list = []
         for csv_file, sub_id in zip(path_csv_files, subject_id):
@@ -674,10 +686,18 @@ class Join_QC_metrics(BaseInterface):
 
         csv_out_file = 'qc_metrics.csv'
         all_sub_metrics.to_csv(csv_out_file)
+        pop_subs = []
+        if population_csv_file is not None:
+            pop_metrics = pd.read_csv(population_csv_file, index_col=0)
+            pop_subs = pop_metrics['sub_id'].tolist()
+            all_sub_metrics = pd.concat([all_sub_metrics, pop_metrics], join='inner')
+            all_sub_metrics.to_csv(csv_pop_file)
+            csv_pop_file = 'qc_metrics_concat.csv'
 
         all_sub_metrics.set_index('sub_id', inplace=True)
 
-        bad_subjects = {}
+        bad_subjects = {}  # Will contain the subjects with outlier qc metrics
+        pop_bad_subjects = {}  # Will contain the subjects with outlier qc metrics from the population csv
         qc_plot_svg = 'qc_metrics_plot.svg'
         plot_per_row = 4
         n_rows = 1 + (len(all_sub_metrics.columns) - 1)//plot_per_row
@@ -685,8 +705,8 @@ class Join_QC_metrics(BaseInterface):
         fig, axes = plt.subplots(n_rows, n_cols, figsize=(3*n_cols, 3*n_rows))
         fig.tight_layout(pad=3)
         if len(all_sub_metrics) >= 10:  # We need at least a few subject to detect outliers
-            # Plot boxplot of each metrics with labeled outliers
-            # Using the boxplot way (1.5 times the interquartile distance)
+            # Plot box plot of each metrics with labeled outliers
+            # Using the box plot way (1.5 times the inter-quartile distance)
             flierprops = {
                 'markerfacecolor': (1, 0, 0),
                 'markersize': 5,
@@ -706,12 +726,19 @@ class Join_QC_metrics(BaseInterface):
                     if val < min_thr or val > max_thr:
                         # plot the name of the subject next to the outlier point
                         ax.annotate(id, xy=(0, val), xytext=(5, -2), textcoords='offset points')
-                        if id not in bad_subjects.keys():
-                            bad_subjects[id] = [metric]
-                        else:
-                            bad_subjects[id].append(metric)
+                        if id in pop_subs:  # Old bad subject
+                            if id not in pop_bad_subjects.keys():
+                                pop_bad_subjects[id] = [metric]
+                            else:
+                                pop_bad_subjects[id].append(metric)
+                        else:  # New bad subjects
+                            if id not in bad_subjects.keys():
+                                bad_subjects[id] = [metric]
+                            else:
+                                bad_subjects[id].append(metric)
+
         else:
-            # Simple swarmplot if few subjects for a quick check
+            # Simple swarm plot if few subjects for a quick check
             # Labels may overlap but outliers should stand out
             for metric, ax in zip(all_sub_metrics.columns, np.nditer(axes, flags=['refs_ok'], op_flags=['readwrite'])):
                 ax = ax.item()
@@ -722,7 +749,7 @@ class Join_QC_metrics(BaseInterface):
         plt.savefig(qc_plot_svg, format='svg')
         plt.close(fig)
 
-        # Checking if the histogram peaks of normalised images are between 0 and 1
+        # Checking if the histogram peaks of normalized images are between 0 and 1
         for metric in all_sub_metrics:
             if '_norm_peak' in metric:
                 metric_series = all_sub_metrics[metric]
@@ -738,10 +765,17 @@ class Join_QC_metrics(BaseInterface):
         bad_subjects_file = 'failed_qc.json'
         with open(bad_subjects_file, 'w') as fp:
             json.dump(bad_subjects, fp, sort_keys=True, indent=4)
+        if pop_bad_subjects:
+            pop_bad_subjects_file = 'previous_run_failed_qc.json'
+            with open(pop_bad_subjects_file, 'w') as fp:
+                json.dump(pop_bad_subjects, fp, sort_keys=True, indent=4)
 
         setattr(self, 'qc_metrics_csv', os.path.abspath(csv_out_file))
         setattr(self, 'bad_qc_subs', os.path.abspath(bad_subjects_file))
         setattr(self, 'qc_plot_svg', os.path.abspath(qc_plot_svg))
+        if population_csv_file is not None:
+            setattr(self, 'csv_pop_file', os.path.abspath(csv_pop_file))
+            setattr(self, 'pop_bad_subjects', os.path.abspath(pop_bad_subjects))
 
         return runtime
 
@@ -751,4 +785,8 @@ class Join_QC_metrics(BaseInterface):
         outputs['qc_metrics_csv'] = getattr(self, 'qc_metrics_csv')
         outputs['bad_qc_subs'] = getattr(self, 'bad_qc_subs')
         outputs['qc_plot_svg'] = getattr(self, 'qc_plot_svg')
+        if hasattr(self, 'csv_pop_file'):
+            outputs['csv_pop_file'] = getattr(self, 'csv_pop_file')
+            outputs['pop_bad_subjects'] = getattr(self, 'pop_bad_subjects')
+
         return outputs

@@ -110,6 +110,13 @@ def shivaParser():
                               '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
                               'for more details )'))
 
+    parser.add_argument('--prev_qc',
+                        type=str,
+                        default=None,
+                        help=('CSV file from a previous QC with the metrics computed on other participants '
+                              'preprocessing. This data will be used to estimate outliers and thus help detect '
+                              'participants that may have a faulty preprocessing'))
+
     parser.add_argument('--model_config',
                         type=str,
                         help=('Configuration file (.yml) containing the information and parameters for the '
@@ -459,6 +466,8 @@ def main():
                          name='qc_joiner')
     main_wf.connect(wf_post, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', qc_joiner, 'csv_files')
     main_wf.connect(subject_iterator, 'subject_id', qc_joiner, 'subject_id')
+    if args.prev_qc is not None:
+        qc_joiner.inputs.population_csv_file = args.prev_qc
 
     # Then prediction nodes and their connections
     segmentation_wf = Workflow('Segmentation')  # facultative workflow for organization purpose
@@ -604,6 +613,9 @@ def main():
     main_wf.connect(qc_joiner, 'qc_metrics_csv', sink_node_all, 'preproc_qc')
     main_wf.connect(qc_joiner, 'bad_qc_subs', sink_node_all, 'preproc_qc.@bad_qc_subs')
     main_wf.connect(qc_joiner, 'qc_plot_svg', sink_node_all, 'preproc_qc.@qc_plot_svg')
+    if args.prev_qc is not None:
+        main_wf.connect(qc_joiner, 'csv_pop_file', sink_node_all, 'preproc_qc.@preproc_qc_pop')
+        main_wf.connect(qc_joiner, 'pop_bad_subjects', sink_node_all, 'preproc_qc.@pop_bad_subjects')
     sink_node_all.inputs.wf_graph = wf_graph
 
     # Run the workflow
