@@ -287,7 +287,7 @@ def check_input_for_pred(wfargs):
     # wfargs['PREDICTION'] is a combination of ['PVS', 'PVS2', 'WMH', 'CMB']
     for pred in wfargs['PREDICTION']:
         if not os.path.exists(wfargs[f'{pred}_DESCRIPTOR']):
-            errormsg = ('The AI model descriptor for the segmentation of {pred} was not found. '
+            errormsg = (f'The AI model descriptor for the segmentation of {pred} was not found. '
                         'Check if the model paths were properly setup in the configuration file (.yml).\n'
                         f'The path given for the model descriptor was: {wfargs[f"{pred}_DESCRIPTOR"]}')
             raise FileNotFoundError(errormsg)
@@ -510,15 +510,15 @@ def main():
             predict_pvs.inputs.snglrt_bind = [
                 (wfargs['BASE_DIR'], wfargs['BASE_DIR'], 'rw'),
                 ('`pwd`', '/mnt/data', 'rw'),
-                (wfargs['MODELS_PATH'], '/mnt/model', 'ro')]
-            predict_pvs.inputs.model = '/mnt/model'
+                (wfargs['MODELS_PATH'], wfargs['MODELS_PATH'], 'ro')]
+            predict_pvs.inputs.out_filename = '/mnt/data/pvs_map.nii.gz'
             predict_pvs.inputs.snglrt_enable_nvidia = True
             predict_pvs.inputs.snglrt_image = wfargs['CONTAINER_IMAGE']
         else:
             predict_pvs = Node(Predict(), name="predict_pvs")
-            predict_pvs.inputs.model = wfargs['MODELS_PATH']
+            predict_pvs.inputs.out_filename = 'pvs_map.nii.gz'
+        predict_pvs.inputs.model = wfargs['MODELS_PATH']
         predict_pvs.plugin_args = wfargs['PRED_PLUGIN_ARGS']
-        predict_pvs.inputs.out_filename = 'pvs_map.nii.gz'
         if with_flair:
             predict_pvs.inputs.descriptor = wfargs['PVS2_DESCRIPTOR']
         else:
@@ -546,15 +546,15 @@ def main():
             predict_wmh.inputs.snglrt_bind = [
                 (wfargs['BASE_DIR'], wfargs['BASE_DIR'], 'rw'),
                 ('`pwd`', '/mnt/data', 'rw'),
-                (wfargs['MODELS_PATH'], '/mnt/model', 'ro')]
-            predict_wmh.inputs.model = '/mnt/model'
+                (wfargs['MODELS_PATH'], wfargs['MODELS_PATH'], 'ro')]
+            predict_wmh.inputs.out_filename = '/mnt/data/wmh_map.nii.gz'
             predict_wmh.inputs.snglrt_enable_nvidia = True
             predict_wmh.inputs.snglrt_image = wfargs['CONTAINER_IMAGE']
         else:
             predict_wmh = Node(Predict(), name="predict_wmh")
-            predict_wmh.inputs.model = wfargs['MODELS_PATH']
+            predict_wmh.inputs.out_filename = 'wmh_map.nii.gz'
+        predict_wmh.inputs.model = wfargs['MODELS_PATH']
         predict_wmh.plugin_args = wfargs['PRED_PLUGIN_ARGS']
-        predict_wmh.inputs.out_filename = 'wmh_map.nii.gz'
         predict_wmh.inputs.descriptor = wfargs['WMH_DESCRIPTOR']
 
         segmentation_wf.add_nodes([predict_wmh])
@@ -578,15 +578,16 @@ def main():
             predict_cmb.inputs.snglrt_bind = [
                 (wfargs['BASE_DIR'], wfargs['BASE_DIR'], 'rw'),
                 ('`pwd`', '/mnt/data', 'rw'),
-                (wfargs['MODELS_PATH'], '/mnt/model', 'ro')]
-            predict_cmb.inputs.model = '/mnt/model'
+                (wfargs['MODELS_PATH'], wfargs['MODELS_PATH'], 'ro')]
             predict_cmb.inputs.snglrt_enable_nvidia = True
             predict_cmb.inputs.snglrt_image = wfargs['CONTAINER_IMAGE']
+            predict_cmb.inputs.out_filename = '/mnt/data/cmb_map.nii.gz'
+
         else:
             predict_cmb = Node(Predict(), name="predict_cmb")
-            predict_cmb.inputs.model = wfargs['MODELS_PATH']
+            predict_cmb.inputs.out_filename = 'cmb_map.nii.gz'
+        predict_cmb.inputs.model = wfargs['MODELS_PATH']
         predict_cmb.plugin_args = wfargs['PRED_PLUGIN_ARGS']
-        predict_cmb.inputs.out_filename = 'cmb_map.nii.gz'
         predict_cmb.inputs.descriptor = wfargs['CMB_DESCRIPTOR']
 
         segmentation_wf.add_nodes([predict_cmb])

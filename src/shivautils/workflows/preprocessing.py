@@ -81,13 +81,14 @@ def genWorkflow(**kwargs) -> Workflow:
         pre_brain_mask.inputs.snglrt_bind = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
             ('`pwd`', '/mnt/data', 'rw'),
-            (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
-        pre_brain_mask.inputs.model = '/mnt/model'
+            (kwargs['MODELS_PATH'], kwargs['MODELS_PATH'], 'ro')]
+        pre_brain_mask.inputs.out_filename = '/mnt/data/pre_brain_mask.nii.gz'
         pre_brain_mask.inputs.snglrt_enable_nvidia = True
         pre_brain_mask.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
     else:
         pre_brain_mask = Node(Predict(), "pre_brain_mask")
-        pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
+        pre_brain_mask.inputs.out_filename = 'pre_brain_mask.nii.gz'
+    pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
 
     if kwargs['MASK_ON_GPU']:
         if kwargs['GPU'] is not None:
@@ -105,7 +106,6 @@ def genWorkflow(**kwargs) -> Workflow:
 
     pre_brain_mask.plugin_args = plugin_args
     pre_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
-    pre_brain_mask.inputs.out_filename = 'pre_brain_mask.nii.gz'
 
     workflow.connect(preconf_normalization, 'intensity_normalized',
                      pre_brain_mask, 't1')
@@ -157,13 +157,14 @@ def genWorkflow(**kwargs) -> Workflow:
         post_brain_mask.inputs.snglrt_bind = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
             ('`pwd`', '/mnt/data', 'rw'),
-            (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
-        post_brain_mask.inputs.model = '/mnt/model'
+            (kwargs['MODELS_PATH'], kwargs['MODELS_PATH'], 'ro')]
+        post_brain_mask.inputs.out_filename = '/mnt/data/post_brain_mask.nii.gz'
         post_brain_mask.inputs.snglrt_enable_nvidia = True
         post_brain_mask.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
     else:
         post_brain_mask = Node(Predict(),  name="post_brain_mask")
-        post_brain_mask.inputs.model = kwargs['MODELS_PATH']
+        post_brain_mask.inputs.out_filename = 'post_brain_mask.nii.gz'
+    post_brain_mask.inputs.model = kwargs['MODELS_PATH']
 
     if kwargs['MASK_ON_GPU']:
         if kwargs['GPU'] is not None:
@@ -173,7 +174,6 @@ def genWorkflow(**kwargs) -> Workflow:
 
     post_brain_mask.plugin_args = plugin_args
     post_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
-    post_brain_mask.inputs.out_filename = 'post_brain_mask.nii.gz'
     workflow.connect(crop_normalized, 'cropped',
                      post_brain_mask, 't1')
 
