@@ -14,7 +14,7 @@ from nipype.interfaces.io import DataGrabber
 
 from shivautils.interfaces.image import (Threshold, Normalization,
                                          Conform, Crop, Resample_from_to)
-from shivautils.interfaces.shiva import Predict
+from shivautils.interfaces.shiva import Predict, PredictSingularity
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
@@ -76,7 +76,16 @@ def genWorkflow(**kwargs) -> Workflow:
     preconf_normalization = Node(Normalization(percentile=kwargs['PERCENTILE']), name="preconform_intensity_normalization")
     workflow.connect(preconform, 'resampled', preconf_normalization, 'input_image')
 
-    if kwargs['CONTAINER'] == True:  # TODO: Check with PY
+    if kwargs['CONTAINERIZE_NODES']:
+        pre_brain_mask = Node(PredictSingularity(), name="pre_brain_mask")
+        pre_brain_mask.inputs.snglrt_bind = [
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            ('`pwd`', '/mnt/data', 'rw'),
+            (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
+        pre_brain_mask.inputs.model = '/mnt/model'
+        pre_brain_mask.inputs.snglrt_enable_nvidia = True
+        pre_brain_mask.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+    else:
         pre_brain_mask = Node(Predict(), "pre_brain_mask")
         pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
 
@@ -135,8 +144,17 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(hard_brain_mask, 'thresholded',
                      crop, 'roi_mask')
 
-    if kwargs['CONTAINER'] == True:  # TODO: Check with PY
-        post_brain_mask = Node(Predict(), "post_brain_mask")
+    if kwargs['CONTAINERIZE_NODES']:
+        post_brain_mask = Node(PredictSingularity(), name="post_brain_mask")
+        post_brain_mask.inputs.snglrt_bind = [
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            ('`pwd`', '/mnt/data', 'rw'),
+            (kwargs['MODELS_PATH'], '/mnt/model', 'ro')]
+        post_brain_mask.inputs.model = '/mnt/model'
+        post_brain_mask.inputs.snglrt_enable_nvidia = True
+        post_brain_mask.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+    else:
+        post_brain_mask = Node(Predict(),  name="post_brain_mask")
         post_brain_mask.inputs.model = kwargs['MODELS_PATH']
 
     if kwargs['MASK_ON_GPU']:

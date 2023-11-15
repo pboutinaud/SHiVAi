@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Workflow script for singularity container"""
-from shivautils.interfaces.shiva import Predict
+from shivautils.interfaces.shiva import Predict, PredictSingularity
 from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
 from shivautils.workflows.post_processing import set_wf_shapers
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
@@ -81,13 +81,19 @@ def shivaParser():
                         action='store_true',
                         help='Use GPU to compute the brain mask.')
 
+    container_args = parser.add_mutually_exclusive_group()
+
+    container_args.add_argument('--containerized_all',
+                                help='Used when the whole process is launched from inside a container',
+                                action='store_true')
+
+    container_args.add_argument('--containerized_nodes',
+                                help='Used when the process uses the container to run specific nodes (prediction and registration)',
+                                action='store_true')
+
     parser.add_argument('--use_container',
                         action='store_true',
                         help='Wether or not to use containerized processes (mainly for SWOmed).')
-
-    parser.add_argument('--container',
-                        action='store_true',
-                        help='Wether or not process is launched from inside a container.')
 
     parser.add_argument('--retry',
                         action='store_true',
@@ -219,7 +225,7 @@ def shivaParser():
 
 def set_args_and_check(inParser):
     args = inParser.parse_args()
-    if args.container and not args.model_config:
+    if (args.containerized_all or args.containerized_nodes) and not args.model_config:
         inParser.error(
             'Using a container (denoted with the "--container" argument) requires '
             'a configuration file (.yml) but none was given.')
@@ -233,6 +239,7 @@ def set_args_and_check(inParser):
     if args.model_config:  # Parse the config file
         with open(args.model_config, 'r') as file:
             yaml_content = yaml.safe_load(file)
+        container_image = yaml_content['apptainer_image']
         parameters = yaml_content['parameters']
         args.model = yaml_content['model_path']  # only used when not with container
         args.percentile = parameters['percentile']
@@ -267,14 +274,14 @@ def set_args_and_check(inParser):
     else:
         args.node_plugin_args = {}
 
-    if args.container:
+    if args.containerized_all:
         args.model = '/mnt/model'
 
     if 'all' in args.prediction:
         args.prediction = ['PVS2', 'WMH', 'CMB']
     if not isinstance(args.prediction, list):  # When only one input
         args.prediction = [args.prediction]
-    return args
+    return args, container_image
 
 
 def check_input_for_pred(wfargs):
@@ -318,7 +325,7 @@ def update_wf_grabber(wf, data_struct, acquisitions, seg=None):
 def main():
 
     parser = shivaParser()
-    args = set_args_and_check(parser)
+    args, container_image = set_args_and_check(parser)
 
     # synthseg = args.synthseg  # Unused for now
 
@@ -380,7 +387,9 @@ def main():
         'PVS_DESCRIPTOR': pvs_descriptor,
         'PVS2_DESCRIPTOR': pvs2_descriptor,
         'CMB_DESCRIPTOR': cmb_descriptor,
-        'CONTAINER': not args.use_container,  # store "False" because of legacy meaning of the variable. Only when used by SMOmed usually
+        'CONTAINER_IMAGE': container_image,
+        'CONTAINERIZE_NODES': args.containerized_nodes,
+        # 'CONTAINER': True #  legacy variable. Only when used by SMOmed usually
         'MODELS_PATH': args.model,
         'GPU': args.gpu,
         'MASK_ON_GPU': args.mask_on_gpu,
@@ -500,10 +509,20 @@ def main():
     segmentation_wf = Workflow('Segmentation')  # facultative workflow for organization purpose
     # PVS
     if 'PVS' in args.prediction or 'PVS2' in args.prediction:
-        predict_pvs = Node(Predict(), name=f"predict_pvs")
+        if wfargs['CONTAINERIZE_NODES']:
+            predict_pvs = Node(PredictSingularity(), name="predict_pvs")
+            predict_pvs.inputs.snglrt_bind = [
+                (wfargs['BASE_DIR'], wfargs['BASE_DIR'], 'rw'),
+                ('`pwd`', '/mnt/data', 'rw'),
+                (wfargs['MODELS_PATH'], '/mnt/model', 'ro')]
+            predict_pvs.inputs.model = '/mnt/model'
+            predict_pvs.inputs.snglrt_enable_nvidia = True
+            predict_pvs.inputs.snglrt_image = wfargs['CONTAINER_IMAGE']
+        else:
+            predict_pvs = Node(Predict(), name="predict_pvs")
+            predict_pvs.inputs.model = wfargs['MODELS_PATH']
         predict_pvs.plugin_args = wfargs['PRED_PLUGIN_ARGS']
         predict_pvs.inputs.out_filename = 'pvs_map.nii.gz'
-        predict_pvs.inputs.model = wfargs['MODELS_PATH']
         if with_flair:
             predict_pvs.inputs.descriptor = wfargs['PVS2_DESCRIPTOR']
         else:
@@ -526,10 +545,20 @@ def main():
 
     # WMH
     if 'WMH' in args.prediction:
-        predict_wmh = Node(Predict(), name=f"predict_wmh")
+        if wfargs['CONTAINERIZE_NODES']:
+            predict_wmh = Node(PredictSingularity(), name="predict_wmh")
+            predict_wmh.inputs.snglrt_bind = [
+                (wfargs['BASE_DIR'], wfargs['BASE_DIR'], 'rw'),
+                ('`pwd`', '/mnt/data', 'rw'),
+                (wfargs['MODELS_PATH'], '/mnt/model', 'ro')]
+            predict_wmh.inputs.model = '/mnt/model'
+            predict_wmh.inputs.snglrt_enable_nvidia = True
+            predict_wmh.inputs.snglrt_image = wfargs['CONTAINER_IMAGE']
+        else:
+            predict_wmh = Node(Predict(), name="predict_wmh")
+            predict_wmh.inputs.model = wfargs['MODELS_PATH']
         predict_wmh.plugin_args = wfargs['PRED_PLUGIN_ARGS']
         predict_wmh.inputs.out_filename = 'wmh_map.nii.gz'
-        predict_wmh.inputs.model = wfargs['MODELS_PATH']
         predict_wmh.inputs.descriptor = wfargs['WMH_DESCRIPTOR']
 
         segmentation_wf.add_nodes([predict_wmh])
@@ -548,10 +577,20 @@ def main():
 
     # CMB
     if 'CMB' in args.prediction:
-        predict_cmb = Node(Predict(), name=f"predict_cmb")
+        if wfargs['CONTAINERIZE_NODES']:
+            predict_cmb = Node(PredictSingularity(), name="predict_cmb")
+            predict_cmb.inputs.snglrt_bind = [
+                (wfargs['BASE_DIR'], wfargs['BASE_DIR'], 'rw'),
+                ('`pwd`', '/mnt/data', 'rw'),
+                (wfargs['MODELS_PATH'], '/mnt/model', 'ro')]
+            predict_cmb.inputs.model = '/mnt/model'
+            predict_cmb.inputs.snglrt_enable_nvidia = True
+            predict_cmb.inputs.snglrt_image = wfargs['CONTAINER_IMAGE']
+        else:
+            predict_cmb = Node(Predict(), name="predict_cmb")
+            predict_cmb.inputs.model = wfargs['MODELS_PATH']
         predict_cmb.plugin_args = wfargs['PRED_PLUGIN_ARGS']
         predict_cmb.inputs.out_filename = 'cmb_map.nii.gz'
-        predict_cmb.inputs.model = wfargs['MODELS_PATH']
         predict_cmb.inputs.descriptor = wfargs['CMB_DESCRIPTOR']
 
         segmentation_wf.add_nodes([predict_cmb])
