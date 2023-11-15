@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from nipype.interfaces.base import (traits, File, TraitedSpec,
                                     BaseInterface, BaseInterfaceInputSpec,
                                     CommandLine, CommandLineInputSpec,
-                                    InputMultiPath, OutputMultiPath)
+                                    InputMultiPath, OutputMultiPath, isdefined)
 from nipype.interfaces.spm.base import (SPMCommand, SPMCommandInputSpec)
 
 from nipype.interfaces.matlab import MatlabCommand
@@ -369,21 +369,18 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
                             desc='Nifti file of the brain mask in raw space')
     crop_brain_img = traits.File(desc='PNG file of the crop box, the first brain mask on the brain')
 
-    isocontour_slides_FLAIR_T1 = traits.File(None,
-                                             usedefault=True,
-                                             mandatory=False,
+    isocontour_slides_FLAIR_T1 = traits.File(mandatory=False,
+                                             exists=True,
                                              desc='PNG file of the FLAIR isocontour on T1 (QC of coregistration)')
 
     overlayed_brainmask_1 = traits.File(desc='PNG file of the final brain mask on first acquisition (T1 or SWI)')
 
-    overlayed_brainmask_2 = traits.File(None,
-                                        usedefault=True,
-                                        mandatory=False,
+    overlayed_brainmask_2 = traits.File(mandatory=False,
+                                        exists=True,
                                         desc='PNG file of the final brain mask on second independent acquisition (SWI)')
 
-    wf_graph = traits.File(None,
-                           usedefault=True,
-                           mandatory=False,
+    wf_graph = traits.File(mandatory=False,
+                           exists=True,
                            desc='SVG file of the workflow graph')
 
     percentile = traits.Float(99.0,
@@ -446,6 +443,19 @@ class SummaryReport(BaseInterface):
             pred_metrics_dict['CMB'] = pd.read_csv(self.inputs.cmb_metrics_csv, index_col=0)
             pred_census_im_dict['CMB'] = swarmplot_from_census(self.inputs.cmb_census_csv, 'CMB')
 
+        # set optional inputs to None if undefined
+        if isdefined(self.inputs.isocontour_slides_FLAIR_T1):
+            isocontour_slides_FLAIR_T1 = self.inputs.isocontour_slides_FLAIR_T1
+        else:
+            isocontour_slides_FLAIR_T1 = None
+        if isdefined(self.inputs.overlayed_brainmask_2):
+            overlayed_brainmask_2 = self.inputs.overlayed_brainmask_2
+        else:
+            overlayed_brainmask_2 = None
+        if isdefined(self.inputs.wf_graph):
+            wf_graph = self.inputs.wf_graph
+        else:
+            wf_graph = None
         # process
         summary_report = make_report(
             pred_metrics_dict=pred_metrics_dict,
@@ -455,14 +465,14 @@ class SummaryReport(BaseInterface):
             min_seg_size=self.inputs.min_seg_size,
             bounding_crop_path=self.inputs.crop_brain_img,
             overlayed_brainmask_1=self.inputs.overlayed_brainmask_1,
-            overlayed_brainmask_2=self.inputs.overlayed_brainmask_2,
-            isocontour_slides_FLAIR_T1=self.inputs.isocontour_slides_FLAIR_T1,
+            overlayed_brainmask_2=overlayed_brainmask_2,
+            isocontour_slides_FLAIR_T1=isocontour_slides_FLAIR_T1,
             subject_id=subject_id,
             image_size=self.inputs.image_size,
             resolution=self.inputs.resolution,
             percentile=self.inputs.percentile,
             threshold=self.inputs.threshold,
-            wf_graph=self.inputs.wf_graph
+            wf_graph=wf_graph
         )
 
         with open('summary_report.html', 'w', encoding='utf-8') as fid:
@@ -550,14 +560,14 @@ class QC_metrics_Input(BaseInterfaceInputSpec):
     )
 
     flair_norm_peak = traits.Float(
-        None,
+        0.0,
         usedefault=True,
         mandatory=False,
         desc="Peak from the histogram of the flair image"
     )
 
     swi_norm_peak = traits.Float(
-        None,
+        0.0,
         usedefault=True,
         mandatory=False,
         desc="Peak from the histogram of the swi image"
@@ -636,9 +646,8 @@ class Join_QC_metrics_InputSpec(BaseInterfaceInputSpec):
 
     subject_id = traits.List(desc="id for each subject")
 
-    population_csv_file = traits.File(None,
-                                      usedefault=True,
-                                      mandatory=False,
+    population_csv_file = traits.File(mandatory=False,
+                                      exists=True,
                                       desc='optional csv file from previous analysis to help sort-out outliers')
 
 
@@ -675,7 +684,10 @@ class Join_QC_metrics(BaseInterface):
         """
         path_csv_files = self.inputs.csv_files
         subject_id = self.inputs.subject_id
-        population_csv_file = self.inputs.population_csv_file
+        if isdefined(self.inputs.population_csv_file):
+            population_csv_file = self.inputs.population_csv_file
+        else:
+            population_csv_file = None
 
         csv_list = []
         for csv_file, sub_id in zip(path_csv_files, subject_id):

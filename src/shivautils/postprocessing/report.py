@@ -123,7 +123,7 @@ def make_report(
             image_data = f.read()
         wf_graph = base64.b64encode(image_data).decode()
 
-    if isocontour_slides_FLAIR_T1 is not None:
+    if isocontour_slides_FLAIR_T1:
         with open(isocontour_slides_FLAIR_T1, 'rb') as f:
             image_data = f.read()
         isocontour_slides_FLAIR_T1 = base64.b64encode(image_data).decode()
