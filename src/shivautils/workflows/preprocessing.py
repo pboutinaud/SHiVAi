@@ -95,7 +95,15 @@ def genWorkflow(**kwargs) -> Workflow:
     else:
         pre_brain_mask.inputs.gpu_number = -1
 
-    pre_brain_mask.plugin_args = kwargs['PRED_PLUGIN_ARGS']
+    plugin_args = kwargs['PRED_PLUGIN_ARGS']['sbatch_args']
+    if '--gpus' in plugin_args and not kwargs['MASK_ON_GPU']:
+        list_args = plugin_args.split(' ')
+        gpu_arg_ind1 = list_args.index('--gpus')
+        gpu_arg_ind2 = gpu_arg_ind1 + 1
+        list_args_noGPU = [arg for i, arg in enumerate(list_args) if i not in [gpu_arg_ind1, gpu_arg_ind2]]
+        plugin_args = ' '.join(list_args_noGPU)
+
+    pre_brain_mask.plugin_args = plugin_args
     pre_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
     pre_brain_mask.inputs.out_filename = 'pre_brain_mask.nii.gz'
 
@@ -163,7 +171,7 @@ def genWorkflow(**kwargs) -> Workflow:
     else:
         post_brain_mask.inputs.gpu_number = -1
 
-    post_brain_mask.plugin_args = kwargs['PRED_PLUGIN_ARGS']
+    post_brain_mask.plugin_args = plugin_args
     post_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
     post_brain_mask.inputs.out_filename = 'post_brain_mask.nii.gz'
     workflow.connect(crop_normalized, 'cropped',

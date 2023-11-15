@@ -91,10 +91,6 @@ def shivaParser():
                                 help='Used when the process uses the container to run specific nodes (prediction and registration)',
                                 action='store_true')
 
-    parser.add_argument('--use_container',
-                        action='store_true',
-                        help='Wether or not to use containerized processes (mainly for SWOmed).')
-
     parser.add_argument('--retry',
                         action='store_true',
                         help='Relaunch the pipeline from where it stopped')
