@@ -615,7 +615,7 @@ def main():
     main_wf.connect(qc_joiner, 'qc_plot_svg', sink_node_all, 'preproc_qc.@qc_plot_svg')
     if args.prev_qc is not None:
         main_wf.connect(qc_joiner, 'csv_pop_file', sink_node_all, 'preproc_qc.@preproc_qc_pop')
-        main_wf.connect(qc_joiner, 'pop_bad_subjects', sink_node_all, 'preproc_qc.@pop_bad_subjects')
+        main_wf.connect(qc_joiner, 'pop_bad_subjects_file', sink_node_all, 'preproc_qc.@pop_bad_subjects')
     sink_node_all.inputs.wf_graph = wf_graph
 
     # Run the workflow

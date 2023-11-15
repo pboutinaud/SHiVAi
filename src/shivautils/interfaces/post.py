@@ -657,8 +657,8 @@ class Join_QC_metrics_OutputSpec(TraitedSpec):
     csv_pop_file = traits.File(exists=False,
                                desc='optional csv file with the new metrics concatenated to the population metrics')
 
-    pop_bad_subjects = traits.File(exists=False,
-                                   desc='optional json file with the subjects from the population csv input with outlier metrics')
+    pop_bad_subjects_file = traits.File(exists=False,
+                                        desc='optional json file with the subjects from the population csv input with outlier metrics')
 
 
 class Join_QC_metrics(BaseInterface):
@@ -691,8 +691,8 @@ class Join_QC_metrics(BaseInterface):
             pop_metrics = pd.read_csv(population_csv_file, index_col=0)
             pop_subs = pop_metrics['sub_id'].tolist()
             all_sub_metrics = pd.concat([all_sub_metrics, pop_metrics], join='inner')
-            all_sub_metrics.to_csv(csv_pop_file)
             csv_pop_file = 'qc_metrics_concat.csv'
+            all_sub_metrics.to_csv(csv_pop_file)
 
         all_sub_metrics.set_index('sub_id', inplace=True)
 
@@ -775,7 +775,7 @@ class Join_QC_metrics(BaseInterface):
         setattr(self, 'qc_plot_svg', os.path.abspath(qc_plot_svg))
         if population_csv_file is not None:
             setattr(self, 'csv_pop_file', os.path.abspath(csv_pop_file))
-            setattr(self, 'pop_bad_subjects', os.path.abspath(pop_bad_subjects))
+            setattr(self, 'pop_bad_subjects_file', os.path.abspath(pop_bad_subjects_file))
 
         return runtime
 
@@ -787,6 +787,6 @@ class Join_QC_metrics(BaseInterface):
         outputs['qc_plot_svg'] = getattr(self, 'qc_plot_svg')
         if hasattr(self, 'csv_pop_file'):
             outputs['csv_pop_file'] = getattr(self, 'csv_pop_file')
-            outputs['pop_bad_subjects'] = getattr(self, 'pop_bad_subjects')
+            outputs['pop_bad_subjects_file'] = getattr(self, 'pop_bad_subjects_file')
 
         return outputs
