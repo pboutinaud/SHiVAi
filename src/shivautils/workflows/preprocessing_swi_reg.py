@@ -42,6 +42,7 @@ def gen_workflow_swi(**kwargs) -> Workflow:
     # to t1 cropped image
     swi_to_t1 = Node(ants.Registration(),
                      name='swi_to_t1')
+    swi_to_t1.plugin_args = kwargs['REG_PLUGIN_ARGS']
     swi_to_t1.inputs.transforms = ['Rigid']
     swi_to_t1.inputs.transform_parameters = [(0.1,)]
     swi_to_t1.inputs.metric = ['MI']

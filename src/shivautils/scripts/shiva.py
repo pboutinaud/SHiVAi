@@ -110,6 +110,15 @@ def shivaParser():
                               '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
                               'for more details )'))
 
+    parser.add_argument('--node_plugin_args',
+                        type=str,
+                        help=('Configuration file (.yml) for the plugin used by Nipype to run some specific nodes. '
+                              'It will be imported as a dictionary of dictionaries. The root keys refer to the nodes '
+                              '("pred" and "reg" available now, for the predictions and registration nodes) and the '
+                              'dictionary they are referring to are "plugin_args" so they must follow the Nipype '
+                              'syntax for this argument (see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
+                              'for more details )'))
+
     parser.add_argument('--prev_qc',
                         type=str,
                         default=None,
@@ -248,6 +257,15 @@ def set_args_and_check(inParser):
         with open(args.run_plugin_args, 'r') as file:
             yaml_content = yaml.safe_load(file)
         args.run_plugin_args = yaml_content
+    else:
+        args.run_plugin_args = {}
+
+    if args.node_plugin_args:
+        with open(args.node_plugin_args, 'r') as file:
+            yaml_content = yaml.safe_load(file)
+        args.node_plugin_args = yaml_content
+    else:
+        args.node_plugin_args = {}
 
     if args.container:
         args.model = '/mnt/model'
@@ -343,6 +361,13 @@ def main():
     else:
         seg = None
 
+    pred_plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 4 --gpus 1'}
+    reg_plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}
+    if 'pred' in args.node_plugin_args.keys():
+        pred_plugin_args = args.node_plugin_args['pred']
+    if 'reg' in args.node_plugin_args.keys():
+        reg_plugin_args = args.node_plugin_args['reg']
+
     wfargs = {
         'SUB_WF': True,  # Denotes that the workflows are stringed together
         'SUBJECT_LIST': subject_list,
@@ -359,6 +384,8 @@ def main():
         'MODELS_PATH': args.model,
         'GPU': args.gpu,
         'MASK_ON_GPU': args.mask_on_gpu,
+        'REG_PLUGIN_ARGS': reg_plugin_args,
+        'PRED_PLUGIN_ARGS': pred_plugin_args,
         'ANONYMIZED': args.anonymize,  # TODO: Improve + defacing
         'INTERPOLATION': args.interpolation,
         'PERCENTILE': args.percentile,
@@ -474,6 +501,7 @@ def main():
     # PVS
     if 'PVS' in args.prediction or 'PVS2' in args.prediction:
         predict_pvs = Node(Predict(), name=f"predict_pvs")
+        predict_pvs.plugin_args = wfargs['PRED_PLUGIN_ARGS']
         predict_pvs.inputs.out_filename = 'pvs_map.nii.gz'
         predict_pvs.inputs.model = wfargs['MODELS_PATH']
         if with_flair:
@@ -499,6 +527,7 @@ def main():
     # WMH
     if 'WMH' in args.prediction:
         predict_wmh = Node(Predict(), name=f"predict_wmh")
+        predict_wmh.plugin_args = wfargs['PRED_PLUGIN_ARGS']
         predict_wmh.inputs.out_filename = 'wmh_map.nii.gz'
         predict_wmh.inputs.model = wfargs['MODELS_PATH']
         predict_wmh.inputs.descriptor = wfargs['WMH_DESCRIPTOR']
@@ -520,6 +549,7 @@ def main():
     # CMB
     if 'CMB' in args.prediction:
         predict_cmb = Node(Predict(), name=f"predict_cmb")
+        predict_cmb.plugin_args = wfargs['PRED_PLUGIN_ARGS']
         predict_cmb.inputs.out_filename = 'cmb_map.nii.gz'
         predict_cmb.inputs.model = wfargs['MODELS_PATH']
         predict_cmb.inputs.descriptor = wfargs['CMB_DESCRIPTOR']

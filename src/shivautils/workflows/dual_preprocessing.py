@@ -44,6 +44,7 @@ def genWorkflow(**kwargs) -> Workflow:
     # to cropped t1 image
     flair_to_t1 = Node(ants.Registration(),
                        name='flair_to_t1')
+    flair_to_t1.plugin_args = kwargs['REG_PLUGIN_ARGS']
     flair_to_t1.inputs.transforms = ['Rigid']
     flair_to_t1.inputs.transform_parameters = [(0.1,)]
     flair_to_t1.inputs.metric = ['MI']

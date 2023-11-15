@@ -86,6 +86,7 @@ def genWorkflow(**kwargs) -> Workflow:
     else:
         pre_brain_mask.inputs.gpu_number = -1
 
+    pre_brain_mask.plugin_args = kwargs['PRED_PLUGIN_ARGS']
     pre_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
     pre_brain_mask.inputs.out_filename = 'pre_brain_mask.nii.gz'
 
@@ -144,6 +145,7 @@ def genWorkflow(**kwargs) -> Workflow:
     else:
         post_brain_mask.inputs.gpu_number = -1
 
+    post_brain_mask.plugin_args = kwargs['PRED_PLUGIN_ARGS']
     post_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
     post_brain_mask.inputs.out_filename = 'post_brain_mask.nii.gz'
     workflow.connect(crop_normalized, 'cropped',
