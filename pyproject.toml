@@ -56,8 +56,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-TF = ["tensorflow[and-cuda]==2.13.*"]
-TF_CPU = ["tensorflow==2.13.*"]
+TF_CUDA = ["tensorflow[and-cuda]==2.13.*"]
+TF = ["tensorflow==2.13.*"]
 
 [project.scripts]
 shiva = "shivautils.scripts.shiva:main"

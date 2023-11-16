@@ -45,7 +45,7 @@ def singParser():
                         help='Relaunch the pipeline from where it stopped')
     parser.add_argument('--keep_all',
                         action='store_true',
-                        help='Keep all intermediary file, which is usually necessary for debuggin.')
+                        help='Keep all intermediary file, which is usually necessary for debuging.')
     parser.add_argument('--run_plugin',
                         default='Linear',
                         help=('Type of plugin used by Nipype to run the workflow.\n'
@@ -54,7 +54,7 @@ def singParser():
     parser.add_argument('--run_plugin_args',
                         type=str,
                         help=('Configuration file (.yml) for the plugin used by Nipype to run the workflow.\n'
-                              'It will be imported as a dictionnary and given plugin_args '
+                              'It will be imported as a dictionary and given plugin_args '
                               '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
                               'for more details )'))
     return parser
@@ -88,7 +88,7 @@ def main():
     bind = ','.join(bind_list)
 
     command_list = ["singularity exec --nv --bind", bind, singularity_image,
-                    "shiva --container", input, output, input_type, pred, config,
+                    "shiva --containerized_all", input, output, input_type, pred, config,
                     plugin]
 
     if args.run_plugin_args:
