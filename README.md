@@ -106,6 +106,8 @@ python -m pip install .
 
 Then, download the Apptainer image and prepare the configuration file as explained in [Fully contained process](#fully-contained-process) (you can ignore the point 3 as you won't need the `run_shiva.py` script).
 
+To run SHIV-AI with this approach, see point **2** in [Running SHIV-AI from direct package commands (recommended)](#running-shiv-ai-from-direct-package-commands-recommended)
+
 ## Running the process
 
 ### Segmentation choice
