@@ -30,7 +30,7 @@ def my_parser():
                         required=False)
     parser.add_argument('--modalities', '-m',
                         help='Acquisition modalities (if not given, use the input folder name to guess them)',
-                        choices=['t1', 'flair', 'swi'],
+                        choices=['t1', 'flair', 'swi', 't2', 't2s'],
                         nargs='+',
                         required=False)
     parser.add_argument('--version', '-v',
@@ -50,11 +50,13 @@ def main():
     args = parser.parse_args()
     model_dict = {}
 
-    modalities = ['t1', 'flair', 'swi', 't2']
+    modalities = ['t1', 'flair', 'swi', 't2', 't2s']
     targets = ['PVS', 'WMH', 'CMB', 'brain_mask']
 
     in_dir = args.folder
     dirname = os.path.basename(in_dir)
+    if not dirname:  # When indir end with a separator
+        dirname = os.path.basename(dirname)
     if args.target is not None:
         model_dict['target'] = args.target
     else:
