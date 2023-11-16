@@ -17,7 +17,7 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 - [Running the process](#running-the-process)
     - [Segmentation choice](#segmentation-choice)
     - [Running SHIV-AI from a container](#running-shiv-ai-from-a-container)
-    - [Running SHIV-AI from direct package commands (recommended)](#running-shiv-ai-from-direct-package-commands-(recommended))
+    - [Running SHIV-AI from direct package commands (recommended)](#running-shiv-ai-from-direct-package-commands-recommended)
 - [Results](#results)
 - [Data structures accepted by SHIV-AI](#data-structures-accepted-by-shiv-ai)
 - [Additional info](#additional-info)
