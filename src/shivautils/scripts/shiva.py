@@ -53,6 +53,14 @@ def shivaParser():
                         help="Way to grab and manage nifti files : 'standard', 'BIDS' or 'json'",
                         default='standard')
 
+    parser.add_argument('--sub_list',
+                        type=str,
+                        required=False,
+                        help=('Text file containing the list of participant IDs to be processed. The IDs must be '
+                              'the same as the ones given in the input folder. In the file, the IDs can be separated '
+                              'by a whitespace, a comma, or a new line (or a combination of those). If this argument '
+                              'is not given, all the participants in the input folder will be processed'))
+
     parser.add_argument('--prediction',
                         choices=['PVS', 'PVS2', 'WMH', 'CMB', 'all'],
                         nargs='+',
@@ -121,12 +129,22 @@ def shivaParser():
                               'syntax for this argument (see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
                               'for more details )'))
 
+    parser.add_argument('--max_jobs',
+                        type=int,
+                        default=50,
+                        help='Number of jobs to run and queue simultaneously when using an HPC plugin (like SLURM). Default is 50.'
+                        )
+
     parser.add_argument('--prev_qc',
                         type=str,
                         default=None,
                         help=('CSV file from a previous QC with the metrics computed on other participants '
                               'preprocessing. This data will be used to estimate outliers and thus help detect '
                               'participants that may have a faulty preprocessing'))
+
+    parser.add_argument('--keep_all',
+                        action='store_true',
+                        help='Keep all intermediary file, which is usually necessary for debugging.')
 
     parser.add_argument('--model_config',
                         type=str,
@@ -138,14 +156,14 @@ def shivaParser():
                               '--pvs2_descriptor --wmh_descriptor --cmb_descriptor).'),
                         default=None)
 
-    parser.add_argument('--keep_all',
-                        action='store_true',
-                        help='Keep all intermediary file, which is usually necessary for debugging.')
-
     # Manual input
+    parser.add_argument('--container_image',
+                        default=None,
+                        help='path to the apptainer image (.sif file)')
+
     parser.add_argument('--model',
                         default=None,
-                        help='path to model descriptor')
+                        help='path to the AI model weights and descriptors')
 
     parser.add_argument('--percentile',
                         type=float,
@@ -234,11 +252,42 @@ def set_args_and_check(inParser):
             'The output directory already exists and is not empty.'
         )
 
+    subject_list = os.listdir(args.input)
+    if args.sub_list is None:
+        args.sub_list = subject_list
+    else:
+        list_path = os.path.abspath(args.sub_list)
+        args.sub_list = []
+        if not os.path.exists(list_path):
+            raise FileNotFoundError(f'The participant list file was not found at the given location: {list_path}')
+        with open(list_path) as f:
+            lines = f.readlines()
+        for line in lines:
+            line_s = line.strip('\n')
+            subs = line_s.split(',')
+            subs = [s.strip() for s in subs]
+            for sub in subs:
+                if ' ' in sub:
+                    subs2 = sub.split()  # if sep is whitespace
+                    for sub2 in subs2:
+                        if len(sub):
+                            args.sub_list.append(sub2)
+                else:
+                    if len(sub):
+                        args.sub_list.append(sub)
+        subs_not_in_dir = set(args.sub_list) - set(subject_list)
+        if len(subs_not_in_dir) == len(args.sub_list):
+            raise ValueError('None of the participant IDs given in the sub_list file was found in the input directory.\n'
+                             f'Participant IDs given: {args.sub_list}\n'
+                             f'Participant available: {subject_list}')
+        elif len(subs_not_in_dir) > 0:
+            raise ValueError(f'Some participants where not found in the input directory: {sorted(list(subs_not_in_dir))}')
+
     if args.model_config:  # Parse the config file
         args.model_config = os.path.abspath(args.model_config)
         with open(args.model_config, 'r') as file:
             yaml_content = yaml.safe_load(file)
-        container_image = yaml_content['apptainer_image']
+        args.container_image = yaml_content['apptainer_image']
         parameters = yaml_content['parameters']
         args.model = yaml_content['model_path']  # only used when not with container
         args.percentile = parameters['percentile']
@@ -266,6 +315,7 @@ def set_args_and_check(inParser):
         args.run_plugin_args = yaml_content
     else:
         args.run_plugin_args = {}
+    args.run_plugin_args['max_jobs'] = args.max_jobs
 
     if args.node_plugin_args:
         with open(args.node_plugin_args, 'r') as file:
@@ -281,7 +331,7 @@ def set_args_and_check(inParser):
         args.prediction = ['PVS2', 'WMH', 'CMB']
     if not isinstance(args.prediction, list):  # When only one input
         args.prediction = [args.prediction]
-    return args, container_image
+    return args
 
 
 def check_input_for_pred(wfargs):
@@ -325,7 +375,7 @@ def update_wf_grabber(wf, data_struct, acquisitions, seg=None):
 def main():
 
     parser = shivaParser()
-    args, container_image = set_args_and_check(parser)
+    args = set_args_and_check(parser)
 
     # synthseg = args.synthseg  # Unused for now
 
@@ -335,7 +385,7 @@ def main():
 
         out_dir = subject_dict['parameters']['out_dir']
         subject_directory = subject_dict["files_dir"]
-        subject_list = os.listdir(subject_directory)
+        # subject_list = os.listdir(subject_directory)
         brainmask_descriptor = subject_dict['parameters']['brainmask_descriptor']
         if subject_dict['parameters']['WMH_descriptor']:
             wmh_descriptor = subject_dict['parameters']['WMH_descriptor']
@@ -353,7 +403,6 @@ def main():
     if args.input_type == 'standard' or args.input_type == 'BIDS':
         subject_directory = args.input
         out_dir = args.output
-        subject_list = os.listdir(subject_directory)
         brainmask_descriptor = os.path.join(args.model, args.brainmask_descriptor)
         wmh_descriptor = os.path.join(args.model, args.wmh_descriptor)
         pvs_descriptor = os.path.join(args.model, args.pvs_descriptor)
@@ -377,7 +426,7 @@ def main():
 
     wfargs = {
         'SUB_WF': True,  # Denotes that the workflows are stringed together
-        'SUBJECT_LIST': subject_list,
+        'SUBJECT_LIST': args.sub_list,
         'DATA_DIR': subject_directory,  # Default base_directory for the datagrabber
         'BASE_DIR': out_dir,  # Default base_dir for each workflow
         'PREDICTION': args.prediction,  # Needed by the postproc for now
@@ -387,7 +436,7 @@ def main():
         'PVS_DESCRIPTOR': pvs_descriptor,
         'PVS2_DESCRIPTOR': pvs2_descriptor,
         'CMB_DESCRIPTOR': cmb_descriptor,
-        'CONTAINER_IMAGE': container_image,
+        'CONTAINER_IMAGE': args.container_image,
         'CONTAINERIZE_NODES': args.containerized_nodes,
         # 'CONTAINER': True #  legacy variable. Only when used by SMOmed usually
         'MODELS_PATH': args.model,
