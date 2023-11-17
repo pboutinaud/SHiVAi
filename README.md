@@ -13,7 +13,7 @@ The tools cover preprocessing (image resampling and cropping to match the requir
     - [Trained AI model](#trained-AI-model)
     - [Fully contained process](#fully-contained-process)
     - [Traditional python install](#traditional-python-install)
-    - [Mixed approach (recommended)](#mixed-approach-(recommended))
+    - [Mixed approach (recommended)](#mixed-approach-recommended)
 - [Running the process](#running-the-process)
     - [Segmentation choice](#segmentation-choice)
     - [Running SHIV-AI from a container](#running-shiv-ai-from-a-container)
