@@ -221,6 +221,8 @@ def shivaParser():
 
 def set_args_and_check(inParser):
     args = inParser.parse_args()
+    args.input = os.path.abspath(args.input)
+    args.output = os.path.abspath(args.output)
     if (args.containerized_all or args.containerized_nodes) and not args.model_config:
         inParser.error(
             'Using a container (denoted with the "--container" argument) requires '
@@ -233,6 +235,7 @@ def set_args_and_check(inParser):
         )
 
     if args.model_config:  # Parse the config file
+        args.model_config = os.path.abspath(args.model_config)
         with open(args.model_config, 'r') as file:
             yaml_content = yaml.safe_load(file)
         container_image = yaml_content['apptainer_image']
@@ -255,6 +258,7 @@ def set_args_and_check(inParser):
         args.pvs2_descriptor = parameters['PVS2_descriptor']
         args.wmh_descriptor = parameters['WMH_descriptor']
         args.cmb_descriptor = parameters['CMB_descriptor']
+    args.model = os.path.abspath(args.model)
 
     if args.run_plugin_args:  # Parse the plugin arguments
         with open(args.run_plugin_args, 'r') as file:
