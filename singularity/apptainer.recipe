@@ -11,18 +11,15 @@ Stage: build
 
 %post
     apt update && apt-get install -y build-essential weasyprint
-    apt-get install -y libpangocairo-1.0-0
-    pip install build
-    pip install pybids nibabel scipy pandas scikit-image pydot pydotplus matplotlib nipype weasyprint
+    apt-get install -y libpangocairo-1.0-0 install graphviz wget unzip
     chmod 755 /usr/local/src/shivautils/src/shivautils/scripts/*
     cd /usr/local/src/shivautils
+    python -m pip install build
     python -m pip install .
-    apt-get -y install wget unzip
+    pip cache purge
     cd /opt
     wget https://github.com/ANTsX/ANTs/releases/download/v2.4.3/ants-2.4.3-ubuntu-20.04-X64-gcc.zip 
     unzip ants-2.4.3-ubuntu-20.04-X64-gcc.zip
     rm ants-2.4.3-ubuntu-20.04-X64-gcc.zip
     mkdir -p /mnt/model
-    cd /root
-    apt-get -y install graphviz
 
