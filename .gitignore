@@ -61,3 +61,4 @@ crash*
 tmp_test.py
 test_tmp.py
 *.sif
+synthseg_models.zip
