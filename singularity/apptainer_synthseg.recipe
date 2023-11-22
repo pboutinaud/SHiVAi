@@ -1,0 +1,38 @@
+Bootstrap: docker
+From: continuumio/miniconda3
+Stage: build
+
+%files
+    synthseg_models.zip /usr/local/
+
+%environment
+    PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    export PATH
+    . /opt/conda/etc/profile.d/conda.sh
+    conda activate synthseg_38
+
+%post
+    # Setup the conda env
+    echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc
+    . /opt/conda/etc/profile.d/conda.sh
+    conda config --add channels conda-forge
+    conda config --set channel_priority flexible
+    conda create --name synthseg_38 python=3.8
+    conda activate synthseg_38
+
+    # Download and install synthseg
+    apt-get update
+    apt-get -y install wget unzip
+    cd /usr/local
+    unzip synthseg_models.zip
+    rm synthseg_models.zip
+    wget https://github.com/BBillot/SynthSeg/archive/refs/heads/master.zip
+    unzip master.zip
+    rm master.zip
+    mv 'synthseg models'/* SynthSeg-master/models/
+    rm -r 'synthseg models'
+    cd SynthSeg-master
+    conda install tensorflow[and-cuda]=2.2.0 keras=2.3.1 nibabel matplotlib numpy=1.23.5
+    pip install . --no-dependencies
+    conda clean --all
+
