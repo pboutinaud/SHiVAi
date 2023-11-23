@@ -417,6 +417,7 @@ def main():
     else:
         seg = None
 
+    # Plugin arguments for predictions (shiva pred and synthseg)
     pred_plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 4 --gpus 1'}
     reg_plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}
     if 'pred' in args.node_plugin_args.keys():
