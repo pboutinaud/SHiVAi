@@ -184,4 +184,5 @@ class SynthsegSingularity(SingularityCommandLine):
         outputs = self.output_spec().get()
         outputs["segmentation"] = os.path.abspath(os.path.split(str(self.inputs.out_filename))[1])
         outputs["qc"] = os.path.abspath(os.path.split(str(self.inputs.qc))[1])
-        outputs["volumes"]
+        outputs["volumes"] = os.path.abspath(os.path.split(str(self.inputs.vol))[1])
+        return outputs
