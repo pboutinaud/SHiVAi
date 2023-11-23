@@ -2,54 +2,41 @@
 import os
 
 from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces.io import DataGrabber
-from nipype.interfaces.utility import IdentityInterface
-
-from shivautils.interfaces.shiva import SynthSeg
+from shivautils.interfaces.shiva import SynthSeg, SynthsegSingularity
 
 dummy_args = {'SUBJECT_LIST': ['BIOMIST::SUBJECT_LIST'],
               'BASE_DIR': os.path.normpath(os.path.expanduser('~'))}
 
 
-
 def genWorkflow(**kwargs) -> Workflow:
-    """Generate a nipype workflow
+    """Generate a nipype workflow that takes an MRI as input and perform the
+    brain segmentation using mri_synthseg, then produce the different maps and
+    masks used to compute metrics
+
+    Requires a connection to an external datagrabber:
+    main_wf.connect(preproc_wf.datagrabber, "img1", synth_seg_wf.synth_seg, "input")
 
     Returns:
         workflow
     """
-    workflow = Workflow(kwargs['WF_SWI_DIRS']['pred'])
+    workflow = Workflow('Synthseg_workflow')
     workflow.base_dir = kwargs['BASE_DIR']
 
-    # get a list of subjects to iterate on
-    subject_list = Node(IdentityInterface(
-        fields=['subject_id'],
-        mandatory_inputs=True),
-        name="subject_list")
-    subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
+    if kwargs['CONTAINERIZE_NODES']:
+        synth_seg = Node(SynthsegSingularity(), name="synth_seg")
+        synth_seg.inputs.snglrt_bind = [
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            ('`pwd`', '/mnt/data', 'rw'),
+            (kwargs['MODELS_PATH'], kwargs['MODELS_PATH'], 'ro')]
+        synth_seg.inputs.out_filename = '/mnt/data/pvs_map.nii.gz'
+        synth_seg.inputs.snglrt_enable_nvidia = True
+        synth_seg.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
 
-    # file selection
-    datagrabber = Node(DataGrabber(infields=['subject_id'],
-                                   outfields=['main']),
-                       name='dataGrabber')
-    datagrabber.inputs.base_directory = os.path.join(kwargs['BASE_DIR'])
-    datagrabber.inputs.template = '%s/%s/*.nii.gz'
-    datagrabber.inputs.field_template = {'main': ''}
-    datagrabber.inputs.template_args = {'main': [['subject_id']]}
-    datagrabber.inputs.raise_on_empty = True
-    datagrabber.inputs.sort_filelist = True
-
-    workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
-
-    
     synth_seg = Node(SynthSeg(), name="synth_seg")
-    synth_seg.plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 4 --gpus 1'}
+    synth_seg.plugin_args = kwargs['PRED_PLUGIN_ARGS']
     synth_seg.inputs.cpu = False
     synth_seg.inputs.robust = True
-    synth_seg.inputs.parc=True
+    synth_seg.inputs.parc = True
     synth_seg.inputs.out_filename = 'seg.nii.gz'
 
-    workflow.connect(datagrabber, "main", synth_seg, "input")
-
     return workflow
-  
