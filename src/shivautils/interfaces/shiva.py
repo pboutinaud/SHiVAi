@@ -162,3 +162,26 @@ class SynthSeg(CommandLine):
         outputs["qc"] = os.path.abspath(os.path.split(str(self.inputs.qc))[1])
         outputs["volumes"] = os.path.abspath(os.path.split(str(self.inputs.vol))[1])
         return outputs
+
+
+class SynthsegSingularityInputSpec(SingularityInputSpec, SynthSegInputSpec):
+    """Synthseg input specification (singularity mixin).
+
+    Inherits from Singularity command line fields.
+    """
+
+
+class SynthsegSingularity(SingularityCommandLine):
+    """Run predict to segment from reformated structural images.
+
+    Uses a 3D U-Net with tensorflow-gpu in a container (apptainer/singularity).
+    """
+    input_spec = SynthsegSingularityInputSpec
+    output_spec = SynthSegOutputSpec
+    _cmd = 'mri_synthseg'
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs["segmentation"] = os.path.abspath(os.path.split(str(self.inputs.out_filename))[1])
+        outputs["qc"] = os.path.abspath(os.path.split(str(self.inputs.qc))[1])
+        outputs["volumes"]
