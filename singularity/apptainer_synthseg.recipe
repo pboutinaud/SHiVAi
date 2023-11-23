@@ -10,6 +10,7 @@ Stage: build
     export PATH
     . /opt/conda/etc/profile.d/conda.sh
     conda activate synthseg_38
+    alias mri_synthseg='python /usr/local/SynthSeg-master/scripts/commands/SynthSeg_predict.py'
 
 %post
     # Setup the conda env
