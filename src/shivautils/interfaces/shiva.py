@@ -115,7 +115,7 @@ class SynthSegInputSpec(CommandLineInputSpec):
     out_filename = traits.Str('segmented.nii.gz', argstr='--o %s',
                               desc='Output file path.')
 
-    threads = traits.Int(20, argstr='--threads %d',
+    threads = traits.Int(10, argstr='--threads %d',
                          desc='Number of threads',
                          usedefault=True)
 

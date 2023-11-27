@@ -1,5 +1,6 @@
 model_path: /myHome/myProject/Shiva_AI_models
 apptainer_image: /myHome/myProject/shiva.sif
+synthseg_image: /myHome/myProject/synthseg.sif
 
 parameters:
   brainmask_descriptor: "brainmask/V0/model_info.json"

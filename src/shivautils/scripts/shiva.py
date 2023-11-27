@@ -159,7 +159,11 @@ def shivaParser():
     # Manual input
     parser.add_argument('--container_image',
                         default=None,
-                        help='path to the apptainer image (.sif file)')
+                        help='path to the SHIV-AI apptainer image (.sif file)')
+
+    parser.add_argument('--synthseg_image',
+                        default=None,
+                        help='path to the synthseg apptainer image (.sif file)')
 
     parser.add_argument('--model',
                         default=None,
@@ -288,6 +292,7 @@ def set_args_and_check(inParser):
         with open(args.model_config, 'r') as file:
             yaml_content = yaml.safe_load(file)
         args.container_image = yaml_content['apptainer_image']
+        args.synthseg_image = yaml_content['synthseg_image']
         parameters = yaml_content['parameters']
         args.model = yaml_content['model_path']  # only used when not with container
         args.percentile = parameters['percentile']
@@ -438,6 +443,7 @@ def main():
         'PVS2_DESCRIPTOR': pvs2_descriptor,
         'CMB_DESCRIPTOR': cmb_descriptor,
         'CONTAINER_IMAGE': args.container_image,
+        'SYNTHSEG_IMAGE': args.synthseg_image,
         'CONTAINERIZE_NODES': args.containerized_nodes,
         # 'CONTAINER': True #  legacy variable. Only when used by SMOmed usually
         'MODELS_PATH': args.model,

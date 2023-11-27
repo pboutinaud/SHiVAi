@@ -1,7 +1,7 @@
 """Custom nipype interfaces for image resampling/cropping and
 other preliminary tasks"""
 from shivautils.postprocessing.pvs import quantify_clusters
-from shivautils.postprocessing.background import create_background_slice_mask
+from shivautils.postprocessing.basalganglia import create_basalganglia_slice_mask
 from shivautils.postprocessing.wmh import metrics_clusters_latventricles
 from shivautils.stats import prediction_metrics, get_mask_regions
 from shivautils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask
@@ -1065,7 +1065,7 @@ class BGMask(BaseInterface):
         regions_segmented_img = nib.load(self.inputs.segmented_regions)
 
         # process
-        bg_mask = create_background_slice_mask(regions_segmented_img)
+        bg_mask = create_basalganglia_slice_mask(regions_segmented_img)
 
         # Save it for later use in _list_outputs
         setattr(self, 'bg_mask', bg_mask)
