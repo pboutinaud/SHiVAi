@@ -1,12 +1,13 @@
 """Custom nipype interfaces for image resampling/cropping and
 other preliminary tasks"""
+import os.path as op
 from shivautils.postprocessing.pvs import quantify_clusters
 from shivautils.postprocessing.basalganglia import create_basalganglia_slice_mask
 from shivautils.postprocessing.wmh import metrics_clusters_latventricles
 from shivautils.stats import prediction_metrics, get_mask_regions
 from shivautils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask
 from nipype.utils.filemanip import split_filename
-from nipype.interfaces.base import isdefined
+from nipype.interfaces.base import CommandLine, CommandLineInputSpec, isdefined
 
 from nipype.interfaces.base import BaseInterface, \
     BaseInterfaceInputSpec, traits, TraitedSpec
@@ -1140,4 +1141,37 @@ class PVSQuantificationibG(BaseInterface):
         _, base, _ = split_filename(fname)
         outputs["metrics_bg_pvs"] = getattr(self, "metrics_bg_pvs")
 
+        return outputs
+
+
+class MakeDistanceMapInputSpec(CommandLineInputSpec):
+
+    # niimath ventricle_mask  -binv -edt output
+    in_file = traits.Str(mandatory=True,
+                         desc='Object segmentation mask (isotropic)',
+                         argstr='%s',
+                         position=1)
+
+    out_file = traits.Str('distance_map.nii.gz',
+                          mandatory=True,
+                          desc='Output filename for ventricle distance maps',
+                          argstr='-binv -edt %s',
+                          position=2)
+
+
+class MakeDistanceMapOutputSpec(TraitedSpec):
+    out_file = traits.File(exists=True)
+
+
+class MakeDistanceMap(CommandLine):
+    """Create distance maps using ventricles binarized maps (niimaths)."""
+
+    _cmd = 'niimath'
+
+    input_spec = MakeDistanceMapInputSpec
+    output_spec = MakeDistanceMapOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
         return outputs

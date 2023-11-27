@@ -9,10 +9,9 @@ from nipype.interfaces.io import DataGrabber
 from nipype.interfaces.utility import IdentityInterface
 
 from shivautils.interfaces.shiva import SynthSeg
-from shivautils.interfaces.image import (ApplyMask, MetricsPredictions,
+from shivautils.interfaces.image import (ApplyMask, MetricsPredictions, MakeDistanceMap,
                                          JoinMetricsPredictions, SummaryReport, MaskRegions,
                                          QuantificationWMHLatVentricles, BGMask, PVSQuantificationBG)
-from shivautils.interfaces.post import MakeDistanceMap
 from shivautils.postprocessing.isocontour import create_edges
 from shivautils.stats import overlay_brainmask
 

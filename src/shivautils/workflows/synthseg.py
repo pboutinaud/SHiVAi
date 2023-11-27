@@ -45,7 +45,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(synth_seg, 'segmentation', mask_latventricles_regions, 'img')
 
     bg_mask = Node(BGMask(), name="bg_mask")
-    workflow.connect(synthseg, "segmentation", bg_mask, "segmented_regions")
+    workflow.connect(synth_seg, "segmentation", bg_mask, "segmented_regions")
 
     # Creating a distance map for each ventricle mask
     make_distance_latventricles_map = Node(MakeDistanceMap(), name="make_distance_latventricles_map")

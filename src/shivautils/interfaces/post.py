@@ -100,39 +100,6 @@ class MaskOverlayQCplotOutputSpec(TraitedSpec):
     out_file = File(exists=True)
 
 
-class MakeDistanceMapInputSpec(CommandLineInputSpec):
-
-    # niimath ventricle_mask  -binv -edt output
-    in_file = traits.Str(mandatory=True,
-                         desc='Object segmentation mask (isotropic)',
-                         argstr='%s',
-                         position=1)
-
-    out_file = traits.Str('distance_map.nii.gz',
-                          mandatory=True,
-                          desc='Output filename for ventricle distance maps',
-                          argstr='-binv -edt %s',
-                          position=2)
-
-
-class MakeDistanceMapOutputSpec(TraitedSpec):
-    out_file = File(exists=True)
-
-
-class MakeDistanceMap(CommandLine):
-    """Create distance maps using ventricles binarized maps (niimaths)."""
-
-    _cmd = 'niimath'
-
-    input_spec = MakeDistanceMapInputSpec
-    output_spec = MakeDistanceMapOutputSpec
-
-    def _list_outputs(self):
-        outputs = self.output_spec().get()
-        outputs['out_file'] = op.abspath(self.inputs.out_file)
-        return outputs
-
-
 class SynthSegSegmentationInputSpec(CommandLineInputSpec):
 
     # like: os.system("mri_synthseg --i /data/path --o /save/dir --vol /save/dir --qc /save/dir")

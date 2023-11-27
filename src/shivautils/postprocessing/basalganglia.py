@@ -27,22 +27,12 @@ def create_basalganglia_slice_mask(path_to_freesurfer_segm, out_fname_root=''):
     # First create BG & Insula
     # segm_im =  _get_3d_img(path_to_freesurfer_segm)
     segm_dat = path_to_freesurfer_segm.get_fdata()
-    bg_dat = segm_dat.copy()
-    insula_dat = segm_dat.copy()
-    # Regions that need to create BG and Insula:
-    regions_to_create_bg = np.array([10, 11, 12, 13, 17, 26, 49, 50, 51, 52, 53, 58])
-    regions_to_create_insula = np.array([2035, 1035])
+    # Region labels for BG and Insula:
+    bg_labels = np.array([10, 11, 12, 13, 17, 26, 49, 50, 51, 52, 53, 58])
+    insula_labels = np.array([2035, 1035])
 
-    for i in regions_to_create_bg:
-
-        bg_dat[bg_dat == i] = 1
-    bg_dat[bg_dat != 1] = 0
-
-    for i in regions_to_create_insula:
-
-        insula_dat[insula_dat == i] = 1
-
-    insula_dat[insula_dat != 1] = 0
+    bg_dat = np.isin(segm_dat, bg_labels).astype(int)
+    insula_dat = np.isin(segm_dat, insula_labels).astype(int)
 
     # Create box of BG
     bg_box = np.zeros_like(bg_dat)
