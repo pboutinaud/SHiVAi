@@ -42,6 +42,9 @@ def my_parser():
     parser.add_argument('--author', '-a',
                         help='Model author',
                         default='')
+    parser.add_argument('--extension', '-x',
+                        help='Extension of the model files (without the dot, e.g.: "h5")',
+                        default='h5')
     return parser
 
 
@@ -54,6 +57,7 @@ def main():
     targets = ['PVS', 'WMH', 'CMB', 'brain_mask']
 
     in_dir = args.folder
+    ext = args.extension
     dirname = os.path.basename(in_dir)
     if not dirname:  # When indir end with a separator
         dirname = os.path.basename(dirname)
@@ -76,29 +80,29 @@ def main():
         else:
             model_dict['modalities'] = mod
 
-    h5_files = glob.glob(os.path.join(in_dir, '*', '*.h5'))
-    if not h5_files:
-        h5_files = glob.glob(os.path.join(in_dir, '*.h5'))
+    model_files = glob.glob(os.path.join(in_dir, '*', f'*.{ext}'))
+    if not model_files:
+        model_files = glob.glob(os.path.join(in_dir, f'*.{ext}'))
     base_dir = os.path.dirname(in_dir)
-    h5_files = [f[len(base_dir) + len(os.sep):] for f in h5_files]  # removing the base_dir part
-    h5_dirs = list(set([os.path.dirname(f) for f in h5_files]))
-    if len(h5_dirs) > 1:
+    model_files = [f[len(base_dir) + len(os.sep):] for f in model_files]  # removing the base_dir part
+    model_dirs = list(set([os.path.dirname(f) for f in model_files]))
+    if len(model_dirs) > 1:
         if not args.version:
             raise ValueError('Multiple sub-folders were detected in the model folder (assuming it is different versions) '
                              'but no version label was specified. Please, enter the version in the arguments')
         else:
-            h5_dir = [d for d in h5_dirs if args.version in d.split(os.sep)][0]
-        if len(h5_dir) == 0:
+            model_dir = [d for d in model_dirs if args.version in d.split(os.sep)][0]
+        if len(model_dir) == 0:
             raise ValueError(f'No folder path containing the specified version {args.version} (as a sub-folders).')
     else:
-        h5_dir = h5_dirs[0]
-    h5_files = [f for f in h5_files if h5_dir in f]
-    h5_dict = [{'name': f, 'md5': md5(os.path.join(base_dir, f))} for f in h5_files]
-    model_dict['files'] = h5_dict
+        model_dir = model_dirs[0]
+    model_files = [f for f in model_files if model_dir in f]
+    modelfiles_dicts = [{'name': f, 'md5': md5(os.path.join(base_dir, f))} for f in model_files]
+    model_dict['files'] = modelfiles_dicts
     model_dict['version'] = args.version
     model_dict['release date'] = args.date
     model_dict['author'] = args.author
-    json_file = os.path.join(base_dir, h5_dir, 'model_info.json')
+    json_file = os.path.join(base_dir, model_dir, 'model_info.json')
     with open(json_file, 'w') as fp:
         json.dump(model_dict, fp, indent=2)
 
