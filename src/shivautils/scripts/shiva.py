@@ -62,7 +62,7 @@ def shivaParser():
                               'is not given, all the participants in the input folder will be processed'))
 
     parser.add_argument('--prediction',
-                        choices=['PVS', 'PVS2', 'WMH', 'CMB', 'all'],
+                        choices=['PVS', 'PVS2', 'WMH', 'CMB', 'LAC', 'all'],
                         nargs='+',
                         help=("Choice of the type of prediction (i.e. segmentation) you want to compute.\n"
                               "A combination of multiple predictions (separated by a white space) can be given.\n"
@@ -70,6 +70,7 @@ def shivaParser():
                               "- 'PVS2' for the segmentation of perivascular spaces using both T1 and FLAIR scans\n"
                               "- 'WMH' for the segmentation of white matter hyperintensities (requires both T1 and FLAIR scans)\n"
                               "- 'CMB' for the segmentation of cerebral microbleeds (requires SWI scans)\n"
+                              "- 'LAC' for the segmentation of cerebral lacunas (requires both T1 and FLAIR scans)\n"
                               "- 'all' for doing 'PVS2', 'WMH', and 'CMB' segmentation (requires T1, FLAIR, and SWI scans)"),
                         default=['PVS'])
 
@@ -153,7 +154,7 @@ def shivaParser():
                               'Using a configuration file is incompatible with the arguments listed below '
                               '(i.e. --model --percentile --threshold --threshold_clusters --final_dimensions '
                               '--voxels_size --interpolation --brainmask_descriptor --pvs_descriptor '
-                              '--pvs2_descriptor --wmh_descriptor --cmb_descriptor).'),
+                              '--pvs2_descriptor --wmh_descriptor --cmb_descriptor, --lac_descriptor).'),
                         default=None)
 
     # Manual input
@@ -187,17 +188,22 @@ def shivaParser():
     parser.add_argument('--min_pvs_size',
                         type=int,
                         default=5,
-                        help='Size (in voxels) below which segmented PVS are discarded')
+                        help='Size (in voxels) below which segmented PVSs are discarded')
 
     parser.add_argument('--min_wmh_size',
                         type=int,
                         default=1,
-                        help='Size (in voxels) below which segmented WMH are discarded')
+                        help='Size (in voxels) below which segmented WMHs are discarded')
 
     parser.add_argument('--min_cmb_size',
                         type=int,
                         default=1,
-                        help='Size (in voxels) below which segmented CMB are discarded')
+                        help='Size (in voxels) below which segmented CMBs are discarded')
+
+    parser.add_argument('--min_lac_size',
+                        type=int,
+                        default=1,
+                        help='Size (in voxels) below which segmented lacunas are discarded')
 
     parser.add_argument('--final_dimensions',
                         nargs=3, type=int,
@@ -238,6 +244,12 @@ def shivaParser():
                         type=str,
                         default='SWI-CMB/V1/model_info.json',
                         help='cmb descriptor file path')
+
+    parser.add_argument('--lac_descriptor',
+                        type=str,
+                        default='T1.FLAIR-LAC/model_info.json',
+                        help='Lacuna descriptor file path')
+
     return parser
 
 
@@ -304,6 +316,8 @@ def set_args_and_check(inParser):
             args.min_wmh_size = parameters['min_wmh_size']
         if 'min_cmb_size' in parameters.keys():
             args.min_cmb_size = parameters['min_cmb_size']
+        if 'min_lac_size' in parameters.keys():
+            args.min_lac_size = parameters['min_lac_size']
         args.final_dimensions = tuple(parameters['final_dimensions'])
         args.voxels_size = tuple(parameters['voxels_size'])
         args.interpolation = parameters['interpolation']
@@ -312,6 +326,7 @@ def set_args_and_check(inParser):
         args.pvs2_descriptor = parameters['PVS2_descriptor']
         args.wmh_descriptor = parameters['WMH_descriptor']
         args.cmb_descriptor = parameters['CMB_descriptor']
+        args.lac_descriptor = parameters['LAC_descriptor']
     args.model = os.path.abspath(args.model)
 
     if args.run_plugin_args:  # Parse the plugin arguments
@@ -333,7 +348,7 @@ def set_args_and_check(inParser):
         args.model = '/mnt/model'
 
     if 'all' in args.prediction:
-        args.prediction = ['PVS2', 'WMH', 'CMB']
+        args.prediction = ['PVS2', 'WMH', 'CMB', 'LAC']
     if not isinstance(args.prediction, list):  # When only one input
         args.prediction = [args.prediction]
     return args
@@ -343,7 +358,7 @@ def check_input_for_pred(wfargs):
     """
     Checks if the AI model is available for the predictions that are supposed to run
     """
-    # wfargs['PREDICTION'] is a combination of ['PVS', 'PVS2', 'WMH', 'CMB']
+    # wfargs['PREDICTION'] is a combination of ['PVS', 'PVS2', 'WMH', 'CMB', 'LAC']
     for pred in wfargs['PREDICTION']:
         if not os.path.exists(wfargs[f'{pred}_DESCRIPTOR']):
             errormsg = (f'The AI model descriptor for the segmentation of {pred} was not found. '
@@ -404,6 +419,10 @@ def main():
             cmb_descriptor = subject_dict['parameters']['CMB_descriptor']
         else:
             cmb_descriptor = None
+        if subject_dict['parameters']['LAC_descriptor']:
+            lac_descriptor = subject_dict['parameters']['LAC_descriptor']
+        else:
+            lac_descriptor = None
 
     if args.input_type == 'standard' or args.input_type == 'BIDS':
         subject_directory = args.input
@@ -413,6 +432,7 @@ def main():
         pvs_descriptor = os.path.join(args.model, args.pvs_descriptor)
         pvs2_descriptor = os.path.join(args.model, args.pvs2_descriptor)
         cmb_descriptor = os.path.join(args.model, args.cmb_descriptor)
+        lac_descriptor = os.path.join(args.model, args.lac_descriptor)
 
     if args.synthseg:
         raise NotImplemented('Sorry, using MRI Synthseg results is not implemented yet')
@@ -442,6 +462,7 @@ def main():
         'PVS_DESCRIPTOR': pvs_descriptor,
         'PVS2_DESCRIPTOR': pvs2_descriptor,
         'CMB_DESCRIPTOR': cmb_descriptor,
+        'LAC_DESCRIPTOR': lac_descriptor,
         'CONTAINER_IMAGE': args.container_image,
         'SYNTHSEG_IMAGE': args.synthseg_image,
         'CONTAINERIZE_NODES': args.containerized_nodes,
@@ -459,6 +480,7 @@ def main():
         'MIN_PVS_SIZE': args.min_pvs_size,
         'MIN_WMH_SIZE': args.min_wmh_size,
         'MIN_CMB_SIZE': args.min_cmb_size,
+        'MIN_LAC_SIZE': args.min_cmb_size,
         'IMAGE_SIZE': tuple(args.final_dimensions),
         'RESOLUTION': tuple(args.voxels_size),
         'ORIENTATION': 'RAS'}
@@ -669,6 +691,38 @@ def main():
             main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', segmentation_wf, 'predict_cmb.swi')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_cmb.brain_seg')  # TODO: SynthSeg
 
+    # Lacuna
+    if 'LAC' in args.prediction:
+        if wfargs['CONTAINERIZE_NODES']:
+            predict_lac = Node(PredictSingularity(), name="predict_lac")
+            predict_lac.inputs.snglrt_bind = [
+                (wfargs['BASE_DIR'], wfargs['BASE_DIR'], 'rw'),
+                ('`pwd`', '/mnt/data', 'rw'),
+                (wfargs['MODELS_PATH'], wfargs['MODELS_PATH'], 'ro')]
+            predict_lac.inputs.out_filename = '/mnt/data/lac_map.nii.gz'
+            predict_lac.inputs.snglrt_enable_nvidia = True
+            predict_lac.inputs.snglrt_image = wfargs['CONTAINER_IMAGE']
+        else:
+            predict_lac = Node(Predict(), name="predict_lac")
+            predict_lac.inputs.out_filename = 'lac_map.nii.gz'
+        predict_lac.inputs.model = wfargs['MODELS_PATH']
+        predict_lac.plugin_args = wfargs['PRED_PLUGIN_ARGS']
+        predict_lac.inputs.descriptor = wfargs['LAC_DESCRIPTOR']
+
+        segmentation_wf.add_nodes([predict_lac])
+
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', segmentation_wf, 'predict_lac.t1')
+        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', segmentation_wf, 'predict_lac.flair')
+        main_wf.connect(segmentation_wf, 'predict_lac.segmentation', wf_post, 'prediction_metrics_lac.img')
+        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_lac.brain_seg')  # TODO: SynthSeg
+        # Merge all csv files
+        prediction_metrics_lac_all = JoinNode(Join_Prediction_metrics(),
+                                              joinsource=subject_iterator,
+                                              joinfield=['csv_files', 'subject_id'],
+                                              name="prediction_metrics_lac_all")
+        main_wf.connect(wf_post, 'prediction_metrics_lac.biomarker_stats_csv', prediction_metrics_lac_all, 'csv_files')
+        main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_lac_all, 'subject_id')
+
     # The workflow graph
     wf_graph = main_wf.write_graph(graph2use='colored', dotfilename='graph.svg', format='svg')
     # wf_post.get_node('summary_report').inputs.wf_graph = os.path.abspath(wf_graph)
@@ -735,6 +789,13 @@ def main():
         main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_census_csv', sink_node_subjects, f'cmb_segmentation_{space}.@census')
         main_wf.connect(wf_post, 'prediction_metrics_cmb.labelled_biomarkers', sink_node_subjects, f'cmb_segmentation_{space}.@labeled')
         main_wf.connect(prediction_metrics_cmb_all, 'prediction_metrics_csv', sink_node_all, f'cmb_metrics_{space}')
+
+    if 'LAC' in args.prediction:
+        main_wf.connect(segmentation_wf, 'predict_lac.segmentation', sink_node_subjects, 'lac_segmentation')
+        main_wf.connect(wf_post, 'prediction_metrics_lac.biomarker_stats_csv', sink_node_subjects, 'lac_segmentation.@metrics')
+        main_wf.connect(wf_post, 'prediction_metrics_lac.biomarker_census_csv', sink_node_subjects, 'lac_segmentation.@census')
+        main_wf.connect(wf_post, 'prediction_metrics_lac.labelled_biomarkers', sink_node_subjects, 'lac_segmentation.@labeled')
+        main_wf.connect(prediction_metrics_lac_all, 'prediction_metrics_csv', sink_node_all, 'lac_metrics')
 
     main_wf.connect(qc_joiner, 'qc_metrics_csv', sink_node_all, 'preproc_qc')
     main_wf.connect(qc_joiner, 'bad_qc_subs', sink_node_all, 'preproc_qc.@bad_qc_subs')

@@ -29,6 +29,9 @@ if WMH:
 if CMB:
     (prediction_metrics_cmb, 'img')
     (prediction_metrics_cmb, 'brain_seg') can be brainmask or synthseg
+if LAC:
+    (prediction_metrics_lac, 'img')
+    (prediction_metrics_lac, 'brain_seg') can be brainmask or synthseg
 
 
    """
@@ -61,11 +64,11 @@ def set_wf_shapers(predictions):
     (e.g. if doing PVS and CMB, the wf will use T1 and SWI)
     """
     # Setting up the different cases to build the workflows (should clarify things up)
-    if any(pred in predictions for pred in ['PVS', 'PVS2', 'WMH']):  # all which requires T1
+    if any(pred in predictions for pred in ['PVS', 'PVS2', 'WMH', 'LAC']):  # all which requires T1
         with_t1 = True
     else:
         with_t1 = False
-    if 'PVS2' in predictions or 'WMH' in predictions:
+    if any(pred in predictions for pred in ['PVS2', 'WMH', 'LAC']):
         with_flair = True
     else:
         with_flair = False
@@ -81,6 +84,7 @@ def get_maps_from_dict(subject_id,
                        pvs_pred_dict=None,
                        wmh_pred_dict=None,
                        cmb_pred_dict=None,
+                       lac_pred_dict=None,
                        wf_graph=None,  # Placeholder
                        brain_seg=None  # SynthSeg
                        ):
@@ -96,6 +100,10 @@ def get_maps_from_dict(subject_id,
         segmentation_cmb = cmb_pred_dict[subject_id]
     else:
         segmentation_cmb = None
+    if lac_pred_dict is not None:
+        segmentation_lac = lac_pred_dict[subject_id]
+    else:
+        segmentation_lac = None
     T1_cropped = preproc_dict[subject_id]['T1_cropped']
     brainmask = preproc_dict[subject_id]['brainmask']
     pre_brainmask = preproc_dict[subject_id]['pre_brainmask']
@@ -105,7 +113,7 @@ def get_maps_from_dict(subject_id,
     cdg_ijk = preproc_dict[subject_id]['cdg_ijk']
     FLAIR_cropped = preproc_dict[subject_id]['FLAIR_cropped']
     SWI_cropped = preproc_dict[subject_id]['SWI_cropped']
-    return (segmentation_pvs, segmentation_wmh, segmentation_cmb, T1_cropped, brainmask, pre_brainmask,
+    return (segmentation_pvs, segmentation_wmh, segmentation_cmb, segmentation_lac, T1_cropped, brainmask, pre_brainmask,
             T1_conform, bbox1, bbox2, cdg_ijk, wf_graph,
             FLAIR_cropped, SWI_cropped, brain_seg)
 
@@ -153,6 +161,16 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_wmh.inputs.brain_seg_type = 'brain_mask'
         prediction_metrics_wmh.inputs.region_list = ['Whole_brain']
 
+    if 'LAC' in kwargs['PREDICTION']:
+        preds.append('LAC')
+        prediction_metrics_lac = Node(Regionwise_Prediction_metrics(),
+                                      name="prediction_metrics_lac")
+        prediction_metrics_lac.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
+        prediction_metrics_lac.inputs.thr_cluster_size = kwargs['MIN_LAC_SIZE'] - 1
+        # if not synthseg:  # TODO
+        prediction_metrics_lac.inputs.brain_seg_type = 'brain_mask'
+        prediction_metrics_lac.inputs.region_list = ['Whole_brain']
+
     if 'CMB' in kwargs['PREDICTION']:
         preds.append('CMB')
         prediction_metrics_cmb = Node(Regionwise_Prediction_metrics(),
@@ -187,6 +205,9 @@ def genWorkflow(**kwargs) -> Workflow:
     if 'CMB' in preds:
         workflow.connect(prediction_metrics_cmb, 'biomarker_stats_csv', summary_report, 'cmb_metrics_csv')
         workflow.connect(prediction_metrics_cmb, 'biomarker_census_csv', summary_report, 'cmb_census_csv')
+    if 'LAC' in preds:
+        workflow.connect(prediction_metrics_lac, 'biomarker_stats_csv', summary_report, 'lac_metrics_csv')
+        workflow.connect(prediction_metrics_lac, 'biomarker_census_csv', summary_report, 'lac_census_csv')
 
     # QC section
     summary_report.inputs.anonymized = kwargs['ANONYMIZED']
@@ -198,7 +219,8 @@ def genWorkflow(**kwargs) -> Workflow:
     summary_report.inputs.min_seg_size = {
         'PVS': kwargs['MIN_PVS_SIZE'],
         'WMH': kwargs['MIN_WMH_SIZE'],
-        'CMB': kwargs['MIN_CMB_SIZE']}
+        'CMB': kwargs['MIN_CMB_SIZE'],
+        'LAC': kwargs['MIN_LAC_SIZE']}
     summary_report.inputs.pred_list = preds
 
     workflow.connect(qc_wf, 'qc_crop_box.crop_brain_img', summary_report, 'crop_brain_img')

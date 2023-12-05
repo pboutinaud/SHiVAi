@@ -324,14 +324,18 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
                                   mandatory=False)
     cmb_metrics_csv = traits.File(desc='csv file with cmb stats',
                                   mandatory=False)
+    lac_metrics_csv = traits.File(desc='csv file with lac stats',
+                                  mandatory=False)
     pvs_census_csv = traits.File(desc='csv file compiling each pvs size (and region)',
                                  mandatory=False)
     wmh_census_csv = traits.File(desc='csv file compiling each wmh size (and region)',
                                  mandatory=False)
     cmb_census_csv = traits.File(desc='csv file compiling each cmb size (and region)',
                                  mandatory=False)
+    lac_census_csv = traits.File(desc='csv file compiling each lac size (and region)',
+                                 mandatory=False)
     pred_list = traits.List(traits.Str,
-                            desc='List of the different predictions computed ("PVS", "WMH" or "CMB")')
+                            desc='List of the different predictions computed ("PVS", "WMH", "CMB" or "LAC")')
     brainmask = traits.File(exists=True,
                             desc='Nifti file of the brain mask in raw space')
     crop_brain_img = traits.File(desc='PNG file of the crop box, the first brain mask on the brain')
@@ -409,6 +413,9 @@ class SummaryReport(BaseInterface):
         if 'CMB' in pred_list:
             pred_metrics_dict['CMB'] = pd.read_csv(self.inputs.cmb_metrics_csv, index_col=0)
             pred_census_im_dict['CMB'] = swarmplot_from_census(self.inputs.cmb_census_csv, 'CMB')
+        if 'LAC' in pred_list:
+            pred_metrics_dict['LAC'] = pd.read_csv(self.inputs.lac_metrics_csv, index_col=0)
+            pred_census_im_dict['LAC'] = swarmplot_from_census(self.inputs.lac_census_csv, 'LAC')
 
         # set optional inputs to None if undefined
         if isdefined(self.inputs.isocontour_slides_FLAIR_T1):
