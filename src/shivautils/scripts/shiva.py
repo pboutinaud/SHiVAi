@@ -476,7 +476,7 @@ def main():
         'MIN_PVS_SIZE': args.min_pvs_size,
         'MIN_WMH_SIZE': args.min_wmh_size,
         'MIN_CMB_SIZE': args.min_cmb_size,
-        'MIN_LAC_SIZE': args.min_cmb_size,
+        'MIN_LAC_SIZE': args.min_lac_size,
         'IMAGE_SIZE': tuple(args.final_dimensions),
         'RESOLUTION': tuple(args.voxels_size),
         'ORIENTATION': 'RAS'}
