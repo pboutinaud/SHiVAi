@@ -46,7 +46,7 @@ In all the mentioned situations, **you will also need** to obtain the trained de
 
 Let's consider that you stored them in `/myHome/myProject/Shiva_AI_models` for the following parts.
 
-> ⚠️For the process too work, a `model_info.json` file must be present in the folder containing the AI model files (the .h5 files). If it's not the case, see the [Create missing json file](#create-missing-json-file) section, and don't forget to update the config file (see [Fully contained process](#fully-contained-process)) if you use one.
+> ⚠️For the process too work, a `model_info.json` file must be present in the folder containing the AI model files (e.g. the .h5 files). If it's not the case, see the [Create missing json file](#create-missing-json-file) section, and don't forget to update the config file (see [Fully contained process](#fully-contained-process)) if you use one.
 
 ### Fully contained process
 

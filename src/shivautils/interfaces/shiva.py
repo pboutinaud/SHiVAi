@@ -12,7 +12,7 @@ class PredictInputSpec(BaseInterfaceInputSpec):
     """Predict input specification."""
     models = traits.List(traits.File(exists=True),
                          argstr='-m %s',
-                         desc='Model files in h5 format.',
+                         desc='Model files.',
                          mandatory=False,
                          )
 

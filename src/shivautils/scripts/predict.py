@@ -17,6 +17,7 @@ import hashlib
 import numpy as np
 import nibabel
 import tensorflow as tf
+from shivautils.utils.misc import md5
 
 
 def _load_image(filename):
@@ -148,10 +149,9 @@ def main():
     for file in meta_data["files"]:
         print(args.model)
         path_file = os.path.join(args.model, file["name"])
-        with open(path_file, "rb") as f:
-            hashmd5 = hashlib.md5(f.read()).hexdigest()
-            if file["md5"] != hashmd5:
-                raise ValueError("ERROR : file modified")
+        hashmd5 = md5(path_file)
+        if file["md5"] != hashmd5:
+            raise ValueError("Mismatch between expected file from the model descriptor and the actual model file")
 
     brainmask = args.braimask
     output_path = args.output
