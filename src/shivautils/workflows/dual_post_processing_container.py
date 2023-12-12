@@ -63,7 +63,7 @@ def genWorkflow(**kwargs) -> Workflow:
                                          'brainmask': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/hard_post_brain_mask/post_brain_mask_thresholded.nii.gz'),
                                          'pre_brainmask': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/hard_brain_mask/pre_brain_maskresampled_thresholded.nii.gz'),
                                          'T1_cropped': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/t1_final_intensity_normalization/%s_T1_raw_trans_img_normalized.nii.gz'),
-                                         'FLAIR_cropped': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/flair_final_intensity_normalization/t1_to_flair__Warped_img_normalized.nii.gz'),
+                                         'FLAIR_cropped': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/flair_final_intensity_normalization/flair_to_t1__Warped_img_normalized.nii.gz'),
                                          'T1_conform': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/conform/%s_T1_rawresampled.nii.gz'),
                                          'BBOX1': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/crop/bbox1.txt'),
                                          'BBOX2': os.path.join(kwargs['BASE_DIR'], preprocDir, '_subject_id_%s/crop/bbox2.txt'),

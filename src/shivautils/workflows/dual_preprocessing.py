@@ -54,7 +54,7 @@ def genWorkflow(**kwargs) -> Workflow:
     flair_to_t1.inputs.number_of_iterations = [[1000, 500, 250, 125]]
     flair_to_t1.inputs.sampling_strategy = ['Regular']
     flair_to_t1.inputs.sampling_percentage = [0.25]
-    flair_to_t1.inputs.output_transform_prefix = "t1_to_flair_"
+    flair_to_t1.inputs.output_transform_prefix = "flair_to_t1_"
     flair_to_t1.inputs.verbose = True
     flair_to_t1.inputs.winsorize_lower_quantile = 0.005
     flair_to_t1.inputs.winsorize_upper_quantile = 0.995

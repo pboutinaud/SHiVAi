@@ -154,7 +154,7 @@ def genWorkflow(**kwargs) -> Workflow:
     coreg.inputs.number_of_iterations = [[1000, 500, 250, 125]]
     coreg.inputs.sampling_strategy = ['Regular']
     coreg.inputs.sampling_percentage = [0.25]
-    coreg.inputs.output_transform_prefix = "t1_to_flair_"
+    coreg.inputs.output_transform_prefix = "flair_to_t1_"
     coreg.inputs.verbose = True
     coreg.inputs.winsorize_lower_quantile = 0.005
     coreg.inputs.winsorize_upper_quantile = 0.995
