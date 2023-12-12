@@ -79,6 +79,7 @@ def genWorkflow(**kwargs) -> Workflow:
     hard_post_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="hard_post_brain_mask")
     hard_post_brain_mask.inputs.binarize = True
     hard_post_brain_mask.inputs.clusterCheck = 'all'
+    hard_post_brain_mask.inputs.outname = 'brainmask.nii.gz'
     workflow.connect(mask_to_crop, 'resampled_image', hard_post_brain_mask, 'img')
 
     # Intensity normalize co-registered image for tensorflow (ENDPOINT 1)

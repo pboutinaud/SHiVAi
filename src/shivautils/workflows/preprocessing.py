@@ -179,6 +179,7 @@ def genWorkflow(**kwargs) -> Workflow:
     hard_post_brain_mask.inputs.open = 3
     hard_post_brain_mask.inputs.minVol = 30000
     hard_post_brain_mask.inputs.clusterCheck = 'size'
+    hard_post_brain_mask.inputs.outname = 'brainmask.nii.gz'
     workflow.connect(post_brain_mask, 'segmentation', hard_post_brain_mask, 'img')
 
     # brain seg from img1 back to native space

@@ -301,6 +301,9 @@ class ThresholdInputSpec(BaseInterfaceInputSpec):
     minVol = traits.Int(0, usedefault=True,
                         desc='Minimum size of the clusters to keep (if > 0, else keep all)')
 
+    outname = traits.Str(mandatory=False,
+                         desc='name of the output file. If not specified, will be the input witn "_thresholded" appended.')
+
 
 class ThresholdOutputSpec(TraitedSpec):
     """Output class
@@ -347,8 +350,13 @@ class Threshold(BaseInterface):
                                 minVol=self.inputs.minVol)
 
         # Save it for later use in _list_outputs
-        _, base, _ = split_filename(fname)
-        nib.save(thresholded, base + '_thresholded.nii.gz')
+        if not isdefined(self.outname):
+            _, base, _ = split_filename(fname)
+            outname = base + '_thresholded.nii.gz'
+        else:
+            outname = self.outname
+        nib.save(thresholded, outname)
+        setattr(self, 'outname', os.path.abspath(outname))
 
         return runtime
 
@@ -357,10 +365,7 @@ class Threshold(BaseInterface):
         Just gets the absolute path to the scheme file name
         """
         outputs = self.output_spec().get()
-        fname = self.inputs.img
-        _, base, _ = split_filename(fname)
-        outputs["thresholded"] = os.path.abspath(base +
-                                                 '_thresholded.nii.gz')
+        outputs["thresholded"] = getattr(self, 'outname')
         return outputs
 
 
