@@ -20,8 +20,6 @@ import yaml
 
 # sys.path.append('/mnt/devt')
 
-config.enable_provenance()
-
 
 def shivaParser():
     DESCRIPTION = """SHIVA pipeline for deep-learning imaging biomarkers computation. Performs resampling and coregistration 
@@ -263,6 +261,8 @@ def set_args_and_check(inParser):
         inParser.error(
             'The output directory already exists and is not empty.'
         )
+    if args.retry:
+        args.keep_all = True
 
     subject_list = os.listdir(args.input)
     if args.sub_list is None:
@@ -803,6 +803,7 @@ def main():
 
     # Run the workflow
     if args.keep_all:
+        config.enable_provenance()
         main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     main_wf.run(plugin=args.run_plugin, plugin_args=args.run_plugin_args)
 
