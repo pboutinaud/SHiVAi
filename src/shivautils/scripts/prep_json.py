@@ -21,7 +21,10 @@ def my_parser(targs, mods):
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
     parser.add_argument('--folder', '-f',
-                        help='Path to the folder containing the deep-learning model (e.g. /home/ReferenceModels/T1-PVS)',
+                        help=(
+                            'Path to the folder containing the deep-learning model or the sub-folders '
+                            'for the versions (e.g. /home/ReferenceModels/T1-PVS)'
+                        ),
                         required=True)
     parser.add_argument('--target', '-t',
                         help='Type of structure segmented (if not given, use the input folder name to guess them)',
@@ -64,7 +67,7 @@ def main():
     args = parser.parse_args()
     model_dict = {}
 
-    in_dir = args.folder
+    in_dir = os.path.abspath(args.folder)
     ext = args.extension
 
     # Preparing model_dict
@@ -73,7 +76,7 @@ def main():
     model_dict['author'] = args.author
     dirname = os.path.basename(in_dir)
     if not dirname:  # When indir end with a separator
-        dirname = os.path.basename(dirname)
+        dirname = os.path.dirname(in_dir)
     if args.target is not None:
         model_dict['target'] = args.target
     else:
@@ -95,11 +98,10 @@ def main():
 
     # Looking for the model files/folders
     if args.data_type == 'file':
-        model_files = glob.glob(os.path.join(in_dir, '*', f'*.{ext}'))
+        model_files = glob.glob(os.path.join(dirname, '*', f'*.{ext}'))
         if not model_files:
-            model_files = glob.glob(os.path.join(in_dir, f'*.{ext}'))
-        base_dir = os.path.dirname(in_dir)
-        model_files = [f[len(base_dir) + len(os.sep):] for f in model_files]  # removing the base_dir part
+            model_files = glob.glob(os.path.join(dirname, f'*.{ext}'))
+        model_files = [os.path.relpath(f, dirname) for f in model_files]  # removing the dirname part
         model_dirs = list(set([os.path.dirname(f) for f in model_files]))
         if len(model_dirs) > 1:
             if not args.version:
@@ -113,12 +115,13 @@ def main():
             model_dir = model_dirs[0]
         model_files = [f for f in model_files if model_dir in f]  # Keeping only the files inside model_dir (necessary when multiple available versions)
     else:  # data_type = 'folder'
-        model_files = os.listdir(os.path.join(in_dir, args.version))
-        model_files = [os.path.join(args.version, f) for f in model_files]  # adding the version sub-folder if there is any
-        model_files = [f for f in model_files if os.path.isdir(os.path.join(in_dir, f))]  # keeping only the folders
-    modelfiles_dicts = [{'name': f, 'md5': md5(os.path.join(base_dir, f))} for f in model_files]
+        model_dir = args.version  # here we only accept one (optional) sub-folder: the version subfolder
+        model_files = os.listdir(os.path.join(dirname, model_dir))
+        model_files = [os.path.join(model_dir, f) for f in model_files]  # adding the version sub-folder if there is any
+        model_files = [f for f in model_files if os.path.isdir(os.path.join(dirname, f))]  # keeping only the folders
+    modelfiles_dicts = [{'name': f, 'md5': md5(os.path.join(dirname, f))} for f in model_files]
     model_dict['files'] = modelfiles_dicts
-    json_file = os.path.join(base_dir, model_dir, 'model_info.json')
+    json_file = os.path.join(dirname, model_dir, 'model_info.json')
     with open(json_file, 'w') as fp:
         json.dump(model_dict, fp, indent=2)
 
