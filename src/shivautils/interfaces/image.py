@@ -4,8 +4,8 @@ import os.path as op
 from shivautils.postprocessing.pvs import quantify_clusters
 from shivautils.postprocessing.basalganglia import create_basalganglia_slice_mask
 from shivautils.postprocessing.wmh import metrics_clusters_latventricles
-from shivautils.stats import prediction_metrics, get_mask_regions
-from shivautils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask
+from shivautils.utils.stats import prediction_metrics, get_mask_regions
+from shivautils.utils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask
 from nipype.utils.filemanip import split_filename
 from nipype.interfaces.base import CommandLine, CommandLineInputSpec, isdefined
 

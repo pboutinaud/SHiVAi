@@ -14,7 +14,7 @@ from nipype.interfaces import ants
 from nipype.interfaces.utility import Function
 from nipype.pipeline.engine import Node, Workflow, JoinNode
 
-from shivautils.stats import save_histogram, overlay_brainmask
+from shivautils.utils.stats import save_histogram, overlay_brainmask
 from shivautils.postprocessing.isocontour import create_edges
 from shivautils.interfaces.image import (Threshold, Normalization,
                                          Conform, Crop, ApplyMask, MetricsPredictions,

@@ -13,7 +13,7 @@ from shivautils.interfaces.image import (ApplyMask, MetricsPredictions, MakeDist
                                          JoinMetricsPredictions, SummaryReport, MaskRegions,
                                          QuantificationWMHLatVentricles, BGMask, PVSQuantificationBG)
 from shivautils.postprocessing.isocontour import create_edges
-from shivautils.stats import overlay_brainmask
+from shivautils.utils.stats import overlay_brainmask
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],

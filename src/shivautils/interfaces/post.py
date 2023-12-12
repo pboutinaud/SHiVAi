@@ -25,9 +25,9 @@ from nipype.interfaces.matlab import MatlabCommand
 from nipype.utils.filemanip import ensure_list, simplify_list
 
 from string import Template
-from shivautils.stats import transf_from_affine
+from shivautils.utils.stats import transf_from_affine
 from shivautils.postprocessing.report import make_report
-from shivautils.stats import swarmplot_from_census
+from shivautils.utils.stats import swarmplot_from_census
 from shivautils.postprocessing import __file__ as postproc_init
 
 

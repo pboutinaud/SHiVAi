@@ -1,4 +1,4 @@
-# from shivautils.stats import save_histogram, bounding_crop
+# from shivautils.utils.stats import save_histogram, bounding_crop
 from shivautils import __version__ as version
 from jinja2 import Environment, PackageLoader
 import base64

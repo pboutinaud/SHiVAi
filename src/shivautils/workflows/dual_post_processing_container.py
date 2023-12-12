@@ -11,7 +11,7 @@ from nipype.interfaces.utility import IdentityInterface
 from shivautils.interfaces.image import (ApplyMask, MetricsPredictions,
                                          JoinMetricsPredictions, SummaryReport)
 from shivautils.postprocessing.isocontour import create_edges
-from shivautils.stats import overlay_brainmask
+from shivautils.utils.stats import overlay_brainmask
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],

@@ -5,7 +5,7 @@ Workflow computing the different quality control steps of the preprocessing
 
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.utility import Function
-from shivautils.stats import overlay_brainmask, bounding_crop, save_histogram
+from shivautils.utils.stats import overlay_brainmask, bounding_crop, save_histogram
 from shivautils.postprocessing.isocontour import create_edges
 from shivautils.interfaces.post import QC_metrics
 

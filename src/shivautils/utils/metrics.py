@@ -1,7 +1,6 @@
 import gc
 import numpy as np
 # from joblib import Parallel, delayed
-
 from skimage import measure
 from scipy.ndimage import _ni_support
 from scipy.ndimage.morphology import (distance_transform_edt, binary_erosion,

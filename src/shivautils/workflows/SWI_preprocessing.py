@@ -15,7 +15,7 @@ from shivautils.interfaces.image import (Threshold, Normalization,
                                          Conform, Crop, ApplyMask, MetricsPredictions,
                                          JoinMetricsPredictions, SummaryReport)
 from shivautils.postprocessing.isocontour import create_edges
-from shivautils.stats import save_histogram
+from shivautils.utils.stats import save_histogram
 
 
 dummy_args = {'SUBJECT_LIST': ['BIOMIST::SUBJECT_LIST'],

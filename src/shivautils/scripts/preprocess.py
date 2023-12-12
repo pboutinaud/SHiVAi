@@ -7,7 +7,7 @@ import argparse
 import nibabel as nb
 import nibabel.processing as nip
 
-from shivautils.preprocessing import normalization, crop, threshold
+from shivautils.utils.preprocessing import normalization, crop, threshold
 
 
 DESCRIPTION = """SHIVA simple preprocessing for deep learning predictors.
