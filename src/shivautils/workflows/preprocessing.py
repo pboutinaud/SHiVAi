@@ -23,10 +23,6 @@ dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
               }
 
 
-def as_list(input):
-    return [input]
-
-
 def genWorkflow(**kwargs) -> Workflow:
     """Generate a nipype workflow
 

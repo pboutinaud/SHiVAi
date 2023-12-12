@@ -13,6 +13,7 @@ from nipype.interfaces.dcm2nii import Dcm2nii
 from nipype.interfaces.utility import IdentityInterface
 from shivautils.interfaces.shiva import Predict
 from nipype.interfaces.quickshear import Quickshear
+from shivautils.utils.misc import as_list
 
 from shivautils.interfaces.image import (Threshold, Normalization,
                                          Conform, Crop)
@@ -22,10 +23,6 @@ dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
               "BASE_DIR": os.path.normpath(os.path.expanduser('~')),
               "DESCRIPTOR": os.path.normpath(os.path.join(os.path.expanduser('~'), '.swomed', 'default_config.ini'))
               }
-
-
-def as_list(input):
-    return [input]
 
 
 def genWorkflow(**kwargs) -> Workflow:

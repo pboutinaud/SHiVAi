@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """Workflow script for singularity container"""
 from shivautils.interfaces.shiva import Predict, PredictSingularity
+from shivautils.utils.misc import as_list, set_wf_shapers
 from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
-from shivautils.workflows.post_processing import set_wf_shapers
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowDualPreproc
 from shivautils.workflows.preprocessing_swi_reg import gen_workflow_swi
@@ -21,10 +21,6 @@ import yaml
 # sys.path.append('/mnt/devt')
 
 config.enable_provenance()
-
-
-def as_list(input):
-    return [input]
 
 
 def shivaParser():

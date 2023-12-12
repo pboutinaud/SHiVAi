@@ -44,39 +44,13 @@ from nipype.interfaces import ants
 from shivautils.interfaces.post import SummaryReport
 from shivautils.interfaces.image import Regionwise_Prediction_metrics
 from shivautils.workflows.qc_preproc import gen_qc_wf, qc_wf_add_flair, qc_wf_add_swi
+from shivautils.utils.misc import set_wf_shapers
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
               "BASE_DIR": os.path.normpath(os.path.expanduser('~')),
               "DESCRIPTOR": os.path.normpath(os.path.join(os.path.expanduser('~'), '.swomed', 'default_config.ini'))
               }
-
-
-def as_list(input):
-    return [input]
-
-
-def set_wf_shapers(predictions):
-    """
-    Set with_t1, with_flair, and with_swi with the corresponding value depending on the
-    segmentations (predictions) that will be done.
-    The tree boolean variables are used to shape the main and postproc workflows
-    (e.g. if doing PVS and CMB, the wf will use T1 and SWI)
-    """
-    # Setting up the different cases to build the workflows (should clarify things up)
-    if any(pred in predictions for pred in ['PVS', 'PVS2', 'WMH', 'LAC']):  # all which requires T1
-        with_t1 = True
-    else:
-        with_t1 = False
-    if any(pred in predictions for pred in ['PVS2', 'WMH', 'LAC']):
-        with_flair = True
-    else:
-        with_flair = False
-    if 'CMB' in predictions:
-        with_swi = True
-    else:
-        with_swi = False
-    return with_t1, with_flair, with_swi
 
 
 def get_maps_from_dict(subject_id,

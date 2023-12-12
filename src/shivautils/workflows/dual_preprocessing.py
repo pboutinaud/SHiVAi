@@ -8,6 +8,7 @@ import os
 from nipype.pipeline.engine import Node, Workflow, JoinNode
 from nipype.interfaces import ants
 from nipype.interfaces.utility import Function
+from shivautils.utils.misc import as_list
 
 from shivautils.interfaces.image import Normalization
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
@@ -18,10 +19,6 @@ dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
               "BASE_DIR": os.path.normpath(os.path.expanduser('~')),
               "DESCRIPTOR": os.path.normpath(os.path.join(os.path.expanduser('~'), '.swomed', 'default_config.ini'))
               }
-
-
-def as_list(input):
-    return [input]
 
 
 def genWorkflow(**kwargs) -> Workflow:

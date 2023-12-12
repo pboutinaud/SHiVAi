@@ -16,13 +16,9 @@ from shivautils.interfaces.image import (Conform, Crop)
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
               "BASE_DIR": os.path.normpath(os.path.expanduser('~')),
-              "DESCRIPTOR": os.path.normpath(os.path.join(os.path.expanduser('~'),'.swomed', 'default_config.ini'))
-}
+              "DESCRIPTOR": os.path.normpath(os.path.join(os.path.expanduser('~'), '.swomed', 'default_config.ini'))
+              }
 
-
-def as_list(input):
-    return [input]
-    
 
 def genWorkflow(**kwargs) -> Workflow:
     """Generate a nipype workflow
@@ -35,9 +31,9 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # get a list of subjects to iterate on
     subject_list = Node(IdentityInterface(
-                            fields=['subject_id'],
-                            mandatory_inputs=True),
-                        name="subject_list")
+        fields=['subject_id'],
+        mandatory_inputs=True),
+        name="subject_list")
     subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
     # file selection
@@ -53,7 +49,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     field_correction = Node(N4BiasFieldCorrection(), name='field_correction')
     workflow.connect(datagrabber, 'img', field_correction, 'input_image')
-    
+
     brain_mask_raw = Node(BET(), name='brain_mask_raw')
     brain_mask_raw.inputs.mask = True
     workflow.connect(field_correction, 'output_image', brain_mask_raw, 'in_file')
@@ -65,14 +61,14 @@ def genWorkflow(**kwargs) -> Workflow:
                      crop, 'apply_to')
     workflow.connect(brain_mask_raw, 'mask_file',
                      crop, 'roi_mask')
-    
+
     crop_brainmask = Node(Crop(final_dimensions=(160, 214, 176)),
-                name="crop_brainmask")
+                          name="crop_brainmask")
     workflow.connect(brain_mask_raw, 'mask_file',
                      crop_brainmask, 'apply_to')
     workflow.connect(brain_mask_raw, 'mask_file',
                      crop_brainmask, 'roi_mask')
-    
+
     conform = Node(Conform(),
                    name="conform")
     conform.inputs.dimensions = (160, 214, 176)
@@ -81,7 +77,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(datagrabber, 'img', conform, 'img')
 
     conform_brainmask = Node(Conform(),
-                   name="conform_brainmask")
+                             name="conform_brainmask")
     conform_brainmask.inputs.dimensions = (160, 214, 176)
     conform_brainmask.inputs.orientation = 'RAS'
 
