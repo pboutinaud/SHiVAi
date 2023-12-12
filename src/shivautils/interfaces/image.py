@@ -350,11 +350,11 @@ class Threshold(BaseInterface):
                                 minVol=self.inputs.minVol)
 
         # Save it for later use in _list_outputs
-        if not isdefined(self.outname):
+        if not isdefined(self.inputs.outname):
             _, base, _ = split_filename(fname)
             outname = base + '_thresholded.nii.gz'
         else:
-            outname = self.outname
+            outname = self.inputs.outname
         nib.save(thresholded, outname)
         setattr(self, 'outname', os.path.abspath(outname))
 
