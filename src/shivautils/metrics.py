@@ -1,5 +1,6 @@
 import gc
 import numpy as np
+# from joblib import Parallel, delayed
 
 from skimage import measure
 from scipy.ndimage import _ni_support
@@ -9,136 +10,136 @@ from scipy.ndimage.morphology import (distance_transform_edt, binary_erosion,
 
 
 # --------------------------------------------------------------------------
-def get_metrics(
-    type_labels,
-    model_id,
-    ids, truths, predictions,
-    cluster_range=[0],
-    threshold_range=np.arange(0.1, 1.0, 0.1),
-    compute_hd95=False,
-    n_jobs=4,
-    prediction_label=None,
-):
-    vrs_v_metrics = []
-    vrs_c_metrics = []
-    wmh_v_metrics = []
-    wmh_c_metrics = []
+# def get_metrics(
+#     type_labels,
+#     model_id,
+#     ids, truths, predictions,
+#     cluster_range=[0],
+#     threshold_range=np.arange(0.1, 1.0, 0.1),
+#     compute_hd95=False,
+#     n_jobs=4,
+#     prediction_label=None,
+# ):
+#     vrs_v_metrics = []
+#     vrs_c_metrics = []
+#     wmh_v_metrics = []
+#     wmh_c_metrics = []
 
-    if cluster_range is None:
-        cluster_range = [0]
+#     if cluster_range is None:
+#         cluster_range = [0]
 
-    if 'VRS_WMH' in type_labels:
-        # Parallel computation of metrics for VRS
-        vrs_v_metrics, vrs_c_metrics = compute_metrics(
-            model_id, 'VRS',
-            ids, truths, predictions, pred_channel=0,
-            cluster_range=cluster_range,
-            threshold_range=threshold_range,
-            compute_hd95=compute_hd95,
-            n_jobs=n_jobs
-        )
-        # Parallel computation of metrics for WMH
-        wmh_v_metrics, wmh_c_metrics = compute_metrics(
-            model_id, 'WMH',
-            ids, truths, predictions, pred_channel=1,
-            cluster_range=cluster_range,
-            threshold_range=threshold_range,
-            compute_hd95=compute_hd95,
-            n_jobs=n_jobs
-        )
-    elif 'WMH' in type_labels:
-        # Parallel computation of metrics for WMH
-        wmh_v_metrics, wmh_c_metrics = compute_metrics(
-            model_id, 'WMH',
-            ids, truths, predictions, pred_channel=0,
-            cluster_range=cluster_range,
-            threshold_range=threshold_range,
-            compute_hd95=compute_hd95,
-            n_jobs=n_jobs
-        )
-    elif 'VRS' in type_labels:
-        # Parallel computation of metrics for VRS
-        vrs_v_metrics, vrs_c_metrics = compute_metrics(
-            model_id, 'VRS',
-            ids, truths, predictions, pred_channel=0,
-            cluster_range=cluster_range,
-            threshold_range=threshold_range,
-            compute_hd95=compute_hd95,
-            n_jobs=n_jobs
-        )
-    else:
-        # Parallel computation of metrics for ???
-        vrs_v_metrics, vrs_c_metrics = compute_metrics(
-            model_id,
-            '???' if prediction_label is None else prediction_label,
-            ids, truths, predictions, pred_channel=0,
-            cluster_range=cluster_range,
-            threshold_range=threshold_range,
-            compute_hd95=compute_hd95,
-            n_jobs=n_jobs
-        )
-    return vrs_v_metrics, vrs_c_metrics, wmh_v_metrics, wmh_c_metrics
+#     if 'VRS_WMH' in type_labels:
+#         # Parallel computation of metrics for VRS
+#         vrs_v_metrics, vrs_c_metrics = compute_metrics(
+#             model_id, 'VRS',
+#             ids, truths, predictions, pred_channel=0,
+#             cluster_range=cluster_range,
+#             threshold_range=threshold_range,
+#             compute_hd95=compute_hd95,
+#             n_jobs=n_jobs
+#         )
+#         # Parallel computation of metrics for WMH
+#         wmh_v_metrics, wmh_c_metrics = compute_metrics(
+#             model_id, 'WMH',
+#             ids, truths, predictions, pred_channel=1,
+#             cluster_range=cluster_range,
+#             threshold_range=threshold_range,
+#             compute_hd95=compute_hd95,
+#             n_jobs=n_jobs
+#         )
+#     elif 'WMH' in type_labels:
+#         # Parallel computation of metrics for WMH
+#         wmh_v_metrics, wmh_c_metrics = compute_metrics(
+#             model_id, 'WMH',
+#             ids, truths, predictions, pred_channel=0,
+#             cluster_range=cluster_range,
+#             threshold_range=threshold_range,
+#             compute_hd95=compute_hd95,
+#             n_jobs=n_jobs
+#         )
+#     elif 'VRS' in type_labels:
+#         # Parallel computation of metrics for VRS
+#         vrs_v_metrics, vrs_c_metrics = compute_metrics(
+#             model_id, 'VRS',
+#             ids, truths, predictions, pred_channel=0,
+#             cluster_range=cluster_range,
+#             threshold_range=threshold_range,
+#             compute_hd95=compute_hd95,
+#             n_jobs=n_jobs
+#         )
+#     else:
+#         # Parallel computation of metrics for ???
+#         vrs_v_metrics, vrs_c_metrics = compute_metrics(
+#             model_id,
+#             '???' if prediction_label is None else prediction_label,
+#             ids, truths, predictions, pred_channel=0,
+#             cluster_range=cluster_range,
+#             threshold_range=threshold_range,
+#             compute_hd95=compute_hd95,
+#             n_jobs=n_jobs
+#         )
+#     return vrs_v_metrics, vrs_c_metrics, wmh_v_metrics, wmh_c_metrics
 
 
 # --------------------------------------------------------------------------
-def compute_metrics(
-    model_id, output_label,
-    ids, truths, preds, pred_channel=0,
-    cluster_range=[0],
-    threshold_range=np.arange(0.1, 1.0, 0.1),
-    compute_hd95=False,
-    n_jobs=-1
-):
-    """ Compute metrics values for a set of subjects, truths predictions for a
-    range of cluster sizes and voxels values.
+# def compute_metrics(
+#     model_id, output_label,
+#     ids, truths, preds, pred_channel=0,
+#     cluster_range=[0],
+#     threshold_range=np.arange(0.1, 1.0, 0.1),
+#     compute_hd95=False,
+#     n_jobs=-1
+# ):
+#     """ Compute metrics values for a set of subjects, truths predictions for a
+#     range of cluster sizes and voxels values.
 
-    Args:
-    - model_id (str): descriptive id for the model that gave the predictions
-    - output_label (str): descriptive ouput label for the predictions
-    - ids (list): list of subject ids,
-    - truths (np.array of float): np.array of truths values for all subjects,
-      must be binary truth values 0 or 1
-    - preds (np.array of float): np.array of truths values for all subjects
-    - pred_channel (int): channel (int the last dimension of preds) for the
-      values that will be compared with truths
-    - cluster_range (list, optional): list or range of cluster filters. All
-      clusters of size larger than each successive values will be filtered.
-      Defaults to [0].
-    - threshold_range (list, optional): list or range of voxel filters.
-      Defaults to np.arange(0.1, 1.0, 0.1).
-    - n_jobs (int, optional): number of available cores for parallel
-      procecessing. Defaults to -1.
+#     Args:
+#     - model_id (str): descriptive id for the model that gave the predictions
+#     - output_label (str): descriptive ouput label for the predictions
+#     - ids (list): list of subject ids,
+#     - truths (np.array of float): np.array of truths values for all subjects,
+#       must be binary truth values 0 or 1
+#     - preds (np.array of float): np.array of truths values for all subjects
+#     - pred_channel (int): channel (int the last dimension of preds) for the
+#       values that will be compared with truths
+#     - cluster_range (list, optional): list or range of cluster filters. All
+#       clusters of size larger than each successive values will be filtered.
+#       Defaults to [0].
+#     - threshold_range (list, optional): list or range of voxel filters.
+#       Defaults to np.arange(0.1, 1.0, 0.1).
+#     - n_jobs (int, optional): number of available cores for parallel
+#       procecessing. Defaults to -1.
 
-    Returns:
-    voxel_metrics, cluster_metrics (dict, dict): for each for all subjects,
-    cluster_sizes and thresholds returns the metrics
-    """
-    # Run all thresholds / cluster sizes in //
-    res = Parallel(n_jobs=n_jobs, backend="threading")(delayed(image_metrics_proxy)(  # noqa: E501
-        (
-            truths[0],  # post proc fn
-            [p[i_subject] for p in truths[1]]
-        ) if must_be_processed(truths) else truths[i_subject],
-        (
-            preds[0],  # post proc fn
-            [p[i_subject] for p in preds[1]]
-        ) if must_be_processed(preds) else preds[i_subject],
-        pred_channel,
-        threshold,
-        model_id,
-        output_label,
-        ids[i_subject],
-        cluster_filter=cluster_size,
-        compute_hd95=compute_hd95,
-    ) for threshold in threshold_range for cluster_size in cluster_range for i_subject in range(len(ids)))  # noqa: E501
-    # separate voxel and cluster_metrics
-    voxel_metrics = [sub[0] for sub in res]
-    cluster_metrics = [sub[1] for sub in res]
-    # Filter null results from metrics
-    voxel_metrics = [x for x in voxel_metrics if isinstance(x, dict)]
-    cluster_metrics = [x for x in cluster_metrics if isinstance(x, dict)]
-    gc.collect()
-    return voxel_metrics, cluster_metrics
+#     Returns:
+#     voxel_metrics, cluster_metrics (dict, dict): for each for all subjects,
+#     cluster_sizes and thresholds returns the metrics
+#     """
+#     # Run all thresholds / cluster sizes in //
+#     res = Parallel(n_jobs=n_jobs, backend="threading")(delayed(image_metrics_proxy)(  # noqa: E501
+#         (
+#             truths[0],  # post proc fn
+#             [p[i_subject] for p in truths[1]]
+#         ) if must_be_processed(truths) else truths[i_subject],
+#         (
+#             preds[0],  # post proc fn
+#             [p[i_subject] for p in preds[1]]
+#         ) if must_be_processed(preds) else preds[i_subject],
+#         pred_channel,
+#         threshold,
+#         model_id,
+#         output_label,
+#         ids[i_subject],
+#         cluster_filter=cluster_size,
+#         compute_hd95=compute_hd95,
+#     ) for threshold in threshold_range for cluster_size in cluster_range for i_subject in range(len(ids)))  # noqa: E501
+#     # separate voxel and cluster_metrics
+#     voxel_metrics = [sub[0] for sub in res]
+#     cluster_metrics = [sub[1] for sub in res]
+#     # Filter null results from metrics
+#     voxel_metrics = [x for x in voxel_metrics if isinstance(x, dict)]
+#     cluster_metrics = [x for x in cluster_metrics if isinstance(x, dict)]
+#     gc.collect()
+#     return voxel_metrics, cluster_metrics
 
 
 # --------------------------------------------------------------------------
