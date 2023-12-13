@@ -5,12 +5,11 @@
    """
 import os
 
-from nipype.pipeline.engine import Node, Workflow, JoinNode
+from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces import ants
-from nipype.interfaces.utility import Function
 from shivautils.utils.misc import as_list
 
-from shivautils.interfaces.image import Normalization
+from shivautils.interfaces.image import Normalization, Conform
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from shivautils.workflows.preprocessing_premasked import genWorkflow as genWorkflow_preproc_masked
 
@@ -58,6 +57,14 @@ def genWorkflow(**kwargs) -> Workflow:
     flair_to_t1.inputs.verbose = True
     flair_to_t1.inputs.winsorize_lower_quantile = 0.005
     flair_to_t1.inputs.winsorize_upper_quantile = 0.995
+
+    # Conform img2, should not be necessary but allows for the centering
+    # of the origin of the nifti image (if far out of the brain)
+    conform = Node(Conform(),
+                   name="conform")
+    conform.inputs.dimensions = (256, 256, 256)
+    conform.inputs.voxel_size = kwargs['RESOLUTION']
+    conform.inputs.orientation = kwargs['ORIENTATION']
 
     crop = workflow.get_node('crop')
     hard_post_brain_mask = workflow.get_node('hard_post_brain_mask')
