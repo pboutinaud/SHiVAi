@@ -103,7 +103,6 @@ class Conform(BaseInterface):
         # Center the origin (to the image's center of mass) if it's too close to the image border
         close_to_border = self.inputs.border_too_close
         if close_to_border:  # only does it if close_to_border != 0
-            close_to_border = 0.15  # fraction of the image size that is concidered close to the border
             rot, trans = nib.affines.to_matvec(img.affine)
             origin_ijk = np.linalg.inv(rot).dot(-trans)
             position_ratio = origin_ijk/img.shape
@@ -122,10 +121,13 @@ class Conform(BaseInterface):
                 )
                 warnings.warn(warn_msg)
                 vol = img.get_fdata()
-                cdg_ijk = ndimage.center_of_mass(vol)
-                trans_centered = -rot.dot(cdg_ijk)
-                affine_centered = nib.affines.from_matvec(rot, trans_centered)
-                img = nib.Nifti1Image(vol, affine_centered, img.header)
+                cdg_ijk = np.round(ndimage.center_of_mass(vol))
+                # As the affine may be corrupted, we discard it and create a simplified version (without rotations)
+                simplified_rot = np.eye(3) * img.header['pixdim'][1:4]  # Keeping the voxel dimensions
+                simplified_rot[0] *= img.header['pixdim'][0]  # Keeping the L/R orientation
+                trans_centered = -simplified_rot.dot(cdg_ijk)
+                simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
+                img = nib.Nifti1Image(vol, simplified_affine_centered)
 
         if not (isdefined(self.inputs.voxel_size)):
             # resample so as to keep FOV
