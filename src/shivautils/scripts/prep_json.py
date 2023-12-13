@@ -74,9 +74,8 @@ def main():
     model_dict['version'] = args.version
     model_dict['release date'] = args.date
     model_dict['author'] = args.author
-    dirname = os.path.basename(in_dir)
-    if not dirname:  # When indir end with a separator
-        dirname = os.path.dirname(in_dir)
+    # Auto detect target and modalities
+    root_dir, dirname = os.path.split(in_dir)  # Name (not path) of the folder i.g. "T1.FLAIR-PVS")
     if args.target is not None:
         model_dict['target'] = args.target
     else:
@@ -98,10 +97,10 @@ def main():
 
     # Looking for the model files/folders
     if args.data_type == 'file':
-        model_files = glob.glob(os.path.join(dirname, '*', f'*.{ext}'))
+        model_files = glob.glob(os.path.join(in_dir, '*', f'*.{ext}'))
         if not model_files:
-            model_files = glob.glob(os.path.join(dirname, f'*.{ext}'))
-        model_files = [os.path.relpath(f, dirname) for f in model_files]  # removing the dirname part
+            model_files = glob.glob(os.path.join(in_dir, f'*.{ext}'))
+        model_files = [os.path.relpath(f, root_dir) for f in model_files]  # removing the dirname part
         model_dirs = list(set([os.path.dirname(f) for f in model_files]))
         if len(model_dirs) > 1:
             if not args.version:
@@ -115,13 +114,15 @@ def main():
             model_dir = model_dirs[0]
         model_files = [f for f in model_files if model_dir in f]  # Keeping only the files inside model_dir (necessary when multiple available versions)
     else:  # data_type = 'folder'
-        model_dir = args.version  # here we only accept one (optional) sub-folder: the version subfolder
-        model_files = os.listdir(os.path.join(dirname, model_dir))
-        model_files = [os.path.join(model_dir, f) for f in model_files]  # adding the version sub-folder if there is any
-        model_files = [f for f in model_files if os.path.isdir(os.path.join(dirname, f))]  # keeping only the folders
-    modelfiles_dicts = [{'name': f, 'md5': md5(os.path.join(dirname, f))} for f in model_files]
+        model_dir = os.path.join(dirname, args.version)
+        model_files = os.listdir(os.path.join(root_dir, model_dir))
+        model_files = [os.path.join(model_dir, f) for f in model_files]
+        model_files = [f for f in model_files if os.path.isdir(os.path.join(root_dir, f))]  # keeping only the folders
+    if not model_files:
+        raise FileNotFoundError('No file/folder detected')
+    modelfiles_dicts = [{'name': f, 'md5': md5(os.path.join(root_dir, f))} for f in model_files]
     model_dict['files'] = modelfiles_dicts
-    json_file = os.path.join(dirname, model_dir, 'model_info.json')
+    json_file = os.path.join(root_dir, model_dir, 'model_info.json')
     with open(json_file, 'w') as fp:
         json.dump(model_dict, fp, indent=2)
 
