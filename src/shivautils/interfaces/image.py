@@ -101,6 +101,7 @@ class Conform(BaseInterface):
         img = nib.funcs.squeeze_image(nib.load(fname))
 
         # Center the origin (to the image's center of mass) if it's too close to the image border
+        close_to_border = self.inputs.border_too_close
         if close_to_border:  # only does it if close_to_border != 0
             close_to_border = 0.15  # fraction of the image size that is concidered close to the border
             rot, trans = nib.affines.to_matvec(img.affine)
@@ -120,7 +121,7 @@ class Conform(BaseInterface):
                     "be a problem if you use the intensity normalized images from the img_preproc folder of the results."
                 )
                 warnings.warn(warn_msg)
-                vol = nib.load(img)
+                vol = img.get_fdata()
                 cdg_ijk = ndimage.center_of_mass(vol)
                 trans_centered = -rot.dot(cdg_ijk)
                 affine_centered = nib.affines.from_matvec(rot, trans_centered)
