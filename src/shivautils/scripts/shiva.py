@@ -262,10 +262,6 @@ def set_args_and_check(inParser):
     if args.retry:
         args.keep_all = True
 
-    if (args.containerized_all or args.containerized_nodes) and not args.model_config:
-        inParser.error(
-            'Using a container (denoted with the "--container" argument) requires '
-            'a configuration file (.yml) but none was given.')
     if (os.path.isdir(args.output)
         and bool(os.listdir(args.output))
             and not args.retry):
@@ -308,8 +304,10 @@ def set_args_and_check(inParser):
         args.model_config = os.path.abspath(args.model_config)
         with open(args.model_config, 'r') as file:
             yaml_content = yaml.safe_load(file)
-        args.container_image = yaml_content['apptainer_image']
-        args.synthseg_image = yaml_content['synthseg_image']
+        if args.containerized_all or args.containerized_nodes:
+            args.container_image = yaml_content['apptainer_image']
+        if args.synthseg:
+            args.synthseg_image = yaml_content['synthseg_image']
         parameters = yaml_content['parameters']
         args.model = yaml_content['model_path']  # only used when not with container
         args.percentile = parameters['percentile']
@@ -333,6 +331,12 @@ def set_args_and_check(inParser):
         args.cmb_descriptor = parameters['CMB_descriptor']
         args.lac_descriptor = parameters['LAC_descriptor']
     args.model = os.path.abspath(args.model)
+
+    if (args.containerized_all or args.containerized_nodes) and not args.container_image:
+        inParser.error(
+            'Using a container (with the "--containerized_all" or "containerized_nodes" arguments) '
+            'requires a container image (.sif file) but none was given. Add its path --container_image '
+            'or in the configuration file (.yaml file).')
 
     if args.run_plugin_args:  # Parse the plugin arguments
         with open(args.run_plugin_args, 'r') as file:
