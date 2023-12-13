@@ -18,6 +18,7 @@ import numpy as np
 import csv
 import matplotlib.pyplot as plt
 import pandas as pd
+from scipy import ndimage
 # from bokeh.io import export_png
 
 import sys
@@ -49,6 +50,17 @@ class ConformInputSpec(BaseInterfaceInputSpec):
                               'RAP',
                               desc="orientation of image volume brain",
                               usedefault=True)
+
+    border_too_close = traits.Int(0.15,
+                                  usedefault=True,
+                                  mandatory=False,
+                                  desc=(
+                                      'Ratio of the image that defines if the image origine '
+                                      'is too close to the border of the image (and therefore '
+                                      'likely erroneous). If it is, set the origin to the '
+                                      'image center of mass.\n'
+                                      'To disable this feature, set to 0'
+                                  ))
 
 
 class ConformOutputSpec(TraitedSpec):
@@ -86,6 +98,25 @@ class Conform(BaseInterface):
         """
         fname = self.inputs.img
         img = nib.funcs.squeeze_image(nib.load(fname))
+
+        # Center the origin (to the image's center of mass) if it's too close to the image border
+        if close_to_border:  # only does it if close_to_border != 0
+            close_to_border = 0.15  # fraction of the image size that is concidered close to the border
+            rot, trans = nib.affines.to_matvec(img.affine)
+            origin_ijk = np.linalg.inv(rot).dot(-trans)
+            position_ratio = origin_ijk/img.shape
+            too_close = False
+            for dim_ratio in position_ratio:
+                if (dim_ratio < close_to_border) or (dim_ratio > 1-close_to_border):
+                    too_close = True
+                    break
+            if too_close:
+                vol = nib.load(img)
+                cdg_ijk = ndimage.center_of_mass(vol)
+                trans_centered = -rot.dot(cdg_ijk)
+                affine_centered = nib.affines.from_matvec(rot, trans_centered)
+                img = nib.Nifti1Image(vol, affine_centered, img.header)
+
         if not (isdefined(self.inputs.voxel_size)):
             # resample so as to keep FOV
             voxel_size = np.divide(np.multiply(img.header['dim'][1:4], img.header['pixdim'][1:4]).astype(np.double),
