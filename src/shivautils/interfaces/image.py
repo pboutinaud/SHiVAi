@@ -114,9 +114,10 @@ class Conform(BaseInterface):
             if too_close:
                 warn_msg = (
                     f"BAD ORIGIN: in {fname}\n"
-                    "The image origin (coordinates 0x0x0 in image space) is too close to a border (so likely erroneous).\n"
-                    "To avoid problems during registration, a new origin was set at the center of mass of the image.\n"
-                    "This will shift the masks (brain masks and cSVD biomarkers) compared to the raw images but will not "
+                    "The image origin (coordinates 0x0x0 in image space) is too close to a border (so likely corrupted*).\n"
+                    "To avoid problems during registration, a new affine was createdusing the center of mass as origin and "
+                    "ignoring any rotation specified by the affine (but keeping voxel dim and left/right orientation).\n"
+                    "This will misalign the masks (brain masks and cSVD biomarkers) compared to the raw images but will not "
                     "be a problem if you use the intensity normalized images from the img_preproc folder of the results."
                 )
                 warnings.warn(warn_msg)
