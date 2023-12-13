@@ -141,6 +141,10 @@ def shivaParser():
                         action='store_true',
                         help='Keep all intermediary file, which is usually necessary for debugging.')
 
+    parser.add_argument('--debug',
+                        action='store_true',
+                        help='Like --retry plus stop on first crash')
+
     parser.add_argument('--model_config',
                         type=str,
                         help=('Configuration file (.yml) containing the information and parameters for the '
@@ -248,9 +252,16 @@ def shivaParser():
 
 
 def set_args_and_check(inParser):
+
     args = inParser.parse_args()
     args.input = os.path.abspath(args.input)
     args.output = os.path.abspath(args.output)
+
+    if args.debug:
+        args.retry = True
+    if args.retry:
+        args.keep_all = True
+
     if (args.containerized_all or args.containerized_nodes) and not args.model_config:
         inParser.error(
             'Using a container (denoted with the "--container" argument) requires '
@@ -261,8 +272,6 @@ def set_args_and_check(inParser):
         inParser.error(
             'The output directory already exists and is not empty.'
         )
-    if args.retry:
-        args.keep_all = True
 
     subject_list = os.listdir(args.input)
     if args.sub_list is None:
@@ -805,6 +814,8 @@ def main():
     if args.keep_all:
         config.enable_provenance()
         main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+    if args.debug:
+        main_wf.config['execution']['stop_on_first_crash'] = 'True'
     main_wf.run(plugin=args.run_plugin, plugin_args=args.run_plugin_args)
 
 
