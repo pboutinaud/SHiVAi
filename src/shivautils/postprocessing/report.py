@@ -55,7 +55,8 @@ def make_report(
     seg_full_name = {
         'PVS': 'Perivasculaire spaces',
         'WMH': 'White-matter hyperintensities',
-        'CMB': 'Cerebral microbleeds'
+        'CMB': 'Cerebral microbleeds',
+        'LAC': 'Lacunas'
     }
     vol_mm3_per_voxel = resolution[0] * resolution[1] * resolution[2]  # Should be 1.0 mm3 by default
     brain_vol *= vol_mm3_per_voxel
