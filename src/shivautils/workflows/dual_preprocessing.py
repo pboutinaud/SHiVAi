@@ -60,15 +60,18 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # Conform img2, should not be necessary but allows for the centering
     # of the origin of the nifti image (if far out of the brain)
-    conform = Node(Conform(),
-                   name="conform")
-    conform.inputs.dimensions = (256, 256, 256)
-    conform.inputs.voxel_size = kwargs['RESOLUTION']
-    conform.inputs.orientation = kwargs['ORIENTATION']
+    conform_flair = Node(Conform(),
+                         name="conform_flair")
+    conform_flair.inputs.dimensions = (256, 256, 256)
+    conform_flair.inputs.voxel_size = kwargs['RESOLUTION']
+    conform_flair.inputs.orientation = kwargs['ORIENTATION']
 
     crop = workflow.get_node('crop')
     hard_post_brain_mask = workflow.get_node('hard_post_brain_mask')
+
     workflow.connect(datagrabber, "img2",
+                     conform_flair, 'img')
+    workflow.connect(conform_flair, "resampled",
                      flair_to_t1, 'moving_image')
     workflow.connect(crop, 'cropped',
                      flair_to_t1, 'fixed_image')
