@@ -12,6 +12,7 @@ from nipype.interfaces.base import CommandLine, CommandLineInputSpec, isdefined
 from nipype.interfaces.base import BaseInterface, \
     BaseInterfaceInputSpec, traits, TraitedSpec
 import os
+import warnings
 import nibabel.processing as nip
 import nibabel as nib
 import numpy as np
@@ -111,6 +112,14 @@ class Conform(BaseInterface):
                     too_close = True
                     break
             if too_close:
+                warn_msg = (
+                    f"BAD ORIGIN: in {fname}\n"
+                    "The image origin (coordinates 0x0x0 in image space) is too close to a border (so likely erroneous).\n"
+                    "To avoid problems during registration, a new origin was set at the center of mass of the image.\n"
+                    "This will shift the masks (brain masks and cSVD biomarkers) compared to the raw images but will not "
+                    "be a problem if you use the intensity normalized images from the img_preproc folder of the results."
+                )
+                warnings.warn(warn_msg)
                 vol = nib.load(img)
                 cdg_ijk = ndimage.center_of_mass(vol)
                 trans_centered = -rot.dot(cdg_ijk)
