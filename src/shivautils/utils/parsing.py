@@ -350,10 +350,35 @@ def set_args_and_check(inParser):
         args.model = '/mnt/model'
 
     if 'all' in args.prediction:
-        args.prediction = ['PVS2', 'WMH', 'CMB', 'LAC']
+        if 'PVS' in args.prediction:
+            args.prediction = ['PVS', 'WMH', 'CMB', 'LAC']
+        else:
+            args.prediction = ['PVS2', 'WMH', 'CMB', 'LAC']
     if not isinstance(args.prediction, list):  # When only one input
         args.prediction = [args.prediction]
 
     if args.preproc_results:
         args.preproc_results = os.path.abspath(args.preproc_results)
+        if not os.path.exists(args.preproc_results):
+            raise FileNotFoundError(
+                f'The folder containing the results from the previous processing was not found: {args.preproc_results}'
+            )
+        dir_list = os.listdir(args.preproc_results)
+        dir_name = os.path.basename(args.preproc_results)
+        err_msg = (
+            'The folder containing the results  from the previous processing should either be the "shiva_preproc" '
+            f'folder or the folder containing the "shiva_preproc" folder, but it is not the case: {args.preproc_results}'
+        )
+        if not dir_name == 'shiva_preproc':
+            if 'shiva_preproc' in dir_list:
+                args.preproc_results = os.path.join(args.preproc_results, 'shiva_preproc')
+            elif 'results' in dir_list:
+                args.preproc_results = os.path.join(args.preproc_results, 'results')
+                dir_list2 = os.listdir(args.preproc_results)
+                if 'shiva_preproc' in dir_list2:
+                    args.preproc_results = os.path.join(args.preproc_results, 'shiva_preproc')
+                else:
+                    raise FileNotFoundError(err_msg)
+            else:
+                raise FileNotFoundError(err_msg)
     return args
