@@ -575,7 +575,7 @@ def main():
         main_wf.add_nodes([wf_preproc_cmb])
         main_wf.connect(wf_preproc, 'datagrabber.img3', wf_preproc_cmb, 'conform.img')
         main_wf.connect(wf_preproc, 'crop.cropped', wf_preproc_cmb, 'swi_to_t1.fixed_image')
-        main_wf.connect(wf_preproc, ('hard_post_brain_mask.thresholded', as_list), wf_preproc_cmb, 'swi_to_t1.fixed_image_masks')
+        # main_wf.connect(wf_preproc, ('hard_post_brain_mask.thresholded', as_list), wf_preproc_cmb, 'swi_to_t1.fixed_image_masks')  # Sometime makes the reg fail (e.g. MICCAI)
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_preproc_cmb, 'mask_to_swi.input_image')
         main_wf.connect(wf_preproc_cmb, 'mask_to_crop.resampled_image', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask_swi.brainmask')
         main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask_swi.img_ref')
