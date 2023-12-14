@@ -743,7 +743,7 @@ def main():
     # Name substitutions in the results
     sink_node_subjects.inputs.substitutions = [
         ('_subject_id_', ''),
-        ('T1resampled_cropped_img_normalized', 't1_cropped_intensity_normed'),
+        ('_resampled_cropped_img_normalized', '_cropped_intensity_normed'),
         ('flair_to_t1__Warped_img_normalized', 'flair_to_t1_cropped_intensity_normed')
     ]
     # main_wf.connect(subject_iterator, 'subject_id', sink_node_subjects, 'container')
@@ -760,9 +760,9 @@ def main():
     elif with_swi and not with_t1:
         img1 = 'swi'
     main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, f'shiva_preproc.{img1}_preproc')
-    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, f'shiva_preproc.{img1}_preproc.brain_mask')
+    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@brain_mask')
     if wfargs['BRAIN_SEG'] is None:
-        main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, f'shiva_preproc.{img1}_preproc.brain_mask_raw_space')
+        main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@brain_mask_raw_space')
     main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@bb1')
     main_wf.connect(wf_preproc, 'crop.bbox2_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@bb2')
     main_wf.connect(wf_preproc, 'crop.cdg_ijk_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@cdg')

@@ -146,7 +146,7 @@ class Conform(BaseInterface):
 
         # Save it for later use in _list_outputs
         _, base, _ = split_filename(fname)
-        nib.save(resampled, base + 'resampled.nii.gz')
+        nib.save(resampled, base + '_resampled.nii.gz')
 
         return runtime
 
@@ -156,7 +156,7 @@ class Conform(BaseInterface):
         fname = self.inputs.img
         _, base, _ = split_filename(fname)
         outputs["resampled"] = os.path.abspath(base +
-                                               'resampled.nii.gz')
+                                               '_resampled.nii.gz')
         return outputs
 
 
