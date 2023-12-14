@@ -610,7 +610,7 @@ def main():
             predict_pvs.inputs.out_filename = 'pvs_map.nii.gz'
         predict_pvs.inputs.model = wfargs['MODELS_PATH']
         predict_pvs.plugin_args = wfargs['PRED_PLUGIN_ARGS']
-        if with_flair:
+        if 'PVS2' in args.prediction:
             predict_pvs.inputs.descriptor = wfargs['PVS2_DESCRIPTOR']
         else:
             predict_pvs.inputs.descriptor = wfargs['PVS_DESCRIPTOR']
