@@ -128,6 +128,16 @@ def shivaParser():
                         action='store_true',
                         help='Like --retry plus stop on first crash')
 
+    parser.add_argument('--preproc_results',
+                        type=str,
+                        help=(
+                            'Path to the results folder of a previous shiva run, containing all the preprocessed data.\n'
+                            'Requires that all the subjects from the current subject list (as per the content of --in or --sub_list) '
+                            'are available in the results folder. If you have subjects with missing preprocessed data, you will '
+                            'need to run their processing separatly.'
+                        ))
+
+    # Config file where lots of arguments are already written
     parser.add_argument('--model_config',
                         type=str,
                         help=('Configuration file (.yml) containing the information and parameters for the '
@@ -138,7 +148,7 @@ def shivaParser():
                               '--pvs2_descriptor --wmh_descriptor --cmb_descriptor, --lac_descriptor).'),
                         default=None)
 
-    # Manual input
+    # Manual input if no config file
     parser.add_argument('--container_image',
                         default=None,
                         help='path to the SHIV-AI apptainer image (.sif file)')
@@ -343,4 +353,7 @@ def set_args_and_check(inParser):
         args.prediction = ['PVS2', 'WMH', 'CMB', 'LAC']
     if not isinstance(args.prediction, list):  # When only one input
         args.prediction = [args.prediction]
+
+    if args.preproc_results:
+        args.preproc_results = os.path.abspath(args.preproc_results)
     return args
