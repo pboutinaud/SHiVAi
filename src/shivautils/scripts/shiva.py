@@ -273,7 +273,7 @@ def main():
 
         segmentation_wf.add_nodes([predict_pvs])
         main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', segmentation_wf, 'predict_pvs.t1')
-        if with_flair:
+        if 'PVS2' in args.prediction:
             main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', segmentation_wf, 'predict_pvs.flair')
         main_wf.connect(segmentation_wf, 'predict_pvs.segmentation', wf_post, 'prediction_metrics_pvs.img')
         main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_pvs.brain_seg')  # TODO: SynthSeg
