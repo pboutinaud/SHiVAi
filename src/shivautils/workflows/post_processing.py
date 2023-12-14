@@ -115,6 +115,7 @@ def genWorkflow(**kwargs) -> Workflow:
         preds.append('PVS')
         prediction_metrics_pvs = Node(Regionwise_Prediction_metrics(),
                                       name="prediction_metrics_pvs")
+        prediction_metrics_pvs.inputs.biomarker_type = 'PVS'
         prediction_metrics_pvs.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
         prediction_metrics_pvs.inputs.thr_cluster_size = kwargs['MIN_PVS_SIZE'] - 1  # "- 1 because thr removes up to given value"
         # TODO: This is when using only brainmask, we need synthseg for BG
@@ -129,6 +130,7 @@ def genWorkflow(**kwargs) -> Workflow:
         preds.append('WMH')
         prediction_metrics_wmh = Node(Regionwise_Prediction_metrics(),
                                       name="prediction_metrics_wmh")
+        prediction_metrics_pvs.inputs.biomarker_type = 'WMH'
         prediction_metrics_wmh.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
         prediction_metrics_wmh.inputs.thr_cluster_size = kwargs['MIN_WMH_SIZE'] - 1
         # if not synthseg:  # TODO
@@ -139,6 +141,7 @@ def genWorkflow(**kwargs) -> Workflow:
         preds.append('LAC')
         prediction_metrics_lac = Node(Regionwise_Prediction_metrics(),
                                       name="prediction_metrics_lac")
+        prediction_metrics_pvs.inputs.biomarker_type = 'LAC'
         prediction_metrics_lac.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
         prediction_metrics_lac.inputs.thr_cluster_size = kwargs['MIN_LAC_SIZE'] - 1
         # if not synthseg:  # TODO
@@ -156,7 +159,11 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_cmb.inputs.region_list = ['Whole_brain']
         if with_t1:  # The metrics are computed on the segmentation put in T1 space, for coherence
             swi_pred_to_t1 = Node(ants.ApplyTransforms(), name="swi_pred_to_t1")
+            swi_pred_to_t1.inputs.out_postfix = '_t1-space'
             workflow.connect(swi_pred_to_t1, 'output_image', prediction_metrics_cmb, 'img')
+            prediction_metrics_pvs.inputs.biomarker_type = 'CMB_t1-space'
+        else:
+            prediction_metrics_pvs.inputs.biomarker_type = 'CMB'
 
     # QC part
     # Initialising the QC sub-workflow

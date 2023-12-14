@@ -793,6 +793,11 @@ class Regionwise_Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
                                   desc='Value to threshold segmentation image',
                                   )
 
+    biomarker_type = traits.String('biomarker',
+                                   usedefault=True,
+                                   mandatory=False,
+                                   desc='Type of studied biomarker')
+
     brain_seg = traits.File(exists=True,
                             desc=('Brain mask or brain segmentation delimiting the parts '
                                   'of the biomarker segmentation ("img" argument) to explore'),
@@ -856,15 +861,16 @@ class Regionwise_Prediction_metrics(BaseInterface):
         cluster_measures, cluster_stats, clusters_vol = prediction_metrics(
             segmentation_vol, thr_cluster_val, thr_cluster_size, brain_seg_vol, region_dict)
 
-        cluster_measures.to_csv('biomarker_census.csv')
-        cluster_stats.to_csv('biomarker_stats.csv')
+        biomarker = self.inputs.biomarker_type
+        cluster_measures.to_csv(f'{biomarker}_census.csv')
+        cluster_stats.to_csv(f'{biomarker}_stats.csv')
         clusters_im = nib.Nifti1Image(clusters_vol, img.affine, img.header)
-        nib.save(clusters_im, 'labeled_biomarkers.nii.gz')
+        nib.save(clusters_im, f'labeled_{biomarker}s.nii.gz')
 
         # Set the attribute to pass as output
-        setattr(self, 'biomarker_census_csv', os.path.abspath("biomarker_census.csv"))
-        setattr(self, 'biomarker_stats_csv', os.path.abspath("biomarker_stats.csv"))
-        setattr(self, 'labelled_biomarkers', os.path.abspath("labeled_biomarkers.nii.gz"))
+        setattr(self, 'biomarker_census_csv', os.path.abspath(f"{biomarker}_census.csv"))
+        setattr(self, 'biomarker_stats_csv', os.path.abspath(f"{biomarker}_stats.csv"))
+        setattr(self, 'labelled_biomarkers', os.path.abspath(f"labeled_{biomarker}s.nii.gz"))
 
         return runtime
 

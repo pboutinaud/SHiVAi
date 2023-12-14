@@ -80,6 +80,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # write mask to flair in native space
     mask_to_img2 = Node(ants.ApplyTransforms(), name="mask_to_img2")
+    mask_to_img2.inputs.out_postfix = '_flair-space'
     mask_to_img2.inputs.interpolation = 'NearestNeighbor'
     mask_to_img2.inputs.invert_transform_flags = [True]
 

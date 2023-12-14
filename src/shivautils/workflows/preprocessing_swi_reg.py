@@ -64,6 +64,7 @@ def gen_workflow_swi(**kwargs) -> Workflow:
 
     # Application of the t1 to swi transformation to the t1 mask
     mask_to_swi = Node(ants.ApplyTransforms(), name="mask_to_swi")
+    mask_to_swi.inputs.out_postfix = '_swi-space'
     mask_to_swi.inputs.interpolation = 'NearestNeighbor'
     mask_to_swi.inputs.invert_transform_flags = [True]
     workflow.connect(swi_to_t1, 'forward_transforms', mask_to_swi, 'transforms')

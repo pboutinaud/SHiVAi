@@ -127,7 +127,7 @@ def main():
     thresholded = threshold(img_normalized,
                             thr=args.threshold,
                             binarize=True)
-    nb.loadsave.save(thresholded, os.path.join(args.output, 'brainmask.nii.gz'))
+    nb.loadsave.save(thresholded, os.path.join(args.output, 'brainmask_cropped.nii.gz'))
     cropped = crop(roi_mask=thresholded,
                    apply_to=img_normalized,
                    dimensions=final_dimensions,

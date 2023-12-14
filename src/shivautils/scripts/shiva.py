@@ -740,7 +740,13 @@ def main():
     # Initializing the data sinks
     sink_node_subjects = Node(DataSink(), name='sink_node_subjects')
     sink_node_subjects.inputs.base_directory = os.path.join(wfargs['BASE_DIR'], 'results')
-    main_wf.connect(subject_iterator, 'subject_id', sink_node_subjects, 'container')
+    # Name substitutions in the results
+    sink_node_subjects.inputs.substitutions = [
+        ('_subject_id_', ''),
+        ('T1resampled_cropped_img_normalized', 't1_cropped_intensity_normed'),
+        ('flair_to_t1__Warped_img_normalized', 'flair_to_t1_cropped_intensity_normed')
+    ]
+    # main_wf.connect(subject_iterator, 'subject_id', sink_node_subjects, 'container')
     main_wf.connect(wf_post, 'summary_report.summary', sink_node_subjects, 'report')
 
     sink_node_all = Node(DataSink(infields=['wf_graph']), name='sink_node_all')
@@ -753,58 +759,59 @@ def main():
         img1 = 't1'
     elif with_swi and not with_t1:
         img1 = 'swi'
-    main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, f'{img1}_preproc')
-    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, f'{img1}_preproc.brain_mask')
+    main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, f'shiva_preproc.{img1}_preproc')
+    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, f'shiva_preproc.{img1}_preproc.brain_mask')
     if wfargs['BRAIN_SEG'] is None:
-        main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, f'{img1}_preproc.brain_mask_raw_space')
-    main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, f'{img1}_preproc.@bb1')
-    main_wf.connect(wf_preproc, 'crop.bbox2_file', sink_node_subjects, f'{img1}_preproc.@bb2')
-    main_wf.connect(wf_preproc, 'crop.cdg_ijk_file', sink_node_subjects, f'{img1}_preproc.@cdg')
+        main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, f'shiva_preproc.{img1}_preproc.brain_mask_raw_space')
+    main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@bb1')
+    main_wf.connect(wf_preproc, 'crop.bbox2_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@bb2')
+    main_wf.connect(wf_preproc, 'crop.cdg_ijk_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@cdg')
     if with_flair:
-        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'flair_preproc')
+        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'shiva_preproc.flair_preproc')
     if with_swi and with_t1:
-        main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', sink_node_subjects, 'swi_preproc')
-        main_wf.connect(wf_preproc_cmb, 'mask_to_swi.output_image', sink_node_subjects, 'swi_preproc.brain_mask')
-        main_wf.connect(wf_preproc_cmb, 'swi_to_t1.warped_image', sink_node_subjects, 'swi_preproc.reg_to_t1')
-        main_wf.connect(wf_preproc_cmb, 'crop_swi.bbox1_file', sink_node_subjects, 'swi_preproc.@bb1')
-        main_wf.connect(wf_preproc_cmb, 'crop_swi.bbox2_file', sink_node_subjects, 'swi_preproc.@bb2')
-        main_wf.connect(wf_preproc_cmb, 'crop_swi.cdg_ijk_file', sink_node_subjects, 'swi_preproc.@cdg')
+        main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', sink_node_subjects, 'shiva_preproc.swi_preproc')
+        main_wf.connect(wf_preproc_cmb, 'mask_to_swi.output_image', sink_node_subjects, 'shiva_preproc.swi_preproc.@brain_mask')
+        main_wf.connect(wf_preproc_cmb, 'swi_to_t1.warped_image', sink_node_subjects, 'shiva_preproc.swi_preproc.@reg_to_t1')
+        main_wf.connect(wf_preproc_cmb, 'swi_to_t1.forward_transforms', sink_node_subjects, 'shiva_preproc.swi_preproc.@reg_to_t1_transf')
+        main_wf.connect(wf_preproc_cmb, 'crop_swi.bbox1_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@bb1')
+        main_wf.connect(wf_preproc_cmb, 'crop_swi.bbox2_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@bb2')
+        main_wf.connect(wf_preproc_cmb, 'crop_swi.cdg_ijk_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@cdg')
 
     # Pred and postproc
-    main_wf.connect(wf_post, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', sink_node_subjects, 'qc_metrics')
+    main_wf.connect(wf_post, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', sink_node_subjects, 'shiva_preproc.qc_metrics')
     if 'PVS' in args.prediction or 'PVS2' in args.prediction:
-        main_wf.connect(segmentation_wf, 'predict_pvs.segmentation', sink_node_subjects, 'pvs_segmentation')
-        main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv', sink_node_subjects, 'pvs_segmentation.@metrics')
-        main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_census_csv', sink_node_subjects, 'pvs_segmentation.@census')
-        main_wf.connect(wf_post, 'prediction_metrics_pvs.labelled_biomarkers', sink_node_subjects, 'pvs_segmentation.@labeled')
-        main_wf.connect(prediction_metrics_pvs_all, 'prediction_metrics_csv', sink_node_all, 'pvs_metrics')
+        main_wf.connect(segmentation_wf, 'predict_pvs.segmentation', sink_node_subjects, 'segmentations.pvs_segmentation')
+        main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv', sink_node_subjects, 'segmentations.pvs_segmentation.@metrics')
+        main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_census_csv', sink_node_subjects, 'segmentations.pvs_segmentation.@census')
+        main_wf.connect(wf_post, 'prediction_metrics_pvs.labelled_biomarkers', sink_node_subjects, 'segmentations.pvs_segmentation.@labeled')
+        main_wf.connect(prediction_metrics_pvs_all, 'prediction_metrics_csv', sink_node_all, 'segmentations.pvs_metrics')
 
     if 'WMH' in args.prediction:
-        main_wf.connect(segmentation_wf, 'predict_wmh.segmentation', sink_node_subjects, 'wmh_segmentation')
-        main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_stats_csv', sink_node_subjects, 'wmh_segmentation.@metrics')
-        main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_census_csv', sink_node_subjects, 'wmh_segmentation.@census')
-        main_wf.connect(wf_post, 'prediction_metrics_wmh.labelled_biomarkers', sink_node_subjects, 'wmh_segmentation.@labeled')
-        main_wf.connect(prediction_metrics_wmh_all, 'prediction_metrics_csv', sink_node_all, 'wmh_metrics')
+        main_wf.connect(segmentation_wf, 'predict_wmh.segmentation', sink_node_subjects, 'segmentations.wmh_segmentation')
+        main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_stats_csv', sink_node_subjects, 'segmentations.wmh_segmentation.@metrics')
+        main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_census_csv', sink_node_subjects, 'segmentations.wmh_segmentation.@census')
+        main_wf.connect(wf_post, 'prediction_metrics_wmh.labelled_biomarkers', sink_node_subjects, 'segmentations.wmh_segmentation.@labeled')
+        main_wf.connect(prediction_metrics_wmh_all, 'prediction_metrics_csv', sink_node_all, 'segmentations.wmh_metrics')
 
     if 'CMB' in args.prediction:
         if with_t1:
-            space = 't1_space'
-            main_wf.connect(segmentation_wf, 'predict_cmb.segmentation', sink_node_subjects, 'cmb_segmentation_swi_space')
-            main_wf.connect(wf_post, 'swi_pred_to_t1.output_image', sink_node_subjects, f'cmb_segmentation_{space}')
+            space = 't1-space'
+            main_wf.connect(segmentation_wf, 'predict_cmb.segmentation', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space')
+            main_wf.connect(wf_post, 'swi_pred_to_t1.output_image', sink_node_subjects, f'segmentations.cmb_segmentation_{space}')
         else:
-            space = 'swi_space'
-            main_wf.connect(segmentation_wf, 'predict_cmb.segmentation', sink_node_subjects, f'cmb_segmentation_{space}')
-        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', sink_node_subjects, f'cmb_segmentation_{space}.@metrics')
-        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_census_csv', sink_node_subjects, f'cmb_segmentation_{space}.@census')
-        main_wf.connect(wf_post, 'prediction_metrics_cmb.labelled_biomarkers', sink_node_subjects, f'cmb_segmentation_{space}.@labeled')
-        main_wf.connect(prediction_metrics_cmb_all, 'prediction_metrics_csv', sink_node_all, f'cmb_metrics_{space}')
+            space = 'swi-space'
+            main_wf.connect(segmentation_wf, 'predict_cmb.segmentation', sink_node_subjects, f'segmentations.cmb_segmentation_{space}')
+        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@metrics')
+        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_census_csv', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@census')
+        main_wf.connect(wf_post, 'prediction_metrics_cmb.labelled_biomarkers', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@labeled')
+        main_wf.connect(prediction_metrics_cmb_all, 'prediction_metrics_csv', sink_node_all, f'segmentations.cmb_metrics_{space}')
 
     if 'LAC' in args.prediction:
-        main_wf.connect(segmentation_wf, 'predict_lac.segmentation', sink_node_subjects, 'lac_segmentation')
-        main_wf.connect(wf_post, 'prediction_metrics_lac.biomarker_stats_csv', sink_node_subjects, 'lac_segmentation.@metrics')
-        main_wf.connect(wf_post, 'prediction_metrics_lac.biomarker_census_csv', sink_node_subjects, 'lac_segmentation.@census')
-        main_wf.connect(wf_post, 'prediction_metrics_lac.labelled_biomarkers', sink_node_subjects, 'lac_segmentation.@labeled')
-        main_wf.connect(prediction_metrics_lac_all, 'prediction_metrics_csv', sink_node_all, 'lac_metrics')
+        main_wf.connect(segmentation_wf, 'predict_lac.segmentation', sink_node_subjects, 'segmentations.lac_segmentation')
+        main_wf.connect(wf_post, 'prediction_metrics_lac.biomarker_stats_csv', sink_node_subjects, 'segmentations.lac_segmentation.@metrics')
+        main_wf.connect(wf_post, 'prediction_metrics_lac.biomarker_census_csv', sink_node_subjects, 'segmentations.lac_segmentation.@census')
+        main_wf.connect(wf_post, 'prediction_metrics_lac.labelled_biomarkers', sink_node_subjects, 'segmentations.lac_segmentation.@labeled')
+        main_wf.connect(prediction_metrics_lac_all, 'prediction_metrics_csv', sink_node_all, 'segmentations.lac_metrics')
 
     main_wf.connect(qc_joiner, 'qc_metrics_csv', sink_node_all, 'preproc_qc')
     main_wf.connect(qc_joiner, 'bad_qc_subs', sink_node_all, 'preproc_qc.@bad_qc_subs')
