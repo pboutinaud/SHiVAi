@@ -52,16 +52,16 @@ class ConformInputSpec(BaseInterfaceInputSpec):
                               desc="orientation of image volume brain",
                               usedefault=True)
 
-    border_too_close = traits.Int(0.15,
-                                  usedefault=True,
-                                  mandatory=False,
-                                  desc=(
-                                      'Ratio of the image that defines if the image origine '
-                                      'is too close to the border of the image (and therefore '
-                                      'likely erroneous). If it is, set the origin to the '
-                                      'image center of mass.\n'
-                                      'To disable this feature, set to 0'
-                                  ))
+    border_too_close = traits.Float(0.15,
+                                    usedefault=True,
+                                    mandatory=False,
+                                    desc=(
+                                        'Ratio of the image that defines if the image origine '
+                                        'is too close to the border of the image (and therefore '
+                                        'likely erroneous). If it is, set the origin to the '
+                                        'image center of mass.\n'
+                                        'To disable this feature, set to 0'
+                                    ))
 
 
 class ConformOutputSpec(TraitedSpec):
