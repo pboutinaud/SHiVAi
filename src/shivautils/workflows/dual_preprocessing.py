@@ -68,6 +68,7 @@ def genWorkflow(**kwargs) -> Workflow:
     conform_flair.inputs.orientation = kwargs['ORIENTATION']
 
     crop = workflow.get_node('crop')
+    img1_norm = workflow.get_node('mg1_final_intensity_normalization')
     hard_post_brain_mask = workflow.get_node('hard_post_brain_mask')
 
     workflow.connect(datagrabber, "img2",
@@ -103,7 +104,7 @@ def genWorkflow(**kwargs) -> Workflow:
     qc_wf = workflow.get_node('preproc_qc_workflow')
     qc_wf = qc_wf_add_flair(qc_wf)
     workflow.connect(img2_norm, 'intensity_normalized', qc_wf, 'qc_coreg_FLAIR_T1.path_image')
-    workflow.connect(workflow, 'img1_final_intensity_normalization.intensity_normalized', qc_wf, 'qc_coreg_FLAIR_T1.path_ref_image')
+    workflow.connect(img1_norm, 'intensity_normalized', qc_wf, 'qc_coreg_FLAIR_T1.path_ref_image')
     workflow.connect(hard_post_brain_mask, 'thresholded', qc_wf, 'qc_coreg_FLAIR_T1.path_brainmask')
     workflow.connect(img2_norm, 'mode', qc_wf, 'qc_metrics.flair_norm_peak')
     workflow.connect(flair_to_t1, 'forward_transforms', qc_wf, 'qc_metrics.flair_reg_mat')

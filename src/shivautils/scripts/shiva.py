@@ -250,7 +250,7 @@ def main():
                          joinsource=subject_iterator,
                          joinfield=['csv_files', 'subject_id'],
                          name='qc_joiner')
-    main_wf.connect(wf_post, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', qc_joiner, 'csv_files')
+    main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', qc_joiner, 'csv_files')
     main_wf.connect(subject_iterator, 'subject_id', qc_joiner, 'subject_id')
     if args.prev_qc is not None:
         qc_joiner.inputs.population_csv_file = args.prev_qc

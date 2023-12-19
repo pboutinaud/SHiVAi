@@ -91,19 +91,22 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
 
     # Adding the subworkflow to the main preprocessing workflow and connecting the nodes
     preproc_wf.add_nodes([workflow])
-    # datagrabber = preproc_wf.get_node('preproc_wf')
-    # crop = preproc_wf.get_node('crop')
-    # hard_post_brain_mask = preproc_wf.get_node('hard_post_brain_mask')
-    preproc_wf.connect(preproc_wf, 'datagrabber.img3', conform_swi, 'img')
-    preproc_wf.connect(preproc_wf, 'crop.cropped', swi_to_t1, 'fixed_image')
-    preproc_wf.connect(preproc_wf, 'hard_post_brain_mask.thresholded', mask_to_swi, 'input_image')
+    datagrabber = preproc_wf.get_node('preproc_wf')
+    crop = preproc_wf.get_node('crop')
+    hard_post_brain_mask = preproc_wf.get_node('hard_post_brain_mask')
+    preproc_wf.connect(datagrabber, 'img3', conform_swi, 'img')
+    preproc_wf.connect(crop, 'cropped', swi_to_t1, 'fixed_image')
+    preproc_wf.connect(hard_post_brain_mask, 'hard_post_brain_mask.thresholded', mask_to_swi, 'input_image')
 
     # Adding SWI/CMB nodes to the QC sub-workflow and connecting the nodes
     qc_wf = preproc_wf.get_node('preproc_qc_workflow')
     qc_wf = qc_wf_add_swi(qc_wf)
-    qc_wf.connect(mask_to_crop, 'resampled_image', qc_wf, 'qc_overlay_brainmask_swi.brainmask')
-    qc_wf.connect(swi_norm, 'intensity_normalized', qc_wf, 'qc_overlay_brainmask_swi.img_ref')
-    qc_wf.connect(swi_norm, 'mode', qc_wf, 'qc_metrics.swi_norm_peak')
-    qc_wf.connect(swi_to_t1, 'forward_transforms', qc_wf, 'qc_metrics.swi_reg_mat')
+    qc_overlay_brainmask_swi = qc_wf.get_node('qc_overlay_brainmask_swi')
+    qc_metrics = qc_wf.get_node('qc_metrics')
+
+    qc_wf.connect(mask_to_crop, 'resampled_image', qc_overlay_brainmask_swi, 'brainmask')
+    qc_wf.connect(swi_norm, 'intensity_normalized', qc_overlay_brainmask_swi, 'img_ref')
+    qc_wf.connect(swi_norm, 'mode', qc_metrics, 'swi_norm_peak')
+    qc_wf.connect(swi_to_t1, 'forward_transforms', qc_metrics, 'swi_reg_mat')
 
     return preproc_wf
