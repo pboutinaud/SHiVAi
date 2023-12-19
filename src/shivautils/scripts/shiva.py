@@ -439,9 +439,9 @@ def main():
         main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.crop_swi.bbox1_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@bb1')
         main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.crop_swi.bbox2_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@bb2')
         main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.crop_swi.cdg_ijk_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@cdg')
+    main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', sink_node_subjects, 'shiva_preproc.qc_metrics')
 
     # Pred and postproc
-    main_wf.connect(wf_post, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', sink_node_subjects, 'shiva_preproc.qc_metrics')
     if 'PVS' in args.prediction or 'PVS2' in args.prediction:
         main_wf.connect(segmentation_wf, 'predict_pvs.segmentation', sink_node_subjects, 'segmentations.pvs_segmentation')
         main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv', sink_node_subjects, 'segmentations.pvs_segmentation.@metrics')

@@ -68,7 +68,7 @@ def genWorkflow(**kwargs) -> Workflow:
     conform_flair.inputs.orientation = kwargs['ORIENTATION']
 
     crop = workflow.get_node('crop')
-    img1_norm = workflow.get_node('mg1_final_intensity_normalization')
+    img1_norm = workflow.get_node('img1_final_intensity_normalization')
     hard_post_brain_mask = workflow.get_node('hard_post_brain_mask')
 
     workflow.connect(datagrabber, "img2",
