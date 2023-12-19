@@ -6,6 +6,7 @@ from nipype.interfaces.base import (traits, TraitedSpec,
 
 from shivautils.interfaces.singularity import (CommandLine, SingularityCommandLine,
                                                SingularityInputSpec, CommandLineInputSpec)
+from nipype.interfaces.ants.registration import RegistrationInputSpec, RegistrationOutputSpec, Registration
 
 
 class PredictInputSpec(BaseInterfaceInputSpec):
@@ -186,3 +187,21 @@ class SynthsegSingularity(SingularityCommandLine):
         outputs["qc"] = os.path.abspath(os.path.split(str(self.inputs.qc))[1])
         outputs["volumes"] = os.path.abspath(os.path.split(str(self.inputs.vol))[1])
         return outputs
+
+
+class AntsRegistrationSingularityInputSpec(SingularityInputSpec, RegistrationInputSpec):
+    """antsRegistration input specification (singularity mixin).
+
+    Inherits from Singularity command line fields.
+    """
+    pass
+
+
+class AntsRegistrationSingularity(Registration, SingularityCommandLine):
+    def __init__(self):
+        """Call parent constructor."""
+        super(AntsRegistrationSingularity, self).__init__()
+
+    input_spec = AntsRegistrationSingularityInputSpec
+    output_spec = RegistrationOutputSpec
+    _cmd = Registration._cmd
