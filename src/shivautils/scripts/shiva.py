@@ -6,7 +6,7 @@ from shivautils.utils.parsing import shivaParser, set_args_and_check
 from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowDualPreproc
-from shivautils.workflows.preprocessing_swi_reg import gen_workflow_swi
+from shivautils.workflows.preprocessing_swi_reg import graft_workflow_swi
 from shivautils.workflows.preprocessing_premasked import genWorkflow as genWorkflow_preproc_masked
 from shivautils.interfaces.post import Join_Prediction_metrics, Join_QC_metrics
 from nipype import config
@@ -186,9 +186,10 @@ def main():
                 wf_preproc = genWorkflow_preproc_masked(**wfargs, wf_name=wf_name)
             else:
                 wf_preproc = genWorkflowPreproc(**wfargs, wf_name=wf_name)
-        if with_swi:  # Adding another preproc wf for swi, using t1 mask
+        if with_swi:  # Adding the swi preprocessing steps to the preproc workflow
             acquisitions.append(('img3', 'swi'))
-            wf_preproc_cmb = gen_workflow_swi(**wfargs, wf_name='shiva_swi_preprocessing')
+            cmb_preproc_wf_name = 'swi_preprocessing'
+            wf_preproc = graft_workflow_swi(wf_preproc, **wfargs, wf_name=cmb_preproc_wf_name)
         wf_preproc = update_wf_grabber(wf_preproc, args.input_type, acquisitions, seg)
     elif with_swi and not with_t1:  # CMB alone
         acquisitions.append(('img1', 'swi'))
@@ -206,37 +207,43 @@ def main():
     # Set all the connections between preproc and postproc
     main_wf.connect(subject_iterator, 'subject_id', wf_preproc, 'datagrabber.subject_id')
     main_wf.connect(subject_iterator, 'subject_id', wf_post, 'summary_report.subject_id')
-    main_wf.connect(wf_preproc, 'conform.resampled', wf_post, 'preproc_qc_workflow.qc_crop_box.img_apply_to')
-    if wfargs['BRAIN_SEG'] is None:
-        main_wf.connect(wf_preproc, 'hard_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_crop_box.brainmask')
-    else:
-        main_wf.connect(wf_preproc, 'conform_mask.resampled', wf_post, 'preproc_qc_workflow.qc_crop_box.brainmask')
-    main_wf.connect(wf_preproc, 'crop.bbox1', wf_post, 'preproc_qc_workflow.qc_crop_box.bbox1')
-    main_wf.connect(wf_preproc, 'crop.bbox2', wf_post, 'preproc_qc_workflow.qc_crop_box.bbox2')
-    main_wf.connect(wf_preproc, 'crop.cdg_ijk', wf_post, 'preproc_qc_workflow.qc_crop_box.cdg_ijk')
-    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask.brainmask')
-    main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask.img_ref')
-    main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.save_hist_final.img_normalized')
-    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'summary_report.brainmask')
-    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_metrics.brain_mask')
-
+    main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_crop_box.crop_brain_img', wf_post, 'summary_report.crop_brain_img')
+    main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_overlay_brainmask.overlayed_brainmask', wf_post, 'summary_report.overlayed_brainmask_1')
+    if with_swi and with_t1:
+        main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_overlay_brainmask_swi.overlayed_brainmask', wf_post, 'summary_report.overlayed_brainmask_2')
     if with_flair:
-        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.path_image')
-        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.path_ref_image')
-        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.path_brainmask')
-        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.mode', wf_post, 'preproc_qc_workflow.qc_metrics.flair_norm_peak')
-        main_wf.connect(wf_preproc, 'flair_to_t1.forward_transforms', wf_post, 'preproc_qc_workflow.qc_metrics.flair_reg_mat')
+        main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.qc_coreg', wf_post, 'summary_report.isocontour_slides_FLAIR_T1')
+    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'summary_report.brainmask')
+    # main_wf.connect(wf_preproc, 'conform.resampled', wf_post, 'preproc_qc_workflow.qc_crop_box.img_apply_to')
+    # if wfargs['BRAIN_SEG'] is None:
+    #     main_wf.connect(wf_preproc, 'hard_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_crop_box.brainmask')
+    # else:
+    #     main_wf.connect(wf_preproc, 'conform_mask.resampled', wf_post, 'preproc_qc_workflow.qc_crop_box.brainmask')
+    # main_wf.connect(wf_preproc, 'crop.bbox1', wf_post, 'preproc_qc_workflow.qc_crop_box.bbox1')
+    # main_wf.connect(wf_preproc, 'crop.bbox2', wf_post, 'preproc_qc_workflow.qc_crop_box.bbox2')
+    # main_wf.connect(wf_preproc, 'crop.cdg_ijk', wf_post, 'preproc_qc_workflow.qc_crop_box.cdg_ijk')
+    # main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask.brainmask')
+    # main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask.img_ref')
+    # main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.save_hist_final.img_normalized')
+    # main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_metrics.brain_mask')
 
-    if with_t1 and with_swi:
-        main_wf.add_nodes([wf_preproc_cmb])
-        main_wf.connect(wf_preproc, 'datagrabber.img3', wf_preproc_cmb, 'conform.img')
-        main_wf.connect(wf_preproc, 'crop.cropped', wf_preproc_cmb, 'swi_to_t1.fixed_image')
-        # main_wf.connect(wf_preproc, ('hard_post_brain_mask.thresholded', as_list), wf_preproc_cmb, 'swi_to_t1.fixed_image_masks')  # Sometime makes the reg fail (e.g. MICCAI)
-        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_preproc_cmb, 'mask_to_swi.input_image')
-        main_wf.connect(wf_preproc_cmb, 'mask_to_crop.resampled_image', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask_swi.brainmask')
-        main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask_swi.img_ref')
-        main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.mode', wf_post, 'preproc_qc_workflow.qc_metrics.swi_norm_peak')
-        main_wf.connect(wf_preproc_cmb, 'swi_to_t1.forward_transforms', wf_post, 'preproc_qc_workflow.qc_metrics.swi_reg_mat')
+    # if with_flair:
+    #     main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.path_image')
+    #     main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.path_ref_image')
+    #     main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.path_brainmask')
+    #     main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.mode', wf_post, 'preproc_qc_workflow.qc_metrics.flair_norm_peak')
+    #     main_wf.connect(wf_preproc, 'flair_to_t1.forward_transforms', wf_post, 'preproc_qc_workflow.qc_metrics.flair_reg_mat')
+
+    # if with_t1 and with_swi:
+    # main_wf.add_nodes([wf_preproc_cmb])
+    # main_wf.connect(wf_preproc, 'datagrabber.img3', wf_preproc_cmb, 'conform.img')
+    # main_wf.connect(wf_preproc, 'crop.cropped', wf_preproc_cmb, 'swi_to_t1.fixed_image')
+    # # main_wf.connect(wf_preproc, ('hard_post_brain_mask.thresholded', as_list), wf_preproc_cmb, 'swi_to_t1.fixed_image_masks')  # Sometime makes the reg fail (e.g. MICCAI)
+    # main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_preproc_cmb, 'mask_to_swi.input_image')
+    # main_wf.connect(wf_preproc_cmb, 'mask_to_crop.resampled_image', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask_swi.brainmask')
+    # main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', wf_post, 'preproc_qc_workflow.qc_overlay_brainmask_swi.img_ref')
+    # main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.mode', wf_post, 'preproc_qc_workflow.qc_metrics.swi_norm_peak')
+    # main_wf.connect(wf_preproc_cmb, 'swi_to_t1.forward_transforms', wf_post, 'preproc_qc_workflow.qc_metrics.swi_reg_mat')
 
     # Joining the individual QC metrics
     qc_joiner = JoinNode(Join_QC_metrics(),
@@ -347,9 +354,9 @@ def main():
         main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', prediction_metrics_cmb_all, 'csv_files')
         main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_cmb_all, 'subject_id')
         if with_t1:
-            main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', segmentation_wf, 'predict_cmb.swi')
+            main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_intensity_normalisation.intensity_normalized', segmentation_wf, 'predict_cmb.swi')
             main_wf.connect(segmentation_wf, 'predict_cmb.segmentation', wf_post, 'swi_pred_to_t1.input_image')
-            main_wf.connect(wf_preproc_cmb, 'swi_to_t1.forward_transforms', wf_post, 'swi_pred_to_t1.transforms')
+            main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_to_t1.forward_transforms', wf_post, 'swi_pred_to_t1.transforms')
             main_wf.connect(wf_preproc, 'crop.cropped', wf_post, 'swi_pred_to_t1.reference_image')
         else:
             main_wf.connect(segmentation_wf, 'predict_cmb.segmentation', wf_post, 'prediction_metrics_cmb.img')
@@ -425,13 +432,13 @@ def main():
     if with_flair:
         main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'shiva_preproc.flair_preproc')
     if with_swi and with_t1:
-        main_wf.connect(wf_preproc_cmb, 'swi_intensity_normalisation.intensity_normalized', sink_node_subjects, 'shiva_preproc.swi_preproc')
-        main_wf.connect(wf_preproc_cmb, 'mask_to_swi.output_image', sink_node_subjects, 'shiva_preproc.swi_preproc.@brain_mask')
-        main_wf.connect(wf_preproc_cmb, 'swi_to_t1.warped_image', sink_node_subjects, 'shiva_preproc.swi_preproc.@reg_to_t1')
-        main_wf.connect(wf_preproc_cmb, 'swi_to_t1.forward_transforms', sink_node_subjects, 'shiva_preproc.swi_preproc.@reg_to_t1_transf')
-        main_wf.connect(wf_preproc_cmb, 'crop_swi.bbox1_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@bb1')
-        main_wf.connect(wf_preproc_cmb, 'crop_swi.bbox2_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@bb2')
-        main_wf.connect(wf_preproc_cmb, 'crop_swi.cdg_ijk_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@cdg')
+        main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_intensity_normalisation.intensity_normalized', sink_node_subjects, 'shiva_preproc.swi_preproc')
+        main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.mask_to_swi.output_image', sink_node_subjects, 'shiva_preproc.swi_preproc.@brain_mask')
+        main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_to_t1.warped_image', sink_node_subjects, 'shiva_preproc.swi_preproc.@reg_to_t1')
+        main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_to_t1.forward_transforms', sink_node_subjects, 'shiva_preproc.swi_preproc.@reg_to_t1_transf')
+        main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.crop_swi.bbox1_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@bb1')
+        main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.crop_swi.bbox2_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@bb2')
+        main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.crop_swi.cdg_ijk_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@cdg')
 
     # Pred and postproc
     main_wf.connect(wf_post, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', sink_node_subjects, 'shiva_preproc.qc_metrics')

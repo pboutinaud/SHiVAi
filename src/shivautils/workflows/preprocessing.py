@@ -5,6 +5,20 @@
     conformed-crop to T1 or SWI ('img1').
 
     Its datagrabber requires to be connected to an external 'subject_id' from an iterable
+
+        
+    (qc_crop_box, 'img_apply_to')
+    (qc_crop_box, 'brainmask')
+    (qc_crop_box, 'bbox1')
+    (qc_crop_box, 'bbox2')
+    (qc_crop_box, 'cdg_ijk')
+    (qc_overlay_brainmask, 'brainmask')
+    (qc_overlay_brainmask, 'img_ref')
+
+    if dual:
+        (qc_coreg_FLAIR_T1, 'path_image')
+        (qc_coreg_FLAIR_T1, 'path_ref_image')
+        (qc_coreg_FLAIR_T1, 'path_brainmask')
 """
 import os
 
@@ -15,6 +29,7 @@ from nipype.interfaces.io import DataGrabber
 from shivautils.interfaces.image import (Threshold, Normalization,
                                          Conform, Crop, Resample_from_to)
 from shivautils.interfaces.shiva import Predict, PredictSingularity
+from shivautils.workflows.qc_preproc import gen_qc_wf
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
@@ -194,6 +209,21 @@ def genWorkflow(**kwargs) -> Workflow:
                      img1_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      img1_norm, 'brain_mask')
+
+    # Adding the QC sub-workflow
+    # Initializing the wf
+    qc_wf = gen_qc_wf('preproc_qc_workflow')
+    workflow.add_nodes([qc_wf])
+    # Connect QC nodes
+    workflow.connect(conform, 'resampled', qc_wf, 'qc_crop_box.img_apply_to')
+    workflow.connect(hard_brain_mask, 'thresholded', qc_wf, 'qc_crop_box.brainmask')  # Specific to full preprocessing (no inpu brain seg)
+    workflow.connect(crop, 'bbox1', qc_wf, 'qc_crop_box.bbox1')
+    workflow.connect(crop, 'bbox2', qc_wf, 'qc_crop_box.bbox2')
+    workflow.connect(crop, 'cdg_ijk', qc_wf, 'qc_crop_box.cdg_ijk')
+    workflow.connect(hard_post_brain_mask, 'thresholded', qc_wf, 'qc_overlay_brainmask.brainmask')
+    workflow.connect(img1_norm, 'intensity_normalized', qc_wf, 'qc_overlay_brainmask.img_ref')
+    workflow.connect(img1_norm, 'intensity_normalized', qc_wf, 'save_hist_final.img_normalized')
+    workflow.connect(hard_post_brain_mask, 'thresholded', qc_wf, 'qc_metrics.brain_mask')
 
     return workflow
 

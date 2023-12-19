@@ -12,6 +12,7 @@ from shivautils.utils.misc import as_list
 from shivautils.interfaces.image import Normalization, Conform
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from shivautils.workflows.preprocessing_premasked import genWorkflow as genWorkflow_preproc_masked
+from shivautils.workflows.qc_preproc import qc_wf_add_flair
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
@@ -97,6 +98,15 @@ def genWorkflow(**kwargs) -> Workflow:
                      img2_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      img2_norm, 'brain_mask')
+
+    # QC
+    qc_wf = workflow.get_node('preproc_qc_workflow')
+    qc_wf = qc_wf_add_flair(qc_wf)
+    workflow.connect(img2_norm, 'intensity_normalized', qc_wf, 'qc_coreg_FLAIR_T1.path_image')
+    workflow.connect(workflow, 'img1_final_intensity_normalization.intensity_normalized', qc_wf, 'qc_coreg_FLAIR_T1.path_ref_image')
+    workflow.connect(hard_post_brain_mask, 'thresholded', qc_wf, 'qc_coreg_FLAIR_T1.path_brainmask')
+    workflow.connect(img2_norm, 'mode', qc_wf, 'qc_metrics.flair_norm_peak')
+    workflow.connect(flair_to_t1, 'forward_transforms', qc_wf, 'qc_metrics.flair_reg_mat')
 
     return workflow
 

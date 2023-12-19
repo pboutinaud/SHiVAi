@@ -1,38 +1,31 @@
 #!/usr/bin/env python
 """Nipype workflow for post-processing.
 
-Required connections to set outside of the workflow:
+    Required connections to set outside of the workflow:
 
-(summary_report, 'subject_id')
-(qc_crop_box, 'img_apply_to')
-(qc_crop_box, 'brainmask')
-(qc_crop_box, 'bbox1')
-(qc_crop_box, 'bbox2')
-(qc_crop_box, 'cdg_ijk')
-(qc_overlay_brainmask, 'brainmask')
-(qc_overlay_brainmask, 'img_ref')
-(summary_report, 'brainmask')
-(summary_report, 'wf_graph')
+    (summary_report, 'subject_id')
+    (summary_report, 'brainmask')
+    (summary_report, 'wf_graph')
+    (summary_report, 'crop_brain_img')
+    (summary_report, 'overlayed_brainmask_1')
+    
+    if with_swi and with_t1:
+        (summary_report, 'overlayed_brainmask_2')
+    if with_flair:
+        (summary_report, 'isocontour_slides_FLAIR_T1')
 
-if dual:
-        (qc_coreg_FLAIR_T1, 'path_image')
-        (qc_coreg_FLAIR_T1, 'path_ref_image')
-        (qc_coreg_FLAIR_T1, 'path_brainmask')
-
-
-if PVS:
-    (prediction_metrics_pvs, 'img')
-    (prediction_metrics_pvs, 'brain_seg') can be brainmask or synthseg
-if WMH:
-    (prediction_metrics_wmh, 'img')
-    (prediction_metrics_wmh, 'brain_seg') can be brainmask or synthseg
-if CMB:
-    (prediction_metrics_cmb, 'img')
-    (prediction_metrics_cmb, 'brain_seg') can be brainmask or synthseg
-if LAC:
-    (prediction_metrics_lac, 'img')
-    (prediction_metrics_lac, 'brain_seg') can be brainmask or synthseg
-
+    if PVS:
+        (prediction_metrics_pvs, 'img')
+        (prediction_metrics_pvs, 'brain_seg') can be brainmask or synthseg
+    if WMH:
+        (prediction_metrics_wmh, 'img')
+        (prediction_metrics_wmh, 'brain_seg') can be brainmask or synthseg
+    if CMB:
+        (prediction_metrics_cmb, 'img')
+        (prediction_metrics_cmb, 'brain_seg') can be brainmask or synthseg
+    if LAC:
+        (prediction_metrics_lac, 'img')
+        (prediction_metrics_lac, 'brain_seg') can be brainmask or synthseg
 
    """
 import os
@@ -43,7 +36,6 @@ from nipype.interfaces import ants
 
 from shivautils.interfaces.post import SummaryReport
 from shivautils.interfaces.image import Regionwise_Prediction_metrics
-from shivautils.workflows.qc_preproc import gen_qc_wf, qc_wf_add_flair, qc_wf_add_swi
 from shivautils.utils.misc import set_wf_shapers
 
 
@@ -167,12 +159,12 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # QC part
     # Initialising the QC sub-workflow
-    qc_wf = gen_qc_wf('preproc_qc_workflow')  # We may move this in preproc...
-    if with_flair:  # dual predictions
-        qc_wf = qc_wf_add_flair(qc_wf)
-    if with_swi and with_t1:
-        qc_wf = qc_wf_add_swi(qc_wf)
-    workflow.add_nodes([qc_wf])
+    # qc_wf = gen_qc_wf('preproc_qc_workflow')
+    # if with_flair:  # dual predictions
+    #     qc_wf = qc_wf_add_flair(qc_wf)
+    # if with_swi and with_t1:
+    #     qc_wf = qc_wf_add_swi(qc_wf)
+    # workflow.add_nodes([qc_wf])
 
     # Building the actual report (html then pdf)
     summary_report = Node(SummaryReport(), name="summary_report")
@@ -204,12 +196,12 @@ def genWorkflow(**kwargs) -> Workflow:
         'LAC': kwargs['MIN_LAC_SIZE']}
     summary_report.inputs.pred_list = preds
 
-    workflow.connect(qc_wf, 'qc_crop_box.crop_brain_img', summary_report, 'crop_brain_img')
-    workflow.connect(qc_wf, 'qc_overlay_brainmask.overlayed_brainmask', summary_report, 'overlayed_brainmask_1')
-    if with_swi and with_t1:
-        workflow.connect(qc_wf, 'qc_overlay_brainmask_swi.overlayed_brainmask', summary_report, 'overlayed_brainmask_2')
-    if with_flair:
-        workflow.connect(qc_wf, 'qc_coreg_FLAIR_T1.qc_coreg', summary_report, 'isocontour_slides_FLAIR_T1')
+    # workflow.connect(qc_wf, 'qc_crop_box.crop_brain_img', summary_report, 'crop_brain_img')
+    # workflow.connect(qc_wf, 'qc_overlay_brainmask.overlayed_brainmask', summary_report, 'overlayed_brainmask_1')
+    # if with_swi and with_t1:
+    #     workflow.connect(qc_wf, 'qc_overlay_brainmask_swi.overlayed_brainmask', summary_report, 'overlayed_brainmask_2')
+    # if with_flair:
+    #     workflow.connect(qc_wf, 'qc_coreg_FLAIR_T1.qc_coreg', summary_report, 'isocontour_slides_FLAIR_T1')
 
     return workflow
 

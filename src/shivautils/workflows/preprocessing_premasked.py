@@ -6,11 +6,9 @@
     Its datagrabber requires to be connected to an external 'subject_id' from an iterable
 """
 
-import os
-
 from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces import ants
 from nipype.interfaces.io import DataGrabber
+from shivautils.workflows.qc_preproc import gen_qc_wf
 
 from shivautils.interfaces.image import (Normalization, Threshold,
                                          Conform, Crop, Resample_from_to)
@@ -89,5 +87,20 @@ def genWorkflow(**kwargs) -> Workflow:
                      img1_norm, 'input_image')
     workflow.connect(mask_to_crop, 'resampled_image',
                      img1_norm, 'brain_mask')
+
+    # Adding the QC sub-workflow
+    # Initializing the wf
+    qc_wf = gen_qc_wf('preproc_qc_workflow')
+    workflow.add_nodes([qc_wf])
+    # Connect QC nodes
+    workflow.connect(conform, 'resampled', qc_wf, 'qc_crop_box.img_apply_to')
+    workflow.connect(conform_mask, 'resampled', qc_wf, 'qc_crop_box.brainmask')  # Specific preprocessing with brain seg
+    workflow.connect(crop, 'bbox1', qc_wf, 'qc_crop_box.bbox1')
+    workflow.connect(crop, 'bbox2', qc_wf, 'qc_crop_box.bbox2')
+    workflow.connect(crop, 'cdg_ijk', qc_wf, 'qc_crop_box.cdg_ijk')
+    workflow.connect(hard_post_brain_mask, 'thresholded', qc_wf, 'qc_overlay_brainmask.brainmask')
+    workflow.connect(img1_norm, 'intensity_normalized', qc_wf, 'qc_overlay_brainmask.img_ref')
+    workflow.connect(img1_norm, 'intensity_normalized', qc_wf, 'save_hist_final.img_normalized')
+    workflow.connect(hard_post_brain_mask, 'thresholded', qc_wf, 'qc_metrics.brain_mask')
 
     return workflow
