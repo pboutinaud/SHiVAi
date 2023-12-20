@@ -30,13 +30,23 @@ def shivaParser():
                         help="Way to grab and manage nifti files : 'standard', 'BIDS' or 'json'",
                         default='standard')
 
-    parser.add_argument('--sub_list',
-                        type=str,
-                        required=False,
-                        help=('Text file containing the list of participant IDs to be processed. The IDs must be '
-                              'the same as the ones given in the input folder. In the file, the IDs can be separated '
-                              'by a whitespace, a comma, or a new line (or a combination of those). If this argument '
-                              'is not given, all the participants in the input folder will be processed'))
+    sub_lists_args = parser.add_mutually_exclusive_group()
+    sub_lists_args.add_argument('--sub_list',
+                                type=str,
+                                required=False,
+                                help=('Text file containing the list of participant IDs to be processed. The IDs must be '
+                                      'the same as the ones given in the input folder. In the file, the IDs can be separated '
+                                      'by a whitespace, a new line, or any of the following characters [ "," ";" "|" ] '
+                                      '(or a combination of those). If this argument is not given, all the participants '
+                                      'in the input folder will be processed'))
+
+    sub_lists_args.add_argument('--exclusion_list',
+                                type=str,
+                                required=False,
+                                help=('Text file containing the list of participant IDs to NOT be processed. This option can be '
+                                      'used when processing all the data in the input folder except for a few (because they have '
+                                      'faulty data for exemple).\n'
+                                      'In the file, the syntax is the same as for --sub_list.'))
 
     parser.add_argument('--prediction',
                         choices=['PVS', 'PVS2', 'WMH', 'CMB', 'LAC', 'all'],
@@ -246,6 +256,24 @@ def shivaParser():
 
 def set_args_and_check(inParser):
 
+    def parse_sub_list_file(filename):
+        list_path = os.path.abspath(filename)
+        sub_list = []
+        sep_chars = [' ', ';', '|']
+        if not os.path.exists(list_path):
+            raise FileNotFoundError(f'The participant list file was not found at the given location: {list_path}')
+        with open(list_path) as f:
+            lines = f.readlines()
+        for line in lines:
+            line_s = line.strip('\n')
+            # replacing potential separators with commas
+            for sep in sep_chars:
+                if sep in line_s:
+                    line_s = line_s.replace(sep, ',')
+            subs = line_s.split(',')
+            sub_list += [s.strip() for s in subs if s]
+        return sub_list
+
     args = inParser.parse_args()
     args.input = os.path.abspath(args.input)
     args.output = os.path.abspath(args.output)
@@ -264,27 +292,12 @@ def set_args_and_check(inParser):
 
     subject_list = os.listdir(args.input)
     if args.sub_list is None:
+        if args.exclusion_list:
+            args.exclusion_list = parse_sub_list_file(args.exclusion_list)
+            subject_list = sorted(list(set(subject_list) - set(args.exclusion_list)))
         args.sub_list = subject_list
     else:
-        list_path = os.path.abspath(args.sub_list)
-        args.sub_list = []
-        if not os.path.exists(list_path):
-            raise FileNotFoundError(f'The participant list file was not found at the given location: {list_path}')
-        with open(list_path) as f:
-            lines = f.readlines()
-        for line in lines:
-            line_s = line.strip('\n')
-            subs = line_s.split(',')
-            subs = [s.strip() for s in subs]
-            for sub in subs:
-                if ' ' in sub:
-                    subs2 = sub.split()  # if sep is whitespace
-                    for sub2 in subs2:
-                        if len(sub):
-                            args.sub_list.append(sub2)
-                else:
-                    if len(sub):
-                        args.sub_list.append(sub)
+        args.sub_list = parse_sub_list_file(args.sub_list)
         subs_not_in_dir = set(args.sub_list) - set(subject_list)
         if len(subs_not_in_dir) == len(args.sub_list):
             raise ValueError('None of the participant IDs given in the sub_list file was found in the input directory.\n'
@@ -357,7 +370,7 @@ def set_args_and_check(inParser):
     if not isinstance(args.prediction, list):  # When only one input
         args.prediction = [args.prediction]
 
-    if args.preproc_results:
+    if args.preproc_results is not None:
         args.preproc_results = os.path.abspath(args.preproc_results)
         if not os.path.exists(args.preproc_results):
             raise FileNotFoundError(
