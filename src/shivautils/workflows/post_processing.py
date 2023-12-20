@@ -45,45 +45,6 @@ dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
               }
 
 
-def get_maps_from_dict(subject_id,
-                       preproc_dict,
-                       pvs_pred_dict=None,
-                       wmh_pred_dict=None,
-                       cmb_pred_dict=None,
-                       lac_pred_dict=None,
-                       wf_graph=None,  # Placeholder
-                       brain_seg=None  # SynthSeg
-                       ):
-    if pvs_pred_dict is not None:
-        segmentation_pvs = pvs_pred_dict[subject_id]
-    else:
-        segmentation_pvs = None
-    if wmh_pred_dict is not None:
-        segmentation_wmh = wmh_pred_dict[subject_id]
-    else:
-        segmentation_wmh = None
-    if cmb_pred_dict is not None:
-        segmentation_cmb = cmb_pred_dict[subject_id]
-    else:
-        segmentation_cmb = None
-    if lac_pred_dict is not None:
-        segmentation_lac = lac_pred_dict[subject_id]
-    else:
-        segmentation_lac = None
-    T1_cropped = preproc_dict[subject_id]['T1_cropped']
-    brainmask = preproc_dict[subject_id]['brainmask']
-    pre_brainmask = preproc_dict[subject_id]['pre_brainmask']
-    T1_conform = preproc_dict[subject_id]['T1_conform']
-    bbox1 = preproc_dict[subject_id]['bbox1']
-    bbox2 = preproc_dict[subject_id]['bbox2']
-    cdg_ijk = preproc_dict[subject_id]['cdg_ijk']
-    FLAIR_cropped = preproc_dict[subject_id]['FLAIR_cropped']
-    SWI_cropped = preproc_dict[subject_id]['SWI_cropped']
-    return (segmentation_pvs, segmentation_wmh, segmentation_cmb, segmentation_lac, T1_cropped, brainmask, pre_brainmask,
-            T1_conform, bbox1, bbox2, cdg_ijk, wf_graph,
-            FLAIR_cropped, SWI_cropped, brain_seg)
-
-
 def genWorkflow(**kwargs) -> Workflow:
     """
     Generate a nipype workflow to produce statistics and reports for the segmentations
@@ -116,7 +77,7 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_pvs.inputs.thr_cluster_size = kwargs['MIN_PVS_SIZE'] - 1  # "- 1 because thr removes up to given value"
         # TODO: This is when using only brainmask, we need synthseg for BG
         # if not synthseg:
-        prediction_metrics_pvs.inputs.brain_seg_type = 'brain_mask'
+        prediction_metrics_pvs.inputs.brain_seg_type = 'brain_mask'  # see with kwargs['BRAIN_SEG']
         prediction_metrics_pvs.inputs.region_list = ['Whole_brain']
         # else:
         # prediction_metrics_pvs.inputs.brain_seg_type = 'synthseg'
