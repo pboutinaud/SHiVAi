@@ -312,8 +312,9 @@ class SPMApplyDeformation(SPMCommand):
 class SummaryReportInputSpec(BaseInterfaceInputSpec):
     """Make summary report file in pdf format"""
 
-    anonymized = traits.Bool(False, exists=True,
+    anonymized = traits.Bool(False,
                              mandatory=False,
+                             usedefault=True,
                              desc='Anonymized Subject ID')
 
     subject_id = traits.Str(desc="id for each subject")
@@ -334,17 +335,24 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
                                  mandatory=False)
     lac_census_csv = traits.File(desc='csv file compiling each lac size (and region)',
                                  mandatory=False)
+
     pred_list = traits.List(traits.Str,
                             desc='List of the different predictions computed ("PVS", "WMH", "CMB" or "LAC")')
+
     brainmask = traits.File(exists=True,
                             desc='Nifti file of the brain mask in t1 space, 1x1x1mm resolution')
-    crop_brain_img = traits.File(desc='PNG file of the crop box, the first brain mask on the brain')
+
+    crop_brain_img = traits.File(mandatory=False,
+                                 exists=True,
+                                 desc='PNG file of the crop box, the first brain mask on the brain')
 
     isocontour_slides_FLAIR_T1 = traits.File(mandatory=False,
                                              exists=True,
                                              desc='PNG file of the FLAIR isocontour on T1 (QC of coregistration)')
 
-    overlayed_brainmask_1 = traits.File(desc='PNG file of the final brain mask on first acquisition (T1 or SWI)')
+    overlayed_brainmask_1 = traits.File(mandatory=False,
+                                        exists=True,
+                                        desc='PNG file of the final brain mask on first acquisition (T1 or SWI)')
 
     overlayed_brainmask_2 = traits.File(mandatory=False,
                                         exists=True,
@@ -418,6 +426,14 @@ class SummaryReport(BaseInterface):
             pred_census_im_dict['LAC'] = swarmplot_from_census(self.inputs.lac_census_csv, 'LAC')
 
         # set optional inputs to None if undefined
+        if isdefined(self.inputs.overlayed_brainmask_1):
+            overlayed_brainmask_1 = self.inputs.overlayed_brainmask_1
+        else:
+            overlayed_brainmask_1 = None
+        if isdefined(self.inputs.crop_brain_img):
+            crop_brain_img = self.inputs.crop_brain_img
+        else:
+            crop_brain_img = None
         if isdefined(self.inputs.isocontour_slides_FLAIR_T1):
             isocontour_slides_FLAIR_T1 = self.inputs.isocontour_slides_FLAIR_T1
         else:
@@ -437,8 +453,8 @@ class SummaryReport(BaseInterface):
             brain_vol=brain_vol,
             thr_cluster_val=self.inputs.thr_cluster_val,
             min_seg_size=self.inputs.min_seg_size,
-            bounding_crop_path=self.inputs.crop_brain_img,
-            overlayed_brainmask_1=self.inputs.overlayed_brainmask_1,
+            bounding_crop=crop_brain_img,  #
+            overlayed_brainmask_1=overlayed_brainmask_1,  #
             overlayed_brainmask_2=overlayed_brainmask_2,
             isocontour_slides_FLAIR_T1=isocontour_slides_FLAIR_T1,
             subject_id=subject_id,

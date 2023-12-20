@@ -24,8 +24,10 @@
     </div>
     {% endfor %}
 
+    {% if bounding_crop || overlayed_brainmask_1 || isocontour_slides_FLAIR_T1 || overlayed_brainmask_2 %}
     <div class="test">
         <h1>Quality control</h1>
+        {% if bounding_crop %}
         <h2>Crop-box and first brain mask</h2>
         <p>Display of the cropping region used on the conformed image (256x256x256 at 1.0 mm<sup>3</sup>
             resolution), as well as the first brain mask used to position the crop-box. The cropped
@@ -33,7 +35,7 @@
 
         <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ bounding_crop }}' width="600"
             height="400"></object>
-
+        {% endif %}
         {% if overlayed_brainmask_1 %}
         <h2>Overlay of final brainmask over cropped {{ modality }}</h2>
         <p>Overlay of the brainmask on {{ modality }} image: {{ image_size }} voxels at {{ resolution }} mm<sup>3</sup>,
@@ -55,9 +57,10 @@
             (with censoring for voxels outside the brain mask)</p>
         <img src='data:image/png;base64, {{ overlayed_brainmask_2 }}' width="600" height="300">
         {% endif %}
-
     </div>
-    <h2>Addiotional workflow informations and parameters</h2>
+    {% endif %}
+
+    <h2>Additional workflow informations and parameters</h2>
     <p>Shiva version: {{ version }}</p>
     <p>Input parameters:</p>
     <p>- "percentile" (as upper threshold during intensity normalisation): {{ percentile }}</p>

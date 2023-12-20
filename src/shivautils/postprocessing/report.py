@@ -10,7 +10,7 @@ def make_report(
         brain_vol: float,
         thr_cluster_val: float,
         min_seg_size: dict,
-        bounding_crop_path: str,
+        bounding_crop: str,
         overlayed_brainmask_1: str = None,
         overlayed_brainmask_2: str = None,
         isocontour_slides_FLAIR_T1: str = None,
@@ -115,9 +115,10 @@ def make_report(
             image_data = f.read()
         overlayed_brainmask_2 = base64.b64encode(image_data).decode()
 
-    with open(bounding_crop_path, 'rb') as f:
-        image_data = f.read()
-    bounding_crop = base64.b64encode(image_data).decode()
+    if bounding_crop is not None:
+        with open(bounding_crop, 'rb') as f:
+            image_data = f.read()
+        bounding_crop = base64.b64encode(image_data).decode()
 
     if wf_graph is not None:
         with open(wf_graph, 'rb') as f:
