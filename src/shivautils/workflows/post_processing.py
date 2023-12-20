@@ -104,6 +104,10 @@ def genWorkflow(**kwargs) -> Workflow:
     # Segmentation part
     preds = []
     if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:  # WARN: None of this is SWOMed compatible
+        if 'PVS' in kwargs['PREDICTION']:
+            pvs_descriptor = kwargs['PVS_DESCRIPTOR']
+        elif 'PVS2' in kwargs['PREDICTION']:
+            pvs_descriptor = kwargs['PVS2_DESCRIPTOR']
         preds.append('PVS')
         prediction_metrics_pvs = Node(Regionwise_Prediction_metrics(),
                                       name="prediction_metrics_pvs")
@@ -163,15 +167,19 @@ def genWorkflow(**kwargs) -> Workflow:
     if 'PVS' in preds:
         workflow.connect(prediction_metrics_pvs, 'biomarker_stats_csv', summary_report, 'pvs_metrics_csv')
         workflow.connect(prediction_metrics_pvs, 'biomarker_census_csv', summary_report, 'pvs_census_csv')
+        summary_report.inputs.pvs_model_descriptor = os.path.join(kwargs['MODELS_PATH'], pvs_descriptor)
     if 'WMH' in preds:
         workflow.connect(prediction_metrics_wmh, 'biomarker_stats_csv', summary_report, 'wmh_metrics_csv')
         workflow.connect(prediction_metrics_wmh, 'biomarker_census_csv', summary_report, 'wmh_census_csv')
+        summary_report.inputs.wmh_model_descriptor = os.path.join(kwargs['MODELS_PATH'], kwargs['WMH_DESCRIPTOR'])
     if 'CMB' in preds:
         workflow.connect(prediction_metrics_cmb, 'biomarker_stats_csv', summary_report, 'cmb_metrics_csv')
         workflow.connect(prediction_metrics_cmb, 'biomarker_census_csv', summary_report, 'cmb_census_csv')
+        summary_report.inputs.cmb_model_descriptor = os.path.join(kwargs['MODELS_PATH'], kwargs['CMB_DESCRIPTOR'])
     if 'LAC' in preds:
         workflow.connect(prediction_metrics_lac, 'biomarker_stats_csv', summary_report, 'lac_metrics_csv')
         workflow.connect(prediction_metrics_lac, 'biomarker_census_csv', summary_report, 'lac_census_csv')
+        summary_report.inputs.lac_model_descriptor = os.path.join(kwargs['MODELS_PATH'], kwargs['LAC_DESCRIPTOR'])
 
     # QC section
     summary_report.inputs.anonymized = kwargs['ANONYMIZED']

@@ -28,6 +28,7 @@ from string import Template
 from shivautils.utils.stats import transf_from_affine
 from shivautils.postprocessing.report import make_report
 from shivautils.utils.stats import swarmplot_from_census
+from shivautils.utils.misc import get_md5_from_json
 from shivautils.postprocessing import __file__ as postproc_init
 
 
@@ -377,6 +378,19 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
     min_seg_size = traits.Dict(key_trait=traits.Str, value_trait=traits.Int,
                                desc='Dictionary holding the minimal size set to filter segmented biomarkers')
 
+    pvs_model_descriptor = traits.File(mandatory=False,
+                                       exists=True,
+                                       desc='Full path to the json descriptor for the PVS AI models')
+    wmh_model_descriptor = traits.File(mandatory=False,
+                                       exists=True,
+                                       desc='Full path to the json descriptor for the WMH AI models')
+    cmb_model_descriptor = traits.File(mandatory=False,
+                                       exists=True,
+                                       desc='Full path to the json descriptor for the CMB AI models')
+    lac_model_descriptor = traits.File(mandatory=False,
+                                       exists=True,
+                                       desc='Full path to the json descriptor for the lacunas AI models')
+
 
 class SummaryReportOutputSpec(TraitedSpec):
     """Output class
@@ -411,19 +425,24 @@ class SummaryReport(BaseInterface):
         brain_vol = nib.load(self.inputs.brainmask).get_fdata().astype(bool).sum()
         pred_metrics_dict = {}  # Will contain the stats dataframe for each biomarker
         pred_census_im_dict = {}  # Will contain the path to the swarm plot for each biomarker
+        models_uid = {}  # Will contain the md5 hash for each file of each predictive model
         pred_list = self.inputs.pred_list
         if 'PVS' in pred_list:
             pred_metrics_dict['PVS'] = pd.read_csv(self.inputs.pvs_metrics_csv, index_col=0)
             pred_census_im_dict['PVS'] = swarmplot_from_census(self.inputs.pvs_census_csv, 'PVS')
+            models_uid['PVS'] = get_md5_from_json(self.inputs.pvs_model_descriptor)
         if 'WMH' in pred_list:
             pred_metrics_dict['WMH'] = pd.read_csv(self.inputs.wmh_metrics_csv, index_col=0)
             pred_census_im_dict['WMH'] = swarmplot_from_census(self.inputs.wmh_census_csv, 'WMH')
+            models_uid['WMH'] = get_md5_from_json(self.inputs.wmh_model_descriptor)
         if 'CMB' in pred_list:
             pred_metrics_dict['CMB'] = pd.read_csv(self.inputs.cmb_metrics_csv, index_col=0)
             pred_census_im_dict['CMB'] = swarmplot_from_census(self.inputs.cmb_census_csv, 'CMB')
+            models_uid['CMB'] = get_md5_from_json(self.inputs.cmb_model_descriptor)
         if 'LAC' in pred_list:
             pred_metrics_dict['LAC'] = pd.read_csv(self.inputs.lac_metrics_csv, index_col=0)
             pred_census_im_dict['LAC'] = swarmplot_from_census(self.inputs.lac_census_csv, 'LAC')
+            models_uid['LAC'] = get_md5_from_json(self.inputs.lac_model_descriptor)
 
         # set optional inputs to None if undefined
         if isdefined(self.inputs.overlayed_brainmask_1):
@@ -453,8 +472,9 @@ class SummaryReport(BaseInterface):
             brain_vol=brain_vol,
             thr_cluster_val=self.inputs.thr_cluster_val,
             min_seg_size=self.inputs.min_seg_size,
-            bounding_crop=crop_brain_img,  #
-            overlayed_brainmask_1=overlayed_brainmask_1,  #
+            models_uid=models_uid,
+            bounding_crop=crop_brain_img,
+            overlayed_brainmask_1=overlayed_brainmask_1,
             overlayed_brainmask_2=overlayed_brainmask_2,
             isocontour_slides_FLAIR_T1=isocontour_slides_FLAIR_T1,
             subject_id=subject_id,

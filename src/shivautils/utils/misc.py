@@ -5,6 +5,7 @@ Miscellaneous functions usefull in multiple scripts
 import hashlib
 import os
 import pathlib
+import json
 
 
 def md5(fname):
@@ -33,6 +34,15 @@ def md5(fname):
     else:
         raise FileNotFoundError(f'The input is neither a file nor a folder: {fname}')
     return hash_md5.hexdigest()
+
+
+def get_md5_from_json(json_path):
+    with open(json_path) as f:
+        meta_data = json.load(f)
+    uid_model = {}
+    for i, model_file in enumerate(meta_data["files"]):
+        uid_model[f'Model file {i + 1}'] = model_file["md5"]
+    return uid_model
 
 
 def set_wf_shapers(predictions):
