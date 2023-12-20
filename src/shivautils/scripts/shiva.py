@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Workflow script for singularity container"""
 from shivautils.utils.parsing import shivaParser, set_args_and_check
-from shivautils.workflows.main_workflow import generate_main_wf
+from shivautils.workflows.main_workflow import generate_main_wf, generate_main_wf_grab_preproc
 from nipype import config
 import os
 import json
@@ -80,7 +80,7 @@ def main():
     if 'reg' in args.node_plugin_args.keys():
         reg_plugin_args = args.node_plugin_args['reg']
 
-    wf_prep = {'input_type': args.input_type, 'prev_qc': args.prev_qc}
+    wf_prep = {'input_type': args.input_type, 'prev_qc': args.prev_qc, 'preproc_res': args.preproc_results}
 
     # wfargs are settings shared between workflows. It's clearer to have them all in one dict and pass it around
     wfargs = {
@@ -127,7 +127,11 @@ def main():
     print(f'Working directory set to: {out_dir}')
 
     # Run the workflow
-    main_wf = generate_main_wf(wfargs)
+    if args.preproc_results is None:
+        main_wf = generate_main_wf(wfargs)
+    else:
+        main_wf = generate_main_wf_grab_preproc(wfargs)
+
     if args.keep_all:
         config.enable_provenance()
         main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
