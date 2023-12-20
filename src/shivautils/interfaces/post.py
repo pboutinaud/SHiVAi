@@ -337,7 +337,7 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
     pred_list = traits.List(traits.Str,
                             desc='List of the different predictions computed ("PVS", "WMH", "CMB" or "LAC")')
     brainmask = traits.File(exists=True,
-                            desc='Nifti file of the brain mask in raw space')
+                            desc='Nifti file of the brain mask in t1 space, 1x1x1mm resolution')
     crop_brain_img = traits.File(desc='PNG file of the crop box, the first brain mask on the brain')
 
     isocontour_slides_FLAIR_T1 = traits.File(mandatory=False,
