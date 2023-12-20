@@ -313,7 +313,7 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
     """Make summary report file in pdf format"""
 
     anonymized = traits.Bool(False, exists=True,
-                             amandatory=False,
+                             mandatory=False,
                              desc='Anonymized Subject ID')
 
     subject_id = traits.Str(desc="id for each subject")
