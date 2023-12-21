@@ -130,14 +130,6 @@ def shivaParser():
                               'preprocessing. This data will be used to estimate outliers and thus help detect '
                               'participants that may have a faulty preprocessing'))
 
-    parser.add_argument('--keep_all',
-                        action='store_true',
-                        help='Keep all intermediary file, which is usually necessary for debugging.')
-
-    parser.add_argument('--debug',
-                        action='store_true',
-                        help='Like --keep_all plus stop on first crash')
-
     parser.add_argument('--preproc_results',
                         type=str,
                         help=(
@@ -146,6 +138,21 @@ def shivaParser():
                             'are available in the results folder. If you have subjects with missing preprocessed data, you will '
                             'need to run their processing separatly.'
                         ))
+
+    file_management = parser.add_mutually_exclusive_group()
+
+    file_management.add_argument('--keep_all',
+                                 action='store_true',
+                                 help='Keep all intermediary file, which is usually necessary for debugging.')
+
+    file_management.add_argument('--debug',
+                                 action='store_true',
+                                 help='Like --keep_all plus stop on first crash')
+
+    file_management.add_argument('--remove_intermediates',
+                                 action='store_true',
+                                 help=('Remove the folder containing all the intermediary steps, keeping only the "results" folder.\n'
+                                       'Obvioulsy not compatible with debugging or re-running the workflow.'))
 
     # Config file where lots of arguments are already written
     parser.add_argument('--model_config',

@@ -4,6 +4,7 @@ from shivautils.utils.parsing import shivaParser, set_args_and_check
 from shivautils.workflows.main_workflow import generate_main_wf, generate_main_wf_grab_preproc
 from nipype import config
 import os
+import shutil
 import json
 
 # sys.path.append('/mnt/devt')
@@ -138,10 +139,16 @@ def main():
     if args.debug:
         main_wf.config['execution']['stop_on_first_crash'] = 'True'
     main_wf.run(plugin=args.run_plugin, plugin_args=args.run_plugin_args)
+
     # Remove empty dir (I don't know how to prevent its creation)
     useless_folder = os.path.join(out_dir, 'results', 'results_summary', 'trait_added')
     if os.path.exists(useless_folder) and not os.listdir(useless_folder):
         os.rmdir(useless_folder)
+
+    # Remove intermediate files if asked
+    if args.remove_intermediates:
+        workflow_dir = os.path.join(out_dir, 'main_workflow')
+        shutil.rmtree(workflow_dir)
 
 
 if __name__ == "__main__":
