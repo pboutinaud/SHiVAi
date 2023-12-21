@@ -92,6 +92,15 @@ def singParser():
                               'It will be imported as a dictionary and given plugin_args '
                               '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
                               'for more details )'))
+
+    parser.add_argument('--keep_all',
+                        action='store_true',
+                        help='Keep all intermediary file, which is usually necessary for debugging.')
+
+    parser.add_argument('--cpus',
+                        default=10,
+                        type=float,
+                        help="Number of CPUs (can be fractions of CPUs) that the Apptainer image will use at most.")
     return parser
 
 
@@ -108,6 +117,7 @@ def main():
         os.makedirs(args.output)
     bind_output = f"{args.output}:/mnt/data/output:rw"
     bind_config = f"{op.dirname(op.abspath(args.config))}:/mnt/config:rw"
+
     singularity_image = f"{yaml_content['apptainer_image']}"
 
     # Minimal shiva input
@@ -120,10 +130,18 @@ def main():
     opt_args = []
     opt_args.append(f"--input_type {args.input_type}")
     opt_args.append(f'--run_plugin {args.run_plugin}')
+    bind_sublist = None
     if args.sub_list:
-        opt_args.append(f"--sub_list {args.sub_list}")
+        bind_sublist = f"{op.dirname(op.abspath(args.sub_list))}:/mnt/sublist:rw"
+        opt_args.append(f"--sub_list /mnt/sublist/{op.basename(args.sub_list)}")
     if args.exclusion_list:
-        opt_args.append(f"--exclusion_list {args.exclusion_list}")
+        bind_sublist = f"{op.dirname(op.abspath(args.exclusion_list))}:/mnt/sublist:rw"
+        opt_args.append(f"--exclusion_list /mnt/sublist/{op.basename(args.exclusion_list)}")
+    preproc = None
+    if args.preproc_results:
+        preproc = f"{args.preproc_results}:/mnt/preproc:rw"
+        opt_args.append("--preproc_results /mnt/preproc")
+
     if args.run_plugin_args:
         opt_args.append(f'--run_plugin_args /mnt/plugin/{op.basename(args.run_plugin_args)}')
     if args.masked:
@@ -132,12 +150,16 @@ def main():
         opt_args.append(f"--preproc_results {args.preproc_results}")
 
     bind_list = [bind_model, bind_input, bind_output, bind_config]
+    if bind_sublist:
+        bind_list.append(bind_sublist)
+    if preproc:
+        bind_list.append(preproc)
     if args.run_plugin_args:
         bind_plugin = f"{op.dirname(op.abspath(args.run_plugin_args))}:/mnt/plugin:rw"
         bind_list.append(bind_plugin)
     bind = ','.join(bind_list)
 
-    command_list = ["singularity exec --nv --bind", bind, singularity_image,
+    command_list = [f"singularity exec --nv --bind", bind, singularity_image,  # --cpus {args.cpus}
                     "shiva --containerized_all", input, output, pred, config
                     ] + opt_args
 
