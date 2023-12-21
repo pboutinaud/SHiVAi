@@ -128,9 +128,9 @@ def main():
 
     # Run the workflow
     if args.preproc_results is None:
-        main_wf = generate_main_wf(wfargs)
+        main_wf = generate_main_wf(**wfargs)
     else:
-        main_wf = generate_main_wf_grab_preproc(wfargs)
+        main_wf = generate_main_wf_grab_preproc(**wfargs)
 
     if args.keep_all:
         config.enable_provenance()
@@ -138,6 +138,10 @@ def main():
     if args.debug:
         main_wf.config['execution']['stop_on_first_crash'] = 'True'
     main_wf.run(plugin=args.run_plugin, plugin_args=args.run_plugin_args)
+    # Remove empty dir (I don't know how to prevent its creation)
+    useless_folder = os.path.join(out_dir, 'results', 'results_summary', 'trait_added')
+    if os.path.exists(useless_folder) and not os.listdir(useless_folder):
+        os.rmdir(useless_folder)
 
 
 if __name__ == "__main__":

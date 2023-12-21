@@ -400,6 +400,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
                    ]),
         name='preproc_grabber')
     preproc_grabber.inputs.base_directory = preproc_res
+    preproc_grabber.inputs.template = '*.nii.gz'  # unused placeholder (but required)
     preproc_grabber.inputs.raise_on_empty = True
     preproc_grabber.inputs.sort_filelist = True
 
@@ -413,7 +414,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
             pass  # TODO
         else:
             field_template['brain_seg'] = 't1_preproc/%s/brainmask_cropped.nii.gz'
-            field_template['brain_seg'] = [['subject_id']]
+            template_args['brain_seg'] = [['subject_id']]
         if with_flair:
             field_template['flair_intensity_normalized'] = 'flair_preproc/%s/flair_to_t1_cropped_intensity_normed.nii.gz'
             template_args['flair_intensity_normalized'] = [['subject_id']]
@@ -425,7 +426,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
                 pass  # TODO
             else:
                 field_template['brain_seg'] = 'swi_preproc/%s/brainmask_cropped.nii.gz'
-                field_template['brain_seg'] = [['subject_id']]
+                template_args['brain_seg'] = [['subject_id']]
     preproc_grabber.inputs.field_template = field_template
     preproc_grabber.inputs.template_args = template_args
     main_wf.connect(subject_iterator, 'subject_id', preproc_grabber, 'subject_id')
