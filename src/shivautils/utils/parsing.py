@@ -87,9 +87,9 @@ def shivaParser():
                                 help='Used when the process uses the container to run specific nodes (prediction and registration)',
                                 action='store_true')
 
-    parser.add_argument('--retry',
-                        action='store_true',
-                        help='Relaunch the pipeline from where it stopped')
+    # parser.add_argument('--retry',
+    #                     action='store_true',
+    #                     help='Relaunch the pipeline from where it stopped')
 
     parser.add_argument('--anonymize',
                         action='store_true',
@@ -136,7 +136,7 @@ def shivaParser():
 
     parser.add_argument('--debug',
                         action='store_true',
-                        help='Like --retry plus stop on first crash')
+                        help='Like --keep_all plus stop on first crash')
 
     parser.add_argument('--preproc_results',
                         type=str,
@@ -279,16 +279,16 @@ def set_args_and_check(inParser):
     args.output = os.path.abspath(args.output)
 
     if args.debug:
-        args.retry = True
-    if args.retry:
+        #     args.retry = True
+        # if args.retry:
         args.keep_all = True
 
-    if (os.path.isdir(args.output)
-        and bool(os.listdir(args.output))
-            and not args.retry):
-        inParser.error(
-            'The output directory already exists and is not empty.'
-        )
+    # if (os.path.isdir(args.output)
+    #     and bool(os.listdir(args.output))
+    #         and not args.retry):
+    #     inParser.error(
+    #         'The output directory already exists and is not empty.'
+    #     )
 
     subject_list = os.listdir(args.input)
     if args.sub_list is None:

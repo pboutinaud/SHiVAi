@@ -40,9 +40,9 @@ def singParser():
                               "- 'CMB' for the segmentation of cerebral microbleeds (requires SWI scans)\n"
                               "- 'all' for doing 'PVS2', 'WMH', and 'CMB' segmentation (requires T1, FLAIR, and SWI scans)"),
                         default=['PVS'])
-    parser.add_argument('-r', '--retry',
-                        action='store_true',
-                        help='Relaunch the pipeline from where it stopped')
+    # parser.add_argument('-r', '--retry',
+    #                     action='store_true',
+    #                     help='Relaunch the pipeline from where it stopped')
     parser.add_argument('--keep_all',
                         action='store_true',
                         help='Keep all intermediary file, which is usually necessary for debuggin.')
@@ -95,8 +95,8 @@ def main():
         plugin_args = f'--run_plugin_args /mnt/plugin/{op.basename(args.run_plugin_args)}'
         command_list.append(plugin_args)
 
-    if args.retry:
-        command_list.append('--retry')
+    # if args.retry:
+    #     command_list.append('--retry')
 
     if args.keep_all:
         command_list.append('--keep_all')
