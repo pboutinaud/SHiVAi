@@ -635,3 +635,111 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
 
     sink_node_all.inputs.wf_graph = wf_graph
     return main_wf
+
+
+def generate_main_wf_preproc(**kwargs) -> Workflow:
+    """
+    Generate a processing workflow with only prepoc
+    Untested, probably unfinished.
+    """
+    # Set the booleans to shape the main workflow
+    with_t1, with_flair, with_swi = set_wf_shapers(kwargs['PREDICTION'])
+
+    # Declaration of the main workflow, it is modular and will contain smaller workflows
+    main_wf = Workflow('main_workflow')
+    main_wf.base_dir = kwargs['BASE_DIR']
+
+    # Start by initializing the iterable
+    subject_iterator = Node(
+        IdentityInterface(
+            fields=['subject_id'],
+            mandatory_inputs=True),
+        name="subject_iterator")
+    subject_iterator.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
+
+    # First, initialise the proper preproc and update its datagrabber
+    acquisitions = []
+    input_type = kwargs['PREP_SETTINGS']['input_type']
+    if with_t1:
+        acquisitions.append(('img1', 't1'))
+        if with_flair:
+            acquisitions.append(('img2', 'flair'))
+            wf_preproc = genWorkflowDualPreproc(**kwargs, wf_name='shiva_dual_preprocessing')
+            # if needed, genWorkflow_preproc_masked is used from inside genWorkflowDualPreproc
+        else:
+            wf_name = 'shiva_t1_preprocessing'
+            if kwargs['BRAIN_SEG'] is not None:
+                wf_preproc = genWorkflow_preproc_masked(**kwargs, wf_name=wf_name)
+            else:
+                wf_preproc = genWorkflowPreproc(**kwargs, wf_name=wf_name)
+        if with_swi:  # Adding the swi preprocessing steps to the preproc workflow
+            acquisitions.append(('img3', 'swi'))
+            cmb_preproc_wf_name = 'swi_preprocessing'
+            wf_preproc = graft_workflow_swi(wf_preproc, **kwargs, wf_name=cmb_preproc_wf_name)
+        wf_preproc = update_wf_grabber(wf_preproc, input_type, acquisitions, kwargs['BRAIN_SEG'])
+    elif with_swi and not with_t1:  # CMB alone
+        acquisitions.append(('img1', 'swi'))
+        wf_name = 'shiva_swi_preprocessing'
+        if kwargs['BRAIN_SEG'] is not None:
+            wf_preproc = genWorkflow_preproc_masked(**kwargs, wf_name=wf_name)
+        else:
+            wf_preproc = genWorkflowPreproc(**kwargs, wf_name=wf_name)
+        wf_preproc = update_wf_grabber(wf_preproc, input_type, acquisitions, kwargs['BRAIN_SEG'])
+
+    # Then initialise the post proc and add the nodes to the main wf
+    wf_post = genWorkflowPost(**kwargs)
+    main_wf.add_nodes([wf_preproc, wf_post])
+
+    # Set all the connections between preproc and postproc
+    main_wf.connect(subject_iterator, 'subject_id', wf_preproc, 'datagrabber.subject_id')
+    main_wf.connect(subject_iterator, 'subject_id', wf_post, 'summary_report.subject_id')
+    main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_crop_box.crop_brain_img', wf_post, 'summary_report.crop_brain_img')
+    main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_overlay_brainmask.overlayed_brainmask', wf_post, 'summary_report.overlayed_brainmask_1')
+    if with_swi and with_t1:
+        main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_overlay_brainmask_swi.overlayed_brainmask', wf_post, 'summary_report.overlayed_brainmask_2')
+    if with_flair:
+        main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.qc_coreg', wf_post, 'summary_report.isocontour_slides_FLAIR_T1')
+    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'summary_report.brainmask')
+
+    # Joining the individual QC metrics
+    qc_joiner = JoinNode(Join_QC_metrics(),
+                         joinsource=subject_iterator,
+                         joinfield=['csv_files', 'subject_id'],
+                         name='qc_joiner')
+    main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', qc_joiner, 'csv_files')
+    main_wf.connect(subject_iterator, 'subject_id', qc_joiner, 'subject_id')
+
+    # Initializing the data sinks
+    sink_node_subjects = Node(DataSink(), name='sink_node_subjects')
+    sink_node_subjects.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
+    # Name substitutions in the results
+    sink_node_subjects.inputs.substitutions = [
+        ('_subject_id_', ''),
+        ('_resampled_cropped_img_normalized', '_cropped_intensity_normed'),
+        ('flair_to_t1__Warped_img_normalized', 'flair_to_t1_cropped_intensity_normed')
+    ]
+    main_wf.connect(wf_post, 'summary_report.summary', sink_node_subjects, 'report')
+    # Connecting the sinks
+    if with_t1:
+        img1 = 't1'
+    elif with_swi and not with_t1:
+        img1 = 'swi'
+    main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, f'shiva_preproc.{img1}_preproc')
+    main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@brain_mask')
+    if kwargs['BRAIN_SEG'] is None:
+        main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@brain_mask_raw_space')
+    main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@bb1')
+    main_wf.connect(wf_preproc, 'crop.bbox2_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@bb2')
+    main_wf.connect(wf_preproc, 'crop.cdg_ijk_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@cdg')
+    if with_flair:
+        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'shiva_preproc.flair_preproc')
+    if with_swi and with_t1:
+        main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_intensity_normalisation.intensity_normalized', sink_node_subjects, 'shiva_preproc.swi_preproc')
+        main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.mask_to_swi.output_image', sink_node_subjects, 'shiva_preproc.swi_preproc.@brain_mask')
+        main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_to_t1.warped_image', sink_node_subjects, 'shiva_preproc.swi_preproc.@reg_to_t1')
+        main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_to_t1.forward_transforms', sink_node_subjects, 'shiva_preproc.swi_preproc.@reg_to_t1_transf')
+        main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.crop_swi.bbox1_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@bb1')
+        main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.crop_swi.bbox2_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@bb2')
+        main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.crop_swi.cdg_ijk_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@cdg')
+    main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', sink_node_subjects, 'shiva_preproc.qc_metrics')
+    return main_wf
