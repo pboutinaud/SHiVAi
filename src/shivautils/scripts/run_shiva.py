@@ -108,7 +108,7 @@ def main():
         os.makedirs(args.output)
     bind_output = f"{args.output}:/mnt/data/output:rw"
     bind_config = f"{op.dirname(op.abspath(args.config))}:/mnt/config:rw"
-    singularity_image = f"{yaml_content['singularity_image']}"
+    singularity_image = f"{yaml_content['apptainer_image']}"
 
     # Minimal shiva input
     input = "--in /mnt/data/input"
