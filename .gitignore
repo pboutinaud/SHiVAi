@@ -62,4 +62,3 @@ tmp_test.py
 test_tmp.py
 *.sif
 synthseg_models.zip
-singularity/apptainer_synthseg_tf.recipe
