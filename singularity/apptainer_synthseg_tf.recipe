@@ -10,6 +10,8 @@ Stage: build
     export PATH
 
 %post
+    rm /etc/apt/sources.list.d/cuda.list
+    rm /etc/apt/sources.list.d/nvidia-ml.list
     apt-get update && apt-get -y install wget unzip
     cd /usr/local
     unzip synthseg_models.zip
