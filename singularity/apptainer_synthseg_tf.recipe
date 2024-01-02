@@ -8,7 +8,6 @@ Stage: build
 %environment
     PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     export PATH
-    alias mri_synthseg='python /usr/local/SynthSeg-master/scripts/commands/SynthSeg_predict.py'
 
 %post
     rm /etc/apt/sources.list.d/cuda.list
@@ -25,4 +24,10 @@ Stage: build
     cd SynthSeg-master
     pip install keras==2.3.1 nibabel==3.2.2 matplotlib==3.3.4
     pip install . --no-dependencies
+
+    # Creating an executable (python) file to run the command "mri_synthseg"
+    cd /usr/local/bin
+    cp /usr/local/SynthSeg-master/scripts/commands/SynthSeg_predict.py mri_synthseg
+    sed -i '1s/^/#!\/usr\/local\/bin\/python\n# -*- coding: utf-8 -*-\n/' mri_synthseg
+    chmod +x mri_synthseg
 
