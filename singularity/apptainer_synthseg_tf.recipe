@@ -8,6 +8,7 @@ Stage: build
 %environment
     PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     export PATH
+    alias mri_synthseg='python /usr/local/SynthSeg-master/scripts/commands/SynthSeg_predict.py'
 
 %post
     rm /etc/apt/sources.list.d/cuda.list
