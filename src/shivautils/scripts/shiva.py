@@ -66,8 +66,7 @@ def main():
         lac_descriptor = os.path.join(args.model, args.lac_descriptor)
 
     if args.synthseg:
-        raise NotImplemented('Sorry, using MRI Synthseg results is not implemented yet')
-        # seg = 'synthseg'
+        seg = 'synthseg'
     elif args.masked:
         seg = 'masked'
     else:
@@ -92,6 +91,7 @@ def main():
         'BASE_DIR': out_dir,  # Default base_dir for each workflow
         'PREDICTION': args.prediction,  # Needed by the postproc for now
         'BRAIN_SEG': seg,
+        'SYNTHSEG_ON_CPU': args.synthseg_cpu,  # Wether to run Synthseg on CPUs
         'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
         'WMH_DESCRIPTOR': wmh_descriptor,
         'PVS_DESCRIPTOR': pvs_descriptor,

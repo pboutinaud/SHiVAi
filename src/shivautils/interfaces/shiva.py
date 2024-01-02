@@ -113,7 +113,7 @@ class SynthSegInputSpec(CommandLineInputSpec):
                         desc='The structural image of the subject (use an image input file, not a file list or folder).',
                         exists=True)
 
-    out_filename = traits.Str('segmented.nii.gz', argstr='--o %s',
+    out_filename = traits.Str('synthseg_parc.nii.gz', argstr='--o %s',
                               desc='Output file path.')
 
     threads = traits.Int(10, argstr='--threads %d',
@@ -131,7 +131,7 @@ class SynthSegInputSpec(CommandLineInputSpec):
     cpu = traits.Bool(False, argstr='--cpu', mandatory=False,
                       desc='Use CPU instead of GPU for computations')
 
-    vol = traits.Str('volumes.csv', argstr='--vol %s', mandatory='False',
+    vol = traits.Str('volumes.csv', argstr='--vol %s', mandatory=False,
                      desc='Path to a CSV file where volumes for all segmented regions will be saved.')
 
     qc = traits.Str('qc.csv', argstr='--qc %s',

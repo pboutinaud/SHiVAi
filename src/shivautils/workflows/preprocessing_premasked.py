@@ -33,7 +33,7 @@ def genWorkflow(**kwargs) -> Workflow:
     # file selection
     datagrabber = Node(DataGrabber(
         infields=['subject_id'],
-        outfields=['img1', 'img2', 'img3', 'brainmask']),
+        outfields=['img1', 'img2', 'img3']),
         name='datagrabber')
     datagrabber.inputs.base_directory = kwargs['DATA_DIR']
     datagrabber.inputs.raise_on_empty = True
@@ -57,7 +57,7 @@ def genWorkflow(**kwargs) -> Workflow:
     conform_mask.inputs.orientation = kwargs['ORIENTATION']
     conform_mask.inputs.order = 0
 
-    workflow.connect(datagrabber, "brainmask", conform_mask, 'img')
+    workflow.connect(datagrabber, "img1", conform_mask, 'img')
 
     # crop img1 centered on mask
     crop = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),

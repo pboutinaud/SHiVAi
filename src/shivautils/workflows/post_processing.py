@@ -90,9 +90,17 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_wmh.inputs.biomarker_type = 'wmh'
         prediction_metrics_wmh.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
         prediction_metrics_wmh.inputs.thr_cluster_size = kwargs['MIN_WMH_SIZE'] - 1
-        # if not synthseg:  # TODO
-        prediction_metrics_wmh.inputs.brain_seg_type = 'brain_mask'
-        prediction_metrics_wmh.inputs.region_list = ['Whole_brain']
+        if kwargs['BRAIN_SEG'] == 'synthseg':  # TODO do the real thing
+            prediction_metrics_wmh.inputs.brain_seg_type = 'synthseg'
+            prediction_metrics_wmh.inputs.region_list = ['Whole brain',
+                                                         'Left cerebral WM',
+                                                         'Right cerebral WM',
+                                                         'Left cerebellum WM',
+                                                         'Right cerebellum WM']
+            # Connect the "brain_seg" input externally with synthseg parcelation
+        else:
+            prediction_metrics_wmh.inputs.brain_seg_type = 'brain_mask'
+            prediction_metrics_wmh.inputs.region_list = ['Whole_brain']
 
     if 'LAC' in kwargs['PREDICTION']:
         preds.append('LAC')

@@ -65,6 +65,10 @@ def shivaParser():
                         action='store_true',
                         help='Optional FreeSurfer segmentation of regions to compute metrics clusters of specific regions')
 
+    parser.add_argument('--synthseg_cpu',
+                        action='store_true',
+                        help='If selected, will run Synthseg using CPUs instead of GPUs')
+
     parser.add_argument('--masked',
                         action='store_true',
                         help='Select this if the input images are masked (i.e. with the brain extracted)')
@@ -79,7 +83,7 @@ def shivaParser():
 
     container_args = parser.add_mutually_exclusive_group()
 
-    container_args.add_argument('--containerized_all',
+    container_args.add_argument('--containerized_all',  # TODO: Check if compatible with containerized Synthseg
                                 help='Used when the whole process is launched from inside a container',
                                 action='store_true')
 
@@ -350,6 +354,9 @@ def set_args_and_check(inParser):
             'Using a container (with the "--containerized_all" or "containerized_nodes" arguments) '
             'requires a container image (.sif file) but none was given. Add its path --container_image '
             'or in the configuration file (.yaml file).')
+    if args.containerized_nodes and args.synthseg and not args.synthseg_image:
+        inParser.error(
+            'Using the "containerized_nodes" option with synthseg, but no synthseg apptainer image was provided')
 
     if args.run_plugin_args:  # Parse the plugin arguments
         with open(args.run_plugin_args, 'r') as file:

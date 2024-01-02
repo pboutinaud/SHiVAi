@@ -175,6 +175,10 @@ class Resample_from_to_InputSpec(BaseInterfaceInputSpec):
                               desc="Order of spline interpolation",
                               usedefault=True)
 
+    out_name = traits.Str('resampled.nii.gz',
+                          usedefault=True,
+                          desc='Output filename')
+
 
 class Resample_from_to_OutputSpec(TraitedSpec):
     """Output class
@@ -219,7 +223,7 @@ class Resample_from_to(BaseInterface):
 
         nib.save(resampled, 'resampled.nii.gz')
         # Save it for later use in _list_outputs
-        setattr(self, 'resampled_image', os.path.abspath('resampled.nii.gz'))
+        setattr(self, 'resampled_image', os.path.abspath(self.inputs.out_name))
         return runtime
 
     def _list_outputs(self):
@@ -846,6 +850,17 @@ class Regionwise_Prediction_metrics(BaseInterface):
         segmentation_vol = img.get_fdata()
         brain_seg_vol = nib.load(brain_seg).get_fdata()
 
+        fs_labels = {'Whole brain': -1,  # To complete
+                     'Left cerebral WM': 2,
+                     'Left lateral ventricle': 4,
+                     'Left cerebellum WM': 7,
+                     'Left hippocampus': 17,
+                     'Right cerebral WM': 41,
+                     'Right lateral ventricle': 43,
+                     'Right cerebellum WM': 46,
+                     'Right hippocampus': 53,
+                     }
+
         if brain_seg_type == "brain_mask":
             region_dict = {'Region_names': region_list,
                            'Region_labels': [-1]}
@@ -854,7 +869,13 @@ class Regionwise_Prediction_metrics(BaseInterface):
                                  '(taking the whole mask)')
         elif brain_seg_type == 'synthseg':  # Preparing brain segmentation from SynthSeg:
             # TODO: Implement and create a function that prepares the raw segmentation for periventricular regions, etc.
-            raise NotImplementedError('Sorry, automatic brain segmentation is not implemented yet')
+            region_dict = {'Region_names': [],
+                           'Region_labels': []}
+            for region in region_list:
+                if region in fs_labels.keys():
+                    region_dict['Region_names'].append(region)
+                    region_dict['Region_labels'].append(fs_labels[region])
+
         else:
             raise ValueError(f'Unrecognised segmentation type: {brain_seg_type}. Should be "brain_mask" or "synthseg"')
 
