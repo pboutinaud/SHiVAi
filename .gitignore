@@ -62,3 +62,4 @@ tmp_test.py
 test_tmp.py
 *.sif
 synthseg_models.zip
+apptainer_synthseg_conda.recipe
