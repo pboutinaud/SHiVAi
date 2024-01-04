@@ -21,17 +21,17 @@ dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
               }
 
 
-def genWorkflow(**kwargs) -> Workflow:
+def genWorkflow(workflow: Workflow, **kwargs) -> Workflow:
     """Generate a nipype workflow for T1 + FLAIR based on T1-only workflow
 
     Returns:
         workflow
     """
     # Import single img preproc workflow to build upon
-    if kwargs['BRAIN_SEG'] is not None:
-        workflow = genWorkflow_preproc_masked(**kwargs)
-    else:
-        workflow = genWorkflowPreproc(**kwargs)
+    # if kwargs['BRAIN_SEG'] is not None:
+    #     workflow = genWorkflow_preproc_masked(**kwargs)
+    # else:
+    #     workflow = genWorkflowPreproc(**kwargs)
 
     # file selection
     datagrabber = workflow.get_node('datagrabber')

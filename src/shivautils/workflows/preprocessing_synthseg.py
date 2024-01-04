@@ -24,11 +24,11 @@ def genWorkflow(**kwargs) -> Workflow:
     Returns:
         workflow
     """
-    wf_name = 'shiva_preprocessing_synthseg'
-    if 'wf_name' in kwargs.keys():
-        wf_name = kwargs['wf_name']
 
-    workflow = gen_premasked_wf(**kwargs, wf_name=wf_name)
+    if 'wf_name' not in kwargs.keys():
+        kwargs['wf_name'] = 'shiva_preprocessing_synthseg'
+
+    workflow = gen_premasked_wf(**kwargs)
 
     datagrabber = workflow.get_node('datagrabber')
 
@@ -36,9 +36,11 @@ def genWorkflow(**kwargs) -> Workflow:
         synthseg = Node(SynthsegSingularity(),
                         name='synthseg')
         synthseg.inputs.snglrt_bind = [
-            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            (kwargs['DATA_DIR'], kwargs['DATA_DIR'], 'ro'),
+            # (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
             ('`pwd`', '/mnt/data', 'rw'),]
         synthseg.inputs.snglrt_image = kwargs['SYNTHSEG_IMAGE']
+        synthseg.inputs.out_filename = '/mnt/data/synthseg_parc.nii.gz'
         if not kwargs['SYNTHSEG_ON_CPU']:
             synthseg.inputs.snglrt_enable_nvidia = True
     else:
@@ -46,15 +48,14 @@ def genWorkflow(**kwargs) -> Workflow:
                         name='synthseg')
     synthseg.inputs.cpu = kwargs['SYNTHSEG_ON_CPU']
 
-    workflow.join(datagrabber, 'img1', synthseg, 'input')
+    workflow.connect(datagrabber, 'img1', synthseg, 'input')
 
     # conform segmentation to 256x256x256 size (already 1mm3 resolution)
     conform_mask = workflow.get_node('conform_mask')
     workflow.disconnect(datagrabber, "img1", conform_mask, 'img')  # Changing the connection
     workflow.connect(synthseg, 'segmentation', conform_mask, 'img')
 
-    mask_to_crop = workflow.get_node('mask_to_crop')
-    mask_to_crop.inputs.out_name = 'synthseg_cropped.nii.gz'
+    workflow.get_node('mask_to_crop').inputs.out_name = 'synthseg_cropped.nii.gz'
     # mask_to_crop.resampled_image contains the parcelization just before the binarization
 
     return workflow

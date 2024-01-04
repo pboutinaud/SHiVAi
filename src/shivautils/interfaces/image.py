@@ -221,7 +221,7 @@ class Resample_from_to(BaseInterface):
                                          ref_img,
                                          self.inputs.spline_order)
 
-        nib.save(resampled, 'resampled.nii.gz')
+        nib.save(resampled, self.inputs.out_name)
         # Save it for later use in _list_outputs
         setattr(self, 'resampled_image', os.path.abspath(self.inputs.out_name))
         return runtime

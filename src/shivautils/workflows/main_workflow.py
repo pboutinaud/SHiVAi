@@ -60,23 +60,30 @@ def generate_main_wf(**kwargs) -> Workflow:
         name="subject_iterator")
     subject_iterator.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
-    # First, initialise the proper preproc and update its datagrabber
-    acquisitions = []
-    input_type = kwargs['PREP_SETTINGS']['input_type']
+    # Name the preproc workflow
     if with_t1:
-        acquisitions.append(('img1', 't1'))
         if with_flair:
-            acquisitions.append(('img2', 'flair'))
-            wf_preproc = genWorkflowDualPreproc(**kwargs, wf_name='shiva_dual_preprocessing')
-            # if needed, genWorkflow_preproc_masked is used from inside genWorkflowDualPreproc
+            wf_name = 'shiva_dual_preprocessing'
         else:
             wf_name = 'shiva_t1_preprocessing'
-            if kwargs['BRAIN_SEG'] == 'masked':
-                wf_preproc = genWorkflow_preproc_masked(**kwargs, wf_name=wf_name)
-            elif kwargs['BRAIN_SEG'] == 'synthseg':
-                wf_preproc = genWorkflow_preproc_synthseg(**kwargs, wf_name=wf_name)
-            else:
-                wf_preproc = genWorkflowPreproc(**kwargs, wf_name=wf_name)
+    elif with_swi and not with_t1:
+        wf_name = 'shiva_swi_preprocessing'
+
+    # Initialise the proper preproc depending on the input images and the type of preproc, and update its datagrabber
+    acquisitions = []
+    input_type = kwargs['PREP_SETTINGS']['input_type']
+
+    if with_t1:
+        acquisitions.append(('img1', 't1'))
+        if kwargs['BRAIN_SEG'] == 'masked':
+            wf_preproc = genWorkflow_preproc_masked(**kwargs, wf_name=wf_name)
+        elif kwargs['BRAIN_SEG'] == 'synthseg':
+            wf_preproc = genWorkflow_preproc_synthseg(**kwargs, wf_name=wf_name)
+        else:
+            wf_preproc = genWorkflowPreproc(**kwargs, wf_name=wf_name)
+        if with_flair:
+            acquisitions.append(('img2', 'flair'))
+            wf_preproc = genWorkflowDualPreproc(wf_preproc, **kwargs)
         if with_swi:  # Adding the swi preprocessing steps to the preproc workflow
             acquisitions.append(('img3', 'swi'))
             cmb_preproc_wf_name = 'swi_preprocessing'
@@ -84,7 +91,6 @@ def generate_main_wf(**kwargs) -> Workflow:
         wf_preproc = update_wf_grabber(wf_preproc, input_type, acquisitions)
     elif with_swi and not with_t1:  # CMB alone
         acquisitions.append(('img1', 'swi'))
-        wf_name = 'shiva_swi_preprocessing'
         if kwargs['BRAIN_SEG'] == 'masked':
             wf_preproc = genWorkflow_preproc_masked(**kwargs, wf_name=wf_name)
         elif kwargs['BRAIN_SEG'] == 'synthseg':
