@@ -28,6 +28,9 @@ Stage: build
     # Creating an executable (python) file to run the command "mri_synthseg"
     cd /usr/local/bin
     cp /usr/local/SynthSeg-master/scripts/commands/SynthSeg_predict.py mri_synthseg
+    # Replace relative path by absolute path (to the original directory)
+    sed -i 's+os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(sys.argv\[0\]))))+"/usr/local/SynthSeg-master"+g' mri_synthseg 
+    # Make it executable as a python script
     sed -i '1s/^/#!\/usr\/local\/bin\/python\n# -*- coding: utf-8 -*-\n/' mri_synthseg
     chmod +x mri_synthseg
 
