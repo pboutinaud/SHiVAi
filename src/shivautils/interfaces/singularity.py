@@ -17,6 +17,10 @@ from nipype.interfaces.base.traits_extension import isdefined
 from nipype.interfaces.dcm2nii import (Dcm2niiInputSpec, Dcm2nii,
                                        Dcm2niiOutputSpec)
 
+from shivautils import __file__ as SHIVAINIT
+
+SHIVALOC = os.path.dirname(os.path.abspath(SHIVAINIT))
+
 
 class SingularityInputSpec(CommandLineInputSpec):
     """Singularity attributes and options.
@@ -94,6 +98,17 @@ class SingularityCommandLine(CommandLine):
         result = ['singularity exec'] + self._singularity_parse_inputs()
         result.append(super(SingularityCommandLine, self).cmdline)
         return ' '.join(result)
+
+    def _get_environ(self):
+        '''Overriding _get_environ to automatically add the dummy sripts to the PATH'''
+        dummy_bin = os.path.join(SHIVALOC, 'scripts', 'snglrt_dummy_bin')
+        env = getattr(self.inputs, "environ", {})
+        if env and "PATH" in env:
+            path = env.get("PATH")
+        else:
+            path = os.getenv("PATH", os.defpath)
+        path = path + os.pathsep + dummy_bin
+        return {'PATH': path}
 
     def _singularity_format_arg(self, name, spec, value):
         """Custom argument formatting for singularity."""
