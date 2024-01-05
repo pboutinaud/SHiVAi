@@ -74,3 +74,4 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "shivautils.postprocessing" = ["*.html", "*.css", "*.png"]
+"shivautils.scripts.snglrt_dummy_bin" = ["*"]
