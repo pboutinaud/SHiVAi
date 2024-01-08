@@ -807,15 +807,21 @@ class Regionwise_Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
                                   'of the biomarker segmentation ("img" argument) to explore'),
                             mandatory=True)
 
+    region_dict = traits.Dict(key_trait=traits.Str,
+                              value_trait=traits.Int,
+                              value={'Whole brain': -1},
+                              desc=('Dictionnary with keys = brain region names, '
+                                    'and values = brain region labels (i.e. the corresponding value in brain_seg)\n'
+                                    'To be used in conjonction with brain_seg_type = "custom"'),
+                              mandatory=False)
+
     region_list = traits.List(traits.Str,
-                              value=['Whole_brain'],
-                              desc='List of regions to use from the brain segmentation for the metrics',
-                              mandatory=True)
+                              value=['Whole brain'],
+                              desc='List of regions to use from the Synthseg segmentation (specifically) for the metrics',
+                              mandatory=False)
 
     brain_seg_type = traits.Str('brain_mask',
-                                desc=(
-                                    'Type of brain segmentation provided. Can be "brain_mask" or "synthseg".'
-                                    'To add more options, do it in the present interface'))
+                                desc='Type of brain segmentation provided. Can be "brain_mask", "synthseg", or "custom".')
 
 
 class Regionwise_Prediction_metrics_OutputSpec(TraitedSpec):
@@ -850,33 +856,55 @@ class Regionwise_Prediction_metrics(BaseInterface):
         segmentation_vol = img.get_fdata()
         brain_seg_vol = nib.load(brain_seg).get_fdata()
 
-        fs_labels = {'Whole brain': -1,  # To complete
-                     'Left cerebral WM': 2,
-                     'Left cerebellum WM': 7,
-                     'Left hippocampus': 17,
-                     'Right cerebral WM': 41,
-                     'Right cerebellum WM': 46,
-                     'Right hippocampus': 53,
-                     }
-
         if brain_seg_type == "brain_mask":
-            region_dict = {'Region_names': region_list,
+            region_dict = {'Region_names': 'Whole brain',
                            'Region_labels': [-1]}
             if len(region_list) > 1:
                 raise ValueError('The list of regions given when using only the brain mask can only be 1 '
                                  '(taking the whole mask)')
         elif brain_seg_type == 'synthseg':  # Preparing brain segmentation from SynthSeg:
             # TODO: Implement and create a function that prepares the raw segmentation for periventricular regions, etc.
-            # TODO: remove label 24 (csf) from brain seg
+
+            fs_labels = {'Whole brain': -1,  # To complete
+                         'Left cerebral WM': 2,
+                         'Left cerebral ctx': 3,
+                         'Left cerebellum WM': 7,
+                         'Left cerebellum ctx': 8,
+                         'Left thalamus': 10,
+                         'Left caudate': 11,
+                         'Left putamen': 12,
+                         'Left pallidum': 13,
+                         'Brain stem': 16,
+                         'Left hippocampus': 17,
+                         'Left amygdala': 18,
+                         'Left accumbens area': 26,
+                         'Left ventral DC': 28,
+                         'Right cerebral WM': 41,
+                         'Right cerebral ctx': 42,
+                         'Right cerebellum WM': 46,
+                         'Right cerebellum ctx': 47,
+                         'Right thalamus': 49,
+                         'Right caudate': 50,
+                         'Right putamen': 51,
+                         'Right pallidum': 52,
+                         'Right hippocampus': 53,
+                         'Right amygdala': 54,
+                         'Right accumbens area': 58,
+                         'Right ventral DC': 60,
+                         }
             region_dict = {'Region_names': [],
                            'Region_labels': []}
+            brain_seg_vol[brain_seg_vol == 24] = 0  # label 24 = CSF
+            brain_seg_vol[(brain_seg_vol >= 1000) | (brain_seg_vol <= 1035)] = 8  # parc labels for left ctx
+            brain_seg_vol[(brain_seg_vol >= 2000) | (brain_seg_vol <= 2035)] = 42  # parc labels for right ctx
             for region in region_list:
                 if region in fs_labels.keys():
                     region_dict['Region_names'].append(region)
                     region_dict['Region_labels'].append(fs_labels[region])
-
+        elif brain_seg_type == 'synthseg':
+            region_dict = self.inputs.region_dict
         else:
-            raise ValueError(f'Unrecognised segmentation type: {brain_seg_type}. Should be "brain_mask" or "synthseg"')
+            raise ValueError(f'Unrecognised segmentation type: {brain_seg_type}. Should be "brain_mask", "synthseg" or "custom"')
 
         cluster_measures, cluster_stats, clusters_vol = prediction_metrics(
             segmentation_vol, thr_cluster_val, thr_cluster_size, brain_seg_vol, region_dict)
