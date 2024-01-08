@@ -852,11 +852,9 @@ class Regionwise_Prediction_metrics(BaseInterface):
 
         fs_labels = {'Whole brain': -1,  # To complete
                      'Left cerebral WM': 2,
-                     'Left lateral ventricle': 4,
                      'Left cerebellum WM': 7,
                      'Left hippocampus': 17,
                      'Right cerebral WM': 41,
-                     'Right lateral ventricle': 43,
                      'Right cerebellum WM': 46,
                      'Right hippocampus': 53,
                      }
