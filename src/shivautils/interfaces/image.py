@@ -19,6 +19,7 @@ import numpy as np
 import csv
 import matplotlib.pyplot as plt
 import pandas as pd
+import json
 from scipy import ndimage
 # from bokeh.io import export_png
 
@@ -222,14 +223,12 @@ class Resample_from_to(BaseInterface):
                                          self.inputs.spline_order)
 
         nib.save(resampled, self.inputs.out_name)
-        # Save it for later use in _list_outputs
-        setattr(self, 'resampled_image', os.path.abspath(self.inputs.out_name))
         return runtime
 
     def _list_outputs(self):
         """Just get the absolute path to the scheme file name."""
         outputs = self.output_spec().trait_get()
-        outputs['resampled_image'] = getattr(self, 'resampled_image')
+        outputs['resampled_image'] = os.path.abspath(self.inputs.out_name)
         return outputs
 
 
@@ -1236,6 +1235,7 @@ class PVSQuantificationibG(BaseInterface):
 
         # Save it for later use in _list_outputs
         setattr(self, 'metrics_bg_pvs', os.path.abspath("metrics_bg_pvs.csv"))
+        return runtime
 
     def _list_outputs(self):
         """Fill in the output structure."""
@@ -1277,4 +1277,179 @@ class MakeDistanceMap(CommandLine):
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
+class Brain_Seg_for_PVS_InputSpec(BaseInterfaceInputSpec):
+    brain_seg = traits.File(exists=True,
+                            mandatory=True,
+                            desc='Synthseg (or comparible FreeSurfer) brain segmentation.')
+    out_file = traits.Str('brain_seg_for_pvs.nii.gz',
+                          usedefault=True,
+                          desc='Filename of the ouput segmentation')
+
+
+class Brain_Seg_for_PVS_OutputSpec(TraitedSpec):
+    brain_seg_pvs = traits.File(exists=True,
+                                desc='Brain segmentation, derived from synthseg segmentation, and used for PVS metrics')
+    pvs_region_dict = traits.Dict(key_trait=traits.Str,
+                                  value_trait=traits.Int,
+                                  desc=('Dictionnary with keys = brain region names, '
+                                        'and values = brain region labels (i.e. the corresponding value in brain_seg_pvs)'))
+    region_dict_json = traits.File(exists=True,
+                                   desc='json file where region_dict will be saved for future reference')
+
+
+class Brain_Seg_for_PVS(BaseInterface):
+    """
+    Transform a normal Synthseg brain segmentation to one that is customized for PVS metrics.
+    """
+    input_spec = Brain_Seg_for_PVS_OutputSpec
+    output_spec = Brain_Seg_for_PVS_OutputSpec
+
+    def _run_interface(self, runtime):
+        seg_im = nib.load(self.inputs.brain_seg)
+        region_dict = {'Whole brain': -1}
+        custom_seg_im = (seg_im)
+        nib.save(custom_seg_im, self.inputs.out_file)
+        setattr(self, 'region_dict', region_dict)
+        with open('pvs_region_dict.json', 'w') as jsonfile:
+            json.dump(region_dict, jsonfile, indent=4)
+        return runtime
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['brain_seg_pvs'] = op.abspath(self.inputs.out_file)
+        outputs['pvs_region_dict'] = getattr(self, 'region_dict')
+        outputs['region_dict_json'] = op.abspath('pvs_region_dict.json')
+
+        return outputs
+
+
+class Brain_Seg_for_WMH_InputSpec(BaseInterfaceInputSpec):
+    brain_seg = traits.File(exists=True,
+                            mandatory=True,
+                            desc='Synthseg (or comparible FreeSurfer) brain segmentation.')
+
+
+class Brain_Seg_for_WMH_OutputSpec(TraitedSpec):
+    brain_seg_wmh = traits.File(exists=True,
+                                desc='Brain segmentation, derived from synthseg segmentation, and used for WMH metrics')
+    wmh_region_dict = traits.Dict(key_trait=traits.Str,
+                                  value_trait=traits.Int,
+                                  desc=('Dictionnary with keys = brain region names, '
+                                        'and values = brain region labels (i.e. the corresponding value in brain_seg_wmh)'))
+    region_dict_json = traits.File(exists=True,
+                                   desc='json file where region_dict will be saved for future reference')
+
+
+class Brain_Seg_for_WMH(BaseInterface):
+    """
+    Transform a normal Synthseg brain segmentation to one that is customized for WMH metrics.
+    """
+    input_spec = Brain_Seg_for_WMH_OutputSpec
+    output_spec = Brain_Seg_for_WMH_OutputSpec
+
+    def _run_interface(self, runtime):
+        seg_im = nib.load(self.inputs.brain_seg)
+        region_dict = {'Whole brain': -1}
+        custom_seg_im = (seg_im)
+        nib.save(custom_seg_im, self.inputs.out_file)
+        setattr(self, 'region_dict', region_dict)
+        with open('wmh_region_dict.json', 'w') as jsonfile:
+            json.dump(region_dict, jsonfile, indent=4)
+        return runtime
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['brain_seg_wmh'] = op.abspath(self.inputs.out_file)
+        outputs['wmh_region_dict'] = getattr(self, 'region_dict')
+        outputs['region_dict_json'] = op.abspath('wmh_region_dict.json')
+
+        return outputs
+
+
+class Brain_Seg_for_CMB_InputSpec(BaseInterfaceInputSpec):
+    brain_seg = traits.File(exists=True,
+                            mandatory=True,
+                            desc='Synthseg (or comparible FreeSurfer) brain segmentation.')
+
+
+class Brain_Seg_for_CMB_OutputSpec(TraitedSpec):
+    brain_seg_cmb = traits.File(exists=True,
+                                desc='Brain segmentation, derived from synthseg segmentation, and used for CMB metrics')
+    cmb_region_dict = traits.Dict(key_trait=traits.Str,
+                                  value_trait=traits.Int,
+                                  desc=('Dictionnary with keys = brain region names, '
+                                        'and values = brain region labels (i.e. the corresponding value in brain_seg_cmb)'))
+    region_dict_json = traits.File(exists=True,
+                                   desc='json file where region_dict will be saved for future reference')
+
+
+class Brain_Seg_for_CMB(BaseInterface):
+    """
+    Transform a normal Synthseg brain segmentation to one that is customized for CMB metrics.
+    """
+    input_spec = Brain_Seg_for_CMB_OutputSpec
+    output_spec = Brain_Seg_for_CMB_OutputSpec
+
+    def _run_interface(self, runtime):
+        seg_im = nib.load(self.inputs.brain_seg)
+        region_dict = {'Whole brain': -1}
+        custom_seg_im = (seg_im)
+        nib.save(custom_seg_im, self.inputs.out_file)
+        setattr(self, 'region_dict', region_dict)
+        with open('cmb_region_dict.json', 'w') as jsonfile:
+            json.dump(region_dict, jsonfile, indent=4)
+        return runtime
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['brain_seg_cmb'] = op.abspath(self.inputs.out_file)
+        outputs['cmb_region_dict'] = getattr(self, 'region_dict')
+        outputs['region_dict_json'] = op.abspath('cmb_region_dict.json')
+
+        return outputs
+
+
+class Brain_Seg_for_LAC_InputSpec(BaseInterfaceInputSpec):
+    brain_seg = traits.File(exists=True,
+                            mandatory=True,
+                            desc='Synthseg (or comparible FreeSurfer) brain segmentation.')
+
+
+class Brain_Seg_for_LAC_OutputSpec(TraitedSpec):
+    brain_seg_lac = traits.File(exists=True,
+                                desc='Brain segmentation, derived from synthseg segmentation, and used for LAC metrics')
+    lac_region_dict = traits.Dict(key_trait=traits.Str,
+                                  value_trait=traits.Int,
+                                  desc=('Dictionnary with keys = brain region names, '
+                                        'and values = brain region labels (i.e. the corresponding value in brain_seg_lac)'))
+    region_dict_json = traits.File(exists=True,
+                                   desc='json file where region_dict will be saved for future reference')
+
+
+class Brain_Seg_for_LAC(BaseInterface):
+    """
+    Transform a normal Synthseg brain segmentation to one that is customized for LAC metrics.
+    """
+    input_spec = Brain_Seg_for_LAC_OutputSpec
+    output_spec = Brain_Seg_for_LAC_OutputSpec
+
+    def _run_interface(self, runtime):
+        seg_im = nib.load(self.inputs.brain_seg)
+        region_dict = {'Whole brain': -1}
+        custom_seg_im = (seg_im)
+        nib.save(custom_seg_im, self.inputs.out_file)
+        setattr(self, 'region_dict', region_dict)
+        with open('lac_region_dict.json', 'w') as jsonfile:
+            json.dump(region_dict, jsonfile, indent=4)
+        return runtime
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['brain_seg_lac'] = op.abspath(self.inputs.out_file)
+        outputs['lac_region_dict'] = getattr(self, 'region_dict')
+        outputs['region_dict_json'] = op.abspath('lac_region_dict.json')
+
         return outputs
