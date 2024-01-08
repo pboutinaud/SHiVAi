@@ -91,6 +91,7 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_wmh.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
         prediction_metrics_wmh.inputs.thr_cluster_size = kwargs['MIN_WMH_SIZE'] - 1
         if kwargs['BRAIN_SEG'] == 'synthseg':  # TODO do the real thing
+            # To check: BGMask, PVSQuantificationibG, MakeDistanceMap, QuantificationWMHLatVentricles
             prediction_metrics_wmh.inputs.brain_seg_type = 'synthseg'
             prediction_metrics_wmh.inputs.region_list = ['Whole brain',
                                                          'Left cerebral WM',
