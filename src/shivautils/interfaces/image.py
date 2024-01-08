@@ -867,6 +867,7 @@ class Regionwise_Prediction_metrics(BaseInterface):
                                  '(taking the whole mask)')
         elif brain_seg_type == 'synthseg':  # Preparing brain segmentation from SynthSeg:
             # TODO: Implement and create a function that prepares the raw segmentation for periventricular regions, etc.
+            # TODO: remove label 24 (csf) from brain seg
             region_dict = {'Region_names': [],
                            'Region_labels': []}
             for region in region_list:
