@@ -45,10 +45,10 @@ from scipy.spatial import Delaunay, ConvexHull
 import nibabel as nib
 import numpy as np
 
-
+# %%
 lobar_vals_L = {
-    'Frontal': [1003, 1012, 1014, 1018, 1019, 1020, 1027, 1028, 1032, 1024],  # 1002, 1017, 1026,
-    'Pariental': [1008, 1010, 1025, 1029, 1031, 1022],  # 1010, 1023,
+    'Frontal': [1002, 1003, 1012, 1014, 1017, 1018, 1019, 1020, 1027, 1028, 1032, 1024, 1026],
+    'Pariental': [1008, 1010, 1025, 1029, 1031, 1022, 1023],
     'Temporal': [1001, 1006, 1007, 1009, 1015, 1016, 1030, 1033, 1034],
     'Occipital': [1005, 1011, 1013, 1021],
 }
@@ -74,8 +74,8 @@ other_vals_R = {
 brainstem_val = 16
 
 # Excluding cortical areas for lobe parcellation to avoid a "jigsaw puzzle" effect
-excluded_L = [1002, 1017, 1026, 1010, 1023]
-excluded_R = [val+1000 for val in excluded_L]
+to_excluded_L = [1002, 1017, 1026, 1010, 1023]
+to_excluded_R = [val+1000 for val in to_excluded_L]
 
 cingulate_vals_L = [1002, 1010, 1023, 1026]
 cingulate_vals_R = [2002, 2010, 2023, 2026]
@@ -99,9 +99,6 @@ other_labels_L = {
 lobar_labels_R = {k: val+20 for k, val in lobar_labels_L.items()}
 other_labels_R = {k: val+20 for k, val in other_labels_L.items()}
 # brainstem stays = 16
-
-im = nib.load('/scratch/nozais/test_shiva/results_synthseg/results/shiva_preproc/synthseg/1C016BE/synthseg_parc.nii.gz')
-seg = im.get_fdata().astype(int)
 
 # %%
 
@@ -131,15 +128,17 @@ def lobar_seg(seg):
     wm_R = (seg == 41)
 
     # Also fill excluded cortical areas
-    wm_L = wm_L | np.isin(seg, excluded_L)
-    wm_R = wm_R | np.isin(seg, excluded_R)
+    wm_L = wm_L | np.isin(seg, to_excluded_L)
+    wm_R = wm_R | np.isin(seg, to_excluded_R)
 
     # Divide cortex in lobes
     vol_lobar_L = np.zeros(seg.shape)
     vol_lobar_R = np.zeros(seg.shape)
     for lob in lobar_vals_L.keys():
-        vol_lobar_L[np.isin(seg, lobar_vals_L[lob])] = lobar_labels_L[lob]
-        vol_lobar_R[np.isin(seg, lobar_vals_R[lob])] = lobar_labels_R[lob]
+        vals_L = list(set(lobar_vals_L[lob]) - set(to_excluded_L))
+        vals_R = list(set(lobar_vals_R[lob]) - set(to_excluded_R))
+        vol_lobar_L[np.isin(seg, vals_L)] = lobar_labels_L[lob]
+        vol_lobar_R[np.isin(seg, vals_R)] = lobar_labels_R[lob]
 
     # Associate WM to lobes (and add the cortical parts)
     vol_lobar_L_exp = expand_label_masked(vol_lobar_L, wm_L) + vol_lobar_L
@@ -157,10 +156,6 @@ def lobar_seg(seg):
     vol_lobar_exp[seg == brainstem_val] = brainstem_val
     return vol_lobar_exp
 
-
-vol_lobar_exp = lobar_seg(seg)
-im_lobar_exp = nib.Nifti1Image(vol_lobar_exp, affine=im.affine)
-nib.save(im_lobar_exp, '/scratch/nozais/test_shiva/results_synthseg/results/shiva_preproc/synthseg/1C016BE/lobar_ext2.nii.gz')
 
 # %%
 
@@ -194,39 +189,18 @@ def internal_caps(seg):
     ic_L = binary_erosion(fill_hull(bg_L), iterations=2)*wm_L
     ic_R = binary_erosion(fill_hull(bg_R), iterations=2)*wm_R
 
-    ic = ic_L*11 + ic_R*12
-    return ic
-
-
-def juxtacortical_wm(seg):
-    wm_L = (seg == 2)
-    wm_R = (seg == 41)
-
-    wm = wm_L + wm_R
-
-    cortex_vals_L = []
-    for lobe, vals in lobar_vals_L.items():
-        if lobe != 'Insula':
-            cortex_vals_L += vals
-    cortex_vals_R = []
-    for lobe, vals in lobar_vals_R.items():
-        if lobe != 'Insula':
-            cortex_vals_R += vals
-    cortex_vals = cortex_vals_L + cortex_vals_R
-    cortex = np.isin(seg, cortex_vals)
-    cortex_dil = binary_dilation(cortex, iterations=5)*wm
-    return cortex_dil
+    return ic_L.astype(bool), ic_R.astype(bool)
 
 
 def ex_capsule(seg, jc_wm):
     '''
-    External and extreme capsule
+    External and extreme capsule, roughly between insula and putamen
     '''
     wm_L = (seg == 2)
     wm_R = (seg == 41)
 
     hipp = np.isin(seg, [17, 53])
-    hipp_dil = binary_dilation(hipp, iterations=5)
+    hipp_dil = binary_dilation(hipp, iterations=5)  # To prevent the ec from growing too low
     exclusion_area = jc_wm | hipp_dil
 
     putamen_L = (seg == 12)
@@ -241,6 +215,42 @@ def ex_capsule(seg, jc_wm):
     xcap_R = (xcap_R_raw*wm_R) & ~exclusion_area
 
     return xcap_L, xcap_R
+
+# %%
+
+
+def juxtacortical_wm(seg, thickness=3):
+    '''
+    Juxtacortical white matter, excluding the insula
+    '''
+    wm_L = (seg == 2)
+    wm_R = (seg == 41)
+
+    cortex_vals_L = []
+    for _, vals in lobar_vals_L.items():
+        cortex_vals_L += vals
+    cortex_vals_R = []
+    for _, vals in lobar_vals_R.items():
+        cortex_vals_R += vals
+    cortex_vals = cortex_vals_L + cortex_vals_R
+    cortex = np.isin(seg, cortex_vals)
+    cortex_dil = binary_dilation(cortex, iterations=thickness)
+    jxtc_L = cortex_dil & wm_L
+    jxtc_R = cortex_dil & wm_R
+    return jxtc_L, jxtc_R
+
+
+def periventtricular_wm(seg, thickness=2):
+    wm_L = (seg == 2)
+    wm_R = (seg == 41)
+
+    vent_L = np.isin(seg, [4, 5])
+    vent_R = np.isin(seg, [43, 44])
+
+    pvwm_L = binary_dilation(vent_L, iterations=thickness) * wm_L
+    pvwm_R = binary_dilation(vent_R, iterations=thickness) * wm_R
+
+    return pvwm_L, pvwm_R
 
 
 def external_caps(seg, jc_wm, ec_thickness=2):  # jc = juxtacortical
@@ -265,7 +275,6 @@ def external_caps(seg, jc_wm, ec_thickness=2):  # jc = juxtacortical
     ec_L = (put_dil_L & wm_area_L)  # *13
     ec_R = (put_dil_R & wm_area_R)  # *14
 
-    ec = ec_L + ec_R
     return ec_L, ec_R
 
 
@@ -299,16 +308,41 @@ def corpus_cal(seg):
     cc_raw = binary_dilation(seed_cc, iterations=10)
     cc_filtered = binary_opening(cc_raw*wm, iterations=2)  # To hopefully remove stray extensions (in cingulate)
 
-    cc_L = (cc_filtered*wm_L).astype('f')  # *15
-    cc_R = (cc_filtered*wm_R).astype('f')  # *16
-    cc = cc_L + cc_R
+    cc_L = (cc_filtered*wm_L)
+    cc_R = (cc_filtered*wm_R)
     return cc_L, cc_R
 
 # im_cc = nib.Nifti1Image(cc_dil.astype('f'), affine=im.affine)
 # nib.save(im_cc, '/scratch/nozais/test_shiva/results_synthseg/results/shiva_preproc/synthseg/1C016BE/cc.nii.gz')
 
+# %%
+
+
+im = nib.load('/scratch/nozais/test_shiva/results_synthseg/results/shiva_preproc/synthseg/1C016BE/synthseg_parc.nii.gz')
+seg = im.get_fdata().astype(int)
+
+seg_lobar = lobar_seg(seg)
+
+ic_L, ic_R = internal_caps(seg)
+jxtc_L, jxtc_R = juxtacortical_wm(seg, 3)
+pvwm_L, pvwm_R = periventtricular_wm(seg, 2)
+
+ec_L, ec_R = ex_capsule(seg, (jxtc_L | jxtc_R))
+cc_L, cc_R = corpus_cal(seg)
+
+seg_lobar[ic_L] = 11
+seg_lobar[ic_R] = 31
+seg_lobar[ec_L] = 12
+seg_lobar[ec_R] = 32
+seg_lobar[cc_L] = 13
+seg_lobar[cc_R] = 33
+
+
+im_lobar_exp = nib.Nifti1Image(seg_lobar, affine=im.affine)
+nib.save(im_lobar_exp, '/scratch/nozais/test_shiva/results_synthseg/results/shiva_preproc/synthseg/1C016BE/lobar_seg_rough.nii.gz')
 
 # %%
+
 
 def create_bg_box(seg):
     bg_labels_L = [10, 11, 12, 13, 26]  # with thalamus and N.Acc
