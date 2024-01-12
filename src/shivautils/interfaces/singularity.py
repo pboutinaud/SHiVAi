@@ -104,11 +104,12 @@ class SingularityCommandLine(CommandLine):
         dummy_bin = os.path.join(SHIVALOC, 'scripts', 'snglrt_dummy_bin')
         env = getattr(self.inputs, "environ", {})
         if env and "PATH" in env:
-            path = env.get("PATH")
+            path_in = env.get("PATH")
         else:
-            path = os.getenv("PATH", os.defpath)
-        path = path + os.pathsep + dummy_bin
-        return {'PATH': path}
+            path_in = os.getenv("PATH", os.defpath)
+        path = path_in + os.pathsep + dummy_bin
+        env['PATH'] = path
+        return env
 
     def _singularity_format_arg(self, name, spec, value):
         """Custom argument formatting for singularity."""
