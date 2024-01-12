@@ -8,9 +8,9 @@ from shivautils.utils.stats import prediction_metrics, get_mask_regions
 from shivautils.utils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask
 from nipype.utils.filemanip import split_filename
 from nipype.interfaces.base import CommandLine, CommandLineInputSpec, isdefined
-
-from nipype.interfaces.base import BaseInterface, \
-    BaseInterfaceInputSpec, traits, TraitedSpec
+from shivautils.interfaces.singularity import SingularityCommandLine, SingularityInputSpec
+from nipype.interfaces.base import (BaseInterface, BaseInterfaceInputSpec,
+                                    traits, TraitedSpec)
 import os
 import warnings
 import nibabel.processing as nip
@@ -1280,6 +1280,27 @@ class MakeDistanceMap(CommandLine):
         return outputs
 
 
+class MakeDistanceMap_Singularity_InputSpec(SingularityInputSpec, MakeDistanceMapInputSpec):
+    """MakeDistanceMap input specification (singularity mixin).
+
+    Inherits from Singularity command line fields.
+    """
+
+
+class MakeDistanceMap_Singularity(SingularityCommandLine):
+    """Create distance maps using ventricles binarized maps (niimaths)."""
+
+    _cmd = 'niimath'
+
+    input_spec = MakeDistanceMapInputSpec
+    output_spec = MakeDistanceMapOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
 class Brain_Seg_for_PVS_InputSpec(BaseInterfaceInputSpec):
     brain_seg = traits.File(exists=True,
                             mandatory=True,
@@ -1389,13 +1410,29 @@ class Brain_Seg_for_CMB_OutputSpec(TraitedSpec):
 class Brain_Seg_for_CMB(BaseInterface):
     """
     Transform a normal Synthseg brain segmentation to one that is customized for CMB metrics.
+    Based on the Microbleed Anatomical Rating Scale (MARS): https://doi.org/10.1212/wnl.0b013e3181c34a7d
     """
     input_spec = Brain_Seg_for_CMB_OutputSpec
     output_spec = Brain_Seg_for_CMB_OutputSpec
 
     def _run_interface(self, runtime):
         seg_im = nib.load(self.inputs.brain_seg)
-        region_dict = {'Whole brain': -1}
+        region_dict = {
+            # 'Whole brain': -1,
+            'Brainstem',
+            'Cerebellum',
+            'Basal Ganglia',
+            'Thalamus',
+            'Internal Capsule',
+            'External Capsule',
+            'Curpus callosum',
+            'Deep and periventricular WM',
+            'Frontal',
+            'Parietal',
+            'Temporal',
+            'Occipital',
+            'Insula'
+        }
         custom_seg_im = (seg_im)
         nib.save(custom_seg_im, self.inputs.out_file)
         setattr(self, 'region_dict', region_dict)

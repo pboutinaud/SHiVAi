@@ -90,6 +90,8 @@ python -m pip install .[TF]
 
 You will also need the ANTs toolbox (which can be downloaded from [the original repository](http://stnava.github.io/ANTs/) or conveniently installed with `conda` if you use it using the `conda install -c aramislab ants` command line)
 
+Two final pieces of software you will need installed (but only if you are using the Synthseg analysis) are [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg) (available as part of recent versions of FreeSurfer) and [niimath](https://github.com/rordenlab/niimath).
+
 The scripts should then be available from the command line prompt.
 
 Optionally, you can download and prepare the `config_example.yml` like explained in the [Fully contained process](#fully-contained-process) section. This will ease the command call as a lot of arguments will be given through the yaml file (instead of manually entered with the command).
@@ -173,7 +175,7 @@ shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --i
 ```
 
 Using SLURM to parallelize the processes (use `--run_plugin SLURM` in the arguments):
-1. Without Apptainer image (requires TensorFlow, CUDA and ANTs locally installed):
+1. Without Apptainer image (requires TensorFlow, CUDA, ANTs and niimath locally installed):
 > ```bash
 > shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --model_config /myHome/myProject/myConfig.yml --run_plugin SLURM
 > ```
