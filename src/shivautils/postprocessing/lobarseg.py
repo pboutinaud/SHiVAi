@@ -70,7 +70,6 @@ other_vals_R = {
     'Hippocampus': [53, 54],  # including amygdala
     'Cerebellum': [46, 47]
 }
-
 brainstem_val = 16
 
 # Excluding cortical areas for lobe parcellation to avoid a "jigsaw puzzle" effect
@@ -80,25 +79,27 @@ to_excluded_R = [val+1000 for val in to_excluded_L]
 cingulate_vals_L = [1002, 1010, 1023, 1026]
 cingulate_vals_R = [2002, 2010, 2023, 2026]
 
-
 lobar_labels_L = {
-    'Frontal': 1,
-    'Pariental': 2,
-    'Temporal': 3,
-    'Occipital': 4,
+    'Frontal': 1,  # 2, 3, 4 for wm (jxtc/deep/prvc)
+    'Pariental': 5,  # 6, 7, 8
+    'Temporal': 9,  # 10, 11, 12
+    'Occipital': 13,  # 14, 15, 16
 }
 other_labels_L = {
-    'Insula': 5,
-    'Basal Ganglia': 6,
-    'Thalamus': 7,
-    'Ventral DC': 8,
-    'Hippocampus': 9,  # including amygdala
-    'Cerebellum': 10
+    'Insula': 17,
+    'Basal Ganglia': 40,
+    'Thalamus': 41,
+    'Ventral DC': 42,
+    'Hippocampus': 43,  # including amygdala
+    'Internal capsule': 44,
+    'Ext. capsule': 45,
+    'Corpus callosum': 46,
+    'Cerebellum': 47
 }
 
 lobar_labels_R = {k: val+20 for k, val in lobar_labels_L.items()}
-other_labels_R = {k: val+20 for k, val in other_labels_L.items()}
-# brainstem stays = 16
+other_labels_R = {k: val+10 for k, val in other_labels_L.items()}
+brainstem_label = 50
 
 # %%
 
@@ -153,7 +154,7 @@ def lobar_seg(seg):
         vol_lobar_R_exp[parc_vox] = other_labels_R[parc]
 
     vol_lobar_exp = vol_lobar_L_exp + vol_lobar_R_exp
-    vol_lobar_exp[seg == brainstem_val] = brainstem_val
+    vol_lobar_exp[seg == brainstem_val] = brainstem_label
     return vol_lobar_exp
 
 
@@ -240,7 +241,7 @@ def juxtacortical_wm(seg, thickness=3):
     return jxtc_L, jxtc_R
 
 
-def periventtricular_wm(seg, thickness=2):
+def periventricular_wm(seg, thickness=2):
     wm_L = (seg == 2)
     wm_R = (seg == 41)
 
@@ -325,21 +326,39 @@ seg_lobar = lobar_seg(seg)
 
 ic_L, ic_R = internal_caps(seg)
 jxtc_L, jxtc_R = juxtacortical_wm(seg, 3)
-pvwm_L, pvwm_R = periventtricular_wm(seg, 2)
+prvc_L, prvc_R = periventricular_wm(seg, 2)
 
 ec_L, ec_R = ex_capsule(seg, (jxtc_L | jxtc_R))
 cc_L, cc_R = corpus_cal(seg)
 
-seg_lobar[ic_L] = 11
-seg_lobar[ic_R] = 31
-seg_lobar[ec_L] = 12
-seg_lobar[ec_R] = 32
-seg_lobar[cc_L] = 13
-seg_lobar[cc_R] = 33
+seg_lobar[ic_L] = other_labels_L['Internal capsule']
+seg_lobar[ic_R] = other_labels_R['Internal capsule']
+seg_lobar[ec_L] = other_labels_L['Ext. capsule']
+seg_lobar[ec_R] = other_labels_R['Ext. capsule']
+seg_lobar[cc_L] = other_labels_L['Corpus callosum']
+seg_lobar[cc_R] = other_labels_R['Corpus callosum']
 
+wm_L = (seg == 2)
+wm_R = (seg == 41)
+
+# for lobe, vals in lobar_labels_L.items():
+#     lobar = (seg_lobar == vals)
+#     jxtc = lobar & jxtc_L
+#     prvc = lobar & prvc_L
+#     seg_lobar[wm_L] = vals + 2  # deep wm, set first to all wm as default
+#     seg_lobar[jxtc] = vals + 1  # juxtacortical wm
+#     seg_lobar[prvc] = vals + 3  # periventricular wm
+
+# for lobe, vals in lobar_labels_R.items():
+#     lobar = (seg_lobar == vals)
+#     jxtc = lobar & jxtc_R
+#     prvc = lobar & prvc_R
+#     seg_lobar[wm_R] = vals + 2  # deep wm, set first to all wm as default
+#     seg_lobar[jxtc] = vals + 1  # juxtacortical wm
+#     seg_lobar[prvc] = vals + 3  # periventricular wm
 
 im_lobar_exp = nib.Nifti1Image(seg_lobar, affine=im.affine)
-nib.save(im_lobar_exp, '/scratch/nozais/test_shiva/results_synthseg/results/shiva_preproc/synthseg/1C016BE/lobar_seg_rough.nii.gz')
+nib.save(im_lobar_exp, '/scratch/nozais/test_shiva/results_synthseg/results/shiva_preproc/synthseg/1C016BE/lobar_seg_full.nii.gz')
 
 # %%
 
