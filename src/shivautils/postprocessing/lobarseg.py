@@ -3,7 +3,6 @@ Lobar segmentation from a SynthSeg parc
 1001    ctx-lh-bankssts                     Temporal
     1002    ctx-lh-caudalanteriorcingulate      Frontal (Limbic) #
 1003    ctx-lh-caudalmiddlefrontal          Frontal
-# 1004    ctx-lh-corpuscallosum               
 1005    ctx-lh-cuneus                       Occipital
 1006    ctx-lh-entorhinal                   Temporal
 1007    ctx-lh-fusiform                     Temporal
@@ -99,6 +98,7 @@ other_labels_L = {
 
 lobar_labels_R = {k: val+20 for k, val in lobar_labels_L.items()}
 other_labels_R = {k: val+10 for k, val in other_labels_L.items()}
+other_labels_R['Insula'] = other_labels_L['Insula'] + 20
 brainstem_label = 50
 
 # %%
@@ -162,6 +162,10 @@ def lobar_seg(seg):
 
 
 def fill_hull(brain_regions):
+    '''
+    Create a convex hull around all the points (ore brain regions) given
+    then fill the hull to give one big all-encompassing blob
+    '''
     points = np.argwhere(brain_regions)
     hull = ConvexHull(points)
     deln = Delaunay(points[hull.vertices])
@@ -217,6 +221,31 @@ def ex_capsule(seg, jc_wm):
 
     return xcap_L, xcap_R
 
+
+# def external_caps(seg, ec_thickness=2):  # jc = juxtacortical
+#     '''
+#     Create a mask of the external capsule, based on its location bewteen the putamen
+#     and the insula, stuck to the putamen with a thickness of about 2mm (?)
+#     '''
+#     wm_L = (seg == 2)
+#     wm_R = (seg == 41)
+
+#     putamen_L = (seg == 12)
+#     insula_L = (seg == 1035)
+#     putamen_R = (seg == 51)
+#     insula_R = (seg == 2035)
+
+#     wm_area_L = fill_hull(putamen_L + insula_L)*wm_L
+#     wm_area_R = fill_hull(putamen_R + insula_R)*wm_R
+
+#     put_dil_L = binary_dilation(putamen_L, interations=ec_thickness)
+#     put_dil_R = binary_dilation(putamen_R, interations=ec_thickness)
+
+#     ec_L = (put_dil_L & wm_area_L)
+#     ec_R = (put_dil_R & wm_area_R)
+
+#     return ec_L, ec_R
+
 # %%
 
 
@@ -254,31 +283,6 @@ def periventricular_wm(seg, thickness=2):
     return pvwm_L, pvwm_R
 
 
-def external_caps(seg, jc_wm, ec_thickness=2):  # jc = juxtacortical
-    '''
-    Create a mask of the external capsule, based on its location bewteen the putamen
-    and the insula, stuck to the putamen with a thickness of about 2mm (?)
-    '''
-    wm_L = (seg == 2)
-    wm_R = (seg == 41)
-
-    putamen_L = (seg == 12)
-    insula_L = (seg == 1035)
-    putamen_R = (seg == 51)
-    insula_R = (seg == 2035)
-
-    wm_area_L = fill_hull(putamen_L + insula_L)*wm_L
-    wm_area_R = fill_hull(putamen_R + insula_R)*wm_R
-
-    put_dil_L = binary_dilation(putamen_L, interations=ec_thickness)
-    put_dil_R = binary_dilation(putamen_R, interations=ec_thickness)
-
-    ec_L = (put_dil_L & wm_area_L)  # *13
-    ec_R = (put_dil_R & wm_area_R)  # *14
-
-    return ec_L, ec_R
-
-
 # %%
 
 def corpus_cal(seg):
@@ -313,84 +317,87 @@ def corpus_cal(seg):
     cc_R = (cc_filtered*wm_R)
     return cc_L, cc_R
 
-# im_cc = nib.Nifti1Image(cc_dil.astype('f'), affine=im.affine)
-# nib.save(im_cc, '/scratch/nozais/test_shiva/results_synthseg/results/shiva_preproc/synthseg/1C016BE/cc.nii.gz')
-
 # %%
 
 
-im = nib.load('/scratch/nozais/test_shiva/results_synthseg/results/shiva_preproc/synthseg/1C016BE/synthseg_parc.nii.gz')
-seg = im.get_fdata().astype(int)
+# im = nib.load('/scratch/nozais/test_shiva/results_synthseg/results/shiva_preproc/synthseg/1C016BE/synthseg_parc.nii.gz')
+# seg = im.get_fdata().astype(int)
 
-seg_lobar = lobar_seg(seg)
+def lobar_and_wm_segmentation(seg):
+    '''
+    seg (numpy 3D array): Synthseg segmentation
 
-ic_L, ic_R = internal_caps(seg)
-jxtc_L, jxtc_R = juxtacortical_wm(seg, 3)
-prvc_L, prvc_R = periventricular_wm(seg, 2)
+    Takes a Synthseg parcellation and returns derived segmentation with lobar labels for both
+    GM and WM, and juxtacortical/deep/periventricular WM subdivisions, as well as internal capsule
+    and external/extreme capsule.
 
-ec_L, ec_R = ex_capsule(seg, (jxtc_L | jxtc_R))
-cc_L, cc_R = corpus_cal(seg)
+    Left hemisphere:
+        Frontal: 1, 2, 3, 4 for gm + wm (jxtc/deep/prvc)
+        Pariental: 5, 6, 7, 8
+        Temporal: 9, 10, 11, 12
+        Occipital: 13, 14, 15, 16
 
-seg_lobar[ic_L] = other_labels_L['Internal capsule']
-seg_lobar[ic_R] = other_labels_R['Internal capsule']
-seg_lobar[ec_L] = other_labels_L['Ext. capsule']
-seg_lobar[ec_R] = other_labels_R['Ext. capsule']
-seg_lobar[cc_L] = other_labels_L['Corpus callosum']
-seg_lobar[cc_R] = other_labels_R['Corpus callosum']
+        Insula: 17 (gm only)
+        Basal Ganglia: 40
+        Thalamus: 41
+        Ventral DC: 42
+        Hippocampus: 43  (including amygdala)
+        Internal capsule: 44
+        Ext. capsule: 45  (external + extreme capsules)
+        Corpus callosum: 46
+        Cerebellum': 47
 
-wm_L = (seg == 2)
-wm_R = (seg == 41)
+    Right hemisphere:
+        Frontal: 21, 22, 23, 24 for gm + wm (jxtc/deep/prvc)
+        Pariental: 25, 26, 27, 28
+        Temporal: 29, 30, 31, 32
+        Occipital: 33, 34, 35, 36
 
-# for lobe, vals in lobar_labels_L.items():
-#     lobar = (seg_lobar == vals)
-#     jxtc = lobar & jxtc_L
-#     prvc = lobar & prvc_L
-#     seg_lobar[wm_L] = vals + 2  # deep wm, set first to all wm as default
-#     seg_lobar[jxtc] = vals + 1  # juxtacortical wm
-#     seg_lobar[prvc] = vals + 3  # periventricular wm
+        Insula: 37 (gm only)
+        Basal Ganglia: 50
+        Thalamus: 51
+        Ventral DC: 52
+        Hippocampus: 53  (including amygdala)
+        Internal capsule: 54
+        Ext. capsule: 55  (external + extreme capsules)
+        Corpus callosum: 56
+        Cerebellum': 57
 
-# for lobe, vals in lobar_labels_R.items():
-#     lobar = (seg_lobar == vals)
-#     jxtc = lobar & jxtc_R
-#     prvc = lobar & prvc_R
-#     seg_lobar[wm_R] = vals + 2  # deep wm, set first to all wm as default
-#     seg_lobar[jxtc] = vals + 1  # juxtacortical wm
-#     seg_lobar[prvc] = vals + 3  # periventricular wm
+    '''
 
-im_lobar_exp = nib.Nifti1Image(seg_lobar, affine=im.affine)
-nib.save(im_lobar_exp, '/scratch/nozais/test_shiva/results_synthseg/results/shiva_preproc/synthseg/1C016BE/lobar_seg_full.nii.gz')
+    seg_lobar = lobar_seg(seg)
 
-# %%
+    ic_L, ic_R = internal_caps(seg)
+    jxtc_L, jxtc_R = juxtacortical_wm(seg, 3)
+    prvc_L, prvc_R = periventricular_wm(seg, 2)
 
+    ec_L, ec_R = ex_capsule(seg, (jxtc_L | jxtc_R))
+    cc_L, cc_R = corpus_cal(seg)
 
-def create_bg_box(seg):
-    bg_labels_L = [10, 11, 12, 13, 26]  # with thalamus and N.Acc
-    bg_labels_R = [49, 50, 51, 52, 58]
+    wm_L = (seg == 2)
+    wm_R = (seg == 41)
 
-    insula_L = (seg == 1035)
-    insula_R = (seg == 2035)
+    for _, vals in lobar_labels_L.items():
+        lobar = (seg_lobar == vals) & wm_L
+        jxtc = lobar & jxtc_L
+        prvc = lobar & prvc_L
+        seg_lobar[lobar] = vals + 2  # deep wm, set first to all wm as default
+        seg_lobar[jxtc] = vals + 1  # juxtacortical wm
+        seg_lobar[prvc] = vals + 3  # periventricular wm
 
-    outmask = np.isin(seg, bg_labels_L + bg_labels_R + [2, 41])  # 2 & 41 are WM
+    for _, vals in lobar_labels_R.items():
+        lobar = (seg_lobar == vals) & wm_R
+        jxtc = lobar & jxtc_R
+        prvc = lobar & prvc_R
+        seg_lobar[lobar] = vals + 2  # deep wm, set first to all wm as default
+        seg_lobar[jxtc] = vals + 1  # juxtacortical wm
+        seg_lobar[prvc] = vals + 3  # periventricular wm
 
-    regions_L = np.isin(seg, bg_labels_L) + insula_L
-    regions_R = np.isin(seg, bg_labels_R) + insula_R
+    seg_lobar[ic_L] = other_labels_L['Internal capsule']
+    seg_lobar[ic_R] = other_labels_R['Internal capsule']
+    seg_lobar[ec_L] = other_labels_L['Ext. capsule']
+    seg_lobar[ec_R] = other_labels_R['Ext. capsule']
+    seg_lobar[cc_L] = other_labels_L['Corpus callosum']
+    seg_lobar[cc_R] = other_labels_R['Corpus callosum']
 
-    filled_region_L = fill_hull(regions_L) - insula_L
-    filled_region_R = fill_hull(regions_R) - insula_R
-
-    bg_box = filled_region_L*1 + filled_region_R*2
-    bg_box *= outmask
-    return bg_box
-
-
-# im_bg_box = nib.Nifti1Image(bg_box.astype('f'), affine=im.affine)
-# nib.save(im_bg_box, '/scratch/nozais/test_shiva/results_synthseg/results/shiva_preproc/synthseg/1C016BE/new_bg_box.nii.gz')
-
-# def bullseye_like(seg):
-#     lobar = lobar_seg(seg)
-#     ventricle_mask = np.isin(seg, [4, 5, 43, 44])
-#     cortex_mask = np.isin(seg, cortex_vals_L + cortex_vals_R)
-#     dist_orig = distance_transform_edt(np.logical_not(ventricle_mask))
-#     dist_dest = distance_transform_edt(np.logical_not(cortex_mask))
-#     ndist = dist_orig / (dist_orig + dist_dest)
-#     # ... unfinished
+    return seg_lobar
