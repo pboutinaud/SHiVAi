@@ -1,6 +1,7 @@
 """Custom nipype interfaces for image resampling/cropping and
 other preliminary tasks"""
 import os.path as op
+from shivautils.postprocessing.lobarseg import lobar_and_wm_segmentation
 from shivautils.postprocessing.pvs import quantify_clusters
 from shivautils.postprocessing.basalganglia import create_basalganglia_slice_mask
 from shivautils.postprocessing.wmh import metrics_clusters_latventricles
@@ -909,8 +910,8 @@ class Regionwise_Prediction_metrics(BaseInterface):
             segmentation_vol, thr_cluster_val, thr_cluster_size, brain_seg_vol, region_dict)
 
         biomarker = self.inputs.biomarker_type
-        cluster_measures.to_csv(f'{biomarker}_census.csv')
-        cluster_stats.to_csv(f'{biomarker}_stats.csv')
+        cluster_measures.to_csv(f'{biomarker}_census.csv', index=False)
+        cluster_stats.to_csv(f'{biomarker}_stats.csv', index=False)
         clusters_im = nib.Nifti1Image(clusters_vol, img.affine, img.header)
         nib.save(clusters_im, f'labeled_{biomarker}s.nii.gz')
 
@@ -1301,10 +1302,42 @@ class MakeDistanceMap_Singularity(SingularityCommandLine):
         return outputs
 
 
-class Brain_Seg_for_PVS_InputSpec(BaseInterfaceInputSpec):
+class Parc_from_Synthseg_InputSpec(BaseInterfaceInputSpec):
     brain_seg = traits.File(exists=True,
                             mandatory=True,
                             desc='Synthseg (or comparible FreeSurfer) brain segmentation.')
+
+
+class Parc_from_Synthseg_OutputSpec(TraitedSpec):
+    brain_parc = traits.File(exists=True,
+                             desc='Brain parcellation with lobar gm and wm, juxtacortical/deep/perivascular wm, and more')
+
+
+class Parc_from_Synthseg(BaseInterface):
+    '''
+    Transform a Synthseg segmentation into a wm & gm parcellation that can be used in our cSVD biomarkers metrics
+    '''
+    input_spec = Parc_from_Synthseg_InputSpec
+    output_spec = Parc_from_Synthseg_OutputSpec
+
+    def _run_interface(self, runtime):
+        seg_im = nib.load(self.inputs.brain_seg)
+        seg_vol = seg_im.get_fdata().astype(int)
+        custom_parc = lobar_and_wm_segmentation(seg_vol)
+        custom_parc_im = nib.Nifti1Image(custom_parc, seg_im.affine)
+        nib.save(custom_parc_im, 'derived_parc.nii.gz')
+        return runtime
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['brain_parc'] = op.abspath('derived_parc.nii.gz')
+        return outputs
+
+
+class Brain_Seg_for_PVS_InputSpec(BaseInterfaceInputSpec):
+    brain_seg = traits.File(exists=True,
+                            mandatory=True,
+                            desc='"derived_parc" brain segmentation from "Parc_from_Synthseg" node.')
     out_file = traits.Str('brain_seg_for_pvs.nii.gz',
                           usedefault=True,
                           desc='Filename of the ouput segmentation')
@@ -1323,7 +1356,7 @@ class Brain_Seg_for_PVS_OutputSpec(TraitedSpec):
 
 class Brain_Seg_for_PVS(BaseInterface):
     """
-    Transform a normal Synthseg brain segmentation to one that is customized for PVS metrics.
+    Transform our parcellation (derived from Synthseg) to one that is customized for PVS metrics.
     """
     input_spec = Brain_Seg_for_PVS_OutputSpec
     output_spec = Brain_Seg_for_PVS_OutputSpec

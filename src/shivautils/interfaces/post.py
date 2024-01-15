@@ -428,19 +428,19 @@ class SummaryReport(BaseInterface):
         models_uid = {}  # Will contain the md5 hash for each file of each predictive model
         pred_list = self.inputs.pred_list
         if 'PVS' in pred_list:
-            pred_metrics_dict['PVS'] = pd.read_csv(self.inputs.pvs_metrics_csv, index_col=0)
+            pred_metrics_dict['PVS'] = pd.read_csv(self.inputs.pvs_metrics_csv)
             pred_census_im_dict['PVS'] = swarmplot_from_census(self.inputs.pvs_census_csv, 'PVS')
             models_uid['PVS'] = get_md5_from_json(self.inputs.pvs_model_descriptor)
         if 'WMH' in pred_list:
-            pred_metrics_dict['WMH'] = pd.read_csv(self.inputs.wmh_metrics_csv, index_col=0)
+            pred_metrics_dict['WMH'] = pd.read_csv(self.inputs.wmh_metrics_csv)
             pred_census_im_dict['WMH'] = swarmplot_from_census(self.inputs.wmh_census_csv, 'WMH')
             models_uid['WMH'] = get_md5_from_json(self.inputs.wmh_model_descriptor)
         if 'CMB' in pred_list:
-            pred_metrics_dict['CMB'] = pd.read_csv(self.inputs.cmb_metrics_csv, index_col=0)
+            pred_metrics_dict['CMB'] = pd.read_csv(self.inputs.cmb_metrics_csv)
             pred_census_im_dict['CMB'] = swarmplot_from_census(self.inputs.cmb_census_csv, 'CMB')
             models_uid['CMB'] = get_md5_from_json(self.inputs.cmb_model_descriptor)
         if 'LAC' in pred_list:
-            pred_metrics_dict['LAC'] = pd.read_csv(self.inputs.lac_metrics_csv, index_col=0)
+            pred_metrics_dict['LAC'] = pd.read_csv(self.inputs.lac_metrics_csv)
             pred_census_im_dict['LAC'] = swarmplot_from_census(self.inputs.lac_census_csv, 'LAC')
             models_uid['LAC'] = get_md5_from_json(self.inputs.lac_model_descriptor)
 
@@ -540,11 +540,11 @@ class Join_Prediction_metrics(BaseInterface):
 
         csv_list = []
         for csv_file, sub_id in zip(path_csv_files, subject_id):
-            sub_df = pd.read_csv(csv_file, index_col=0)
+            sub_df = pd.read_csv(csv_file)
             sub_df.insert(0, 'sub_id', [sub_id]*sub_df.shape[0])
             csv_list.append(sub_df)
         all_sub_metrics = pd.concat(csv_list)
-        all_sub_metrics.to_csv('prediction_metrics.csv')
+        all_sub_metrics.to_csv('prediction_metrics.csv', index=False)
 
         setattr(self, 'prediction_metrics_csv', os.path.abspath("prediction_metrics.csv"))
         return runtime
@@ -638,7 +638,7 @@ class QC_metrics(BaseInterface):
 
         qc_df = pd.DataFrame(qc_dict)
         qc_file = 'qc_metrics.csv'
-        qc_df.to_csv(qc_file)
+        qc_df.to_csv(qc_file, index=False)
 
         setattr(self, 'csv_qc_metrics', os.path.abspath(qc_file))
         return runtime
@@ -701,20 +701,20 @@ class Join_QC_metrics(BaseInterface):
 
         csv_list = []
         for csv_file, sub_id in zip(path_csv_files, subject_id):
-            sub_df = pd.read_csv(csv_file, index_col=0)
+            sub_df = pd.read_csv(csv_file)
             sub_df.insert(0, 'sub_id', [sub_id]*sub_df.shape[0])
             csv_list.append(sub_df)
         all_sub_metrics = pd.concat(csv_list)
 
         csv_out_file = 'qc_metrics.csv'
-        all_sub_metrics.to_csv(csv_out_file)
+        all_sub_metrics.to_csv(csv_out_file, index=False)
         pop_subs = []
         if population_csv_file is not None:
-            pop_metrics = pd.read_csv(population_csv_file, index_col=0)
+            pop_metrics = pd.read_csv(population_csv_file)
             pop_subs = pop_metrics['sub_id'].tolist()
             all_sub_metrics = pd.concat([all_sub_metrics, pop_metrics], join='inner')
             csv_pop_file = 'qc_metrics_concat.csv'
-            all_sub_metrics.to_csv(csv_pop_file)
+            all_sub_metrics.to_csv(csv_pop_file, index=False)
 
         all_sub_metrics.set_index('sub_id', inplace=True)
 
