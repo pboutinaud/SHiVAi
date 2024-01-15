@@ -329,36 +329,38 @@ def lobar_and_wm_segmentation(seg):
     and external/extreme capsule.
 
     Left hemisphere:
-        Frontal: 1, 2, 3, 4 for gm + wm (jxtc/deep/prvc)
-        Pariental: 5, 6, 7, 8
-        Temporal: 9, 10, 11, 12
-        Occipital: 13, 14, 15, 16
+                    gm   jxct deep prvc
+        Frontal:    1    2    3    4 
+        Pariental:  5    6    7    8
+        Temporal:   9    10   11   12
+        Occipital:  13   14   15   16
 
-        Insula: 17 (gm only)
-        Basal Ganglia: 40
-        Thalamus: 41
-        Ventral DC: 42
-        Hippocampus: 43  (including amygdala)
-        Internal capsule: 44
-        Ext. capsule: 45  (external + extreme capsules)
-        Corpus callosum: 46
-        Cerebellum': 47
+        Insula:         17 (gm only)
+        Basal Ganglia:  40
+        Thalamus:       41
+        Ventral DC:     42
+        Hippocampus:    43  (including amygdala)
+        Int. capsule:   44
+        Ext. capsule:   45  (external + extreme capsules)
+        Corpus call.:   46
+        Cerebellum :    47
 
     Right hemisphere:
-        Frontal: 21, 22, 23, 24 for gm + wm (jxtc/deep/prvc)
-        Pariental: 25, 26, 27, 28
-        Temporal: 29, 30, 31, 32
-        Occipital: 33, 34, 35, 36
+                    gm   jxct deep prvc
+        Frontal:    21   22   23   24 
+        Pariental:  25   26   27   28
+        Temporal:   29   30   31   32
+        Occipital:  33   34   35   36
 
-        Insula: 37 (gm only)
-        Basal Ganglia: 50
-        Thalamus: 51
-        Ventral DC: 52
-        Hippocampus: 53  (including amygdala)
-        Internal capsule: 54
-        Ext. capsule: 55  (external + extreme capsules)
-        Corpus callosum: 56
-        Cerebellum': 57
+        Insula:         37 (gm only)
+        Basal Ganglia:  50
+        Thalamus:       51
+        Ventral DC:     52
+        Hippocampus:    53  (including amygdala)
+        Int. capsule:   54
+        Ext. capsule:   55  (external + extreme capsules)
+        Corpus call.:   56
+        Cerebellum':    57
 
     '''
 
