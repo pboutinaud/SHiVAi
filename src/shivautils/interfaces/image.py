@@ -2,6 +2,7 @@
 other preliminary tasks"""
 import os.path as op
 from shivautils.postprocessing.lobarseg import lobar_and_wm_segmentation
+from shivautils.postprocessing.custom_parc import seg_for_pvs
 from shivautils.postprocessing.pvs import quantify_clusters
 from shivautils.postprocessing.basalganglia import create_basalganglia_slice_mask
 from shivautils.postprocessing.wmh import metrics_clusters_latventricles
@@ -1363,12 +1364,18 @@ class Brain_Seg_for_PVS(BaseInterface):
 
     def _run_interface(self, runtime):
         seg_im = nib.load(self.inputs.brain_seg)
-        region_dict = {'Whole brain': -1}
-        custom_seg_im = (seg_im)
+        seg_vol = seg_im.get_fdata().astype(int)
+
+        custom_seg_vol, pvs_dict = seg_for_pvs(seg_vol)
+
+        region_dict = {'Whole brain': -1, **pvs_dict}
+        custom_seg_im = nib.Nifti1Image(custom_seg_vol, affine=seg_im.affine)
         nib.save(custom_seg_im, self.inputs.out_file)
+
         setattr(self, 'region_dict', region_dict)
         with open('pvs_region_dict.json', 'w') as jsonfile:
             json.dump(region_dict, jsonfile, indent=4)
+
         return runtime
 
     def _list_outputs(self):
