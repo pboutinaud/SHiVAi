@@ -17,7 +17,7 @@ def seg_for_pvs(parc: np.ndarray) -> tuple[np.ndarray, dict]:
     '''
     seg_vals = {
         # Left
-        'Deep WM (L)': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 46],
+        'Deep WM (L)': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 46],  # With cortical GM for now
         'Basal Ganglia (L)': [17, 40, 41, 44, 45],
         'Hippocampal (L)': [43],
         'Cerebellar (L)': [47],
