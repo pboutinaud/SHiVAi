@@ -77,7 +77,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
         if kwargs['BRAIN_SEG'] == 'synthseg':
             prediction_metrics_pvs.inputs.brain_seg_type = 'synthseg'
-            custom_pvs_parc = Node(Brain_Seg_for_PVS, name='custom_pvs_parc')
+            custom_pvs_parc = Node(Brain_Seg_for_PVS(), name='custom_pvs_parc')
             workflow.connect(custom_pvs_parc, 'brain_seg_pvs', prediction_metrics_pvs, 'brain_seg')
             workflow.connect(custom_pvs_parc, 'pvs_region_dict', prediction_metrics_pvs, 'region_dict')
         else:
