@@ -111,7 +111,7 @@ def expand_label_masked(label_image, mask):
     nearest_label_coords = distance_transform_edt(
         label_image == 0, return_distances=False, return_indices=True
     )
-    labels_out = np.zeros_like(label_image)
+    labels_out = np.zeros(label_image.shape, dtype=int)
     masked_nearest_label_coords = [
         dimension_indices[mask]
         for dimension_indices in nearest_label_coords
@@ -133,8 +133,8 @@ def lobar_seg(seg):
     wm_R = wm_R | np.isin(seg, to_excluded_R)
 
     # Divide cortex in lobes
-    vol_lobar_L = np.zeros(seg.shape)
-    vol_lobar_R = np.zeros(seg.shape)
+    vol_lobar_L = np.zeros(seg.shape, dtype=int)
+    vol_lobar_R = np.zeros(seg.shape, dtype=int)
     for lob in lobar_vals_L.keys():
         vals_L = list(set(lobar_vals_L[lob]) - set(to_excluded_L))
         vals_R = list(set(lobar_vals_R[lob]) - set(to_excluded_R))
@@ -171,7 +171,7 @@ def fill_hull(brain_regions):
     deln = Delaunay(points[hull.vertices])
     idx = np.stack(np.indices(brain_regions.shape), axis=-1)
     bg_idx = np.nonzero(deln.find_simplex(idx) + 1)
-    filled_vol = np.zeros(brain_regions.shape)
+    filled_vol = np.zeros(brain_regions.shape, dtype=int)
     filled_vol[bg_idx] = 1
     return filled_vol
 
@@ -311,17 +311,14 @@ def corpus_cal(seg):
     seed_cc = dil_wm_L & dil_wm_R
 
     cc_raw = binary_dilation(seed_cc, iterations=10)
-    cc_filtered = binary_opening(cc_raw*wm, iterations=2)  # To hopefully remove stray extensions (in cingulate)
+    cc_filtered = binary_opening(cc_raw & wm, iterations=2)  # To hopefully remove stray extensions (in cingulate)
 
-    cc_L = (cc_filtered*wm_L)
-    cc_R = (cc_filtered*wm_R)
+    cc_L = (cc_filtered & wm_L)
+    cc_R = (cc_filtered & wm_R)
     return cc_L, cc_R
 
 # %%
 
-
-# im = nib.load('/scratch/nozais/test_shiva/results_synthseg/results/shiva_preproc/synthseg/1C016BE/synthseg_parc.nii.gz')
-# seg = im.get_fdata().astype(int)
 
 def lobar_and_wm_segmentation(seg):
     '''
@@ -401,3 +398,5 @@ def lobar_and_wm_segmentation(seg):
     seg_lobar[cc_R] = other_labels_R['Corpus callosum']
 
     return seg_lobar
+
+# %%
