@@ -29,7 +29,7 @@ def seg_for_pvs(parc: np.ndarray) -> tuple[np.ndarray, dict]:
         'Cerebellar (R)': [57],
         'Ventral DC (R)': [52],
         #
-        'Brainstem': 50
+        'Brainstem': 60
     }
     seg_labels = {
         # Left
@@ -48,7 +48,7 @@ def seg_for_pvs(parc: np.ndarray) -> tuple[np.ndarray, dict]:
         'Brainstem': 11
     }
 
-    pvs_seg = np.zeros(parc.shape, int)
+    pvs_seg = np.zeros(parc.shape, 'int16')
     for region, vals in seg_vals.items():
         pvs_seg[np.isin(parc, vals)] = seg_labels[region]
 
