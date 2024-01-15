@@ -99,7 +99,7 @@ other_labels_L = {
 lobar_labels_R = {k: val+20 for k, val in lobar_labels_L.items()}
 other_labels_R = {k: val+10 for k, val in other_labels_L.items()}
 other_labels_R['Insula'] = other_labels_L['Insula'] + 20
-brainstem_label = 50
+brainstem_label = 60
 
 # %%
 
@@ -111,7 +111,7 @@ def expand_label_masked(label_image, mask):
     nearest_label_coords = distance_transform_edt(
         label_image == 0, return_distances=False, return_indices=True
     )
-    labels_out = np.zeros(label_image.shape, dtype=int)
+    labels_out = np.zeros(label_image.shape, dtype='int16')
     masked_nearest_label_coords = [
         dimension_indices[mask]
         for dimension_indices in nearest_label_coords
@@ -133,8 +133,8 @@ def lobar_seg(seg):
     wm_R = wm_R | np.isin(seg, to_excluded_R)
 
     # Divide cortex in lobes
-    vol_lobar_L = np.zeros(seg.shape, dtype=int)
-    vol_lobar_R = np.zeros(seg.shape, dtype=int)
+    vol_lobar_L = np.zeros(seg.shape, dtype='int16')
+    vol_lobar_R = np.zeros(seg.shape, dtype='int16')
     for lob in lobar_vals_L.keys():
         vals_L = list(set(lobar_vals_L[lob]) - set(to_excluded_L))
         vals_R = list(set(lobar_vals_R[lob]) - set(to_excluded_R))
@@ -171,7 +171,7 @@ def fill_hull(brain_regions):
     deln = Delaunay(points[hull.vertices])
     idx = np.stack(np.indices(brain_regions.shape), axis=-1)
     bg_idx = np.nonzero(deln.find_simplex(idx) + 1)
-    filled_vol = np.zeros(brain_regions.shape, dtype=int)
+    filled_vol = np.zeros(brain_regions.shape, dtype='int16')
     filled_vol[bg_idx] = 1
     return filled_vol
 
@@ -361,6 +361,8 @@ def lobar_and_wm_segmentation(seg):
         Ext. capsule:   55  (external + extreme capsules)
         Corpus call.:   56
         Cerebellum':    57
+
+    Brainstem: 60
 
     '''
 
