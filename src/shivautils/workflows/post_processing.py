@@ -31,11 +31,10 @@
 import os
 
 from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces.utility import Function
 from nipype.interfaces import ants
 
 from shivautils.interfaces.post import SummaryReport
-from shivautils.interfaces.image import Regionwise_Prediction_metrics
+from shivautils.interfaces.image import Regionwise_Prediction_metrics, Brain_Seg_for_PVS
 from shivautils.utils.misc import set_wf_shapers
 
 
@@ -75,13 +74,15 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_pvs.inputs.biomarker_type = 'pvs'
         prediction_metrics_pvs.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
         prediction_metrics_pvs.inputs.thr_cluster_size = kwargs['MIN_PVS_SIZE'] - 1  # "- 1 because thr removes up to given value"
-        # TODO: This is when using only brainmask, we need synthseg for BG
-        # if not synthseg:
-        prediction_metrics_pvs.inputs.brain_seg_type = 'brain_mask'  # see with kwargs['BRAIN_SEG']
-        prediction_metrics_pvs.inputs.region_list = ['Whole_brain']
-        # else:
-        # prediction_metrics_pvs.inputs.brain_seg_type = 'synthseg'
-        # prediction_metrics_pvs.inputs.region_list = ['Whole_brain', 'Basal_ganglia']
+
+        if kwargs['BRAIN_SEG'] == 'synthseg':
+            prediction_metrics_pvs.inputs.brain_seg_type = 'synthseg'
+            custom_pvs_parc = Node(Brain_Seg_for_PVS, name='custom_pvs_parc')
+            workflow.connect(custom_pvs_parc, 'brain_seg_pvs', prediction_metrics_pvs, 'brain_seg')
+            workflow.connect(custom_pvs_parc, 'pvs_region_dict', prediction_metrics_pvs, 'region_dict')
+        else:
+            prediction_metrics_pvs.inputs.brain_seg_type = 'brain_mask'
+            prediction_metrics_pvs.inputs.region_list = ['Whole brain']
 
     if 'WMH' in kwargs['PREDICTION']:
         preds.append('WMH')
@@ -91,7 +92,6 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_wmh.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
         prediction_metrics_wmh.inputs.thr_cluster_size = kwargs['MIN_WMH_SIZE'] - 1
         if kwargs['BRAIN_SEG'] == 'synthseg':  # TODO do the real thing
-            # To check: BGMask, PVSQuantificationibG, MakeDistanceMap, QuantificationWMHLatVentricles
             prediction_metrics_wmh.inputs.brain_seg_type = 'synthseg'
             prediction_metrics_wmh.inputs.region_list = ['Whole brain',
                                                          'Left cerebral WM',
@@ -101,7 +101,7 @@ def genWorkflow(**kwargs) -> Workflow:
             # Connect the "brain_seg" input externally with synthseg parcelation
         else:
             prediction_metrics_wmh.inputs.brain_seg_type = 'brain_mask'
-            prediction_metrics_wmh.inputs.region_list = ['Whole_brain']
+            prediction_metrics_wmh.inputs.region_list = ['Whole brain']
 
     if 'LAC' in kwargs['PREDICTION']:
         preds.append('LAC')
@@ -112,7 +112,7 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_lac.inputs.thr_cluster_size = kwargs['MIN_LAC_SIZE'] - 1
         # if not synthseg:  # TODO
         prediction_metrics_lac.inputs.brain_seg_type = 'brain_mask'
-        prediction_metrics_lac.inputs.region_list = ['Whole_brain']
+        prediction_metrics_lac.inputs.region_list = ['Whole brain']
 
     if 'CMB' in kwargs['PREDICTION']:
         preds.append('CMB')
@@ -122,7 +122,7 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_cmb.inputs.thr_cluster_size = kwargs['MIN_CMB_SIZE'] - 1
         # if not synthseg:  # TODO
         prediction_metrics_cmb.inputs.brain_seg_type = 'brain_mask'
-        prediction_metrics_cmb.inputs.region_list = ['Whole_brain']
+        prediction_metrics_cmb.inputs.region_list = ['Whole brain']
         if with_t1:  # The metrics are computed on the segmentation put in T1 space, for coherence
             swi_pred_to_t1 = Node(ants.ApplyTransforms(), name="swi_pred_to_t1")
             swi_pred_to_t1.inputs.out_postfix = '_t1-space'
