@@ -2,7 +2,7 @@
 other preliminary tasks"""
 import os.path as op
 from shivautils.postprocessing.lobarseg import lobar_and_wm_segmentation
-from shivautils.postprocessing.custom_parc import seg_for_pvs
+from shivautils.postprocessing.custom_parc import seg_for_pvs, seg_for_wmh
 from shivautils.postprocessing.pvs import quantify_clusters
 from shivautils.postprocessing.basalganglia import create_basalganglia_slice_mask
 from shivautils.postprocessing.wmh import metrics_clusters_latventricles
@@ -1391,7 +1391,11 @@ class Brain_Seg_for_PVS(BaseInterface):
 class Brain_Seg_for_WMH_InputSpec(BaseInterfaceInputSpec):
     brain_seg = traits.File(exists=True,
                             mandatory=True,
-                            desc='Synthseg (or comparible FreeSurfer) brain segmentation.')
+                            desc='"derived_parc" brain segmentation from "Parc_from_Synthseg" node.')
+
+    out_file = traits.Str('brain_seg_for_wmh.nii.gz',
+                          usedefault=True,
+                          desc='Filename of the ouput segmentation')
 
 
 class Brain_Seg_for_WMH_OutputSpec(TraitedSpec):
@@ -1409,17 +1413,23 @@ class Brain_Seg_for_WMH(BaseInterface):
     """
     Transform a normal Synthseg brain segmentation to one that is customized for WMH metrics.
     """
-    input_spec = Brain_Seg_for_WMH_OutputSpec
+    input_spec = Brain_Seg_for_WMH_InputSpec
     output_spec = Brain_Seg_for_WMH_OutputSpec
 
     def _run_interface(self, runtime):
         seg_im = nib.load(self.inputs.brain_seg)
-        region_dict = {'Whole brain': -1}
-        custom_seg_im = (seg_im)
+        seg_vol = seg_im.get_fdata().astype(int)
+
+        custom_seg_vol, wmh_dict = seg_for_wmh(seg_vol)
+
+        region_dict = {'Whole brain': -1, **wmh_dict}
+        custom_seg_im = nib.Nifti1Image(custom_seg_vol, affine=seg_im.affine)
         nib.save(custom_seg_im, self.inputs.out_file)
+
         setattr(self, 'region_dict', region_dict)
         with open('wmh_region_dict.json', 'w') as jsonfile:
             json.dump(region_dict, jsonfile, indent=4)
+
         return runtime
 
     def _list_outputs(self):
@@ -1434,7 +1444,7 @@ class Brain_Seg_for_WMH(BaseInterface):
 class Brain_Seg_for_CMB_InputSpec(BaseInterfaceInputSpec):
     brain_seg = traits.File(exists=True,
                             mandatory=True,
-                            desc='Synthseg (or comparible FreeSurfer) brain segmentation.')
+                            desc='"derived_parc" brain segmentation from "Parc_from_Synthseg" node.')
 
 
 class Brain_Seg_for_CMB_OutputSpec(TraitedSpec):
@@ -1453,7 +1463,7 @@ class Brain_Seg_for_CMB(BaseInterface):
     Transform a normal Synthseg brain segmentation to one that is customized for CMB metrics.
     Based on the Microbleed Anatomical Rating Scale (MARS): https://doi.org/10.1212/wnl.0b013e3181c34a7d
     """
-    input_spec = Brain_Seg_for_CMB_OutputSpec
+    input_spec = Brain_Seg_for_CMB_InputSpec
     output_spec = Brain_Seg_for_CMB_OutputSpec
 
     def _run_interface(self, runtime):
@@ -1493,7 +1503,7 @@ class Brain_Seg_for_CMB(BaseInterface):
 class Brain_Seg_for_LAC_InputSpec(BaseInterfaceInputSpec):
     brain_seg = traits.File(exists=True,
                             mandatory=True,
-                            desc='Synthseg (or comparible FreeSurfer) brain segmentation.')
+                            desc='"derived_parc" brain segmentation from "Parc_from_Synthseg" node.')
 
 
 class Brain_Seg_for_LAC_OutputSpec(TraitedSpec):
@@ -1511,7 +1521,7 @@ class Brain_Seg_for_LAC(BaseInterface):
     """
     Transform a normal Synthseg brain segmentation to one that is customized for LAC metrics.
     """
-    input_spec = Brain_Seg_for_LAC_OutputSpec
+    input_spec = Brain_Seg_for_LAC_InputSpec
     output_spec = Brain_Seg_for_LAC_OutputSpec
 
     def _run_interface(self, runtime):
