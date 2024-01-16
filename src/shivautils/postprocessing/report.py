@@ -54,9 +54,9 @@ def make_report(
 
     # Preparing of prediction tables and stats in html
     seg_full_name = {
-        'PVS': 'Perivasculaire spaces',
-        'WMH': 'White-matter hyperintensities',
-        'CMB': 'Cerebral microbleeds',
+        'PVS': 'PeriVascular Spaces',
+        'WMH': 'White-Matter Hyperintensities',
+        'CMB': 'Cerebral MicroBleeds',
         'LAC': 'Lacunas'
     }
     vol_mm3_per_voxel = resolution[0] * resolution[1] * resolution[2]  # Should be 1.0 mm3 by default
