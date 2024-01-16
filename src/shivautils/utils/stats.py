@@ -318,7 +318,8 @@ def overlay_brainmask(img_ref,
 
 
 def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
-                       region_dict={'Region_names': ['Whole_brain'], 'Region_labels': [-1]}):
+                       region_dict={'Whole brain': [-1]},
+                       prio_labels=[]):
     """Get metrics on sgmented biomarkers by brain region
 
     Args:
@@ -326,10 +327,10 @@ def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
         threshold (float): Threshold to compute clusters metrics
         cluster_filter (int): number of voxels (strictly) above which the cluster is counted
         brain_seg_vol (array): Brain segmentation (or brain mask), should be filled with integers
-        region_dict (dict): Dict containing the lists of names and corresponding labels
-                            of the brain regions to use when counting the biomarkers.
+        region_dict (dict): Dict pairing the brain regions' name (key) with the numeric label (as int) to use when
+                            counting the biomarkers.
                             '-1' denotes the region encompassing the whole brain segmentation > 0
-                            (usually synonymous with 'Whole_brain')
+                            (must be associated with the 'Whole brain' key)
     Returns:
         Dataframe: Labels and size of each cluster
         Dataframe: Summary metrics of the clusters 
@@ -342,6 +343,11 @@ def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
         array_vol = array_vol.squeeze()
     if len(brain_seg_vol.shape) > 3:
         brain_seg_vol = brain_seg_vol.squeeze()
+
+    # Associate a label with a region name
+    swaped_region_dict = {val: reg for reg, val in region_dict.items()}
+    if prio_labels:
+        prio_dict = {reg: region_dict[reg] for reg in prio_labels}
 
     # Threshold and mask the biomarker segmentation image
     brain_mask = (brain_seg_vol > 0)
@@ -363,11 +369,9 @@ def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
     biom_min = []
     biom_max = []
     # Default case: get whole brain metrics
-    if -1 in region_dict['Region_labels']:
-        whole_seg = region_dict['Region_names'][region_dict['Region_labels'].index(-1)]
-        region_dict['Region_names'].remove(whole_seg)
-        region_dict['Region_labels'].remove(-1)
-        regions.append(whole_seg)
+    if 'Whole brain' in region_dict.keys():
+        del region_dict['Whole brain']
+        regions.append('Whole brain')
         biom_num.append(cluster_measures.shape[0])
         biom_tot.append(cluster_measures['Biomarker_size'].sum())
         biom_mean.append(cluster_measures['Biomarker_size'].mean())
@@ -376,22 +380,30 @@ def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
         biom_min.append(cluster_measures['Biomarker_size'].min())
         biom_max.append(cluster_measures['Biomarker_size'].max())
 
-    # Attribution of one region per cluster (i.e. the most represented region in each cluster)
-    if len(region_dict['Region_labels']):
+    # Attribution of one region per cluster (i.e. the most represented region in each cluster = winner-takes-all)
+    if len(region_dict):
         clust_reg = []
         for clust in clust_labels:
             seg_clust = brain_seg_vol[clusters_vol == clust]
             reg_in_clust, reg_count = np.unique(seg_clust, return_counts=True)  # There shouldn't be any 0 here
-            seg_attributed_label = reg_in_clust[np.argmax(reg_count)]
-            if seg_attributed_label in region_dict['Region_labels']:
-                seg_attributed = region_dict['Region_names'][region_dict['Region_labels'].index(seg_attributed_label)]
-            else:  # keeping the raw FreeSurfer label if it's not part of the investigated regions
-                seg_attributed = f'FreeSurfer_{seg_attributed_label}'
+            if prio_labels:  # Overriding the w-t-a approach for priority labels
+                prio_ind = np.isin(reg_in_clust, list(prio_dict.values()))
+                if prio_ind.any():
+                    seg_attributed_label = np.random.choice(reg_in_clust[prio_ind])  # takes equalities into account
+            else:
+                max_count = reg_count.max()
+                seg_attributed_label = np.random.choice(reg_in_clust[reg_count == max_count])  # takes equalities into account
+
+            if seg_attributed_label in swaped_region_dict.keys():
+                seg_attributed = swaped_region_dict[seg_attributed_label]
+            else:  # keeping the raw label if it's not part of the investigated regions
+                if seg_attributed_label:  # Non-zero label
+                    seg_attributed = f'Label_{seg_attributed_label}'
             clust_reg.append(seg_attributed)
 
         cluster_measures['Biomarker_region'] = clust_reg
 
-        regions_seg = [reg for reg in region_dict['Region_names'] if reg in clust_reg]  # Sorted like in the input
+        regions_seg = [reg for reg in region_dict.keys() if reg in clust_reg]  # Sorted like in the input dict
         regions += regions_seg
 
         for reg in regions_seg:

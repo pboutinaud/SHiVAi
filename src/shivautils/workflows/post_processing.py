@@ -34,7 +34,9 @@ from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces import ants
 
 from shivautils.interfaces.post import SummaryReport
-from shivautils.interfaces.image import Regionwise_Prediction_metrics, Brain_Seg_for_PVS
+from shivautils.interfaces.image import (Regionwise_Prediction_metrics,
+                                         Brain_Seg_for_PVS,
+                                         Brain_Seg_for_WMH)
 from shivautils.utils.misc import set_wf_shapers
 
 
@@ -93,12 +95,10 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_wmh.inputs.thr_cluster_size = kwargs['MIN_WMH_SIZE'] - 1
         if kwargs['BRAIN_SEG'] == 'synthseg':  # TODO do the real thing
             prediction_metrics_wmh.inputs.brain_seg_type = 'synthseg'
-            prediction_metrics_wmh.inputs.region_list = ['Whole brain',
-                                                         'Left cerebral WM',
-                                                         'Right cerebral WM',
-                                                         'Left cerebellum WM',
-                                                         'Right cerebellum WM']
-            # Connect the "brain_seg" input externally with synthseg parcelation
+            prediction_metrics_wmh.inputs.prio_labels = ['Left PV WM', 'Right PV WM']
+            custom_wmh_parc = Node(Brain_Seg_for_WMH(), name='custom_wmh_parc')
+            workflow.connect(custom_wmh_parc, 'brain_seg_wmh', prediction_metrics_wmh, 'brain_seg')
+            workflow.connect(custom_wmh_parc, 'wmh_region_dict', prediction_metrics_wmh, 'region_dict')
         else:
             prediction_metrics_wmh.inputs.brain_seg_type = 'brain_mask'
             prediction_metrics_wmh.inputs.region_list = ['Whole brain']

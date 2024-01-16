@@ -824,6 +824,14 @@ class Regionwise_Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
     brain_seg_type = traits.Str('brain_mask',
                                 desc='Type of brain segmentation provided. Can be "brain_mask", "synthseg", or "custom".')
 
+    prio_labels = traits.List(traits.Str,
+                              mandatory=False,
+                              usedefault=True,
+                              desc=('For the given labels (must have corresponding keys in region_dict), the clusters '
+                                    'will be assigned to these labels if they just touch them, instead of using the '
+                                    'winner-takes-all approach. If there is a competition between priority label, will '
+                                    'use w-t-a approach among them.'))
+
 
 class Regionwise_Prediction_metrics_OutputSpec(TraitedSpec):
     """Output class
@@ -852,22 +860,20 @@ class Regionwise_Prediction_metrics(BaseInterface):
         brain_seg = self.inputs.brain_seg
         region_list = self.inputs.region_list
         brain_seg_type = self.inputs.brain_seg_type
+        prio_labels = self.inputs.prio_labels
 
         img = nib.load(path_images)
         segmentation_vol = img.get_fdata()
         brain_seg_vol = nib.load(brain_seg).get_fdata()
 
         if brain_seg_type == "brain_mask":
-            region_dict = {'Region_names': 'Whole brain',
-                           'Region_labels': [-1]}
+            region_dict = {'Whole brain': -1}
             if len(region_list) > 1:
                 raise ValueError('The list of regions given when using only the brain mask can only be 1 '
                                  '(taking the whole mask)')
         elif brain_seg_type == 'synthseg':
             if isdefined(self.inputs.region_dict):
-                region_dict_in = self.inputs.region_dict
-                region_dict = {'Region_names': list(region_dict_in.keys())}
-                region_dict['Region_labels'] = [region_dict_in[reg] for reg in region_dict['Region_names']]
+                region_dict = self.inputs.region_dict
             else:  # Requieres "region_list" given as input, works with Synthseg (and Freesurfer) labels
                 fs_labels = {'Whole brain': -1,  # To complete
                              'Left cerebral WM': 2,
@@ -896,20 +902,15 @@ class Regionwise_Prediction_metrics(BaseInterface):
                              'Right accumbens area': 58,
                              'Right ventral DC': 60,
                              }
-                region_dict = {'Region_names': [],
-                               'Region_labels': []}
                 brain_seg_vol[brain_seg_vol == 24] = 0  # label 24 = CSF
                 brain_seg_vol[(brain_seg_vol >= 1000) | (brain_seg_vol <= 1035)] = 8  # parc labels for left ctx
                 brain_seg_vol[(brain_seg_vol >= 2000) | (brain_seg_vol <= 2035)] = 42  # parc labels for right ctx
-                for region in region_list:
-                    if region in fs_labels.keys():
-                        region_dict['Region_names'].append(region)
-                        region_dict['Region_labels'].append(fs_labels[region])
+                region_dict = {region: fs_labels[region] for region in region_list if region in fs_labels.keys()}
         else:
             raise ValueError(f'Unrecognised segmentation type: {brain_seg_type}. Should be "brain_mask", "synthseg" or "custom"')
 
         cluster_measures, cluster_stats, clusters_vol = prediction_metrics(
-            segmentation_vol, thr_cluster_val, thr_cluster_size, brain_seg_vol, region_dict)
+            segmentation_vol, thr_cluster_val, thr_cluster_size, brain_seg_vol, region_dict, prio_labels)
 
         biomarker = self.inputs.biomarker_type
         cluster_measures.to_csv(f'{biomarker}_census.csv', index=False)
