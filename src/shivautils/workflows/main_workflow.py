@@ -245,7 +245,16 @@ def generate_main_wf(**kwargs) -> Workflow:
         else:
             main_wf.connect(segmentation_wf, 'predict_cmb.segmentation', wf_post, 'prediction_metrics_cmb.img')
             main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', segmentation_wf, 'predict_cmb.swi')
-        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_cmb.brain_seg')  # TODO: SynthSeg
+
+        if kwargs['BRAIN_SEG'] == 'synthseg':
+            if with_t1:
+                main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_to_t1.forward_transforms', wf_post, 'synthseg_to_t1.transforms')
+                main_wf.connect(wf_preproc, 'custom_parc.brain_parc', wf_post, 'synthseg_to_t1.input_image')
+                main_wf.connect(wf_preproc, 'crop.cropped', wf_post, 'synthseg_to_t1.reference_image')
+            else:
+                main_wf.connect(wf_preproc, 'custom_parc.brain_parc', wf_post, 'custom_cmb_parc.brain_seg')
+        else:
+            main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'prediction_metrics_cmb.brain_seg')
 
     # Lacuna
     if 'LAC' in kwargs['PREDICTION']:
@@ -270,7 +279,11 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', segmentation_wf, 'predict_lac.t1')
         main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', segmentation_wf, 'predict_lac.flair')
         main_wf.connect(segmentation_wf, 'predict_lac.segmentation', wf_post, 'prediction_metrics_lac.img')
-        main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_lac.brain_seg')  # TODO: SynthSeg
+        if kwargs['BRAIN_SEG'] == 'synthseg':
+            main_wf.connect(wf_preproc, 'custom_parc.brain_parc', wf_post, 'custom_lac_parc.brain_seg')
+        else:
+            main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_lac.brain_seg')
+
         # Merge all csv files
         prediction_metrics_lac_all = JoinNode(Join_Prediction_metrics(),
                                               joinsource=subject_iterator,

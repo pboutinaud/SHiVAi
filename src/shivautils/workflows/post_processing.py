@@ -141,13 +141,14 @@ def genWorkflow(**kwargs) -> Workflow:
 
         if kwargs['BRAIN_SEG'] == 'synthseg':
             prediction_metrics_cmb.inputs.brain_seg_type = 'synthseg'
-            custom_cmb_parc = Node(Brain_Seg_for_biomarker(), name='custom_cmb_parc')
+            custom_cmb_parc = Node(Brain_Seg_for_biomarker(), name='custom_cmb_parc')  # TODO: connect inputs
             custom_cmb_parc.inputs.custom_parc = 'mars'
             custom_cmb_parc.inputs.out_file = 'Brain_Seg_for_CMB.nii.gz'
             if with_t1:
                 synthseg_to_t1 = Node(ants.ApplyTransforms(), name="synthseg_to_t1")  # TODO: connect inputs
                 synthseg_to_t1.inputs.out_postfix = '_t1-space'
                 custom_cmb_parc.inputs.out_file = 'Brain_Seg_for_CMB_t1-space.nii.gz'
+                workflow.connect(synthseg_to_t1, 'output_image', custom_cmb_parc, 'brain_seg')
             workflow.connect(custom_cmb_parc, 'brain_seg', prediction_metrics_cmb, 'brain_seg')
             workflow.connect(custom_cmb_parc, 'region_dict', prediction_metrics_cmb, 'region_dict')
         else:
