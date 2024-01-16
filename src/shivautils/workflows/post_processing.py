@@ -35,8 +35,7 @@ from nipype.interfaces import ants
 
 from shivautils.interfaces.post import SummaryReport
 from shivautils.interfaces.image import (Regionwise_Prediction_metrics,
-                                         Brain_Seg_for_PVS,
-                                         Brain_Seg_for_WMH)
+                                         Brain_Seg_for_biomarker)
 from shivautils.utils.misc import set_wf_shapers
 
 
@@ -79,8 +78,10 @@ def genWorkflow(**kwargs) -> Workflow:
 
         if kwargs['BRAIN_SEG'] == 'synthseg':
             prediction_metrics_pvs.inputs.brain_seg_type = 'synthseg'
-            custom_pvs_parc = Node(Brain_Seg_for_PVS(), name='custom_pvs_parc')
-            workflow.connect(custom_pvs_parc, 'brain_seg_pvs', prediction_metrics_pvs, 'brain_seg')
+            custom_pvs_parc = Node(Brain_Seg_for_biomarker(), name='custom_pvs_parc')
+            custom_pvs_parc.inputs.out_file = 'Brain_Seg_for_PVS.nii.gz'
+            custom_pvs_parc.inputs.custom_parc = 'pvs'
+            workflow.connect(custom_pvs_parc, 'brain_seg', prediction_metrics_pvs, 'brain_seg')
             workflow.connect(custom_pvs_parc, 'pvs_region_dict', prediction_metrics_pvs, 'region_dict')
         else:
             prediction_metrics_pvs.inputs.brain_seg_type = 'brain_mask'
@@ -93,12 +94,14 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_wmh.inputs.biomarker_type = 'wmh'
         prediction_metrics_wmh.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
         prediction_metrics_wmh.inputs.thr_cluster_size = kwargs['MIN_WMH_SIZE'] - 1
-        if kwargs['BRAIN_SEG'] == 'synthseg':  # TODO do the real thing
+        if kwargs['BRAIN_SEG'] == 'synthseg':
             prediction_metrics_wmh.inputs.brain_seg_type = 'synthseg'
             prediction_metrics_wmh.inputs.prio_labels = ['Left PV WM', 'Right PV WM']
-            custom_wmh_parc = Node(Brain_Seg_for_WMH(), name='custom_wmh_parc')
-            workflow.connect(custom_wmh_parc, 'brain_seg_wmh', prediction_metrics_wmh, 'brain_seg')
-            workflow.connect(custom_wmh_parc, 'wmh_region_dict', prediction_metrics_wmh, 'region_dict')
+            custom_wmh_parc = Node(Brain_Seg_for_biomarker(), name='custom_wmh_parc')
+            custom_wmh_parc.inputs.out_file = 'Brain_Seg_for_WMH.nii.gz'
+            custom_wmh_parc.inputs.custom_parc = 'wmh'
+            workflow.connect(custom_wmh_parc, 'brain_seg', prediction_metrics_wmh, 'brain_seg')
+            workflow.connect(custom_wmh_parc, 'region_dict', prediction_metrics_wmh, 'region_dict')
         else:
             prediction_metrics_wmh.inputs.brain_seg_type = 'brain_mask'
             prediction_metrics_wmh.inputs.region_list = ['Whole brain']
@@ -110,19 +113,24 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_lac.inputs.biomarker_type = 'lac'
         prediction_metrics_lac.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
         prediction_metrics_lac.inputs.thr_cluster_size = kwargs['MIN_LAC_SIZE'] - 1
-        # if not synthseg:  # TODO
-        prediction_metrics_lac.inputs.brain_seg_type = 'brain_mask'
-        prediction_metrics_lac.inputs.region_list = ['Whole brain']
+        if kwargs['BRAIN_SEG'] == 'synthseg':
+            prediction_metrics_lac.inputs.brain_seg_type = 'synthseg'
+            prediction_metrics_lac.inputs.prio_labels = ['Left PV WM', 'Right PV WM']
+            custom_lac_parc = Node(Brain_Seg_for_biomarker(), name='custom_lac_parc')
+            custom_lac_parc.inputs.out_file = 'Brain_Seg_for_LAC.nii.gz'
+            custom_lac_parc.inputs.custom_parc = 'mars'
+            workflow.connect(custom_lac_parc, 'brain_seg', prediction_metrics_lac, 'brain_seg')
+            workflow.connect(custom_lac_parc, 'region_dict', prediction_metrics_lac, 'region_dict')
+        else:
+            prediction_metrics_lac.inputs.brain_seg_type = 'brain_mask'
+            prediction_metrics_lac.inputs.region_list = ['Whole brain']
 
     if 'CMB' in kwargs['PREDICTION']:
         preds.append('CMB')
-        prediction_metrics_cmb = Node(Regionwise_Prediction_metrics(),
+        prediction_metrics_cmb = Node(Regionwise_Prediction_metrics(),  # TODO: connect inputs
                                       name="prediction_metrics_cmb")
         prediction_metrics_cmb.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
         prediction_metrics_cmb.inputs.thr_cluster_size = kwargs['MIN_CMB_SIZE'] - 1
-        # if not synthseg:  # TODO
-        prediction_metrics_cmb.inputs.brain_seg_type = 'brain_mask'
-        prediction_metrics_cmb.inputs.region_list = ['Whole brain']
         if with_t1:  # The metrics are computed on the segmentation put in T1 space, for coherence
             swi_pred_to_t1 = Node(ants.ApplyTransforms(), name="swi_pred_to_t1")
             swi_pred_to_t1.inputs.out_postfix = '_t1-space'
@@ -130,6 +138,21 @@ def genWorkflow(**kwargs) -> Workflow:
             prediction_metrics_cmb.inputs.biomarker_type = 'cmb_t1-space'
         else:
             prediction_metrics_cmb.inputs.biomarker_type = 'cmb'
+
+        if kwargs['BRAIN_SEG'] == 'synthseg':
+            prediction_metrics_cmb.inputs.brain_seg_type = 'synthseg'
+            custom_cmb_parc = Node(Brain_Seg_for_biomarker(), name='custom_cmb_parc')
+            custom_cmb_parc.inputs.custom_parc = 'mars'
+            custom_cmb_parc.inputs.out_file = 'Brain_Seg_for_CMB.nii.gz'
+            if with_t1:
+                synthseg_to_t1 = Node(ants.ApplyTransforms(), name="synthseg_to_t1")  # TODO: connect inputs
+                synthseg_to_t1.inputs.out_postfix = '_t1-space'
+                custom_cmb_parc.inputs.out_file = 'Brain_Seg_for_CMB_t1-space.nii.gz'
+            workflow.connect(custom_cmb_parc, 'brain_seg', prediction_metrics_cmb, 'brain_seg')
+            workflow.connect(custom_cmb_parc, 'region_dict', prediction_metrics_cmb, 'region_dict')
+        else:
+            prediction_metrics_cmb.inputs.brain_seg_type = 'brain_mask'
+            prediction_metrics_cmb.inputs.region_list = ['Whole brain']
 
     # Building the actual report (html then pdf)
     summary_report = Node(SummaryReport(), name="summary_report")

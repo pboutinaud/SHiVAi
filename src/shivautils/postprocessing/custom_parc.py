@@ -98,3 +98,98 @@ def seg_for_wmh(parc: np.ndarray) -> tuple[np.ndarray, dict]:
     for region, vals in seg_vals.items():
         wmh_seg[np.isin(parc, vals)] = seg_labels[region]
     return wmh_seg, seg_labels
+
+
+def seg_from_mars(parc: np.ndarray) -> tuple[np.ndarray, dict]:
+    '''
+    Based on the Microbleed Anatomical Rating Scale (MARS)
+    Will segment CMBs into: L / R
+        - Frontal:          1 / 15
+        - Parietal:         2 / 16
+        - Temporal:         3 / 17
+        - Occipital:        4 / 18
+        - Insula:           5 / 19 (just the GM)
+        - Basal Ganglia:    6 / 20
+        - Thalamus:         7 / 21
+        - Ventral DC:       8 / 22
+        - Hippocampus:      9 / 23
+        - Int. Capsule:    10 / 24
+        - Ext. Capsule:    11 / 25
+        - Corp. Call.:     12 / 26
+        - Deep and PV WM:  13 / 27
+        - Cerebellum:      14 / 28
+        - Brainstem:          29
+
+    '''
+    seg_vals = {  # See src/shivautils/postprocessing/lobarseg.py for labels
+        # Left
+        'Left Frontal': [1, 2],
+        'Left Parietal': [5, 6],
+        'Left Temporal': [9, 10],
+        'Left Occipital': [13, 14],
+        'Left Insula': [17],
+        'Left Basal Ganglia': [40],
+        'Left Thalamus': [41],
+        'Left Ventral DC': [42],
+        'Left Hippocampus': [43],
+        'Left Int. Capsule': [44],
+        'Left Ext. Capsule': [45],
+        'Left Corp. Call': [46],
+        'Left Deep and PV WM': [3, 4, 7, 8, 11, 12, 15, 16],
+        'Left Cerebellum': [47],
+        # Right
+        'Right Frontal': [21, 22],
+        'Right Parietal': [25, 26],
+        'Right Temporal': [29, 30],
+        'Right Occipital': [33, 34],
+        'Right Insula': [37],
+        'Right Basal Ganglia': [50],
+        'Right Thalamus': [51],
+        'Right Ventral DC': [52],
+        'Right Hippocampus': [53],
+        'Right Int. Capsule': [54],
+        'Right Ext. Capsule': [55],
+        'Right Corp. Call': [56],
+        'Right Deep and PV WM': [23, 24, 27, 28, 31, 32, 35, 36],
+        'Right Cerebellum': [57],
+        #
+        'Brainstem': 60
+    }
+    seg_labels = {
+        # Left
+        'Left Frontal': 1,
+        'Left Parietal': 2,
+        'Left Temporal': 3,
+        'Left Occipital': 4,
+        'Left Insula': 5,
+        'Left Basal Ganglia': 6,
+        'Left Thalamus': 7,
+        'Left Ventral DC': 8,
+        'Left Hippocampus': 9,
+        'Left Int. Capsule': 10,
+        'Left Ext. Capsule': 11,
+        'Left Corp. Call': 12,
+        'Left Deep and PV WM': 13,
+        'Left Cerebellum': 14,
+        # Right
+        'Right Frontal': 15,
+        'Right Parietal': 16,
+        'Right Temporal': 17,
+        'Right Occipital': 18,
+        'Right Insula': 19,
+        'Right Basal Ganglia': 20,
+        'Right Thalamus': 21,
+        'Right Ventral DC': 22,
+        'Right Hippocampus': 23,
+        'Right Int. Capsule': 24,
+        'Right Ext. Capsule': 25,
+        'Right Corp. Call': 26,
+        'Right Deep and PV WM': 27,
+        'Right Cerebellum': 28,
+        #
+        'Brainstem': 29
+    }
+    cmb_seg = np.zeros(parc.shape, 'int16')
+    for region, vals in seg_vals.items():
+        cmb_seg[np.isin(parc, vals)] = seg_labels[region]
+    return cmb_seg, seg_labels

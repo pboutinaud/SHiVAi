@@ -2,7 +2,7 @@
 other preliminary tasks"""
 import os.path as op
 from shivautils.postprocessing.lobarseg import lobar_and_wm_segmentation
-from shivautils.postprocessing.custom_parc import seg_for_pvs, seg_for_wmh
+from shivautils.postprocessing.custom_parc import seg_for_pvs, seg_for_wmh, seg_from_mars
 from shivautils.postprocessing.pvs import quantify_clusters
 from shivautils.postprocessing.basalganglia import create_basalganglia_slice_mask
 from shivautils.postprocessing.wmh import metrics_clusters_latventricles
@@ -1337,208 +1337,70 @@ class Parc_from_Synthseg(BaseInterface):
         return outputs
 
 
-class Brain_Seg_for_PVS_InputSpec(BaseInterfaceInputSpec):
+class Brain_Seg_for_biomarker_InputSpec(BaseInterfaceInputSpec):
+
     brain_seg = traits.File(exists=True,
                             mandatory=True,
                             desc='"derived_parc" brain segmentation from "Parc_from_Synthseg" node.')
-    out_file = traits.Str('brain_seg_for_pvs.nii.gz',
+
+    custom_parc = traits.Str('mars',
+                             usedefault=True,
+                             desc='Type of custom parcellisation scheme to use. Can be "pvs", "wmh, or "mars"')
+
+    out_file = traits.Str('Brain_Seg_for_biomarker.nii.gz',
                           usedefault=True,
                           desc='Filename of the ouput segmentation')
 
 
-class Brain_Seg_for_PVS_OutputSpec(TraitedSpec):
-    brain_seg_pvs = traits.File(exists=True,
-                                desc='Brain segmentation, derived from synthseg segmentation, and used for PVS metrics')
-    pvs_region_dict = traits.Dict(key_trait=traits.Str,
-                                  value_trait=traits.Int,
-                                  desc=('Dictionnary with keys = brain region names, '
-                                        'and values = brain region labels (i.e. the corresponding value in brain_seg_pvs)'))
+class Brain_Seg_for_biomarker_OutputSpec(TraitedSpec):
+    brain_seg = traits.File(exists=True,
+                            desc='Brain segmentation, derived from synthseg segmentation, and used for the biomarker metrics')
+    region_dict = traits.Dict(key_trait=traits.Str,
+                              value_trait=traits.Int,
+                              desc=('Dictionnary with keys = brain region names, '
+                                    'and values = brain region labels (i.e. the corresponding value in brain_seg)'))
     region_dict_json = traits.File(exists=True,
                                    desc='json file where region_dict will be saved for future reference')
 
 
-class Brain_Seg_for_PVS(BaseInterface):
+class Brain_Seg_for_biomarker(BaseInterface):
     """
-    Transform our parcellation (derived from Synthseg) to one that is customized for PVS metrics.
+    Transform our parcellation (derived from Synthseg) to one that is customized for the studied biomarker metrics.
+    'mars' refers to the Microbleed Anatomical Rating Scale (MARS)
     """
-    input_spec = Brain_Seg_for_PVS_InputSpec
-    output_spec = Brain_Seg_for_PVS_OutputSpec
+    input_spec = Brain_Seg_for_biomarker_InputSpec
+    output_spec = Brain_Seg_for_biomarker_OutputSpec
 
     def _run_interface(self, runtime):
         seg_im = nib.load(self.inputs.brain_seg)
         seg_vol = seg_im.get_fdata().astype(int)
 
-        custom_seg_vol, pvs_dict = seg_for_pvs(seg_vol)
+        seg_scheme = self.inputs.custom_parc
+        if seg_scheme == 'pvs':
+            custom_seg_vol, seg_dict = seg_for_pvs(seg_vol)
+        elif seg_scheme == 'wmh':
+            custom_seg_vol, seg_dict = seg_for_wmh(seg_vol)
+        elif seg_scheme == 'mars':
+            custom_seg_vol, seg_dict = seg_from_mars(seg_vol)
+        else:
+            raise ValueError(f'Unrecognised segmentation scheme: Expected "pvs", "wmh", or "mars" but bot "{seg_scheme}"')
 
-        region_dict = {'Whole brain': -1, **pvs_dict}
+        region_dict = {'Whole brain': -1, **seg_dict}
         custom_seg_im = nib.Nifti1Image(custom_seg_vol, affine=seg_im.affine)
         nib.save(custom_seg_im, self.inputs.out_file)
 
         setattr(self, 'region_dict', region_dict)
-        with open('pvs_region_dict.json', 'w') as jsonfile:
+        json_name = f'{seg_scheme}_region_dict.json'
+        setattr(self, 'json_name', json_name)
+        with open(json_name, 'w') as jsonfile:
             json.dump(region_dict, jsonfile, indent=4)
 
         return runtime
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
-        outputs['brain_seg_pvs'] = op.abspath(self.inputs.out_file)
-        outputs['pvs_region_dict'] = getattr(self, 'region_dict')
-        outputs['region_dict_json'] = op.abspath('pvs_region_dict.json')
-
-        return outputs
-
-
-class Brain_Seg_for_WMH_InputSpec(BaseInterfaceInputSpec):
-    brain_seg = traits.File(exists=True,
-                            mandatory=True,
-                            desc='"derived_parc" brain segmentation from "Parc_from_Synthseg" node.')
-
-    out_file = traits.Str('brain_seg_for_wmh.nii.gz',
-                          usedefault=True,
-                          desc='Filename of the ouput segmentation')
-
-
-class Brain_Seg_for_WMH_OutputSpec(TraitedSpec):
-    brain_seg_wmh = traits.File(exists=True,
-                                desc='Brain segmentation, derived from synthseg segmentation, and used for WMH metrics')
-    wmh_region_dict = traits.Dict(key_trait=traits.Str,
-                                  value_trait=traits.Int,
-                                  desc=('Dictionnary with keys = brain region names, '
-                                        'and values = brain region labels (i.e. the corresponding value in brain_seg_wmh)'))
-    region_dict_json = traits.File(exists=True,
-                                   desc='json file where region_dict will be saved for future reference')
-
-
-class Brain_Seg_for_WMH(BaseInterface):
-    """
-    Transform a normal Synthseg brain segmentation to one that is customized for WMH metrics.
-    """
-    input_spec = Brain_Seg_for_WMH_InputSpec
-    output_spec = Brain_Seg_for_WMH_OutputSpec
-
-    def _run_interface(self, runtime):
-        seg_im = nib.load(self.inputs.brain_seg)
-        seg_vol = seg_im.get_fdata().astype(int)
-
-        custom_seg_vol, wmh_dict = seg_for_wmh(seg_vol)
-
-        region_dict = {'Whole brain': -1, **wmh_dict}
-        custom_seg_im = nib.Nifti1Image(custom_seg_vol, affine=seg_im.affine)
-        nib.save(custom_seg_im, self.inputs.out_file)
-
-        setattr(self, 'region_dict', region_dict)
-        with open('wmh_region_dict.json', 'w') as jsonfile:
-            json.dump(region_dict, jsonfile, indent=4)
-
-        return runtime
-
-    def _list_outputs(self):
-        outputs = self.output_spec().get()
-        outputs['brain_seg_wmh'] = op.abspath(self.inputs.out_file)
-        outputs['wmh_region_dict'] = getattr(self, 'region_dict')
-        outputs['region_dict_json'] = op.abspath('wmh_region_dict.json')
-
-        return outputs
-
-
-class Brain_Seg_for_CMB_InputSpec(BaseInterfaceInputSpec):
-    brain_seg = traits.File(exists=True,
-                            mandatory=True,
-                            desc='"derived_parc" brain segmentation from "Parc_from_Synthseg" node.')
-
-
-class Brain_Seg_for_CMB_OutputSpec(TraitedSpec):
-    brain_seg_cmb = traits.File(exists=True,
-                                desc='Brain segmentation, derived from synthseg segmentation, and used for CMB metrics')
-    cmb_region_dict = traits.Dict(key_trait=traits.Str,
-                                  value_trait=traits.Int,
-                                  desc=('Dictionnary with keys = brain region names, '
-                                        'and values = brain region labels (i.e. the corresponding value in brain_seg_cmb)'))
-    region_dict_json = traits.File(exists=True,
-                                   desc='json file where region_dict will be saved for future reference')
-
-
-class Brain_Seg_for_CMB(BaseInterface):
-    """
-    Transform a normal Synthseg brain segmentation to one that is customized for CMB metrics.
-    Based on the Microbleed Anatomical Rating Scale (MARS): https://doi.org/10.1212/wnl.0b013e3181c34a7d
-    """
-    input_spec = Brain_Seg_for_CMB_InputSpec
-    output_spec = Brain_Seg_for_CMB_OutputSpec
-
-    def _run_interface(self, runtime):
-        seg_im = nib.load(self.inputs.brain_seg)
-        region_dict = {
-            # 'Whole brain': -1,
-            'Brainstem',
-            'Cerebellum',
-            'Basal Ganglia',
-            'Thalamus',
-            'Internal Capsule',
-            'External Capsule',
-            'Curpus callosum',
-            'Deep and periventricular WM',
-            'Frontal',
-            'Parietal',
-            'Temporal',
-            'Occipital',
-            'Insula'
-        }
-        custom_seg_im = (seg_im)
-        nib.save(custom_seg_im, self.inputs.out_file)
-        setattr(self, 'region_dict', region_dict)
-        with open('cmb_region_dict.json', 'w') as jsonfile:
-            json.dump(region_dict, jsonfile, indent=4)
-        return runtime
-
-    def _list_outputs(self):
-        outputs = self.output_spec().get()
-        outputs['brain_seg_cmb'] = op.abspath(self.inputs.out_file)
-        outputs['cmb_region_dict'] = getattr(self, 'region_dict')
-        outputs['region_dict_json'] = op.abspath('cmb_region_dict.json')
-
-        return outputs
-
-
-class Brain_Seg_for_LAC_InputSpec(BaseInterfaceInputSpec):
-    brain_seg = traits.File(exists=True,
-                            mandatory=True,
-                            desc='"derived_parc" brain segmentation from "Parc_from_Synthseg" node.')
-
-
-class Brain_Seg_for_LAC_OutputSpec(TraitedSpec):
-    brain_seg_lac = traits.File(exists=True,
-                                desc='Brain segmentation, derived from synthseg segmentation, and used for LAC metrics')
-    lac_region_dict = traits.Dict(key_trait=traits.Str,
-                                  value_trait=traits.Int,
-                                  desc=('Dictionnary with keys = brain region names, '
-                                        'and values = brain region labels (i.e. the corresponding value in brain_seg_lac)'))
-    region_dict_json = traits.File(exists=True,
-                                   desc='json file where region_dict will be saved for future reference')
-
-
-class Brain_Seg_for_LAC(BaseInterface):
-    """
-    Transform a normal Synthseg brain segmentation to one that is customized for LAC metrics.
-    """
-    input_spec = Brain_Seg_for_LAC_InputSpec
-    output_spec = Brain_Seg_for_LAC_OutputSpec
-
-    def _run_interface(self, runtime):
-        seg_im = nib.load(self.inputs.brain_seg)
-        region_dict = {'Whole brain': -1}
-        custom_seg_im = (seg_im)
-        nib.save(custom_seg_im, self.inputs.out_file)
-        setattr(self, 'region_dict', region_dict)
-        with open('lac_region_dict.json', 'w') as jsonfile:
-            json.dump(region_dict, jsonfile, indent=4)
-        return runtime
-
-    def _list_outputs(self):
-        outputs = self.output_spec().get()
-        outputs['brain_seg_lac'] = op.abspath(self.inputs.out_file)
-        outputs['lac_region_dict'] = getattr(self, 'region_dict')
-        outputs['region_dict_json'] = op.abspath('lac_region_dict.json')
+        outputs['brain_seg'] = op.abspath(self.inputs.out_file)
+        outputs['region_dict'] = getattr(self, 'region_dict')
+        outputs['region_dict_json'] = op.abspath(getattr(self, 'json_name'))
 
         return outputs

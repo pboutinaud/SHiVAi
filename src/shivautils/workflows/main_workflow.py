@@ -335,8 +335,8 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(wf_post, 'prediction_metrics_pvs.labelled_biomarkers', sink_node_subjects, 'segmentations.pvs_segmentation.@labeled')
         main_wf.connect(prediction_metrics_pvs_all, 'prediction_metrics_csv', sink_node_all, 'segmentations.pvs_metrics')
         if kwargs['BRAIN_SEG'] == 'synthseg':
-            main_wf.connect(wf_post, 'custom_pvs_parc.brain_seg_pvs', sink_node_subjects, 'segmentations.pvs_segmentation.@parc')
-            main_wf.connect(wf_post, 'custom_pvs_parc.pvs_region_dict', sink_node_subjects, 'segmentations.pvs_segmentation.@parc_dict')
+            main_wf.connect(wf_post, 'custom_pvs_parc.brain_seg', sink_node_subjects, 'segmentations.pvs_segmentation.@parc')
+            main_wf.connect(wf_post, 'custom_pvs_parc.region_dict', sink_node_subjects, 'segmentations.pvs_segmentation.@parc_dict')
     if 'WMH' in kwargs['PREDICTION']:
         main_wf.connect(segmentation_wf, 'predict_wmh.segmentation', sink_node_subjects, 'segmentations.wmh_segmentation')
         main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_stats_csv', sink_node_subjects, 'segmentations.wmh_segmentation.@metrics')
@@ -344,8 +344,8 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(wf_post, 'prediction_metrics_wmh.labelled_biomarkers', sink_node_subjects, 'segmentations.wmh_segmentation.@labeled')
         main_wf.connect(prediction_metrics_wmh_all, 'prediction_metrics_csv', sink_node_all, 'segmentations.wmh_metrics')
         if kwargs['BRAIN_SEG'] == 'synthseg':
-            main_wf.connect(wf_post, 'custom_wmh_parc.brain_seg_wmh', sink_node_subjects, 'segmentations.wmh_segmentation.@parc')
-            main_wf.connect(wf_post, 'custom_wmh_parc.wmh_region_dict', sink_node_subjects, 'segmentations.wmh_segmentation.@parc_dict')
+            main_wf.connect(wf_post, 'custom_wmh_parc.brain_seg', sink_node_subjects, 'segmentations.wmh_segmentation.@parc')
+            main_wf.connect(wf_post, 'custom_wmh_parc.region_dict', sink_node_subjects, 'segmentations.wmh_segmentation.@parc_dict')
 
     if 'CMB' in kwargs['PREDICTION']:
         if with_t1:
@@ -360,8 +360,8 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(wf_post, 'prediction_metrics_cmb.labelled_biomarkers', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@labeled')
         main_wf.connect(prediction_metrics_cmb_all, 'prediction_metrics_csv', sink_node_all, f'segmentations.cmb_metrics_{space}')
         if kwargs['BRAIN_SEG'] == 'synthseg':  # TODO: Check how this behaves with the registration to T1 space
-            main_wf.connect(wf_post, 'custom_cmb_parc.brain_seg_cmb', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@parc')
-            main_wf.connect(wf_post, 'custom_cmb_parc.cmb_region_dict', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@parc_dict')
+            main_wf.connect(wf_post, 'custom_cmb_parc.brain_seg', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@parc')
+            main_wf.connect(wf_post, 'custom_cmb_parc.region_dict', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@parc_dict')
 
     if 'LAC' in kwargs['PREDICTION']:
         main_wf.connect(segmentation_wf, 'predict_lac.segmentation', sink_node_subjects, 'segmentations.lac_segmentation')
@@ -370,8 +370,8 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(wf_post, 'prediction_metrics_lac.labelled_biomarkers', sink_node_subjects, 'segmentations.lac_segmentation.@labeled')
         main_wf.connect(prediction_metrics_lac_all, 'prediction_metrics_csv', sink_node_all, 'segmentations.lac_metrics')
         if kwargs['BRAIN_SEG'] == 'synthseg':
-            main_wf.connect(wf_post, 'custom_lac_parc.brain_seg_lac', sink_node_subjects, 'segmentations.lac_segmentation.@parc')
-            main_wf.connect(wf_post, 'custom_lac_parc.lac_region_dict', sink_node_subjects, 'segmentations.lac_segmentation.@parc_dict')
+            main_wf.connect(wf_post, 'custom_lac_parc.brain_seg', sink_node_subjects, 'segmentations.lac_segmentation.@parc')
+            main_wf.connect(wf_post, 'custom_lac_parc.region_dict', sink_node_subjects, 'segmentations.lac_segmentation.@parc_dict')
 
     main_wf.connect(qc_joiner, 'qc_metrics_csv', sink_node_all, 'preproc_qc')
     main_wf.connect(qc_joiner, 'bad_qc_subs', sink_node_all, 'preproc_qc.@bad_qc_subs')
