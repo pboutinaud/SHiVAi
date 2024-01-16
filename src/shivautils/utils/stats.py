@@ -289,7 +289,7 @@ def overlay_brainmask(img_ref,
         list_sli_Z.append(int(j))
 
     # Affichage dans les trois axes
-    fig, ax = plt.subplots(5, 8, figsize=(160, 80))
+    fig, ax = plt.subplots(5, 8, figsize=(8, 4), dpi=200)
     fig.patch.set_facecolor('k')
     alpha = 0.5
     count = 0
