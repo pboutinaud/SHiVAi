@@ -1,12 +1,13 @@
-def create_edges(path_image, path_ref_image, path_brainmask, nb_of_slices=8):
+def create_edges(path_image, path_ref_image, path_brainmask, nb_of_slices=12, slice_orient='axial'):
     """Create image edges based on: https://github.com/neurolabusc/PyDog/blob/main/dog.py to check the coregistration.
 
     INPUT: You must provide the create_edges function with:
 
-    - Path to the image that was coregistered (the image must be cropped and the intensity normalized)
-    - Path to the reference image on which the images have been coregistered (the reference image must be cropped and its intensity normalized)
-    - Cropped brain mask (in the same space as reference image)
-    - Optional: number of slices (default 8) for PNG output
+    - path_image: Path to the image that was coregistered (the image must be cropped and the intensity normalized)
+    - path_ref_img: Path to the reference image on which the images have been coregistered (the reference image must be cropped and its intensity normalized)
+    - path_brainmask: Cropped brain mask (in the same space as reference image)
+    - nb_of_slices: number of slices shown (default 12) for PNG output
+    - slice_orient: orientation of the slices (default is 'axial'). Can be 'axial', 'sagittal', or 'coronal'
 
     OUTPUT: the create_edges function will produce one PNG per subject with the reference image in the background 
     and the edges of the given image on top.
@@ -23,6 +24,7 @@ def create_edges(path_image, path_ref_image, path_brainmask, nb_of_slices=8):
     import warnings
     import math
     import numpy as np
+    from math import ceil
 
     import skimage
     import nibabel as nib
@@ -276,24 +278,13 @@ def create_edges(path_image, path_ref_image, path_brainmask, nb_of_slices=8):
 
     # load data
     dataNii = nib.load(path_ref_image)
-    ref_image = dataNii.get_fdata(dtype=np.float32)
-    image = nib.load(path_image)
+    ref_vol = dataNii.get_fdata(dtype=np.float32)
+    contour_img = nib.load(path_image)
     brainmask = nib.load(path_brainmask)
 
     # get edges in a NIfTI image
-    dog_imported_img = dog_img(image, brainmask, fwhm=3, verbose=1)
-    image = dog_imported_img.get_fdata(dtype=np.float32)
-
-    # padd the data for nice subplots
-    pad_ref_image = np.zeros((ref_image.shape[1], ref_image.shape[1], ref_image.shape[1]))
-    pad_ref_image[int(abs(ref_image.shape[1]-ref_image.shape[0])/2):ref_image.shape[0]+int(abs(ref_image.shape[1]-ref_image.shape[0])/2), :,
-                  int(abs(ref_image.shape[1]-ref_image.shape[2])/2):ref_image.shape[2]+int(abs(ref_image.shape[1]-ref_image.shape[2])/2)] = ref_image
-    ref_image = pad_ref_image[..., np.newaxis]
-
-    pad_image = np.zeros((image.shape[1], image.shape[1], image.shape[1]))
-    pad_image[int(abs(image.shape[1]-image.shape[0])/2):image.shape[0]+int(abs(image.shape[1]-image.shape[0])/2), :,
-              int(abs(image.shape[1]-image.shape[2])/2):image.shape[2]+int(abs(image.shape[1]-image.shape[2])/2)] = image
-    image = pad_image[..., np.newaxis]
+    dog_imported_img = dog_img(contour_img, brainmask, fwhm=3, verbose=1)
+    contour_vol = dog_imported_img.get_fdata(dtype=np.float32)
 
     # creating cmap to overlay reference image and given image
     cmap = plt.cm.Reds
@@ -301,46 +292,111 @@ def create_edges(path_image, path_ref_image, path_brainmask, nb_of_slices=8):
     my_cmap[:, -1] = np.linspace(0, 1, cmap.N)
     my_cmap = ListedColormap(my_cmap)
 
-    sli_image = []
-    sli_ref_image = []
-    X_Y_Z = []
+    slice_orient_dict = {'sagittal': 0,
+                         'coronal': 1,
+                         'axial': 2}
+    if slice_orient not in slice_orient_dict.keys():
+        raise ValueError(f'"slice_orient" must be one of the following: {list(slice_orient_dict.keys())}, but "{slice_orient}" was given.')
+    slice_orient_dim = slice_orient_dict[slice_orient]
+    slice_shape = contour_vol.shape[slice_orient_dim]
 
-    for i in range(3):
-        for j in range(14, image.shape[i] - 20, 4):
+    # Define the amount of the image to ignore near the border when slicing
+    crop_ratio = 0.1
+    border_crop = ceil(crop_ratio * slice_shape)  # 10% of the slice
+    croped_shape = (1-2*crop_ratio)*slice_shape  # can be non-integer at this step, not important
+    slices_ind = np.arange(border_crop, slice_shape-border_crop, croped_shape/nb_of_slices).astype(int)
 
-            if i == 0:
-                sli_image.append(image[int(j), :, :])
-                sli_ref_image.append(ref_image[int(j), :, :])
-                X_Y_Z.append(int(j))
-            if i == 1:
-                sli_image.append(image[:, int(j), :])
-                sli_ref_image.append(ref_image[:, int(j), :])
-            if i == 2:
-                sli_image.append(image[:, :, int(j)])
-                sli_ref_image.append(ref_image[:, :, int(j)])
+    # Quick and dirty (and readable) slicing depending on the sliced dimension
+    # "slices" is a list of tuple, each tuple containing: ("ref slice", "contour slice", "corresponding index")
+    if slice_orient_dim == 0:
+        slices = [(ref_vol[ind, :, :], contour_vol[ind, :, :], ind) for ind in slices_ind]
+    if slice_orient_dim == 1:
+        slices = [(ref_vol[:, ind, :], contour_vol[:, ind, :], ind) for ind in slices_ind]
+    if slice_orient_dim == 2:
+        slices = [(ref_vol[:, :, ind], contour_vol[:, :, ind], ind) for ind in slices_ind]
 
-    figure, axis = plt.subplots(nb_of_slices, 9, figsize=(8, 4), dpi=200)
+    # Prep the figure
+    max_col_nb = 6  # Max number of slices per row
+    row_nb = ceil(nb_of_slices/max_col_nb)
+    if nb_of_slices < max_col_nb:
+        col_nb = nb_of_slices
+    else:
+        col_nb = max_col_nb
+    figure, axes = plt.subplots(row_nb, col_nb, figsize=(6, row_nb), dpi=300)
     figure.patch.set_facecolor('k')
-    count = 90
-    for j in range(9):
 
-        for i in range(nb_of_slices):
-            axis[i, j].imshow(
-                ndimage.rotate(sli_ref_image[count], 90)[..., 0],
-                cmap='gray')
-            axis[i, j].imshow(
-                ndimage.rotate(sli_image[count], 90)[..., 0],
-                cmap=my_cmap)
+    # Iterate on both figure axes and slices
+    for (slice_ref_vol, slice_contour_vol, ind), ax in zip(slices, axes.reshape(-1)[:len(slices)]):
+        ax.imshow(
+            slice_ref_vol.T,  # swap X and Y in the figure with .T to better display
+            origin='lower',
+            cmap='gray')
+        ax.imshow(
+            slice_contour_vol.T,
+            origin='lower',
+            cmap=my_cmap)
 
-            label = axis[i, j].set_xlabel('k = ' + str(X_Y_Z[count - 90]))
-            label.set_fontsize(30)  # Définir la taille de la police du label
-            label.set_color('white')
-            axis[i, j].get_xaxis().set_ticks([])
-            axis[i, j].get_yaxis().set_ticks([])
-
-            count += 1
+        label = ax.set_xlabel(f'k = {ind}')
+        label.set_fontsize(2)
+        label.set_color('white')
+        ax.get_xaxis().set_ticks([])
+        ax.get_yaxis().set_ticks([])
 
     figure.tight_layout()
+
+    # Old way of doing it, kept here just in case:
+
+    # # padd the data for nice subplots
+    # pad_ref_vol = np.zeros((ref_vol.shape[1], ref_vol.shape[1], ref_vol.shape[1]))
+    # pad_ref_vol[int(abs(ref_vol.shape[1]-ref_vol.shape[0])/2):ref_vol.shape[0]+int(abs(ref_vol.shape[1]-ref_vol.shape[0])/2), :,
+    #               int(abs(ref_vol.shape[1]-ref_vol.shape[2])/2):ref_vol.shape[2]+int(abs(ref_vol.shape[1]-ref_vol.shape[2])/2)] = ref_vol
+    # ref_vol = pad_ref_vol[..., np.newaxis]
+
+    # pad_contour_vol = np.zeros((contour_vol.shape[1], contour_vol.shape[1], contour_vol.shape[1]))
+    # pad_contour_vol[int(abs(contour_vol.shape[1]-contour_vol.shape[0])/2):contour_vol.shape[0]+int(abs(contour_vol.shape[1]-contour_vol.shape[0])/2), :,
+    #           int(abs(contour_vol.shape[1]-contour_vol.shape[2])/2):contour_vol.shape[2]+int(abs(contour_vol.shape[1]-contour_vol.shape[2])/2)] = contour_vol
+    # contour_vol = pad_contour_vol[..., np.newaxis]
+
+    # sli_contour_vol = []
+    # sli_ref_vol = []
+    # X_Y_Z = []
+
+    # for i in range(3):
+    #     for j in range(14, contour_vol.shape[i] - 20, 4):
+
+    #         if i == 0:
+    #             sli_contour_vol.append(contour_vol[int(j), :, :])
+    #             sli_ref_vol.append(ref_vol[int(j), :, :])
+    #             X_Y_Z.append(int(j))
+    #         if i == 1:
+    #             sli_contour_vol.append(contour_vol[:, int(j), :])
+    #             sli_ref_vol.append(ref_vol[:, int(j), :])
+    #         if i == 2:
+    #             sli_contour_vol.append(contour_vol[:, :, int(j)])
+    #             sli_ref_vol.append(ref_vol[:, :, int(j)])
+
+    # figure, axis = plt.subplots(nb_of_slices, 9, figsize=(8, 4), dpi=300)
+    # figure.patch.set_facecolor('k')
+    # count = 90
+    # for j in range(9):
+
+    #     for i in range(nb_of_slices):
+    #         axis[i, j].imshow(
+    #             ndimage.rotate(sli_ref_vol[count], 90)[..., 0],
+    #             cmap='gray')
+    #         axis[i, j].imshow(
+    #             ndimage.rotate(sli_contour_vol[count], 90)[..., 0],
+    #             cmap=my_cmap)
+
+    #         label = axis[i, j].set_xlabel('k = ' + str(X_Y_Z[count - 90]))
+    #         label.set_fontsize(2)
+    #         label.set_color('white')
+    #         axis[i, j].get_xaxis().set_ticks([])
+    #         axis[i, j].get_yaxis().set_ticks([])
+
+    #         count += 1
+
+    # figure.tight_layout()
 
     QC_coreg = 'QC_coreg_edges.png'
     plt.savefig('QC_coreg_edges.png')
