@@ -314,7 +314,7 @@ def overlay_brainmask(img_ref,
                           alpha=alpha,
                           cmap=my_cmap)
         label_X = ax[0, col].set_xlabel(f'k = {slices_X[col][2]}')
-        label_X.set_fontsize(2)  # Définir la taille de la police du label
+        label_X.set_fontsize(5)  # Définir la taille de la police du label
         label_X.set_color('white')
         ax[0, col].get_xaxis().set_ticks([])
         ax[0, col].get_yaxis().set_ticks([])
@@ -327,7 +327,7 @@ def overlay_brainmask(img_ref,
                           alpha=alpha,
                           cmap=my_cmap)
         label_Y = ax[1, col].set_xlabel(f'k = {slices_Y[col][2]}')
-        label_Y.set_fontsize(2)  # Définir la taille de la police du label
+        label_Y.set_fontsize(5)  # Définir la taille de la police du label
         label_Y.set_color('white')
         ax[1, col].get_xaxis().set_ticks([])
         ax[1, col].get_yaxis().set_ticks([])
@@ -340,7 +340,7 @@ def overlay_brainmask(img_ref,
                           alpha=alpha,
                           cmap=my_cmap)
         label_Z = ax[2, col].set_xlabel(f'k = {slices_Z[col][2]}')
-        label_Z.set_fontsize(2)  # Définir la taille de la police du label
+        label_Z.set_fontsize(5)  # Définir la taille de la police du label
         label_Z.set_color('white')
         ax[2, col].get_xaxis().set_ticks([])
         ax[2, col].get_yaxis().set_ticks([])
