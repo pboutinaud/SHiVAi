@@ -322,7 +322,7 @@ def create_edges(path_image, path_ref_image, path_brainmask, nb_of_slices=12, sl
         col_nb = nb_of_slices
     else:
         col_nb = max_col_nb
-    figure, axes = plt.subplots(row_nb, col_nb, figsize=(6, row_nb), dpi=300)
+    figure, axes = plt.subplots(row_nb, col_nb, figsize=(max_col_nb, row_nb), dpi=300)
     figure.patch.set_facecolor('k')
 
     # Iterate on both figure axes and slices
@@ -337,7 +337,7 @@ def create_edges(path_image, path_ref_image, path_brainmask, nb_of_slices=12, sl
             cmap=my_cmap)
 
         label = ax.set_xlabel(f'k = {ind}')
-        label.set_fontsize(2)
+        label.set_fontsize(5)
         label.set_color('white')
         ax.get_xaxis().set_ticks([])
         ax.get_yaxis().set_ticks([])
