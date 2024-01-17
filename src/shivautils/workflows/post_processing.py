@@ -82,7 +82,7 @@ def genWorkflow(**kwargs) -> Workflow:
             custom_pvs_parc.inputs.out_file = 'Brain_Seg_for_PVS.nii.gz'
             custom_pvs_parc.inputs.custom_parc = 'pvs'
             workflow.connect(custom_pvs_parc, 'brain_seg', prediction_metrics_pvs, 'brain_seg')
-            workflow.connect(custom_pvs_parc, 'pvs_region_dict', prediction_metrics_pvs, 'region_dict')
+            workflow.connect(custom_pvs_parc, 'region_dict', prediction_metrics_pvs, 'region_dict')
         else:
             prediction_metrics_pvs.inputs.brain_seg_type = 'brain_mask'
             prediction_metrics_pvs.inputs.region_list = ['Whole brain']
@@ -115,7 +115,6 @@ def genWorkflow(**kwargs) -> Workflow:
         prediction_metrics_lac.inputs.thr_cluster_size = kwargs['MIN_LAC_SIZE'] - 1
         if kwargs['BRAIN_SEG'] == 'synthseg':
             prediction_metrics_lac.inputs.brain_seg_type = 'synthseg'
-            prediction_metrics_lac.inputs.prio_labels = ['Left PV WM', 'Right PV WM']
             custom_lac_parc = Node(Brain_Seg_for_biomarker(), name='custom_lac_parc')
             custom_lac_parc.inputs.out_file = 'Brain_Seg_for_LAC.nii.gz'
             custom_lac_parc.inputs.custom_parc = 'mars'
