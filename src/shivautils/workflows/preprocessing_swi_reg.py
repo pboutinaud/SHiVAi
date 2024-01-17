@@ -94,7 +94,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
     datagrabber = preproc_wf.get_node('datagrabber')
     crop = preproc_wf.get_node('crop')
     hard_post_brain_mask = preproc_wf.get_node('hard_post_brain_mask')
-    preproc_wf.connect(datagrabber, 'img3', conform_swi, 'img')
+    preproc_wf.connect(datagrabber, 'img3', workflow, 'conform_swi.img')  # Test to see if the graph correctly connect the two nodes
     preproc_wf.connect(crop, 'cropped', swi_to_t1, 'fixed_image')
     preproc_wf.connect(hard_post_brain_mask, 'thresholded', mask_to_swi, 'input_image')
 
