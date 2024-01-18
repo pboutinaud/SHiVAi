@@ -35,7 +35,8 @@ from nipype.interfaces import ants
 
 from shivautils.interfaces.post import SummaryReport
 from shivautils.interfaces.image import (Regionwise_Prediction_metrics,
-                                         Brain_Seg_for_biomarker)
+                                         Brain_Seg_for_biomarker,
+                                         Label_clusters)
 from shivautils.utils.misc import set_wf_shapers
 
 
@@ -70,22 +71,26 @@ def genWorkflow(**kwargs) -> Workflow:
         elif 'PVS2' in kwargs['PREDICTION']:
             pvs_descriptor = kwargs['PVS2_DESCRIPTOR']
         preds.append('PVS')
+        cluster_labelling_pvs = Node(Label_clusters(),
+                                     name='cluster_labelling')
+        cluster_labelling_pvs.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
+        cluster_labelling_pvs.inputs.thr_cluster_size = kwargs['MIN_PVS_SIZE'] - 1  # "- 1 because thr removes up to given value"
+        cluster_labelling_pvs.inputs.out_name = 'labelled_pvs.nii.gz'
         prediction_metrics_pvs = Node(Regionwise_Prediction_metrics(),
                                       name="prediction_metrics_pvs")
         prediction_metrics_pvs.inputs.biomarker_type = 'pvs'
-        prediction_metrics_pvs.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
-        prediction_metrics_pvs.inputs.thr_cluster_size = kwargs['MIN_PVS_SIZE'] - 1  # "- 1 because thr removes up to given value"
-
         if kwargs['BRAIN_SEG'] == 'synthseg':
             prediction_metrics_pvs.inputs.brain_seg_type = 'synthseg'
             custom_pvs_parc = Node(Brain_Seg_for_biomarker(), name='custom_pvs_parc')
             custom_pvs_parc.inputs.out_file = 'Brain_Seg_for_PVS.nii.gz'
             custom_pvs_parc.inputs.custom_parc = 'pvs'
+            workflow.connect(custom_pvs_parc, 'brain_seg', cluster_labelling_pvs, 'brain_seg')
             workflow.connect(custom_pvs_parc, 'brain_seg', prediction_metrics_pvs, 'brain_seg')
             workflow.connect(custom_pvs_parc, 'region_dict', prediction_metrics_pvs, 'region_dict')
         else:
             prediction_metrics_pvs.inputs.brain_seg_type = 'brain_mask'
             prediction_metrics_pvs.inputs.region_list = ['Whole brain']
+        workflow.connect(cluster_labelling_pvs, 'labelled_biomarkers', prediction_metrics_pvs, 'labelled_clusters')
 
     if 'WMH' in kwargs['PREDICTION']:
         preds.append('WMH')
@@ -126,7 +131,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     if 'CMB' in kwargs['PREDICTION']:
         preds.append('CMB')
-        prediction_metrics_cmb = Node(Regionwise_Prediction_metrics(),  # TODO: connect inputs
+        prediction_metrics_cmb = Node(Regionwise_Prediction_metrics(),
                                       name="prediction_metrics_cmb")
         prediction_metrics_cmb.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
         prediction_metrics_cmb.inputs.thr_cluster_size = kwargs['MIN_CMB_SIZE'] - 1
@@ -140,14 +145,13 @@ def genWorkflow(**kwargs) -> Workflow:
 
         if kwargs['BRAIN_SEG'] == 'synthseg':
             prediction_metrics_cmb.inputs.brain_seg_type = 'synthseg'
-            custom_cmb_parc = Node(Brain_Seg_for_biomarker(), name='custom_cmb_parc')  # TODO: connect inputs
+            custom_cmb_parc = Node(Brain_Seg_for_biomarker(), name='custom_cmb_parc')
             custom_cmb_parc.inputs.custom_parc = 'mars'
-            custom_cmb_parc.inputs.out_file = 'Brain_Seg_for_CMB.nii.gz'
             if with_t1:
-                synthseg_to_t1 = Node(ants.ApplyTransforms(), name="synthseg_to_t1")  # TODO: connect inputs
-                synthseg_to_t1.inputs.out_postfix = '_t1-space'
                 custom_cmb_parc.inputs.out_file = 'Brain_Seg_for_CMB_t1-space.nii.gz'
-                workflow.connect(synthseg_to_t1, 'output_image', custom_cmb_parc, 'brain_seg')
+            else:
+                custom_cmb_parc.inputs.out_file = 'Brain_Seg_for_CMB.nii.gz'
+
             workflow.connect(custom_cmb_parc, 'brain_seg', prediction_metrics_cmb, 'brain_seg')
             workflow.connect(custom_cmb_parc, 'region_dict', prediction_metrics_cmb, 'region_dict')
         else:

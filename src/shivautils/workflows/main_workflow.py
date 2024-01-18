@@ -157,12 +157,14 @@ def generate_main_wf(**kwargs) -> Workflow:
             main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized',
                             segmentation_wf, 'predict_pvs.flair')
         main_wf.connect(segmentation_wf, 'predict_pvs.segmentation',
-                        wf_post, 'prediction_metrics_pvs.img')
+                        wf_post, 'cluster_labelling_pvs.biomarker_raw')
 
         if kwargs['BRAIN_SEG'] == 'synthseg':
             main_wf.connect(wf_preproc, 'custom_parc.brain_parc',
                             wf_post, 'custom_pvs_parc.brain_seg')
         else:
+            main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',
+                            wf_post, 'cluster_labelling_pvs.brain_seg')
             main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',
                             wf_post, 'prediction_metrics_pvs.brain_seg')
 
@@ -247,12 +249,7 @@ def generate_main_wf(**kwargs) -> Workflow:
             main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', segmentation_wf, 'predict_cmb.swi')
 
         if kwargs['BRAIN_SEG'] == 'synthseg':
-            if with_t1:
-                main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_to_t1.forward_transforms', wf_post, 'synthseg_to_t1.transforms')
-                main_wf.connect(wf_preproc, 'custom_parc.brain_parc', wf_post, 'synthseg_to_t1.input_image')
-                main_wf.connect(wf_preproc, 'crop.cropped', wf_post, 'synthseg_to_t1.reference_image')
-            else:
-                main_wf.connect(wf_preproc, 'custom_parc.brain_parc', wf_post, 'custom_cmb_parc.brain_seg')
+            main_wf.connect(wf_preproc, 'custom_parc.brain_parc', wf_post, 'custom_cmb_parc.brain_seg')
         else:
             main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'prediction_metrics_cmb.brain_seg')
 
@@ -343,9 +340,9 @@ def generate_main_wf(**kwargs) -> Workflow:
     # Pred and postproc
     if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:
         main_wf.connect(segmentation_wf, 'predict_pvs.segmentation', sink_node_subjects, 'segmentations.pvs_segmentation')
+        main_wf.connect(wf_post, 'cluster_labelling_pvs.labelled_biomarkers', sink_node_subjects, 'segmentations.pvs_segmentation.@labeled')
         main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv', sink_node_subjects, 'segmentations.pvs_segmentation.@metrics')
         main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_census_csv', sink_node_subjects, 'segmentations.pvs_segmentation.@census')
-        main_wf.connect(wf_post, 'prediction_metrics_pvs.labelled_biomarkers', sink_node_subjects, 'segmentations.pvs_segmentation.@labeled')
         main_wf.connect(prediction_metrics_pvs_all, 'prediction_metrics_csv', sink_node_all, 'segmentations.pvs_metrics')
         if kwargs['BRAIN_SEG'] == 'synthseg':
             main_wf.connect(wf_post, 'custom_pvs_parc.brain_seg', sink_node_subjects, 'segmentations.pvs_segmentation.@parc')
@@ -372,7 +369,7 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_census_csv', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@census')
         main_wf.connect(wf_post, 'prediction_metrics_cmb.labelled_biomarkers', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@labeled')
         main_wf.connect(prediction_metrics_cmb_all, 'prediction_metrics_csv', sink_node_all, f'segmentations.cmb_metrics_{space}')
-        if kwargs['BRAIN_SEG'] == 'synthseg':  # TODO: Check how this behaves with the registration to T1 space
+        if kwargs['BRAIN_SEG'] == 'synthseg':
             main_wf.connect(wf_post, 'custom_cmb_parc.brain_seg', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@parc')
             main_wf.connect(wf_post, 'custom_cmb_parc.region_dict', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@parc_dict')
 
@@ -518,7 +515,8 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
         if 'PVS2' in kwargs['PREDICTION']:
             main_wf.connect(preproc_grabber, 'flair_intensity_normalized', segmentation_wf, 'predict_pvs.flair')
         main_wf.connect(segmentation_wf, 'predict_pvs.segmentation', wf_post, 'prediction_metrics_pvs.img')
-        main_wf.connect(preproc_grabber, 'brain_seg',  wf_post, 'prediction_metrics_pvs.brain_seg')  # TODO: SynthSeg
+        main_wf.connect(preproc_grabber, 'brain_seg',  wf_post, 'cluster_labelling_pvs.brain_seg')
+        main_wf.connect(preproc_grabber, 'brain_seg',  wf_post, 'prediction_metrics_pvs.brain_seg')
 
         # Merge all csv files
         prediction_metrics_pvs_all = JoinNode(Join_Prediction_metrics(),
