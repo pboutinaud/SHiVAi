@@ -1173,6 +1173,163 @@ class Regionwise_Prediction_metrics(BaseInterface):
         return outputs
 
 
+class MakeDistanceMapInputSpec(CommandLineInputSpec):
+
+    # niimath ventricle_mask  -binv -edt output
+    in_file = traits.Str(mandatory=True,
+                         desc='Object segmentation mask (isotropic)',
+                         argstr='%s',
+                         position=1)
+
+    out_file = traits.Str('distance_map.nii.gz',
+                          mandatory=True,
+                          desc='Output filename for ventricle distance maps',
+                          argstr='-binv -edt %s',
+                          position=2)
+
+
+class MakeDistanceMapOutputSpec(TraitedSpec):
+    out_file = traits.File(exists=True)
+
+
+class MakeDistanceMap(CommandLine):
+    """Create distance maps using ventricles binarized maps (niimaths)."""
+
+    _cmd = 'niimath'
+
+    input_spec = MakeDistanceMapInputSpec
+    output_spec = MakeDistanceMapOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
+class MakeDistanceMap_Singularity_InputSpec(SingularityInputSpec, MakeDistanceMapInputSpec):
+    """MakeDistanceMap input specification (singularity mixin).
+
+    Inherits from Singularity command line fields.
+    """
+
+
+class MakeDistanceMap_Singularity(SingularityCommandLine):
+    """Create distance maps using ventricles binarized maps (niimaths)."""
+
+    _cmd = 'niimath'
+
+    input_spec = MakeDistanceMapInputSpec
+    output_spec = MakeDistanceMapOutputSpec
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
+
+
+class Parc_from_Synthseg_InputSpec(BaseInterfaceInputSpec):
+    brain_seg = traits.File(exists=True,
+                            mandatory=True,
+                            desc='Synthseg (or comparible FreeSurfer) brain segmentation.')
+
+
+class Parc_from_Synthseg_OutputSpec(TraitedSpec):
+    brain_parc = traits.File(exists=True,
+                             desc='Brain parcellation with lobar gm and wm, juxtacortical/deep/perivascular wm, and more')
+
+
+class Parc_from_Synthseg(BaseInterface):
+    '''
+    Transform a Synthseg segmentation into a wm & gm parcellation that can be used in our cSVD biomarkers metrics
+    '''
+    input_spec = Parc_from_Synthseg_InputSpec
+    output_spec = Parc_from_Synthseg_OutputSpec
+
+    def _run_interface(self, runtime):
+        seg_im = nib.load(self.inputs.brain_seg)
+        seg_vol = seg_im.get_fdata().astype(int)
+        custom_parc = lobar_and_wm_segmentation(seg_vol)
+        custom_parc_im = nib.Nifti1Image(custom_parc, seg_im.affine)
+        nib.save(custom_parc_im, 'derived_parc.nii.gz')
+        return runtime
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['brain_parc'] = op.abspath('derived_parc.nii.gz')
+        return outputs
+
+
+class Brain_Seg_for_biomarker_InputSpec(BaseInterfaceInputSpec):
+
+    brain_seg = traits.File(exists=True,
+                            mandatory=True,
+                            desc='"derived_parc" brain segmentation from "Parc_from_Synthseg" node.')
+
+    custom_parc = traits.Str('mars',
+                             usedefault=True,
+                             desc='Type of custom parcellisation scheme to use. Can be "pvs", "wmh, or "mars"')
+
+    out_file = traits.Str('Brain_Seg_for_biomarker.nii.gz',
+                          usedefault=True,
+                          desc='Filename of the ouput segmentation')
+
+
+class Brain_Seg_for_biomarker_OutputSpec(TraitedSpec):
+    brain_seg = traits.File(exists=True,
+                            desc='Brain segmentation, derived from synthseg segmentation, and used for the biomarker metrics')
+    region_dict = traits.Dict(key_trait=traits.Str,
+                              value_trait=traits.Int,
+                              desc=('Dictionnary with keys = brain region names, '
+                                    'and values = brain region labels (i.e. the corresponding value in brain_seg)'))
+    region_dict_json = traits.File(exists=True,
+                                   desc='json file where region_dict will be saved for future reference')
+
+
+class Brain_Seg_for_biomarker(BaseInterface):
+    """
+    Transform our parcellation (derived from Synthseg) to one that is customized for the studied biomarker metrics.
+    'mars' refers to the Microbleed Anatomical Rating Scale (MARS)
+    """
+    input_spec = Brain_Seg_for_biomarker_InputSpec
+    output_spec = Brain_Seg_for_biomarker_OutputSpec
+
+    def _run_interface(self, runtime):
+        seg_im = nib.load(self.inputs.brain_seg)
+        seg_vol = seg_im.get_fdata().astype(int)
+
+        seg_scheme = self.inputs.custom_parc
+        if seg_scheme == 'pvs':
+            custom_seg_vol, seg_dict = seg_for_pvs(seg_vol)
+        elif seg_scheme == 'wmh':
+            custom_seg_vol, seg_dict = seg_for_wmh(seg_vol)
+        elif seg_scheme == 'mars':
+            custom_seg_vol, seg_dict = seg_from_mars(seg_vol)
+        else:
+            raise ValueError(f'Unrecognised segmentation scheme: Expected "pvs", "wmh", or "mars" but bot "{seg_scheme}"')
+
+        region_dict = {'Whole brain': -1, **seg_dict}
+        custom_seg_im = nib.Nifti1Image(custom_seg_vol, affine=seg_im.affine)
+        nib.save(custom_seg_im, self.inputs.out_file)
+
+        setattr(self, 'region_dict', region_dict)
+        json_name = f'{seg_scheme}_region_dict.json'
+        setattr(self, 'json_name', json_name)
+        with open(json_name, 'w') as jsonfile:
+            json.dump(region_dict, jsonfile, indent=4)
+
+        return runtime
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['brain_seg'] = op.abspath(self.inputs.out_file)
+        outputs['region_dict'] = getattr(self, 'region_dict')
+        outputs['region_dict_json'] = op.abspath(getattr(self, 'json_name'))
+
+        return outputs
+
+
+# %% Old interfaces
+
 class MaskRegionsInputSpec(BaseInterfaceInputSpec):
     """Filter voxels according to a specific regions"""
     img = traits.File(exists=True,
@@ -1431,160 +1588,5 @@ class PVSQuantificationibG(BaseInterface):
         fname = self.inputs.img
         _, base, _ = split_filename(fname)
         outputs["metrics_bg_pvs"] = getattr(self, "metrics_bg_pvs")
-
-        return outputs
-
-
-class MakeDistanceMapInputSpec(CommandLineInputSpec):
-
-    # niimath ventricle_mask  -binv -edt output
-    in_file = traits.Str(mandatory=True,
-                         desc='Object segmentation mask (isotropic)',
-                         argstr='%s',
-                         position=1)
-
-    out_file = traits.Str('distance_map.nii.gz',
-                          mandatory=True,
-                          desc='Output filename for ventricle distance maps',
-                          argstr='-binv -edt %s',
-                          position=2)
-
-
-class MakeDistanceMapOutputSpec(TraitedSpec):
-    out_file = traits.File(exists=True)
-
-
-class MakeDistanceMap(CommandLine):
-    """Create distance maps using ventricles binarized maps (niimaths)."""
-
-    _cmd = 'niimath'
-
-    input_spec = MakeDistanceMapInputSpec
-    output_spec = MakeDistanceMapOutputSpec
-
-    def _list_outputs(self):
-        outputs = self.output_spec().get()
-        outputs['out_file'] = op.abspath(self.inputs.out_file)
-        return outputs
-
-
-class MakeDistanceMap_Singularity_InputSpec(SingularityInputSpec, MakeDistanceMapInputSpec):
-    """MakeDistanceMap input specification (singularity mixin).
-
-    Inherits from Singularity command line fields.
-    """
-
-
-class MakeDistanceMap_Singularity(SingularityCommandLine):
-    """Create distance maps using ventricles binarized maps (niimaths)."""
-
-    _cmd = 'niimath'
-
-    input_spec = MakeDistanceMapInputSpec
-    output_spec = MakeDistanceMapOutputSpec
-
-    def _list_outputs(self):
-        outputs = self.output_spec().get()
-        outputs['out_file'] = op.abspath(self.inputs.out_file)
-        return outputs
-
-
-class Parc_from_Synthseg_InputSpec(BaseInterfaceInputSpec):
-    brain_seg = traits.File(exists=True,
-                            mandatory=True,
-                            desc='Synthseg (or comparible FreeSurfer) brain segmentation.')
-
-
-class Parc_from_Synthseg_OutputSpec(TraitedSpec):
-    brain_parc = traits.File(exists=True,
-                             desc='Brain parcellation with lobar gm and wm, juxtacortical/deep/perivascular wm, and more')
-
-
-class Parc_from_Synthseg(BaseInterface):
-    '''
-    Transform a Synthseg segmentation into a wm & gm parcellation that can be used in our cSVD biomarkers metrics
-    '''
-    input_spec = Parc_from_Synthseg_InputSpec
-    output_spec = Parc_from_Synthseg_OutputSpec
-
-    def _run_interface(self, runtime):
-        seg_im = nib.load(self.inputs.brain_seg)
-        seg_vol = seg_im.get_fdata().astype(int)
-        custom_parc = lobar_and_wm_segmentation(seg_vol)
-        custom_parc_im = nib.Nifti1Image(custom_parc, seg_im.affine)
-        nib.save(custom_parc_im, 'derived_parc.nii.gz')
-        return runtime
-
-    def _list_outputs(self):
-        outputs = self.output_spec().get()
-        outputs['brain_parc'] = op.abspath('derived_parc.nii.gz')
-        return outputs
-
-
-class Brain_Seg_for_biomarker_InputSpec(BaseInterfaceInputSpec):
-
-    brain_seg = traits.File(exists=True,
-                            mandatory=True,
-                            desc='"derived_parc" brain segmentation from "Parc_from_Synthseg" node.')
-
-    custom_parc = traits.Str('mars',
-                             usedefault=True,
-                             desc='Type of custom parcellisation scheme to use. Can be "pvs", "wmh, or "mars"')
-
-    out_file = traits.Str('Brain_Seg_for_biomarker.nii.gz',
-                          usedefault=True,
-                          desc='Filename of the ouput segmentation')
-
-
-class Brain_Seg_for_biomarker_OutputSpec(TraitedSpec):
-    brain_seg = traits.File(exists=True,
-                            desc='Brain segmentation, derived from synthseg segmentation, and used for the biomarker metrics')
-    region_dict = traits.Dict(key_trait=traits.Str,
-                              value_trait=traits.Int,
-                              desc=('Dictionnary with keys = brain region names, '
-                                    'and values = brain region labels (i.e. the corresponding value in brain_seg)'))
-    region_dict_json = traits.File(exists=True,
-                                   desc='json file where region_dict will be saved for future reference')
-
-
-class Brain_Seg_for_biomarker(BaseInterface):
-    """
-    Transform our parcellation (derived from Synthseg) to one that is customized for the studied biomarker metrics.
-    'mars' refers to the Microbleed Anatomical Rating Scale (MARS)
-    """
-    input_spec = Brain_Seg_for_biomarker_InputSpec
-    output_spec = Brain_Seg_for_biomarker_OutputSpec
-
-    def _run_interface(self, runtime):
-        seg_im = nib.load(self.inputs.brain_seg)
-        seg_vol = seg_im.get_fdata().astype(int)
-
-        seg_scheme = self.inputs.custom_parc
-        if seg_scheme == 'pvs':
-            custom_seg_vol, seg_dict = seg_for_pvs(seg_vol)
-        elif seg_scheme == 'wmh':
-            custom_seg_vol, seg_dict = seg_for_wmh(seg_vol)
-        elif seg_scheme == 'mars':
-            custom_seg_vol, seg_dict = seg_from_mars(seg_vol)
-        else:
-            raise ValueError(f'Unrecognised segmentation scheme: Expected "pvs", "wmh", or "mars" but bot "{seg_scheme}"')
-
-        region_dict = {'Whole brain': -1, **seg_dict}
-        custom_seg_im = nib.Nifti1Image(custom_seg_vol, affine=seg_im.affine)
-        nib.save(custom_seg_im, self.inputs.out_file)
-
-        setattr(self, 'region_dict', region_dict)
-        json_name = f'{seg_scheme}_region_dict.json'
-        setattr(self, 'json_name', json_name)
-        with open(json_name, 'w') as jsonfile:
-            json.dump(region_dict, jsonfile, indent=4)
-
-        return runtime
-
-    def _list_outputs(self):
-        outputs = self.output_spec().get()
-        outputs['brain_seg'] = op.abspath(self.inputs.out_file)
-        outputs['region_dict'] = getattr(self, 'region_dict')
-        outputs['region_dict_json'] = op.abspath(getattr(self, 'json_name'))
 
         return outputs
