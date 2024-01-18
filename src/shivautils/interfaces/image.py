@@ -9,6 +9,7 @@ from shivautils.postprocessing.wmh import metrics_clusters_latventricles
 from shivautils.utils.stats import prediction_metrics, get_mask_regions
 from shivautils.utils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask
 from shivautils.utils.quality_control import create_edges, save_histogram, bounding_crop, overlay_brainmask
+from shivautils.utils.misc import label_clusters
 from shivautils.interfaces.singularity import SingularityCommandLine, SingularityInputSpec
 from nipype.utils.filemanip import split_filename
 from nipype.interfaces.base import CommandLine, CommandLineInputSpec, isdefined
@@ -1021,13 +1022,10 @@ class Brainmask_QC(BaseInterface):
 
 
 # %% Predictions and postprocessing
-
-
-class Regionwise_Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
-    """Input parameter to get metrics of prediction file"""
-    img = traits.File(exists=True,
-                      desc='Nifti file of the biomarker segmentation',
-                      mandatory=True)
+class Label_clusters_InputSpec(BaseInterfaceInputSpec):
+    biomarker_raw = traits.File(exists=True,
+                                desc='Nifti file of the biomarker segmentation directly from the AI model',
+                                mandatory=True)
 
     thr_cluster_val = traits.Float(exists=True,
                                    desc='Value to threshold segmentation image',
@@ -1036,6 +1034,56 @@ class Regionwise_Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
     thr_cluster_size = traits.Int(exists=True,
                                   desc='Value to threshold segmentation image',
                                   )
+
+    brain_seg = traits.File(exists=True,
+                            desc=('Brain mask or brain segmentation delimiting the parts '
+                                  'of the biomarker segmentation ("img" argument) to explore'),
+                            mandatory=True)
+
+    out_name = traits.Str('labelled_clusters.nii.gz',
+                          mandatory=False,
+                          desc='Output name of the file containing the labelled biomarkers')
+
+
+class Label_clusters_OutputSpec(TraitedSpec):
+
+    labelled_biomarkers = traits.File(exists=True,
+                                      desc='Nifti file with labelled segmented biomarkers, keeping only those inside of the brain')
+
+
+class Label_clusters(BaseInterface):
+    """Generates an image showing the brain mask and the crop-box overlayed on the original brain"""
+    input_spec = Label_clusters_InputSpec
+    output_spec = Label_clusters_OutputSpec
+
+    def _run_interface(self, runtime):
+        biomarker_raw = self.inputs.biomarker_raw
+        thr_cluster_val = self.inputs.thr_cluster_val
+        thr_cluster_size = self.inputs.thr_cluster_size
+        brain_seg = self.inputs.brain_seg
+        out_name = self.inputs.out_name
+
+        biomarker_im = nib.load(biomarker_raw)
+        biomarker_vol = biomarker_im.get_fdata()
+        brain_seg_vol = nib.load(brain_seg).get_fdata()
+
+        labelled_clusters = label_clusters(biomarker_vol, brain_seg_vol, thr_cluster_val, thr_cluster_size)
+        labelled_clusters_im = nib.Nifti1Image(labelled_clusters, affine=biomarker_im.affine)
+        nib.save(labelled_clusters_im, out_name)
+        return runtime
+
+    def _list_outputs(self):
+        """Fill in the output structure."""
+        outputs = self.output_spec().trait_get()
+        outputs['labelled_biomarkers'] = op.abspath(self.inputs.out_name)
+        return outputs
+
+
+class Regionwise_Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
+    """Input parameter to get metrics of prediction file"""
+    labelled_clusters = traits.File(exists=True,
+                                    desc='Biomarker clusters labelled with unique integers',
+                                    mandatory=True)
 
     biomarker_type = traits.String('biomarker',
                                    usedefault=True,
@@ -1083,8 +1131,6 @@ class Regionwise_Prediction_metrics_OutputSpec(TraitedSpec):
                                        desc='csv file listing all segmented biomarkers with their size')
     biomarker_stats_csv = traits.File(exists=True,
                                       desc='csv file with statistics on the segmented biomarkers')
-    labelled_biomarkers = traits.File(exists=True,
-                                      desc='Nifti file with labelled segmented biomarkers, keeping only those inside of the brain')
 
 
 class Regionwise_Prediction_metrics(BaseInterface):
@@ -1093,16 +1139,14 @@ class Regionwise_Prediction_metrics(BaseInterface):
     output_spec = Regionwise_Prediction_metrics_OutputSpec
 
     def _run_interface(self, runtime):
-        path_images = self.inputs.img
-        thr_cluster_val = self.inputs.thr_cluster_val
-        thr_cluster_size = self.inputs.thr_cluster_size
+        labelled_clusters = self.inputs.labelled_clusters
         brain_seg = self.inputs.brain_seg
         region_list = self.inputs.region_list
         brain_seg_type = self.inputs.brain_seg_type
         prio_labels = self.inputs.prio_labels
 
-        img = nib.load(path_images)
-        segmentation_vol = img.get_fdata()
+        clusters_im = nib.load(labelled_clusters)
+        clusters_vol = clusters_im.get_fdata().astype(int)
         brain_seg_vol = nib.load(brain_seg).get_fdata()
 
         if brain_seg_type == "brain_mask":
@@ -1148,19 +1192,16 @@ class Regionwise_Prediction_metrics(BaseInterface):
         else:
             raise ValueError(f'Unrecognised segmentation type: {brain_seg_type}. Should be "brain_mask", "synthseg" or "custom"')
 
-        cluster_measures, cluster_stats, clusters_vol = prediction_metrics(
-            segmentation_vol, thr_cluster_val, thr_cluster_size, brain_seg_vol, region_dict, prio_labels)
+        cluster_measures, cluster_stats = prediction_metrics(
+            clusters_vol, brain_seg_vol, region_dict, prio_labels)
 
         biomarker = self.inputs.biomarker_type
         cluster_measures.to_csv(f'{biomarker}_census.csv', index=False)
         cluster_stats.to_csv(f'{biomarker}_stats.csv', index=False)
-        clusters_im = nib.Nifti1Image(clusters_vol, img.affine, img.header)
-        nib.save(clusters_im, f'labeled_{biomarker}s.nii.gz')
 
         # Set the attribute to pass as output
         setattr(self, 'biomarker_census_csv', os.path.abspath(f"{biomarker}_census.csv"))
         setattr(self, 'biomarker_stats_csv', os.path.abspath(f"{biomarker}_stats.csv"))
-        setattr(self, 'labelled_biomarkers', os.path.abspath(f"labeled_{biomarker}s.nii.gz"))
 
         return runtime
 
@@ -1169,7 +1210,6 @@ class Regionwise_Prediction_metrics(BaseInterface):
         outputs = self.output_spec().trait_get()
         outputs['biomarker_census_csv'] = getattr(self, 'biomarker_census_csv')
         outputs['biomarker_stats_csv'] = getattr(self, 'biomarker_stats_csv')
-        outputs['labelled_biomarkers'] = getattr(self, 'labelled_biomarkers')
         return outputs
 
 

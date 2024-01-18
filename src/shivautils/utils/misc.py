@@ -8,6 +8,7 @@ import pathlib
 import json
 
 from shivautils.utils.stats import get_mode
+from shivautils.utils.metrics import get_clusters_and_filter_image
 
 import numpy as np
 from bokeh.embed import file_html
@@ -125,3 +126,25 @@ def histogram(array, percentile, bins):
     template_hist = tm.render(pa=html, percentile=percentile, mode=mode)
 
     return template_hist, mode
+
+
+def label_clusters(pred_vol, brain_seg_vol, threshold, cluster_filter):
+    """Threshold and labelize the clusters from a prediction map
+
+    Args:
+        pred_vol (np.ndarray): Prediction map from the AI model
+        brain_seg_vol (np.ndarray): Brain seg delimiting the brain
+        threshold (float): Value to threshold the prediction map
+        cluster_filter (int): size up to which (including) small clusters are removed
+
+    Returns:
+        labelled_clusters (np.ndarray): Labelled clusters volume
+    """
+    if len(pred_vol.shape) > 3:
+        pred_vol = pred_vol.squeeze()
+    if len(brain_seg_vol.shape) > 3:
+        brain_seg_vol = brain_seg_vol.squeeze()
+    brain_mask = (brain_seg_vol > 0)
+    thresholded_img = (pred_vol > threshold).astype(int)*brain_mask
+    _, _, _, labelled_clusters, _ = get_clusters_and_filter_image(thresholded_img, cluster_filter)
+    return labelled_clusters

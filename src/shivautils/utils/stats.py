@@ -9,8 +9,6 @@ import os
 from scipy.spatial.transform import Rotation
 from scipy.io import loadmat
 
-from shivautils.utils.metrics import get_clusters_and_filter_image
-
 
 def get_mode(hist: np.array,
              edges: np.array,
@@ -87,15 +85,13 @@ def set_percentile(list_node: list,
     return percentile_fit
 
 
-def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
+def prediction_metrics(clusters_vol, brain_seg_vol,
                        region_dict={'Whole brain': [-1]},
                        prio_labels=[]):
     """Get metrics on sgmented biomarkers by brain region
 
     Args:
-        array_vol (array): Biomarker segmentation array (from the nifti file)
-        threshold (float): Threshold to compute clusters metrics
-        cluster_filter (int): number of voxels (strictly) above which the cluster is counted
+        clusters_vol (array): Labelled biomarker array (from the nifti file)
         brain_seg_vol (array): Brain segmentation (or brain mask), should be filled with integers
         region_dict (dict): Dict pairing the brain regions' name (key) with the numeric label (as int) to use when
                             counting the biomarkers.
@@ -109,8 +105,8 @@ def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
         Array: Labelled clusters
     """
 
-    if len(array_vol.shape) > 3:
-        array_vol = array_vol.squeeze()
+    if len(clusters_vol.shape) > 3:
+        clusters_vol = clusters_vol.squeeze()
     if len(brain_seg_vol.shape) > 3:
         brain_seg_vol = brain_seg_vol.squeeze()
 
@@ -119,11 +115,6 @@ def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
     if prio_labels:
         prio_dict = {reg: region_dict[reg] for reg in prio_labels}
 
-    # Threshold and mask the biomarker segmentation image
-    brain_mask = (brain_seg_vol > 0)
-    thresholded_img = (array_vol > threshold).astype(int)*brain_mask
-
-    _, _, _, clusters_vol, _ = get_clusters_and_filter_image(thresholded_img, cluster_filter)
     clust_labels, clust_size = np.unique(clusters_vol[clusters_vol > 0], return_counts=True)
 
     cluster_measures = pd.DataFrame(
@@ -195,7 +186,7 @@ def prediction_metrics(array_vol, threshold, cluster_filter, brain_seg_vol,
          'Min_biomarker_volume': biom_min,
          'Max_biomarker_volume': biom_max})
 
-    return cluster_measures, cluster_stats, clusters_vol
+    return cluster_measures, cluster_stats
 
 
 def swarmplot_from_census(census_csv: str, pred: str):
