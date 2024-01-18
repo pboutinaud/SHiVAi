@@ -13,13 +13,14 @@ from nipype.interfaces.io import DataGrabber, DataSink
 from nipype.interfaces import ants
 from nipype.interfaces.utility import Function
 from nipype.pipeline.engine import Node, Workflow, JoinNode
+from shivautils.utils.quality_control import overlay_brainmask
 
-from shivautils.utils.stats import save_histogram, overlay_brainmask
-from shivautils.postprocessing.isocontour import create_edges
+from shivautils.utils.quality_control import save_histogram
 from shivautils.interfaces.image import (Threshold, Normalization,
-                                         Conform, Crop, ApplyMask, MetricsPredictions,
-                                         JoinMetricsPredictions, SummaryReport)
-from shivautils.interfaces.shiva import PredictDirect, SynthSeg
+                                         Conform, Crop, Apply_mask, MetricsPredictions,
+                                         JoinMetricsPredictions, Isocontour)
+from shivautils.interfaces.post import SummaryReport
+from shivautils.interfaces.shiva import PredictDirect
 
 sys.path.append('/mnt/devt')
 
@@ -278,20 +279,20 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(datagrabber, 'T1',
                      pvs_seg_to_native, 'reference_image')
 
-    mask_on_pred_wmh = Node(ApplyMask(), name='mask_on_pred_wmh')
+    mask_on_pred_wmh = Node(Apply_mask(), name='mask_on_pred_wmh')
 
     workflow.connect(predict_wmh, 'segmentation', mask_on_pred_wmh, 'segmentation')
     workflow.connect(hard_post_brain_mask, 'thresholded', mask_on_pred_wmh, 'brainmask')
 
-    mask_on_pred_pvs = Node(ApplyMask(), name='mask_on_pred_pvs')
+    mask_on_pred_pvs = Node(Apply_mask(), name='mask_on_pred_pvs')
 
     workflow.connect(predict_pvs, 'segmentation', mask_on_pred_pvs, 'segmentation')
     workflow.connect(hard_post_brain_mask, 'thresholded', mask_on_pred_pvs, 'brainmask')
 
-    qc_coreg_FLAIR_T1 = Node(Function(input_names=['path_image', 'path_ref_image', 'path_brainmask', 'nb_of_slices'],
-                             output_names=['qc_coreg'], function=create_edges), name='qc_coreg_FLAIR_T1')
+    qc_coreg_FLAIR_T1 = Node(Isocontour(),
+                             name='qc_coreg_FLAIR_T1')
     # Default number of slices - 8
-    qc_coreg_FLAIR_T1.inputs.nb_of_slices = 5
+    qc_coreg_FLAIR_T1.inputs.nb_of_slices = 6
 
     # connecting image, ref_image and brainmas to create_edges function
     workflow.connect(coreg, 'warped_image', qc_coreg_FLAIR_T1, 'path_image')

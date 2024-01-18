@@ -8,10 +8,11 @@ from nipype.interfaces.utility import Function
 from nipype.interfaces.io import DataGrabber
 from nipype.interfaces.utility import IdentityInterface
 
-from shivautils.interfaces.image import (ApplyMask, MetricsPredictions,
-                                         JoinMetricsPredictions, SummaryReport)
-from shivautils.postprocessing.isocontour import create_edges
-from shivautils.utils.stats import overlay_brainmask
+from shivautils.interfaces.image import (Apply_mask, MetricsPredictions,
+                                         JoinMetricsPredictions)
+from shivautils.interfaces.post import SummaryReport
+from shivautils.interfaces.image import Isocontour
+from shivautils.utils.quality_control import overlay_brainmask
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
@@ -74,20 +75,19 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
 
-    mask_on_pred_pvs = Node(ApplyMask(), name='mask_on_pred_pvs')
+    mask_on_pred_pvs = Node(Apply_mask(), name='mask_on_pred_pvs')
 
     workflow.connect(datagrabber, 'segmentation_pvs', mask_on_pred_pvs, 'segmentation')
     workflow.connect(datagrabber, 'brainmask', mask_on_pred_pvs, 'brainmask')
 
-    mask_on_pred_wmh = Node(ApplyMask(), name='mask_on_pred_wmh')
+    mask_on_pred_wmh = Node(Apply_mask(), name='mask_on_pred_wmh')
 
     workflow.connect(datagrabber, 'segmentation_wmh', mask_on_pred_wmh, 'segmentation')
     workflow.connect(datagrabber, 'brainmask', mask_on_pred_wmh, 'brainmask')
 
-    qc_coreg_FLAIR_T1 = Node(Function(input_names=['path_image', 'path_ref_image', 'path_brainmask', 'nb_of_slices'],
-                             output_names=['qc_coreg'], function=create_edges), name='qc_coreg_FLAIR_T1')
-    # Default number of slices - 8
-    qc_coreg_FLAIR_T1.inputs.nb_of_slices = 5
+    qc_coreg_FLAIR_T1 = Node(Isocontour(),
+                             name='qc_coreg_FLAIR_T1')
+    qc_coreg_FLAIR_T1.inputs.nb_of_slices = 12
 
     # connecting image, ref_image and brainmask to create_edges function
     workflow.connect(datagrabber, 'FLAIR_cropped', qc_coreg_FLAIR_T1, 'path_image')

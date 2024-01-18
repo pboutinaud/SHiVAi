@@ -11,7 +11,7 @@ import nibabel as nb
 from scipy import ndimage
 from nibabel.orientations import axcodes2ornt, io_orientation, ornt_transform
 
-from shivautils.utils.stats import histogram
+from shivautils.utils.misc import histogram
 
 
 def normalization(img: nb.Nifti1Image,

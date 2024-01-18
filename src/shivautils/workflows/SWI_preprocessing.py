@@ -12,10 +12,11 @@ from nipype.interfaces.ants import ApplyTransforms
 
 from shivautils.interfaces.shiva import PredictSingularity, Predict
 from shivautils.interfaces.image import (Threshold, Normalization,
-                                         Conform, Crop, ApplyMask, MetricsPredictions,
-                                         JoinMetricsPredictions, SummaryReport)
-from shivautils.postprocessing.isocontour import create_edges
-from shivautils.utils.stats import save_histogram
+                                         Conform, Crop, Apply_mask, MetricsPredictions,
+                                         JoinMetricsPredictions)
+from shivautils.interfaces.post import SummaryReport
+from shivautils.utils.quality_control import create_edges
+from shivautils.utils.quality_control import save_histogram
 
 
 dummy_args = {'SUBJECT_LIST': ['BIOMIST::SUBJECT_LIST'],

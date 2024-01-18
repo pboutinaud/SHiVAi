@@ -7,6 +7,14 @@ import os
 import pathlib
 import json
 
+from shivautils.utils.stats import get_mode
+
+import numpy as np
+from bokeh.embed import file_html
+from bokeh.plotting import figure
+from bokeh.resources import CDN
+from jinja2 import Template
+
 
 def md5(fname):
     """
@@ -70,3 +78,50 @@ def set_wf_shapers(predictions):
 
 def as_list(input):
     return [input]
+
+
+def histogram(array, percentile, bins):
+    """Create an histogram with a numpy array. Retrieves the largest value in
+    the first axis of of the histogram and returns the corresponding value on
+    the 2nd axe (that of the voxel intensity value) between two bounds of the
+    histogram to be defined
+
+    Args:
+        array (array): histogram with 2 axes: one for the number of voxels and
+                       the other for the intensity value of the voxels
+        bins (int): number of batchs to gather data
+
+    Returns:
+        mode (int): most frequent value of histogram
+    """
+    x = array.reshape(-1)
+    hist, edges = np.histogram(x, bins=bins)
+
+    mode = get_mode(hist, edges, bins)
+
+    p = figure(title="Histogram of intensities voxel values", width=400,
+               height=400, y_axis_type='log')
+    p.quad(top=hist, bottom=1, left=edges[:-1], right=edges[1:],
+           line_color=None)
+    html = file_html(p, CDN, "histogram of voxel intensities")
+
+    tm = Template(
+        """<!DOCTYPE html>
+                 <html lang="en">
+                 <head>
+                    <meta charset="UTF-8">
+                    <title>My template</title>
+                 </head>
+                 <body>
+                 <div class="test">
+                    <object data="data:application/html;base64,{{ pa }}"></object>
+                    <h2>Percentile : {{ percentile}}</h2>
+                    <h2>Mode : {{ mode }}</h2>
+                 </div>
+                 </body>
+                 </html>"""
+    )
+
+    template_hist = tm.render(pa=html, percentile=percentile, mode=mode)
+
+    return template_hist, mode

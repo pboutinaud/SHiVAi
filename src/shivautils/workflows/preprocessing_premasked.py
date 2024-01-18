@@ -93,7 +93,7 @@ def genWorkflow(**kwargs) -> Workflow:
     qc_wf = gen_qc_wf('preproc_qc_workflow')
     workflow.add_nodes([qc_wf])
     # Connect QC nodes
-    workflow.connect(conform, 'resampled', qc_wf, 'qc_crop_box.img_apply_to')
+    workflow.connect(conform, 'resampled', qc_wf, 'qc_crop_box.brain_img')
     workflow.connect(conform_mask, 'resampled', qc_wf, 'qc_crop_box.brainmask')  # Specific preprocessing with brain seg
     workflow.connect(crop, 'bbox1', qc_wf, 'qc_crop_box.bbox1')
     workflow.connect(crop, 'bbox2', qc_wf, 'qc_crop_box.bbox2')

@@ -7,7 +7,7 @@
     Its datagrabber requires to be connected to an external 'subject_id' from an iterable
 
         
-    (qc_crop_box, 'img_apply_to')
+    (qc_crop_box, 'brain_img')
     (qc_crop_box, 'brainmask')
     (qc_crop_box, 'bbox1')
     (qc_crop_box, 'bbox2')
@@ -215,7 +215,7 @@ def genWorkflow(**kwargs) -> Workflow:
     qc_wf = gen_qc_wf('preproc_qc_workflow')
     workflow.add_nodes([qc_wf])
     # Connect QC nodes
-    workflow.connect(conform, 'resampled', qc_wf, 'qc_crop_box.img_apply_to')
+    workflow.connect(conform, 'resampled', qc_wf, 'qc_crop_box.brain_img')
     workflow.connect(hard_brain_mask, 'thresholded', qc_wf, 'qc_crop_box.brainmask')  # Specific to full preprocessing (no inpu brain seg)
     workflow.connect(crop, 'bbox1', qc_wf, 'qc_crop_box.bbox1')
     workflow.connect(crop, 'bbox2', qc_wf, 'qc_crop_box.bbox2')

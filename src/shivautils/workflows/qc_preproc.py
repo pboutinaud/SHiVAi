@@ -4,10 +4,8 @@ Workflow computing the different quality control steps of the preprocessing
 """
 
 from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces.utility import Function
-from shivautils.utils.stats import overlay_brainmask, bounding_crop, save_histogram
-from shivautils.postprocessing.isocontour import create_edges
 from shivautils.interfaces.post import QC_metrics
+from shivautils.interfaces.image import Isocontour, Save_Histogram, Mask_and_Crop_QC, Brainmask_QC
 
 
 def gen_qc_wf(workflow_name) -> Workflow:
@@ -16,7 +14,7 @@ def gen_qc_wf(workflow_name) -> Workflow:
 
     Required external connections:
         # qc_crop_box
-    ____.connect(____, 'conform.resampled', ____, 'qc_crop_box.img_apply_to')
+    ____.connect(____, 'conform.resampled', ____, 'qc_crop_box.brain_img')
     ____.connect(____, 'hard_brain_mask.thresholded', ____, 'qc_crop_box.brainmask')
     ____.connect(____, 'crop.bbox1', ____, 'qc_crop_box.bbox1')
     ____.connect(____, 'crop.bbox2', ____, 'qc_crop_box.bbox2')
@@ -50,23 +48,13 @@ def gen_qc_wf(workflow_name) -> Workflow:
     """
     workflow = Workflow(workflow_name)
 
-    crop_box = Node(Function(input_names=['img_apply_to',
-                                          'brainmask',
-                                          'bbox1',
-                                          'bbox2',
-                                          'cdg_ijk'],
-                             output_names=['crop_brain_img'],
-                             function=bounding_crop),
+    crop_box = Node(Mask_and_Crop_QC(),
                     name='qc_crop_box')
 
-    qc_overlay_brainmask = Node(Function(input_names=['img_ref', 'brainmask'],
-                                         output_names=['overlayed_brainmask'],
-                                         function=overlay_brainmask),
+    qc_overlay_brainmask = Node(Brainmask_QC(),
                                 name='qc_overlay_brainmask')
 
-    save_hist_final = Node(Function(input_names=['img_normalized'],
-                                    output_names=['hist', 'peak'],
-                                    function=save_histogram),
+    save_hist_final = Node(Save_Histogram(),
                            name='save_hist_final')
 
     qc_metrics = Node(QC_metrics(),
@@ -83,11 +71,9 @@ def gen_qc_wf(workflow_name) -> Workflow:
 
 def qc_wf_add_flair(workflow: Workflow) -> Workflow:
     # if with_flair:
-    qc_coreg_FLAIR_T1 = Node(Function(input_names=['path_image', 'path_ref_image', 'path_brainmask', 'nb_of_slices'],
-                                      output_names=['qc_coreg'],
-                                      function=create_edges),
+    qc_coreg_FLAIR_T1 = Node(Isocontour(),
                              name='qc_coreg_FLAIR_T1')
-    qc_coreg_FLAIR_T1.inputs.nb_of_slices = 5  # Should be enough
+    qc_coreg_FLAIR_T1.inputs.nb_of_slices = 12  # Should be enough
 
     workflow.add_nodes([qc_coreg_FLAIR_T1])
 
@@ -96,9 +82,7 @@ def qc_wf_add_flair(workflow: Workflow) -> Workflow:
 
 def qc_wf_add_swi(workflow) -> Workflow:
     # if with_swi and with_t1:
-    qc_overlay_brainmask_swi = Node(Function(input_names=['img_ref', 'brainmask'],
-                                             output_names=['overlayed_brainmask'],
-                                             function=overlay_brainmask),
+    qc_overlay_brainmask_swi = Node(Brainmask_QC(),
                                     name='qc_overlay_brainmask_swi')
 
     workflow.add_nodes([qc_overlay_brainmask_swi])

@@ -37,7 +37,7 @@ def make_report(
         brain_vol (float): Intracranial brain volume
         thr_cluster_val (float): Threshold applied to raw predictions to binarise them
         min_seg_size (dict): Dict holding the minimal size used to filter each type of biomarker segmentation 
-        bounding_crop_path (path): PNG file showing the crop box.
+        bounding_crop (path): PNG file showing the crop box.
         overlayed_brainmask_1 (path): SVG file of cropping box with overlay brainmask
         overlayed_brainmask_2 (path): SVG file of cropping box with overlay brainmask (for SWI if done at the same time as non-CMB predictions)
         isocontour_slides_FLAIR_T1 (path): PNG file with the reference image in the background and the edges of the given image on top

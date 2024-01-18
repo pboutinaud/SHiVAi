@@ -8,9 +8,10 @@ from shivautils.postprocessing.basalganglia import create_basalganglia_slice_mas
 from shivautils.postprocessing.wmh import metrics_clusters_latventricles
 from shivautils.utils.stats import prediction_metrics, get_mask_regions
 from shivautils.utils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask
+from shivautils.utils.quality_control import create_edges, save_histogram, bounding_crop, overlay_brainmask
+from shivautils.interfaces.singularity import SingularityCommandLine, SingularityInputSpec
 from nipype.utils.filemanip import split_filename
 from nipype.interfaces.base import CommandLine, CommandLineInputSpec, isdefined
-from shivautils.interfaces.singularity import SingularityCommandLine, SingularityInputSpec
 from nipype.interfaces.base import (BaseInterface, BaseInterfaceInputSpec,
                                     traits, TraitedSpec)
 import os
@@ -26,7 +27,9 @@ from scipy import ndimage
 # from bokeh.io import export_png
 
 import sys
-sys.path.append('/mnt/devt')
+# sys.path.append('/mnt/devt')
+
+# %% Preprocessing and general image manipulation
 
 
 class ConformInputSpec(BaseInterfaceInputSpec):
@@ -784,6 +787,242 @@ class MakeOffset(BaseInterface):
         return outputs
 
 
+class Apply_mask_InputSpec(BaseInterfaceInputSpec):
+    """Delete prediction outside space of brainmask"""
+    segmentation = traits.File(exists=True,
+                               desc='prediction file to change',
+                               mandatory=False)
+
+    brainmask = traits.Any(False,
+                           desc="brainmask reference to delete prediction voxels")
+
+
+class Apply_mask_OutputSpec(TraitedSpec):
+    """Output class
+
+    Args:
+        shifted_img (nib.Nifti1Image): prediction file filtered with brainmask file
+    """
+    segmentation_filtered = traits.File(exists=True,
+                                        desc='prediction file filtered with brainmask file')
+
+
+class Apply_mask(BaseInterface):  # TODO: Unused, to remove
+    """Re-transform an image into the original dimensions."""
+    input_spec = Apply_mask_InputSpec
+    output_spec = Apply_mask_OutputSpec
+
+    def _run_interface(self, runtime):
+        """Run reverse crop function
+
+        Args:
+            runtime (_type_): time to execute the
+            function
+        Return: runtime
+        """
+        # load images
+        segmentation = nib.load(self.inputs.segmentation)
+        brainmask = nib.load(self.inputs.brainmask)
+
+        # process
+        segmentation_filtered = apply_mask(segmentation, brainmask)
+
+        # Save it for later use in _list_outputs
+        setattr(self, 'segmentation_filtered', segmentation_filtered)
+        _, base, _ = split_filename(self.inputs.segmentation)
+        nib.save(segmentation_filtered, base + 'segmentation_filtered.nii.gz')
+
+    def _list_outputs(self):
+        """Fill in the output structure."""
+        outputs = self.output_spec().trait_get()
+        fname = self.inputs.segmentation
+        _, base, _ = split_filename(fname)
+        outputs["segmentation_filtered"] = os.path.abspath(base + 'segmentation_filtered.nii.gz')
+
+        return outputs
+
+
+# %% Quality control
+class Isocontour_InputSpec(BaseInterfaceInputSpec):
+    path_image = traits.File(exists=True,
+                             mandatory=True,
+                             desc='Registered image from which the contours will be extracted'
+                             )
+    path_ref_image = traits.File(exists=True,
+                                 mandatory=True,
+                                 desc='Reference image on which the contours will be overlaid'
+                                 )
+    path_brainmask = traits.File(exists=True,
+                                 mandatory=True,
+                                 desc='Brain mask to delimit where to look for the brain contours'
+                                 )
+    nb_of_slices = traits.Int(12,
+                              usedefault=True,
+                              mandatory=False,
+                              desc='Number of brain slices to display')
+    slice_orient = traits.Enum('axial', 'sagittal', 'coronal',
+                               usedefault=True,
+                               mandatory=False,
+                               desc='Orientation of the displayed slices (default is "axial")'
+                               )
+
+
+class Isocontour_OutputSpec(TraitedSpec):
+
+    qc_coreg = traits.File(exists=True,
+                           desc='PNG file with the displayed slices for QC')
+
+
+class Isocontour(BaseInterface):
+    """Generates an image showing the brain contours from a registered image overlayed a the reference image"""
+    input_spec = Isocontour_InputSpec
+    output_spec = Isocontour_OutputSpec
+
+    def _run_interface(self, runtime):
+        path_image = self.inputs.path_image
+        path_ref_image = self.inputs.path_ref_image
+        path_brainmask = self.inputs.path_brainmask
+        nb_of_slices = self.inputs.nb_of_slices
+        slice_orient = self.inputs.slice_orient
+
+        qc_coreg = create_edges(path_image, path_ref_image, path_brainmask, nb_of_slices, slice_orient)
+        setattr(self, 'qc_coreg', qc_coreg)  # qc_coreg is already an absolute path
+
+        return runtime
+
+    def _list_outputs(self):
+        """Fill in the output structure."""
+        outputs = self.output_spec().trait_get()
+        outputs['qc_coreg'] = getattr(self, 'qc_coreg')
+        return outputs
+
+
+class Save_Histogram_InputSpec(BaseInterfaceInputSpec):
+    img_normalized = traits.File(exists=True,
+                                 mandatory=True,
+                                 desc='Intensity-normalized image')
+
+    bins = traits.Int(64,
+                      usedefault=True,
+                      mandatory=False,
+                      desc='Number of brain bins to display in the histogram')
+
+
+class Save_Histogram_OutputSpec(TraitedSpec):
+
+    histo = traits.File(exists=True,
+                        desc='PNG file with the displayed histogram')
+
+    peak = traits.Int(desc='Most frequent value in the histogram (away from min and max values)')
+
+
+class Save_Histogram(BaseInterface):
+    """Generates the histogram of a normalized image and get the its peak value (away from min and max values)"""
+    input_spec = Save_Histogram_InputSpec
+    output_spec = Save_Histogram_OutputSpec
+
+    def _run_interface(self, runtime):
+        img_normalized = self.inputs.img_normalized
+        bins = self.inputs.bins
+
+        histo, peak = save_histogram(img_normalized, bins)
+        setattr(self, 'histo', histo)  # histo is already an absolute path
+        setattr(self, 'mode', peak)
+
+        return runtime
+
+    def _list_outputs(self):
+        """Fill in the output structure."""
+        outputs = self.output_spec().trait_get()
+        outputs['histo'] = getattr(self, 'histo')
+        outputs['peak'] = getattr(self, 'peak')
+        return outputs
+
+
+class Mask_and_Crop_QC_InputSpec(BaseInterfaceInputSpec):
+    brain_img = traits.File(exists=True,
+                            mandatory=True,
+                            desc='Reference nifti images to overlay with brainmask and crop box')
+    brainmask = traits.File(exists=True,
+                            mandatory=True,
+                            desc='Brain mask file')
+    bbox1 = traits.Tuple(mandatory=True,
+                         desc='First coordinates for the crop-box')
+    bbox2 = traits.Tuple(mandatory=True,
+                         desc='Second coordinates for the crop-box')
+    cdg_ijk = traits.Tuple(mandatory=True,
+                           desc='Center of mass of the brain, used to place the slices shown')
+
+
+class Mask_and_Crop_QC_OutputSpec(TraitedSpec):
+
+    crop_brain_img = traits.File(exists=True,
+                                 desc='SVG file with the brain, mask, and crop-box')
+
+
+class Mask_and_Crop_QC(BaseInterface):
+    """Generates an image showing the brain mask and the crop-box overlayed on the original brain"""
+    input_spec = Mask_and_Crop_QC_InputSpec
+    output_spec = Mask_and_Crop_QC_OutputSpec
+
+    def _run_interface(self, runtime):
+        brain_img = self.inputs.brain_img
+        brainmask = self.inputs.brainmask
+        bbox1 = self.inputs.bbox1
+        bbox2 = self.inputs.bbox2
+        slice_coord = self.inputs.slice_coord
+
+        crop_brain_img = bounding_crop(brain_img, brainmask, bbox1, bbox2, slice_coord)
+        setattr(self, 'crop_brain_img', crop_brain_img)  # crop_brain_img is already an absolute path
+
+        return runtime
+
+    def _list_outputs(self):
+        """Fill in the output structure."""
+        outputs = self.output_spec().trait_get()
+        outputs['crop_brain_img'] = getattr(self, 'crop_brain_img')
+        return outputs
+
+
+class Brainmask_QC_InputSpec(BaseInterfaceInputSpec):
+    img_ref = traits.File(exists=True,
+                          mandatory=True,
+                          desc='Reference nifti images to overlay with the brainmask')
+    brainmask = traits.File(exists=True,
+                            mandatory=True,
+                            desc='Brain mask file')
+
+
+class Brainmask_QC_OutputSpec(TraitedSpec):
+
+    overlayed_brainmask = traits.File(exists=True,
+                                      desc='PNG file with the brainmask overlayed on the brain')
+
+
+class Brainmask_QC(BaseInterface):
+    """Generates an image showing the brain mask and the crop-box overlayed on the original brain"""
+    input_spec = Brainmask_QC_InputSpec
+    output_spec = Brainmask_QC_OutputSpec
+
+    def _run_interface(self, runtime):
+        img_ref = self.inputs.brain_img
+        brainmask = self.inputs.brainmask
+
+        overlayed_brainmask = overlay_brainmask(img_ref, brainmask)
+        setattr(self, 'overlayed_brainmask', overlayed_brainmask)  # overlayed_brainmask is already an absolute path
+
+        return runtime
+
+    def _list_outputs(self):
+        """Fill in the output structure."""
+        outputs = self.output_spec().trait_get()
+        outputs['overlayed_brainmask'] = getattr(self, 'overlayed_brainmask')
+        return outputs
+
+
+# %% Predictions and postprocessing
+
+
 class Regionwise_Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
     """Input parameter to get metrics of prediction file"""
     img = traits.File(exists=True,
@@ -931,61 +1170,6 @@ class Regionwise_Prediction_metrics(BaseInterface):
         outputs['biomarker_census_csv'] = getattr(self, 'biomarker_census_csv')
         outputs['biomarker_stats_csv'] = getattr(self, 'biomarker_stats_csv')
         outputs['labelled_biomarkers'] = getattr(self, 'labelled_biomarkers')
-        return outputs
-
-
-class Apply_mask_InputSpec(BaseInterfaceInputSpec):
-    """Delete prediction outside space of brainmask"""
-    segmentation = traits.File(exists=True,
-                               desc='prediction file to change',
-                               mandatory=False)
-
-    brainmask = traits.Any(False,
-                           desc="brainmask reference to delete prediction voxels")
-
-
-class Apply_mask_OutputSpec(TraitedSpec):
-    """Output class
-
-    Args:
-        shifted_img (nib.Nifti1Image): prediction file filtered with brainmask file
-    """
-    segmentation_filtered = traits.File(exists=True,
-                                        desc='prediction file filtered with brainmask file')
-
-
-class Apply_mask(BaseInterface):  # TODO: Unused, to remove
-    """Re-transform an image into the originel dimensions."""
-    input_spec = Apply_mask_InputSpec
-    output_spec = Apply_mask_OutputSpec
-
-    def _run_interface(self, runtime):
-        """Run reverse crop function
-
-        Args:
-            runtime (_type_): time to execute the
-            function
-        Return: runtime
-        """
-        # load images
-        segmentation = nib.load(self.inputs.segmentation)
-        brainmask = nib.load(self.inputs.brainmask)
-
-        # process
-        segmentation_filtered = apply_mask(segmentation, brainmask)
-
-        # Save it for later use in _list_outputs
-        setattr(self, 'segmentation_filtered', segmentation_filtered)
-        _, base, _ = split_filename(self.inputs.segmentation)
-        nib.save(segmentation_filtered, base + 'segmentation_filtered.nii.gz')
-
-    def _list_outputs(self):
-        """Fill in the output structure."""
-        outputs = self.output_spec().trait_get()
-        fname = self.inputs.segmentation
-        _, base, _ = split_filename(fname)
-        outputs["segmentation_filtered"] = os.path.abspath(base + 'segmentation_filtered.nii.gz')
-
         return outputs
 
 

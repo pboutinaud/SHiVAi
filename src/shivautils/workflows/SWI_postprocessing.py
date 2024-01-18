@@ -9,11 +9,10 @@ from nipype.interfaces import ants
 from nipype.interfaces.io import DataGrabber, DataSink
 from nipype.interfaces.utility import IdentityInterface
 
-from shivautils.interfaces.image import (ApplyMask, MetricsPredictions,
-                                         JoinMetricsPredictions, SummaryReport, MaskRegions,
-                                         QuantificationWMHLatVentricles, BGMask, PVSQuantificationBG)
-from shivautils.postprocessing.isocontour import create_edges
-from shivautils.utils.stats import save_histogram, bounding_crop, overlay_brainmask
+from shivautils.interfaces.image import (Apply_mask, MetricsPredictions,
+                                         JoinMetricsPredictions)
+from shivautils.interfaces.post import SummaryReport
+from shivautils.utils.quality_control import overlay_brainmask
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
@@ -72,7 +71,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
 
-    mask_on_pred_cmb = Node(ApplyMask(), name='mask_on_pred_pvs')
+    mask_on_pred_cmb = Node(Apply_mask(), name='mask_on_pred_pvs')
 
     workflow.connect(datagrabber, 'segmentation_cmb', mask_on_pred_cmb, 'segmentation')
     workflow.connect(datagrabber, 'brainmask', mask_on_pred_cmb, 'brainmask')
