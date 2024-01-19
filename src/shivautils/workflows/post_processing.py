@@ -65,118 +65,83 @@ def genWorkflow(**kwargs) -> Workflow:
     # Preparing stats and figures for the report
     # Segmentation part
     preds = []
-    if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:  # WARN: None of this is SWOMed compatible
-        if 'PVS' in kwargs['PREDICTION']:
-            pvs_descriptor = kwargs['PVS_DESCRIPTOR']
-        elif 'PVS2' in kwargs['PREDICTION']:
-            pvs_descriptor = kwargs['PVS2_DESCRIPTOR']
-        preds.append('PVS')
-        cluster_labelling_pvs = Node(Label_clusters(),
-                                     name='cluster_labelling')
-        cluster_labelling_pvs.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
-        cluster_labelling_pvs.inputs.thr_cluster_size = kwargs['MIN_PVS_SIZE'] - 1  # "- 1 because thr removes up to given value"
-        cluster_labelling_pvs.inputs.out_name = 'labelled_pvs.nii.gz'
-        prediction_metrics_pvs = Node(Regionwise_Prediction_metrics(),
-                                      name="prediction_metrics_pvs")
-        prediction_metrics_pvs.inputs.biomarker_type = 'pvs'
-        if kwargs['BRAIN_SEG'] == 'synthseg':
-            prediction_metrics_pvs.inputs.brain_seg_type = 'synthseg'
-            custom_pvs_parc = Node(Brain_Seg_for_biomarker(), name='custom_pvs_parc')
-            custom_pvs_parc.inputs.out_file = 'Brain_Seg_for_PVS.nii.gz'
-            custom_pvs_parc.inputs.custom_parc = 'pvs'
-            workflow.connect(custom_pvs_parc, 'brain_seg', cluster_labelling_pvs, 'brain_seg')
-            workflow.connect(custom_pvs_parc, 'brain_seg', prediction_metrics_pvs, 'brain_seg')
-            workflow.connect(custom_pvs_parc, 'region_dict', prediction_metrics_pvs, 'region_dict')
-        else:
-            prediction_metrics_pvs.inputs.brain_seg_type = 'brain_mask'
-            prediction_metrics_pvs.inputs.region_list = ['Whole brain']
-        workflow.connect(cluster_labelling_pvs, 'labelled_biomarkers', prediction_metrics_pvs, 'labelled_clusters')
-
-    if 'WMH' in kwargs['PREDICTION']:
-        preds.append('WMH')
-        prediction_metrics_wmh = Node(Regionwise_Prediction_metrics(),
-                                      name="prediction_metrics_wmh")
-        prediction_metrics_wmh.inputs.biomarker_type = 'wmh'
-        prediction_metrics_wmh.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
-        prediction_metrics_wmh.inputs.thr_cluster_size = kwargs['MIN_WMH_SIZE'] - 1
-        if kwargs['BRAIN_SEG'] == 'synthseg':
-            prediction_metrics_wmh.inputs.brain_seg_type = 'synthseg'
-            prediction_metrics_wmh.inputs.prio_labels = ['Left PV WM', 'Right PV WM']
-            custom_wmh_parc = Node(Brain_Seg_for_biomarker(), name='custom_wmh_parc')
-            custom_wmh_parc.inputs.out_file = 'Brain_Seg_for_WMH.nii.gz'
-            custom_wmh_parc.inputs.custom_parc = 'wmh'
-            workflow.connect(custom_wmh_parc, 'brain_seg', prediction_metrics_wmh, 'brain_seg')
-            workflow.connect(custom_wmh_parc, 'region_dict', prediction_metrics_wmh, 'region_dict')
-        else:
-            prediction_metrics_wmh.inputs.brain_seg_type = 'brain_mask'
-            prediction_metrics_wmh.inputs.region_list = ['Whole brain']
-
-    if 'LAC' in kwargs['PREDICTION']:
-        preds.append('LAC')
-        prediction_metrics_lac = Node(Regionwise_Prediction_metrics(),
-                                      name="prediction_metrics_lac")
-        prediction_metrics_lac.inputs.biomarker_type = 'lac'
-        prediction_metrics_lac.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
-        prediction_metrics_lac.inputs.thr_cluster_size = kwargs['MIN_LAC_SIZE'] - 1
-        if kwargs['BRAIN_SEG'] == 'synthseg':
-            prediction_metrics_lac.inputs.brain_seg_type = 'synthseg'
-            custom_lac_parc = Node(Brain_Seg_for_biomarker(), name='custom_lac_parc')
-            custom_lac_parc.inputs.out_file = 'Brain_Seg_for_LAC.nii.gz'
-            custom_lac_parc.inputs.custom_parc = 'mars'
-            workflow.connect(custom_lac_parc, 'brain_seg', prediction_metrics_lac, 'brain_seg')
-            workflow.connect(custom_lac_parc, 'region_dict', prediction_metrics_lac, 'region_dict')
-        else:
-            prediction_metrics_lac.inputs.brain_seg_type = 'brain_mask'
-            prediction_metrics_lac.inputs.region_list = ['Whole brain']
-
-    if 'CMB' in kwargs['PREDICTION']:
-        preds.append('CMB')
-        prediction_metrics_cmb = Node(Regionwise_Prediction_metrics(),
-                                      name="prediction_metrics_cmb")
-        prediction_metrics_cmb.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
-        prediction_metrics_cmb.inputs.thr_cluster_size = kwargs['MIN_CMB_SIZE'] - 1
-        if with_t1:  # The metrics are computed on the segmentation put in T1 space, for coherence
-            swi_pred_to_t1 = Node(ants.ApplyTransforms(), name="swi_pred_to_t1")
-            swi_pred_to_t1.inputs.out_postfix = '_t1-space'
-            workflow.connect(swi_pred_to_t1, 'output_image', prediction_metrics_cmb, 'img')
-            prediction_metrics_cmb.inputs.biomarker_type = 'cmb_t1-space'
-        else:
-            prediction_metrics_cmb.inputs.biomarker_type = 'cmb'
-
-        if kwargs['BRAIN_SEG'] == 'synthseg':
-            prediction_metrics_cmb.inputs.brain_seg_type = 'synthseg'
-            custom_cmb_parc = Node(Brain_Seg_for_biomarker(), name='custom_cmb_parc')
-            custom_cmb_parc.inputs.custom_parc = 'mars'
-            if with_t1:
-                custom_cmb_parc.inputs.out_file = 'Brain_Seg_for_CMB_t1-space.nii.gz'
-            else:
-                custom_cmb_parc.inputs.out_file = 'Brain_Seg_for_CMB.nii.gz'
-
-            workflow.connect(custom_cmb_parc, 'brain_seg', prediction_metrics_cmb, 'brain_seg')
-            workflow.connect(custom_cmb_parc, 'region_dict', prediction_metrics_cmb, 'region_dict')
-        else:
-            prediction_metrics_cmb.inputs.brain_seg_type = 'brain_mask'
-            prediction_metrics_cmb.inputs.region_list = ['Whole brain']
-
-    # Building the actual report (html then pdf)
     summary_report = Node(SummaryReport(), name="summary_report")
-    # Segmentation section
-    if 'PVS' in preds:
-        workflow.connect(prediction_metrics_pvs, 'biomarker_stats_csv', summary_report, 'pvs_metrics_csv')
-        workflow.connect(prediction_metrics_pvs, 'biomarker_census_csv', summary_report, 'pvs_census_csv')
-        summary_report.inputs.pvs_model_descriptor = os.path.join(kwargs['MODELS_PATH'], pvs_descriptor)
-    if 'WMH' in preds:
-        workflow.connect(prediction_metrics_wmh, 'biomarker_stats_csv', summary_report, 'wmh_metrics_csv')
-        workflow.connect(prediction_metrics_wmh, 'biomarker_census_csv', summary_report, 'wmh_census_csv')
-        summary_report.inputs.wmh_model_descriptor = os.path.join(kwargs['MODELS_PATH'], kwargs['WMH_DESCRIPTOR'])
-    if 'CMB' in preds:
-        workflow.connect(prediction_metrics_cmb, 'biomarker_stats_csv', summary_report, 'cmb_metrics_csv')
-        workflow.connect(prediction_metrics_cmb, 'biomarker_census_csv', summary_report, 'cmb_census_csv')
-        summary_report.inputs.cmb_model_descriptor = os.path.join(kwargs['MODELS_PATH'], kwargs['CMB_DESCRIPTOR'])
-    if 'LAC' in preds:
-        workflow.connect(prediction_metrics_lac, 'biomarker_stats_csv', summary_report, 'lac_metrics_csv')
-        workflow.connect(prediction_metrics_lac, 'biomarker_census_csv', summary_report, 'lac_census_csv')
-        summary_report.inputs.lac_model_descriptor = os.path.join(kwargs['MODELS_PATH'], kwargs['LAC_DESCRIPTOR'])
+    for pred in kwargs['PREDICTION']:
+        model_descriptor = os.path.join(kwargs['MODELS_PATH'], kwargs[f'{pred}_DESCRIPTOR'])
+        if pred == 'CMB' and with_t1:  # Requires registrations to T1 and SWI
+            preds.append('CMB')
+            lpred = pred.lower()
+            cluster_labelling_cmb = Node(Label_clusters(),
+                                         name='cluster_labelling')
+            cluster_labelling_cmb.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
+            cluster_labelling_cmb.inputs.thr_cluster_size = kwargs['MIN_CMB_SIZE'] - 1
+            cluster_labelling_cmb.inputs.out_name = 'labelled_cmb.nii.gz'
+
+            prediction_metrics = Node(Regionwise_Prediction_metrics(),
+                                      name="prediction_metrics_cmb")
+            prediction_metrics.inputs.biomarker_type = 'cmb_t1-space'
+
+            swi_clust_to_t1 = Node(ants.ApplyTransforms(), name="swi_clust_to_t1")
+            swi_clust_to_t1.inputs.interpolation = 'MultiLabel'
+            swi_clust_to_t1.inputs.out_postfix = '_t1-space'
+
+            if kwargs['BRAIN_SEG'] == 'synthseg':
+                prediction_metrics.inputs.brain_seg_type = 'synthseg'
+
+                custom_cmb_parc = Node(Brain_Seg_for_biomarker(), name='custom_cmb_parc')
+                custom_cmb_parc.inputs.custom_parc = 'mars'
+                custom_cmb_parc.inputs.out_file = 'Brain_Seg_for_CMB_t1-space.nii.gz'
+                workflow.connect(custom_cmb_parc, 'brain_seg', prediction_metrics, 'brain_seg')
+                workflow.connect(custom_cmb_parc, 'region_dict', prediction_metrics, 'region_dict')
+
+                seg_to_swi = Node(ants.ApplyTransforms(), name="seg_to_swi")  # Register Synthseg to swi space for cluster_labelling_cmb
+                seg_to_swi.inputs.interpolation = 'MultiLabel'
+                seg_to_swi.inputs.out_postfix = '_swi-space'
+                seg_to_swi.inputs.invert_transform_flags = [True]  # original transform is swi to t1
+
+                workflow.connect(custom_cmb_parc, 'brain_seg', seg_to_swi, 'input_image')
+                workflow.connect(seg_to_swi, 'output_image',  cluster_labelling_cmb, 'brain_seg')
+                # seg_to_swi also needs external connection for 'reference_image' and 'transforms'
+            else:
+                # Requires external connection for (prediction_metrics, 'brain_seg') and (cluster_labelling_cmb, 'brain_seg')
+                prediction_metrics.inputs.brain_seg_type = 'brain_mask'
+                prediction_metrics.inputs.region_list = ['Whole brain']
+
+            workflow.connect(cluster_labelling_cmb, 'labelled_biomarkers', swi_clust_to_t1, 'input_image')
+            workflow.connect(swi_clust_to_t1, 'output_image', prediction_metrics, 'labelled_clusters')
+        else:
+            if pred == 'PVS2':
+                pred = 'PVS'
+            preds.append(pred)
+            lpred = pred.lower()
+            cluster_labelling = Node(Label_clusters(),
+                                     name=f'cluster_labelling_{lpred}')
+            cluster_labelling.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
+            cluster_labelling.inputs.thr_cluster_size = kwargs[f'MIN_{pred}_SIZE'] - 1  # "- 1 because thr removes up to given value"
+            cluster_labelling.inputs.out_name = f'labelled_{lpred}.nii.gz'
+            prediction_metrics = Node(Regionwise_Prediction_metrics(),
+                                      name=f"prediction_metrics_{lpred}")
+            prediction_metrics.inputs.biomarker_type = lpred
+            if kwargs['BRAIN_SEG'] == 'synthseg':
+                prediction_metrics.inputs.brain_seg_type = 'synthseg'
+                custom_parc = Node(Brain_Seg_for_biomarker(), name=f'custom_{lpred}_parc')
+                custom_parc.inputs.out_file = f'Brain_Seg_for_{pred}.nii.gz'
+                if pred in ('PVS', 'WMH'):  # Specific parcellation scheme for those two
+                    custom_parc.inputs.custom_parc = lpred
+                else:
+                    custom_parc.inputs.custom_parc = 'mars'
+                workflow.connect(custom_parc, 'brain_seg', cluster_labelling, 'brain_seg')
+                workflow.connect(custom_parc, 'brain_seg', prediction_metrics, 'brain_seg')
+                workflow.connect(custom_parc, 'region_dict', prediction_metrics, 'region_dict')
+            else:  # external connection for (cluster_labelling_*, 'brain_seg')
+                prediction_metrics.inputs.brain_seg_type = 'brain_mask'
+                prediction_metrics.inputs.region_list = ['Whole brain']
+            workflow.connect(cluster_labelling, 'labelled_biomarkers', prediction_metrics, 'labelled_clusters')
+
+        # Building the actual report (html then pdf)
+        setattr(summary_report.inputs, f'{lpred}_model_descriptor', model_descriptor)
+        workflow.connect(prediction_metrics, 'biomarker_stats_csv', summary_report, f'{lpred}_metrics_csv')
+        workflow.connect(prediction_metrics, 'biomarker_census_csv', summary_report, f'{lpred}_census_csv')
 
     # QC section
     summary_report.inputs.anonymized = kwargs['ANONYMIZED']

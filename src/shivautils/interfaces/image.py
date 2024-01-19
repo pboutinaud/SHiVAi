@@ -1111,13 +1111,13 @@ class Regionwise_Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
     brain_seg_type = traits.Str('brain_mask',
                                 desc='Type of brain segmentation provided. Can be "brain_mask", "synthseg", or "custom".')
 
-    prio_labels = traits.List(traits.Str,
-                              mandatory=False,
-                              usedefault=True,
-                              desc=('For the given labels (must have corresponding keys in region_dict), the clusters '
-                                    'will be assigned to these labels if they just touch them, instead of using the '
-                                    'winner-takes-all approach. If there is a competition between priority label, will '
-                                    'use w-t-a approach among them.'))
+    # prio_labels = traits.List(traits.Str,
+    #                           mandatory=False,
+    #                           usedefault=True,
+    #                           desc=('For the given labels (must have corresponding keys in region_dict), the clusters '
+    #                                 'will be assigned to these labels if they just touch them, instead of using the '
+    #                                 'winner-takes-all approach. If there is a competition between priority label, will '
+    #                                 'use w-t-a approach among them.'))
 
 
 class Regionwise_Prediction_metrics_OutputSpec(TraitedSpec):
@@ -1143,7 +1143,8 @@ class Regionwise_Prediction_metrics(BaseInterface):
         brain_seg = self.inputs.brain_seg
         region_list = self.inputs.region_list
         brain_seg_type = self.inputs.brain_seg_type
-        prio_labels = self.inputs.prio_labels
+        biomarker = self.inputs.biomarker_type
+        # prio_labels = self.inputs.prio_labels
 
         clusters_im = nib.load(labelled_clusters)
         clusters_vol = clusters_im.get_fdata().astype(int)
@@ -1192,10 +1193,14 @@ class Regionwise_Prediction_metrics(BaseInterface):
         else:
             raise ValueError(f'Unrecognised segmentation type: {brain_seg_type}. Should be "brain_mask", "synthseg" or "custom"')
 
+        if biomarker == 'wmh':
+            prio_labels = ['Left PV WM', 'Right PV WM']
+        else:
+            prio_labels = []
+
         cluster_measures, cluster_stats = prediction_metrics(
             clusters_vol, brain_seg_vol, region_dict, prio_labels)
 
-        biomarker = self.inputs.biomarker_type
         cluster_measures.to_csv(f'{biomarker}_census.csv', index=False)
         cluster_stats.to_csv(f'{biomarker}_stats.csv', index=False)
 

@@ -131,6 +131,7 @@ def generate_main_wf(**kwargs) -> Workflow:
     segmentation_wf = Workflow('Segmentation')  # facultative workflow for organization purpose
     # PVS
     if 'PVS' in kwargs['PREDICTION'] or 'PVS2' in kwargs['PREDICTION']:
+        # Prediction Node set-up
         if kwargs['CONTAINERIZE_NODES']:
             predict_pvs = Node(PredictSingularity(), name="predict_pvs")
             predict_pvs.inputs.snglrt_bind = [
@@ -150,34 +151,40 @@ def generate_main_wf(**kwargs) -> Workflow:
         else:
             predict_pvs.inputs.descriptor = kwargs['PVS_DESCRIPTOR']
 
+        # Connection with inputs
         segmentation_wf.add_nodes([predict_pvs])
         main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized',
                         segmentation_wf, 'predict_pvs.t1')
         if 'PVS2' in kwargs['PREDICTION']:
             main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized',
                             segmentation_wf, 'predict_pvs.flair')
-        main_wf.connect(segmentation_wf, 'predict_pvs.segmentation',
-                        wf_post, 'cluster_labelling_pvs.biomarker_raw')
 
+        # Connection with post-processing wf
+        lpred = 'pvs'  # Using this just for this bit so that it corresponds to "wf_post" internal synthax
+        main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation',
+                        wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
         if kwargs['BRAIN_SEG'] == 'synthseg':
             main_wf.connect(wf_preproc, 'custom_parc.brain_parc',
-                            wf_post, 'custom_pvs_parc.brain_seg')
+                            wf_post, f'custom_{lpred}_parc.brain_seg')
         else:
             main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',
-                            wf_post, 'cluster_labelling_pvs.brain_seg')
+                            wf_post, f'cluster_labelling_{lpred}.brain_seg')
             main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',
-                            wf_post, 'prediction_metrics_pvs.brain_seg')
+                            wf_post, f'prediction_metrics_{lpred}.brain_seg')
 
         # Merge all csv files
         prediction_metrics_pvs_all = JoinNode(Join_Prediction_metrics(),
                                               joinsource=subject_iterator,
                                               joinfield=['csv_files', 'subject_id'],
                                               name="prediction_metrics_pvs_all")
-        main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv', prediction_metrics_pvs_all, 'csv_files')
-        main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_pvs_all, 'subject_id')
+        main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv',
+                        prediction_metrics_pvs_all, 'csv_files')
+        main_wf.connect(subject_iterator, 'subject_id',
+                        prediction_metrics_pvs_all, 'subject_id')
 
     # WMH
     if 'WMH' in kwargs['PREDICTION']:
+        # Prediction Node set-up
         if kwargs['CONTAINERIZE_NODES']:
             predict_wmh = Node(PredictSingularity(), name="predict_wmh")
             predict_wmh.inputs.snglrt_bind = [
@@ -194,15 +201,27 @@ def generate_main_wf(**kwargs) -> Workflow:
         predict_wmh.plugin_args = kwargs['PRED_PLUGIN_ARGS']
         predict_wmh.inputs.descriptor = kwargs['WMH_DESCRIPTOR']
 
+        # Connection with inputs
         segmentation_wf.add_nodes([predict_wmh])
 
-        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', segmentation_wf, 'predict_wmh.t1')
-        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', segmentation_wf, 'predict_wmh.flair')
-        main_wf.connect(segmentation_wf, 'predict_wmh.segmentation', wf_post, 'prediction_metrics_wmh.img')
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized',
+                        segmentation_wf, 'predict_wmh.t1')
+        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized',
+                        segmentation_wf, 'predict_wmh.flair')
+
+        # Connection with post-processing wf
+        lpred = 'wmh'
+        main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation',
+                        wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
         if kwargs['BRAIN_SEG'] == 'synthseg':
-            main_wf.connect(wf_preproc, 'custom_parc.brain_parc',  wf_post, 'custom_wmh_parc.brain_seg')
+            main_wf.connect(wf_preproc, 'custom_parc.brain_parc',
+                            wf_post, f'custom_{lpred}_parc.brain_seg')
         else:
-            main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_wmh.brain_seg')
+            main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',
+                            wf_post, f'cluster_labelling_{lpred}.brain_seg')
+            main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',
+                            wf_post, f'prediction_metrics_{lpred}.brain_seg')
+
         # Merge all csv files
         prediction_metrics_wmh_all = JoinNode(Join_Prediction_metrics(),
                                               joinsource=subject_iterator,
@@ -213,6 +232,7 @@ def generate_main_wf(**kwargs) -> Workflow:
 
     # CMB
     if 'CMB' in kwargs['PREDICTION']:
+        # Prediction Node set-up
         if kwargs['CONTAINERIZE_NODES']:
             predict_cmb = Node(PredictSingularity(), name="predict_cmb")
             predict_cmb.inputs.snglrt_bind = [
@@ -230,7 +250,47 @@ def generate_main_wf(**kwargs) -> Workflow:
         predict_cmb.plugin_args = kwargs['PRED_PLUGIN_ARGS']
         predict_cmb.inputs.descriptor = kwargs['CMB_DESCRIPTOR']
 
+        # Connection with inputs
         segmentation_wf.add_nodes([predict_cmb])
+        if with_t1:
+            main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_intensity_normalisation.intensity_normalized',
+                            segmentation_wf, 'predict_cmb.swi')
+        else:
+            main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized',
+                            segmentation_wf, 'predict_cmb.swi')
+
+        # Connection with post-processing wf
+        if with_t1:
+            main_wf.connect(segmentation_wf, 'predict_cmb.segmentation',
+                            wf_post, 'cluster_labelling_cmb.biomarker_raw')
+            if kwargs['BRAIN_SEG'] == 'synthseg':
+                main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_to_t1.forward_transforms',
+                                wf_post, 'seg_to_swi.transforms')
+                main_wf.connect(segmentation_wf, 'predict_cmb.segmentation',
+                                wf_post, 'seg_to_swi.reference_image')
+                main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_to_t1.forward_transforms',
+                                wf_post, 'swi_clust_to_t1.transforms')
+                main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',
+                                wf_post, 'swi_clust_to_t1.reference_image')
+                main_wf.connect(wf_preproc, 'custom_parc.brain_parc',
+                                wf_post, 'custom_cmb_parc.brain_seg')
+            else:
+                main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.mask_to_crop.resampled_image',
+                                wf_post, 'cluster_labelling_cmb.brain_seg')  # brain_seg in swi-space
+                main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image',
+                                wf_post, 'prediction_metrics.brain_seg')  # brain_seg in t1-space
+        else:  # Default connections, like PVS, WMH, and LAC
+            lpred = 'cmb'
+            main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation',
+                            wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
+            if kwargs['BRAIN_SEG'] == 'synthseg':
+                main_wf.connect(wf_preproc, 'custom_parc.brain_parc',
+                                wf_post, f'custom_{lpred}_parc.brain_seg')
+            else:
+                main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',
+                                wf_post, f'cluster_labelling_{lpred}.brain_seg')
+                main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',
+                                wf_post, f'prediction_metrics_{lpred}.brain_seg')
 
         # Merge all csv files
         prediction_metrics_cmb_all = JoinNode(Join_Prediction_metrics(),
@@ -239,22 +299,10 @@ def generate_main_wf(**kwargs) -> Workflow:
                                               name="prediction_metrics_cmb_all")
         main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', prediction_metrics_cmb_all, 'csv_files')
         main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_cmb_all, 'subject_id')
-        if with_t1:
-            main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_intensity_normalisation.intensity_normalized', segmentation_wf, 'predict_cmb.swi')
-            main_wf.connect(segmentation_wf, 'predict_cmb.segmentation', wf_post, 'swi_pred_to_t1.input_image')
-            main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_to_t1.forward_transforms', wf_post, 'swi_pred_to_t1.transforms')
-            main_wf.connect(wf_preproc, 'crop.cropped', wf_post, 'swi_pred_to_t1.reference_image')
-        else:
-            main_wf.connect(segmentation_wf, 'predict_cmb.segmentation', wf_post, 'prediction_metrics_cmb.img')
-            main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', segmentation_wf, 'predict_cmb.swi')
-
-        if kwargs['BRAIN_SEG'] == 'synthseg':
-            main_wf.connect(wf_preproc, 'custom_parc.brain_parc', wf_post, 'custom_cmb_parc.brain_seg')
-        else:
-            main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, 'prediction_metrics_cmb.brain_seg')
 
     # Lacuna
     if 'LAC' in kwargs['PREDICTION']:
+        # Prediction Node set-up
         if kwargs['CONTAINERIZE_NODES']:
             predict_lac = Node(PredictSingularity(), name="predict_lac")
             predict_lac.inputs.snglrt_bind = [
@@ -271,15 +319,26 @@ def generate_main_wf(**kwargs) -> Workflow:
         predict_lac.plugin_args = kwargs['PRED_PLUGIN_ARGS']
         predict_lac.inputs.descriptor = kwargs['LAC_DESCRIPTOR']
 
+        # Connection with inputs
         segmentation_wf.add_nodes([predict_lac])
 
-        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', segmentation_wf, 'predict_lac.t1')
-        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', segmentation_wf, 'predict_lac.flair')
-        main_wf.connect(segmentation_wf, 'predict_lac.segmentation', wf_post, 'prediction_metrics_lac.img')
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized',
+                        segmentation_wf, 'predict_lac.t1')
+        main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized',
+                        segmentation_wf, 'predict_lac.flair')
+
+        # Connection with post-processing wf
+        lpred = 'lac'
+        main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation',
+                        wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
         if kwargs['BRAIN_SEG'] == 'synthseg':
-            main_wf.connect(wf_preproc, 'custom_parc.brain_parc', wf_post, 'custom_lac_parc.brain_seg')
+            main_wf.connect(wf_preproc, 'custom_parc.brain_parc',
+                            wf_post, f'custom_{lpred}_parc.brain_seg')
         else:
-            main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',  wf_post, 'prediction_metrics_lac.brain_seg')
+            main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',
+                            wf_post, f'cluster_labelling_{lpred}.brain_seg')
+            main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',
+                            wf_post, f'prediction_metrics_{lpred}.brain_seg')
 
         # Merge all csv files
         prediction_metrics_lac_all = JoinNode(Join_Prediction_metrics(),
