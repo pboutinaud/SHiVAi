@@ -27,7 +27,7 @@ from nipype.utils.filemanip import ensure_list, simplify_list
 from string import Template
 from shivautils.utils.stats import transf_from_affine
 from shivautils.postprocessing.report import make_report
-from shivautils.utils.stats import swarmplot_from_census
+from shivautils.utils.stats import violinplot_from_census
 from shivautils.utils.misc import get_md5_from_json
 from shivautils.postprocessing import __file__ as postproc_init
 
@@ -429,19 +429,19 @@ class SummaryReport(BaseInterface):
         pred_list = self.inputs.pred_list
         if 'PVS' in pred_list:
             pred_metrics_dict['PVS'] = pd.read_csv(self.inputs.pvs_metrics_csv)
-            pred_census_im_dict['PVS'] = swarmplot_from_census(self.inputs.pvs_census_csv, 'PVS')
+            pred_census_im_dict['PVS'] = violinplot_from_census(self.inputs.pvs_census_csv, 'PVS')
             models_uid['PVS'] = get_md5_from_json(self.inputs.pvs_model_descriptor)
         if 'WMH' in pred_list:
             pred_metrics_dict['WMH'] = pd.read_csv(self.inputs.wmh_metrics_csv)
-            pred_census_im_dict['WMH'] = swarmplot_from_census(self.inputs.wmh_census_csv, 'WMH')
+            pred_census_im_dict['WMH'] = violinplot_from_census(self.inputs.wmh_census_csv, 'WMH')
             models_uid['WMH'] = get_md5_from_json(self.inputs.wmh_model_descriptor)
         if 'CMB' in pred_list:
             pred_metrics_dict['CMB'] = pd.read_csv(self.inputs.cmb_metrics_csv)
-            pred_census_im_dict['CMB'] = swarmplot_from_census(self.inputs.cmb_census_csv, 'CMB')
+            pred_census_im_dict['CMB'] = violinplot_from_census(self.inputs.cmb_census_csv, 'CMB')
             models_uid['CMB'] = get_md5_from_json(self.inputs.cmb_model_descriptor)
         if 'LAC' in pred_list:
             pred_metrics_dict['LAC'] = pd.read_csv(self.inputs.lac_metrics_csv)
-            pred_census_im_dict['LAC'] = swarmplot_from_census(self.inputs.lac_census_csv, 'LAC')
+            pred_census_im_dict['LAC'] = violinplot_from_census(self.inputs.lac_census_csv, 'LAC')
             models_uid['LAC'] = get_md5_from_json(self.inputs.lac_model_descriptor)
 
         # set optional inputs to None if undefined

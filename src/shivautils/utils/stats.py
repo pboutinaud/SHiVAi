@@ -189,7 +189,21 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
     return cluster_measures, cluster_stats
 
 
-def swarmplot_from_census(census_csv: str, pred: str):
+def extreme_val(series: pd.Series) -> float:
+    '''
+    Returns the threshold define the extreme values in a pandas series.
+    Extreme values are equal to:
+        either 3 times the inter-quartile range from the upper quartile (arbitrary)
+        or the 95th percentile
+    depending on which is bigger
+    '''
+    return max(
+        series.quantile(0.75) + 3*(series.quantile(0.75) - series.quantile(0.25)),
+        series.quantile(0.95)
+    )
+
+
+def violinplot_from_census(census_csv: str, pred: str):
     census_df = pd.read_csv(census_csv)
     save_name = f'{pred}_census_plot.svg'
     plt.ioff()
@@ -204,10 +218,20 @@ def swarmplot_from_census(census_csv: str, pred: str):
         FS_id = ['FreeSurfer_' in reg for reg in census_df['Biomarker region']]
         census_df.loc[FS_id, 'Biomarker region'] = 'Other'
         fig = plt.figure()
-        # sns.stripplot(census_df, x='Biomarker size', y='Biomarker region', hue='Biomarker region')
-        # sns.swarmplot(census_df, x='Biomarker size', y='Biomarker region', hue='Biomarker region')
-        # TODO: Remove outliers and displayt them as dots
-        sns.violinplot(census_df, x='Biomarker size', y='Biomarker region', hue='Biomarker region')
+        # Remove outliers and displayt them as dots
+        brain_regions = census_df['Biomarker region'].unique()
+        extreme_dict = {
+            reg: extreme_val(census_df.loc[census_df['Biomarker region'] == reg, 'Biomarker size']) for reg in brain_regions
+        }
+        census_df['isXtreme'] = census_df.apply(lambda row: row['Biomarker size'] > extreme_dict[row['Biomarker region']], axis=1)
+
+        # Set the palette so that the dots and the violins are the same color
+        colors = sns.color_palette("hls", len(brain_regions))
+        my_palette = {reg: colors[i] for i, reg in enumerate(brain_regions)}
+        sns.violinplot(census_df.loc[~census_df['isXtreme']], x='Biomarker size', y='Biomarker region',
+                       hue='Biomarker region', cut=0, bw_adjust=0.7, palette=my_palette)
+        sns.swarmplot(census_df.loc[census_df['isXtreme']], x='Biomarker size', y='Biomarker region',
+                      hue='Biomarker region', alpha=0.8, palette=my_palette)
         plt.savefig(save_name, format='svg')
         plt.close(fig)
     return os.path.abspath(save_name)
