@@ -958,7 +958,7 @@ class Mask_and_Crop_QC_InputSpec(BaseInterfaceInputSpec):
 class Mask_and_Crop_QC_OutputSpec(TraitedSpec):
 
     crop_brain_img = traits.File(exists=True,
-                                 desc='SVG file with the brain, mask, and crop-box')
+                                 desc='PNG file with the brain, mask, and crop-box')
 
 
 class Mask_and_Crop_QC(BaseInterface):

@@ -123,7 +123,7 @@ def bounding_crop(brain_img: str,
         slice_coord (tuple): Coordinate of the 3 slices to show (for x,y,z respectively)
 
     Returns:
-        crop_brain_img: svg file of the crop-box and brainmask overlayed on the brain
+        crop_brain_img: png file of the crop-box and brainmask overlayed on the brain
     """
 
     ref_vol = nib.load(brain_img).get_fdata()
@@ -171,8 +171,8 @@ def bounding_crop(brain_img: str,
     ax[2].set_title('Axial Axis')
 
     fig.tight_layout()
-    plt.savefig('bounding_crop.svg', bbox_inches='tight', pad_inches=0.1)
-    crop_brain_img = op.abspath('bounding_crop.svg')
+    plt.savefig('bounding_crop.png', bbox_inches='tight', pad_inches=0.1)
+    crop_brain_img = op.abspath('bounding_crop.png')
     return crop_brain_img
 
 

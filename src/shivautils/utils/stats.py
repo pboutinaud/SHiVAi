@@ -118,8 +118,8 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
     clust_labels, clust_size = np.unique(clusters_vol[clusters_vol > 0], return_counts=True)
 
     cluster_measures = pd.DataFrame(
-        {'Biomarker_labels': clust_labels,
-         'Biomarker_size': clust_size})
+        {'Biomarker labels': clust_labels,
+         'Biomarker size': clust_size})
 
     regions = []
     biom_num = []
@@ -134,12 +134,12 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
         del region_dict['Whole brain']
         regions.append('Whole brain')
         biom_num.append(cluster_measures.shape[0])
-        biom_tot.append(cluster_measures['Biomarker_size'].sum())
-        biom_mean.append(cluster_measures['Biomarker_size'].mean())
-        biom_med.append(cluster_measures['Biomarker_size'].median())
-        biom_std.append(cluster_measures['Biomarker_size'].std())
-        biom_min.append(cluster_measures['Biomarker_size'].min())
-        biom_max.append(cluster_measures['Biomarker_size'].max())
+        biom_tot.append(cluster_measures['Biomarker size'].sum())
+        biom_mean.append(cluster_measures['Biomarker size'].mean())
+        biom_med.append(cluster_measures['Biomarker size'].median())
+        biom_std.append(cluster_measures['Biomarker size'].std())
+        biom_min.append(cluster_measures['Biomarker size'].min())
+        biom_max.append(cluster_measures['Biomarker size'].max())
 
     # Attribution of one region per cluster (i.e. the most represented region in each cluster = winner-takes-all)
     if len(region_dict):
@@ -161,30 +161,30 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
                     seg_attributed = f'Label_{seg_attributed_label}'
             clust_reg.append(seg_attributed)
 
-        cluster_measures['Biomarker_region'] = clust_reg
+        cluster_measures['Biomarker region'] = clust_reg
 
         regions_seg = [reg for reg in region_dict.keys() if reg in clust_reg]  # Sorted like in the input dict
         regions += regions_seg
 
         for reg in regions_seg:
-            clusts_in_reg = cluster_measures.loc[cluster_measures['Biomarker_region'] == reg]
+            clusts_in_reg = cluster_measures.loc[cluster_measures['Biomarker region'] == reg]
             biom_num.append(clusts_in_reg.shape[0])
-            biom_tot.append(clusts_in_reg['Biomarker_size'].sum())
-            biom_mean.append(clusts_in_reg['Biomarker_size'].mean())
-            biom_med.append(clusts_in_reg['Biomarker_size'].median())
-            biom_std.append(clusts_in_reg['Biomarker_size'].std())
-            biom_min.append(clusts_in_reg['Biomarker_size'].min())
-            biom_max.append(clusts_in_reg['Biomarker_size'].max())
+            biom_tot.append(clusts_in_reg['Biomarker size'].sum())
+            biom_mean.append(clusts_in_reg['Biomarker size'].mean())
+            biom_med.append(clusts_in_reg['Biomarker size'].median())
+            biom_std.append(clusts_in_reg['Biomarker size'].std())
+            biom_min.append(clusts_in_reg['Biomarker size'].min())
+            biom_max.append(clusts_in_reg['Biomarker size'].max())
 
     cluster_stats = pd.DataFrame(
         {'Region': regions,
-         'Number_of_biomarkers': biom_num,
-         'Total_biomarker_volume': biom_tot,
-         'Mean_biomarker_volume': biom_mean,
-         'Median_biomarker_volume': biom_med,
-         'StD_biomarker_volume': biom_std,
-         'Min_biomarker_volume': biom_min,
-         'Max_biomarker_volume': biom_max})
+         'Number of biomarkers': biom_num,
+         'Total Biomarker volume': biom_tot,
+         'Mean Biomarker volume': biom_mean,
+         'Median Biomarker volume': biom_med,
+         'StD Biomarker volume': biom_std,
+         'Min Biomarker volume': biom_min,
+         'Max Biomarker volume': biom_max})
 
     return cluster_measures, cluster_stats
 
@@ -193,17 +193,21 @@ def swarmplot_from_census(census_csv: str, pred: str):
     census_df = pd.read_csv(census_csv)
     save_name = f'{pred}_census_plot.svg'
     plt.ioff()
-    if 'Region_names' not in census_df.columns:
+    if 'Biomarker region' not in census_df.columns:
         fig = plt.figure()
-        sns.stripplot(census_df, y='Biomarker_size')  # replaced swamplot
+        # sns.stripplot(census_df, y='Biomarker size')  # replaced swamplot
+        sns.histplot(census_df, x='Biomarker size')
         plt.savefig(save_name, format='svg')
         plt.close(fig)
     else:
         # Change all non-identified regions by "Other"
-        FS_id = ['FreeSurfer_' in reg for reg in census_df['Region_names']]
-        census_df.loc[FS_id, 'Region_names'] = 'Other'
+        FS_id = ['FreeSurfer_' in reg for reg in census_df['Biomarker region']]
+        census_df.loc[FS_id, 'Biomarker region'] = 'Other'
         fig = plt.figure()
-        sns.stripplot(census_df, y='Biomarker_size', hue='Region_names')
+        # sns.stripplot(census_df, x='Biomarker size', y='Biomarker region', hue='Biomarker region')
+        # sns.swarmplot(census_df, x='Biomarker size', y='Biomarker region', hue='Biomarker region')
+        # TODO: Remove outliers and displayt them as dots
+        sns.violinplot(census_df, x='Biomarker size', y='Biomarker region', hue='Biomarker region')
         plt.savefig(save_name, format='svg')
         plt.close(fig)
     return os.path.abspath(save_name)
