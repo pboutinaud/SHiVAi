@@ -72,7 +72,7 @@ def genWorkflow(**kwargs) -> Workflow:
             preds.append('CMB')
             lpred = pred.lower()
             cluster_labelling_cmb = Node(Label_clusters(),
-                                         name='cluster_labelling')
+                                         name='cluster_labelling_cmb')
             cluster_labelling_cmb.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
             cluster_labelling_cmb.inputs.thr_cluster_size = kwargs['MIN_CMB_SIZE'] - 1
             cluster_labelling_cmb.inputs.out_name = 'labelled_cmb.nii.gz'
@@ -82,7 +82,7 @@ def genWorkflow(**kwargs) -> Workflow:
             prediction_metrics.inputs.biomarker_type = 'cmb_t1-space'
 
             swi_clust_to_t1 = Node(ants.ApplyTransforms(), name="swi_clust_to_t1")
-            swi_clust_to_t1.inputs.interpolation = 'MultiLabel'
+            swi_clust_to_t1.inputs.interpolation = 'NearestNeighbor'
             swi_clust_to_t1.inputs.out_postfix = '_t1-space'
 
             if kwargs['BRAIN_SEG'] == 'synthseg':
@@ -95,7 +95,7 @@ def genWorkflow(**kwargs) -> Workflow:
                 workflow.connect(custom_cmb_parc, 'region_dict', prediction_metrics, 'region_dict')
 
                 seg_to_swi = Node(ants.ApplyTransforms(), name="seg_to_swi")  # Register Synthseg to swi space for cluster_labelling_cmb
-                seg_to_swi.inputs.interpolation = 'MultiLabel'
+                seg_to_swi.inputs.interpolation = 'NearestNeighbor'
                 seg_to_swi.inputs.out_postfix = '_swi-space'
                 seg_to_swi.inputs.invert_transform_flags = [True]  # original transform is swi to t1
 

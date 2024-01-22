@@ -18,7 +18,7 @@ def gen_qc_wf(workflow_name) -> Workflow:
     ____.connect(____, 'hard_brain_mask.thresholded', ____, 'qc_crop_box.brainmask')
     ____.connect(____, 'crop.bbox1', ____, 'qc_crop_box.bbox1')
     ____.connect(____, 'crop.bbox2', ____, 'qc_crop_box.bbox2')
-    ____.connect(____, 'crop.cdg_ijk', ____, 'qc_crop_box.cdg_ijk')
+    ____.connect(____, 'crop.cdg_ijk', ____, 'qc_crop_box.slice_coord')
         #qc_overlay_brainmask
     ____.connect(____, 'hard_post_brain_mask.thresholded', ____, 'qc_overlay_brainmask.brainmask')
     ____.connect(____, 'img1_final_intensity_normalization.intensity_normalized', ____, 'qc_overlay_brainmask.img_ref')
@@ -48,8 +48,8 @@ def gen_qc_wf(workflow_name) -> Workflow:
     """
     workflow = Workflow(workflow_name)
 
-    crop_box = Node(Mask_and_Crop_QC(),
-                    name='qc_crop_box')
+    qc_crop_box = Node(Mask_and_Crop_QC(),
+                       name='qc_crop_box')
 
     qc_overlay_brainmask = Node(Brainmask_QC(),
                                 name='qc_overlay_brainmask')
@@ -64,7 +64,7 @@ def gen_qc_wf(workflow_name) -> Workflow:
     # Needs brain mask size, histogram pics
 
     # Manually adding the nodes are not all are connected from within the wf definition
-    workflow.add_nodes([crop_box,
+    workflow.add_nodes([qc_crop_box,
                         qc_overlay_brainmask])
     return workflow
 

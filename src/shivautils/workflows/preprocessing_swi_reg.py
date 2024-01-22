@@ -96,7 +96,8 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
     hard_post_brain_mask = preproc_wf.get_node('hard_post_brain_mask')
     preproc_wf.connect(datagrabber, 'img3', workflow, 'conform_swi.img')
     preproc_wf.connect(crop, 'cropped', workflow, 'swi_to_t1.fixed_image')
-    preproc_wf.connect(hard_post_brain_mask, 'thresholded', workflow, ' mask_to_swi.input_image')
+    preproc_wf.connect(hard_post_brain_mask, 'thresholded', mask_to_swi, 'input_image')
+    # using "workflow, ' mask_to_swi.input_image'"" does not work for some reason...
 
     # Adding SWI/CMB nodes to the QC sub-workflow and connecting the nodes
     qc_wf = preproc_wf.get_node('preproc_qc_workflow')

@@ -97,7 +97,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(conform_mask, 'resampled', qc_wf, 'qc_crop_box.brainmask')  # Specific preprocessing with brain seg
     workflow.connect(crop, 'bbox1', qc_wf, 'qc_crop_box.bbox1')
     workflow.connect(crop, 'bbox2', qc_wf, 'qc_crop_box.bbox2')
-    workflow.connect(crop, 'cdg_ijk', qc_wf, 'qc_crop_box.cdg_ijk')
+    workflow.connect(crop, 'cdg_ijk', qc_wf, 'qc_crop_box.slice_coord')
     workflow.connect(hard_post_brain_mask, 'thresholded', qc_wf, 'qc_overlay_brainmask.brainmask')
     workflow.connect(img1_norm, 'intensity_normalized', qc_wf, 'qc_overlay_brainmask.img_ref')
     workflow.connect(img1_norm, 'intensity_normalized', qc_wf, 'save_hist_final.img_normalized')

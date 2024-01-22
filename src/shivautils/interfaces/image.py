@@ -914,7 +914,7 @@ class Save_Histogram_OutputSpec(TraitedSpec):
     histo = traits.File(exists=True,
                         desc='PNG file with the displayed histogram')
 
-    peak = traits.Int(desc='Most frequent value in the histogram (away from min and max values)')
+    peak = traits.Float(desc='Most frequent value in the histogram (away from min and max values)')
 
 
 class Save_Histogram(BaseInterface):
@@ -928,7 +928,7 @@ class Save_Histogram(BaseInterface):
 
         histo, peak = save_histogram(img_normalized, bins)
         setattr(self, 'histo', histo)  # histo is already an absolute path
-        setattr(self, 'mode', peak)
+        setattr(self, 'peak', peak)
 
         return runtime
 
@@ -951,8 +951,8 @@ class Mask_and_Crop_QC_InputSpec(BaseInterfaceInputSpec):
                          desc='First coordinates for the crop-box')
     bbox2 = traits.Tuple(mandatory=True,
                          desc='Second coordinates for the crop-box')
-    cdg_ijk = traits.Tuple(mandatory=True,
-                           desc='Center of mass of the brain, used to place the slices shown')
+    slice_coord = traits.Tuple(mandatory=True,
+                               desc='Coordinates to be used to place the slices shown')
 
 
 class Mask_and_Crop_QC_OutputSpec(TraitedSpec):
@@ -1006,7 +1006,7 @@ class Brainmask_QC(BaseInterface):
     output_spec = Brainmask_QC_OutputSpec
 
     def _run_interface(self, runtime):
-        img_ref = self.inputs.brain_img
+        img_ref = self.inputs.img_ref
         brainmask = self.inputs.brainmask
 
         overlayed_brainmask = overlay_brainmask(img_ref, brainmask)
@@ -1068,7 +1068,7 @@ class Label_clusters(BaseInterface):
         brain_seg_vol = nib.load(brain_seg).get_fdata()
 
         labelled_clusters = label_clusters(biomarker_vol, brain_seg_vol, thr_cluster_val, thr_cluster_size)
-        labelled_clusters_im = nib.Nifti1Image(labelled_clusters, affine=biomarker_im.affine)
+        labelled_clusters_im = nib.Nifti1Image(labelled_clusters.astype('int16'), affine=biomarker_im.affine)
         nib.save(labelled_clusters_im, out_name)
         return runtime
 

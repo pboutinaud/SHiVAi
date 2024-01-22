@@ -11,7 +11,7 @@
     (qc_crop_box, 'brainmask')
     (qc_crop_box, 'bbox1')
     (qc_crop_box, 'bbox2')
-    (qc_crop_box, 'cdg_ijk')
+    (qc_crop_box, 'slice_coord')
     (qc_overlay_brainmask, 'brainmask')
     (qc_overlay_brainmask, 'img_ref')
 
@@ -219,7 +219,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(hard_brain_mask, 'thresholded', qc_wf, 'qc_crop_box.brainmask')  # Specific to full preprocessing (no inpu brain seg)
     workflow.connect(crop, 'bbox1', qc_wf, 'qc_crop_box.bbox1')
     workflow.connect(crop, 'bbox2', qc_wf, 'qc_crop_box.bbox2')
-    workflow.connect(crop, 'cdg_ijk', qc_wf, 'qc_crop_box.cdg_ijk')
+    workflow.connect(crop, 'cdg_ijk', qc_wf, 'qc_crop_box.slice_coord')
     workflow.connect(hard_post_brain_mask, 'thresholded', qc_wf, 'qc_overlay_brainmask.brainmask')
     workflow.connect(img1_norm, 'intensity_normalized', qc_wf, 'qc_overlay_brainmask.img_ref')
     workflow.connect(img1_norm, 'intensity_normalized', qc_wf, 'save_hist_final.img_normalized')
