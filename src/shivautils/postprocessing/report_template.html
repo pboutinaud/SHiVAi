@@ -8,16 +8,13 @@
 
 <body>
     <h1>Results report {{ data_origin }}</h1>
-    {% if shiva_logo %}
-    <img src='data:image/png;base64, {{ shiva_logo }}' width="100" height="100">
-    {% endif %}
 
     {% for pred in pred_stat_dict %}
     <div class="table">
         <h2> {{ pred_stat_dict[pred]['title'] }}</h2>
         {{pred_stat_dict[pred]['metrics_table'] | safe}}
         <p>
-            Brain volume: {{ pred_stat_dict[pred]['brain_volume'] }} mm<sup>3</sup><br>
+            Brain volume: {{ pred_stat_dict[pred]['brain_volume'] }} cm<sup>3</sup><br>
             Cluster threshold: {{ pred_stat_dict[pred]['cluster_threshold'] }}<br>
             Cluster size filter: {{ pred_stat_dict[pred]['cluster_min_vol'] }}
         </p>
@@ -36,8 +33,7 @@
             resolution), as well as the first brain mask used to position the crop-box. The cropped
             conformed image is what is fed to the deep-learning model.</p>
 
-        <img type='image/png+xml' data='data:image/png+xml;base64, {{ bounding_crop }}' width="600"
-            height="400"></object>
+        <img data='data:image/png;base64, {{ bounding_crop }}' width="600" height="400">
     </div>
     {% endif %}
 
@@ -71,7 +67,7 @@
     {% endif %}
 
     <div class="info">
-        <h2>Additional workflow informations and parameters</h2>
+        <h1>Additional workflow informations and parameters</h1>
         <p><b>Shiva version:</b> {{ version }}</p>
         <p><b>Input parameters:</b><br>
             - "percentile" (as upper threshold during intensity normalisation): {{ percentile }}<br>

@@ -2,12 +2,14 @@
 from shivautils import __version__ as version
 from jinja2 import Environment, PackageLoader
 import base64
+import os
+from shivautils.postprocessing import __file__ as postproc_init
 
 
 def make_report(
         pred_metrics_dict: dict,
         pred_census_im_dict: dict,
-        brain_vol: float,
+        brain_vol_vox: float,
         thr_cluster_val: float,
         min_seg_size: dict,
         models_uid: dict,
@@ -34,7 +36,7 @@ def make_report(
     Args:
         pred_metrics_dict (dict): Dict of the dataframes holding statistics for each studied biomaerker (keys)
         pred_census_im_dict (dic): Dict of the image path to the swarmplot showing each biomarker size repartition
-        brain_vol (float): Intracranial brain volume
+        brain_vol (float): Intracranial brain volume in voxels
         thr_cluster_val (float): Threshold applied to raw predictions to binarise them
         min_seg_size (dict): Dict holding the minimal size used to filter each type of biomarker segmentation 
         bounding_crop (path): PNG file showing the crop box.
@@ -60,7 +62,7 @@ def make_report(
         'LAC': 'Lacunas'
     }
     vol_mm3_per_voxel = resolution[0] * resolution[1] * resolution[2]  # Should be 1.0 mm3 by default
-    brain_vol *= vol_mm3_per_voxel
+    brain_vol = brain_vol_vox * vol_mm3_per_voxel / 1000  # in cm3
     pred_stat_dict = {}
     for seg, stat_df in pred_metrics_dict.items():
         metrics = ['Region',
@@ -99,13 +101,6 @@ def make_report(
         modality = 'T1w'
 
     # Conversion of images in base64 objects
-    # postproc_dir = os.path.dirname(postproc_init)
-    # shiva_logo = os.path.join(postproc_dir, 'logo_shiva.png')
-    # with open(shiva_logo, 'rb') as f:
-    #     image_data = f.read()
-    # shiva_logo = base64.b64encode(image_data).decode()
-    shiva_logo = None  # TODO: make it work
-
     if overlayed_brainmask_1 is not None:
         with open(overlayed_brainmask_1, 'rb') as f:
             image_data = f.read()
@@ -135,7 +130,6 @@ def make_report(
     tm = env.get_template('report_template.html')
 
     filled_template_report = tm.render(
-        shiva_logo=shiva_logo,
         data_origin=subject_id,
         pred_stat_dict=pred_stat_dict,
         models_uid=models_uid,

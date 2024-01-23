@@ -7,6 +7,8 @@ Contains custom interfaces wrapping scripts/functions used by the nipype workflo
 import os
 import os.path as op
 import json
+from datetime import date
+import base64
 
 import numpy as np
 import nibabel as nib
@@ -422,7 +424,7 @@ class SummaryReport(BaseInterface):
         else:
             subject_id = self.inputs.subject_id
 
-        brain_vol = nib.load(self.inputs.brainmask).get_fdata().astype(bool).sum()
+        brain_vol_vox = nib.load(self.inputs.brainmask).get_fdata().astype(bool).sum()  # in voxels
         pred_metrics_dict = {}  # Will contain the stats dataframe for each biomarker
         pred_census_im_dict = {}  # Will contain the path to the swarm plot for each biomarker
         models_uid = {}  # Will contain the md5 hash for each file of each predictive model
@@ -469,7 +471,7 @@ class SummaryReport(BaseInterface):
         summary_report = make_report(
             pred_metrics_dict=pred_metrics_dict,
             pred_census_im_dict=pred_census_im_dict,
-            brain_vol=brain_vol,
+            brain_vol_vox=brain_vol_vox,
             thr_cluster_val=self.inputs.thr_cluster_val,
             min_seg_size=self.inputs.min_seg_size,
             models_uid=models_uid,
@@ -490,10 +492,50 @@ class SummaryReport(BaseInterface):
 
         # Convert the HTML file to PDF
         postproc_dir = os.path.dirname(postproc_init)
-        css = os.path.join(postproc_dir, 'report_styling.css')
+        css = CSS(os.path.join(postproc_dir, 'printed_styling.css'))
+        today = date.today().strftime("%m/%d/%Y")
+        header = (
+            '@page {'
+            '@top-left {'
+            f'content: "Patient ID: {subject_id}\tDate: {today}";'
+            'font-size: 10pt;'
+            '}}'
+        )
+        css_header = CSS(string=header)
+        shiva_logo_file = os.path.join(postproc_dir, 'logo_shiva.png')
+        other_logos_file = os.path.join(postproc_dir, 'logos_for_shiva.png')
+        with open(shiva_logo_file, 'rb') as f:
+            image_data = f.read()
+            shiva_logo = base64.b64encode(image_data).decode()
+        with open(other_logos_file, 'rb') as f:
+            image_data = f.read()
+            other_logo = base64.b64encode(image_data).decode()
+        logo = (
+            '@page {'
+            '@bottom-left {'
+            f'background-image: url(data:image/png;base64,{other_logo});'
+            # 'background-size: 654px 70px;'
+            'background-size: 560px 60px;'
+            'display: inline-block;'
+            'width: 560px; '
+            'height: 60px;'
+            'content:"";'
+            'background-repeat: no-repeat;'
+            '}'
+            '@top-right-corner {'
+            f'background-image: url(data:image/png;base64,{shiva_logo});'
+            'background-size: 70px 70px;'
+            'display: inline-block;'
+            'width: 70px; '
+            'height: 70px;'
+            'content:"";'
+            'background-repeat: no-repeat;'
+            '}'
+            '}'
+        )
+        logo_css = CSS(string=logo)
         HTML('summary_report.html').write_pdf('summary.pdf',
-                                              presentational_hints=True,
-                                              stylesheets=[CSS(css)])
+                                              stylesheets=[css, css_header, logo_css])
 
         setattr(self, 'summary_report', os.path.abspath('summary_report.html'))
         setattr(self, 'summary', os.path.abspath('summary.pdf'))
