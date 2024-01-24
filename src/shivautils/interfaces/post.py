@@ -443,7 +443,7 @@ class SummaryReport(BaseInterface):
             models_uid['CMB'] = get_md5_from_json(self.inputs.cmb_model_descriptor)
         if 'LAC' in pred_list:
             pred_metrics_dict['LAC'] = pd.read_csv(self.inputs.lac_metrics_csv)
-            pred_census_im_dict['LAC'] = violinplot_from_census(self.inputs.lac_census_csv, 'LAC')
+            pred_census_im_dict['LAC'] = violinplot_from_census(self.inputs.lac_census_csv, 'Lacuna')
             models_uid['LAC'] = get_md5_from_json(self.inputs.lac_model_descriptor)
 
         # set optional inputs to None if undefined
@@ -490,16 +490,22 @@ class SummaryReport(BaseInterface):
         with open('summary_report.html', 'w', encoding='utf-8') as fid:
             fid.write(summary_report)
 
-        # Convert the HTML file to PDF
+        # Convert the HTML file to PDF using CSS
+        # Creating custom CSSin addition to the main one for the pages header and the logos
         postproc_dir = os.path.dirname(postproc_init)
         css = CSS(os.path.join(postproc_dir, 'printed_styling.css'))
         today = date.today().strftime("%m/%d/%Y")
         header = (
             '@page {'
-            '@top-left {'
-            f'content: "Patient ID: {subject_id}\tDate: {today}";'
-            'font-size: 10pt;'
-            '}}'
+            '   @top-left {'
+            f'      content: "Patient ID: {subject_id}";'
+            '       font-size: 10pt;'
+            '   }'
+            '   @top-center {'
+            f'      content: "Date: {today}";'
+            '       font-size: 10pt;'
+            '   }'
+            '}'
         )
         css_header = CSS(string=header)
         shiva_logo_file = os.path.join(postproc_dir, 'logo_shiva.png')
@@ -512,25 +518,27 @@ class SummaryReport(BaseInterface):
             other_logo = base64.b64encode(image_data).decode()
         logo = (
             '@page {'
-            '@bottom-left {'
-            f'background-image: url(data:image/png;base64,{other_logo});'
-            # 'background-size: 654px 70px;'
-            'background-size: 560px 60px;'
-            'display: inline-block;'
-            'width: 560px; '
-            'height: 60px;'
-            'content:"";'
-            'background-repeat: no-repeat;'
-            '}'
-            '@top-right-corner {'
-            f'background-image: url(data:image/png;base64,{shiva_logo});'
-            'background-size: 70px 70px;'
-            'display: inline-block;'
-            'width: 70px; '
-            'height: 70px;'
-            'content:"";'
-            'background-repeat: no-repeat;'
-            '}'
+            '   @bottom-left {'
+            f'      background-image: url(data:image/png;base64,{other_logo});'
+            #       'background-size: 654px 70px;'
+            #       'background-size: 560px 60px;'
+            #       'background-size: 467px 50px;'
+            '       background-size: 374px 40px;'
+            '       display: inline-block;'
+            '       width: 560px; '
+            '       height: 60px;'
+            '       content:"";'
+            '       background-repeat: no-repeat;'
+            '   }'
+            '   @top-right-corner {'
+            f'      background-image: url(data:image/png;base64,{shiva_logo});'
+            '       background-size: 70px 70px;'
+            '       display: inline-block;'
+            '       width: 70px; '
+            '       height: 70px;'
+            '       content:"";'
+            '       background-repeat: no-repeat;'
+            '   }'
             '}'
         )
         logo_css = CSS(string=logo)
