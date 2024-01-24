@@ -268,17 +268,13 @@ def generate_main_wf(**kwargs) -> Workflow:
                                 wf_post, 'seg_to_swi.transforms')
                 main_wf.connect(segmentation_wf, 'predict_cmb.segmentation',
                                 wf_post, 'seg_to_swi.reference_image')
-                main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_to_t1.forward_transforms',
-                                wf_post, 'swi_clust_to_t1.transforms')
-                main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded',
-                                wf_post, 'swi_clust_to_t1.reference_image')
                 main_wf.connect(wf_preproc, 'custom_parc.brain_parc',
-                                wf_post, 'custom_cmb_parc.brain_seg')
+                                wf_post, 'seg_to_swi.input_image')
             else:
+                main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.mask_to_crop.resampled_image',  # brain_seg in swi-space
+                                wf_post, 'cluster_labelling_cmb.brain_seg')
                 main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.mask_to_crop.resampled_image',
-                                wf_post, 'cluster_labelling_cmb.brain_seg')  # brain_seg in swi-space
-                main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image',
-                                wf_post, 'prediction_metrics.brain_seg')  # brain_seg in t1-space
+                                wf_post, 'prediction_metrics.brain_seg')
         else:  # Default connections, like PVS, WMH, and LAC
             lpred = 'cmb'
             main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation',
@@ -417,23 +413,18 @@ def generate_main_wf(**kwargs) -> Workflow:
             main_wf.connect(wf_post, 'custom_wmh_parc.region_dict', sink_node_subjects, 'segmentations.wmh_segmentation.@parc_dict')
 
     if 'CMB' in kwargs['PREDICTION']:
+        main_wf.connect(segmentation_wf, 'predict_cmb.segmentation', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space')
+        main_wf.connect(wf_post, 'cluster_labelling_cmb.labelled_biomarkers', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space.@labelled')
+        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space.@metrics')
+        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_census_csv', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space.@census')
+        main_wf.connect(prediction_metrics_cmb_all, 'prediction_metrics_csv', sink_node_all, 'segmentations.cmb_metrics_swi-space')
         if with_t1:
-            space = 't1-space'
-            main_wf.connect(segmentation_wf, 'predict_cmb.segmentation', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space')
-            main_wf.connect(wf_post, 'cluster_labelling_cmb.labelled_biomarkers', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space.@labelled')
-            main_wf.connect(wf_post, 'swi_clust_to_t1.output_image', sink_node_subjects, f'segmentations.cmb_segmentation_{space}')
+            # main_wf.connect(wf_post, 'swi_clust_to_t1.output_image', sink_node_subjects, f'segmentations.cmb_segmentation_t1-space')
             if kwargs['BRAIN_SEG'] == 'synthseg':
-                main_wf.connect(wf_post, 'seg_to_swi.output_image', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space.@brain_seg')
-        else:
-            space = 'swi-space'
-            main_wf.connect(segmentation_wf, 'predict_cmb.segmentation', sink_node_subjects, f'segmentations.cmb_segmentation_{space}')
-            main_wf.connect(wf_post, 'cluster_labelling_cmb.labelled_biomarkers', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@labelled')
-        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@metrics')
-        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_census_csv', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@census')
-        main_wf.connect(prediction_metrics_cmb_all, 'prediction_metrics_csv', sink_node_all, f'segmentations.cmb_metrics_{space}')
+                main_wf.connect(wf_post, 'seg_to_swi.output_image', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space.@custom_parc')
         if kwargs['BRAIN_SEG'] == 'synthseg':
-            main_wf.connect(wf_post, 'custom_cmb_parc.brain_seg', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@parc')
-            main_wf.connect(wf_post, 'custom_cmb_parc.region_dict', sink_node_subjects, f'segmentations.cmb_segmentation_{space}.@parc_dict')
+            main_wf.connect(wf_post, 'custom_cmb_parc.brain_seg', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space.@parc')
+            main_wf.connect(wf_post, 'custom_cmb_parc.region_dict', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space.@parc_dict')
 
     if 'LAC' in kwargs['PREDICTION']:
         main_wf.connect(segmentation_wf, 'predict_lac.segmentation', sink_node_subjects, 'segmentations.lac_segmentation')

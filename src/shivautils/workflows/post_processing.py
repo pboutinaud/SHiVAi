@@ -79,36 +79,31 @@ def genWorkflow(**kwargs) -> Workflow:
 
             prediction_metrics = Node(Regionwise_Prediction_metrics(),
                                       name="prediction_metrics_cmb")
-            prediction_metrics.inputs.biomarker_type = 'cmb_t1-space'
-
-            swi_clust_to_t1 = Node(ants.ApplyTransforms(), name="swi_clust_to_t1")
-            swi_clust_to_t1.inputs.interpolation = 'NearestNeighbor'
-            swi_clust_to_t1.inputs.out_postfix = '_t1-space'
+            prediction_metrics.inputs.biomarker_type = 'cmb_swi-space'
 
             if kwargs['BRAIN_SEG'] == 'synthseg':
                 prediction_metrics.inputs.brain_seg_type = 'synthseg'
 
-                custom_cmb_parc = Node(Brain_Seg_for_biomarker(), name='custom_cmb_parc')
-                custom_cmb_parc.inputs.custom_parc = 'mars'
-                custom_cmb_parc.inputs.out_file = 'Brain_Seg_for_CMB_t1-space.nii.gz'
-                workflow.connect(custom_cmb_parc, 'brain_seg', prediction_metrics, 'brain_seg')
-                workflow.connect(custom_cmb_parc, 'region_dict', prediction_metrics, 'region_dict')
-
-                seg_to_swi = Node(ants.ApplyTransforms(), name="seg_to_swi")  # Register Synthseg to swi space for cluster_labelling_cmb
+                seg_to_swi = Node(ants.ApplyTransforms(), name="seg_to_swi")  # Register custom parc to swi space
                 seg_to_swi.inputs.interpolation = 'NearestNeighbor'
                 seg_to_swi.inputs.out_postfix = '_swi-space'
                 seg_to_swi.inputs.invert_transform_flags = [True]  # original transform is swi to t1
 
-                workflow.connect(custom_cmb_parc, 'brain_seg', seg_to_swi, 'input_image')
-                workflow.connect(seg_to_swi, 'output_image',  cluster_labelling_cmb, 'brain_seg')
-                # seg_to_swi also needs external connection for 'reference_image' and 'transforms'
+                custom_cmb_parc = Node(Brain_Seg_for_biomarker(), name='custom_cmb_parc')
+                custom_cmb_parc.inputs.custom_parc = 'mars'
+                custom_cmb_parc.inputs.out_file = 'Brain_Seg_for_CMB_swi-space.nii.gz'
+
+                workflow.connect(seg_to_swi, 'output_image', custom_cmb_parc, 'brain_seg')
+                # seg_to_swi also needs external connection for 'reference_image', 'transforms' and 'input_image'
+                workflow.connect(custom_cmb_parc, 'brain_seg', prediction_metrics, 'brain_seg')
+                workflow.connect(custom_cmb_parc, 'region_dict', prediction_metrics, 'region_dict')
+                workflow.connect(custom_cmb_parc, 'brain_seg', cluster_labelling_cmb, 'brain_seg')
             else:
                 # Requires external connection for (prediction_metrics, 'brain_seg') and (cluster_labelling_cmb, 'brain_seg')
                 prediction_metrics.inputs.brain_seg_type = 'brain_mask'
                 prediction_metrics.inputs.region_list = ['Whole brain']
 
-            workflow.connect(cluster_labelling_cmb, 'labelled_biomarkers', swi_clust_to_t1, 'input_image')
-            workflow.connect(swi_clust_to_t1, 'output_image', prediction_metrics, 'labelled_clusters')
+            workflow.connect(cluster_labelling_cmb, 'labelled_biomarkers', prediction_metrics, 'labelled_clusters')
         else:
             if pred == 'PVS2':
                 pred = 'PVS'
