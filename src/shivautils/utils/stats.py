@@ -208,16 +208,19 @@ def violinplot_from_census(census_csv: str, pred: str):
     save_name = f'{pred}_census_plot.svg'
     plt.ioff()
     if 'Biomarker region' not in census_df.columns:
-        fig = plt.figure()
+        fig, ax = plt.subplots(figsize=(6, 4))
         # sns.stripplot(census_df, y='Biomarker size')  # replaced swamplot
-        sns.histplot(census_df, x='Biomarker size')
+        sns.histplot(census_df, x='Biomarker size', ax=ax)
+        plt.title(f'{pred} size ditribution')
+        plt.tight_layout()
         plt.savefig(save_name, format='svg')
         plt.close(fig)
     else:
         # Change all non-identified regions by "Other"
         FS_id = ['FreeSurfer_' in reg for reg in census_df['Biomarker region']]
         census_df.loc[FS_id, 'Biomarker region'] = 'Other'
-        fig = plt.figure()
+        reg_nb = census_df['Biomarker region'].nunique()
+        fig, ax = plt.subplots(figsize=(6, 1+0.3*reg_nb))
         # Remove outliers and displayt them as dots
         brain_regions = census_df['Biomarker region'].unique()
         extreme_dict = {
@@ -229,9 +232,13 @@ def violinplot_from_census(census_csv: str, pred: str):
         colors = sns.color_palette("hls", len(brain_regions))
         my_palette = {reg: colors[i] for i, reg in enumerate(brain_regions)}
         sns.violinplot(census_df.loc[~census_df['isXtreme']], x='Biomarker size', y='Biomarker region',
-                       hue='Biomarker region', cut=0, bw_adjust=0.7, palette=my_palette)
+                       hue='Biomarker region', cut=0, bw_adjust=0.7, palette=my_palette,
+                       ax=ax)
         sns.swarmplot(census_df.loc[census_df['isXtreme']], x='Biomarker size', y='Biomarker region',
-                      hue='Biomarker region', alpha=0.8, palette=my_palette)
+                      hue='Biomarker region', alpha=0.8, palette=my_palette,
+                      ax=ax)
+        plt.title(f'{pred} size ditribution')
+        plt.tight_layout()
         plt.savefig(save_name, format='svg')
         plt.close(fig)
     return os.path.abspath(save_name)
