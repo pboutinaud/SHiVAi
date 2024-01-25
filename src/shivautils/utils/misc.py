@@ -165,11 +165,12 @@ def cluster_registration(input_im: nib.Nifti1Image, ref_im: nib.Nifti1Image, tra
     input_vol = input_im.get_fdata().astype('int16')
     input_affine = input_im.affine
     ref_affine = ref_im.affine
+    pls2ras = np.diag([-1, -1, 1, 1])
 
     # Combining the different affines
     ref_affine_inv = np.linalg.inv(ref_affine)
-    transform_affine_inv = np.linalg.inv(transform_affine)  # ANTs affines must be inversed
-    full_affine = np.matmul(ref_affine_inv, np.matmul(transform_affine_inv, input_affine))  # TODO: make this work T.T
+    transform_affine_inv = np.linalg.inv(pls2ras @ transform_affine @ pls2ras)  # ANTs affines must be inversed
+    full_affine = ref_affine_inv @ transform_affine_inv @ input_affine  # TODO: make this work T.T
     # Getting the new coordinates for each voxel
     ori_coord = np.argwhere(input_vol)
     new_coord = nib.affines.apply_affine(full_affine, ori_coord)
