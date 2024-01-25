@@ -221,22 +221,22 @@ def shivaParser():
     parser.add_argument('--min_pvs_size',
                         type=int,
                         default=5,
-                        help='Size (in voxels) below which segmented PVSs are discarded')
+                        help='Size (in voxels at "voxels_size") below which segmented PVSs are discarded')
 
     parser.add_argument('--min_wmh_size',
                         type=int,
                         default=1,
-                        help='Size (in voxels) below which segmented WMHs are discarded')
+                        help='Size (in voxels at "voxels_size") below which segmented WMHs are discarded')
 
     parser.add_argument('--min_cmb_size',
                         type=int,
                         default=1,
-                        help='Size (in voxels) below which segmented CMBs are discarded')
+                        help='Size (in voxels at "voxels_size") below which segmented CMBs are discarded')
 
     parser.add_argument('--min_lac_size',
                         type=int,
-                        default=1,
-                        help='Size (in voxels) below which segmented lacunas are discarded')
+                        default=3,
+                        help='Size (in voxels at "voxels_size") below which segmented lacunas are discarded')
 
     parser.add_argument('--final_dimensions',
                         nargs=3, type=int,

@@ -18,7 +18,7 @@ parameters:
   min_pvs_size: 5
   min_wmh_size: 1
   min_cmb_size: 1
-  min_lac_size: 1
+  min_lac_size: 3
   final_dimensions: [160, 214, 176]
   voxels_size: [1.0, 1.0, 1.0]
   interpolation: 'WelchWindowedSinc'
