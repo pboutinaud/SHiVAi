@@ -9,7 +9,7 @@ from shivautils.postprocessing.wmh import metrics_clusters_latventricles
 from shivautils.utils.stats import prediction_metrics, get_mask_regions
 from shivautils.utils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask
 from shivautils.utils.quality_control import create_edges, save_histogram, bounding_crop, overlay_brainmask
-from shivautils.utils.misc import label_clusters
+from shivautils.utils.misc import label_clusters, cluster_registration
 from shivautils.interfaces.singularity import SingularityCommandLine, SingularityInputSpec
 from nipype.utils.filemanip import split_filename
 from nipype.interfaces.base import CommandLine, CommandLineInputSpec, isdefined
@@ -25,6 +25,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import json
 from scipy import ndimage
+from scipy.io import loadmat
 # from bokeh.io import export_png
 
 import sys
@@ -1215,6 +1216,51 @@ class Regionwise_Prediction_metrics(BaseInterface):
         outputs = self.output_spec().trait_get()
         outputs['biomarker_census_csv'] = getattr(self, 'biomarker_census_csv')
         outputs['biomarker_stats_csv'] = getattr(self, 'biomarker_stats_csv')
+        return outputs
+
+
+class Labelled_Clusters_Registration_InputSpec(BaseInterfaceInputSpec):
+    input_image = traits.File(exists=True,
+                              desc='Biomarker clusters labelled with unique integers',
+                              mandatory=True)
+    reference_image = traits.File(exists=True,
+                                  desc='Image defining the arriving space after the registration',
+                                  mandatory=True)
+    transform_affine = traits.File(exists=True,
+                                   desc='Affine of the transformation from ANTs',
+                                   mandatory=True)
+    out_name = traits.Str('registered_clusters.nii.gz',
+                          usedefault=True,
+                          mandatory=False,
+                          desc='Ouput file name')
+
+
+class Labelled_Clusters_Registration_OutputSpec(TraitedSpec):
+    output_image = traits.File(exists=True,
+                               desc='Biomarker labelled clusters registered in new space')
+
+
+class Labelled_Clusters_Registration(BaseInterface):
+    """Register clusers in a new space, ensuring all clusters are kept by moving them through voxel coordinates"""
+    input_spec = Labelled_Clusters_Registration_InputSpec
+    output_spec = Labelled_Clusters_Registration_OutputSpec
+
+    def _run_interface(self, runtime):
+        input_im = nib.load(self.inputs.input_image)
+        ref_im = nib.load(self.inputs.reference_image)
+        transform_affine_raw = loadmat(self.inputs.transform_affine)['AffineTransform_double_3_3']
+        transform_affine = np.eye(4)
+        transform_affine[:3, :3] = transform_affine_raw[:9].reshape((3, 3))
+        transform_affine[:3, 3] = transform_affine_raw[9:12].squeeze()
+        # TODO: Make cluster_registration work
+        clusters_reg_im = cluster_registration(input_im, ref_im, transform_affine)
+        nib.save(clusters_reg_im, self.inputs.out_name)
+        return runtime
+
+    def _list_outputs(self):
+        """Fill in the output structure."""
+        outputs = self.output_spec().trait_get()
+        outputs['output_image'] = os.path.abspath(self.inputs.out_name)
         return outputs
 
 

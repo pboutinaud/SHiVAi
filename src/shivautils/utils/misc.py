@@ -11,6 +11,7 @@ from shivautils.utils.stats import get_mode
 from shivautils.utils.metrics import get_clusters_and_filter_image
 
 import numpy as np
+import nibabel as nib
 from bokeh.embed import file_html
 from bokeh.plotting import figure
 from bokeh.resources import CDN
@@ -148,3 +149,39 @@ def label_clusters(pred_vol, brain_seg_vol, threshold, cluster_filter):
     thresholded_img = (pred_vol > threshold).astype(int)*brain_mask
     _, _, _, labelled_clusters, _ = get_clusters_and_filter_image(thresholded_img, cluster_filter)
     return labelled_clusters
+
+
+def cluster_registration(input_im: nib.Nifti1Image, ref_im: nib.Nifti1Image, transform_affine: np.ndarray) -> nib.Nifti1Image:
+    """Apply a linear registration to labelled clusters in a way that conserve all clusters  
+
+    Args:
+        input_im (nib.Nifti1Image): Image containing labelled clusters (with integers as labels)
+        ref_im (nib.Nifti1Image): Image defining the arrival space
+        transform_affine (np.ndarray): Affine matrix (4x4) defining the linear transformation
+
+    Returns:
+        nib.Nifti1Image: _description_
+    """
+    input_vol = input_im.get_fdata().astype('int16')
+    input_affine = input_im.affine
+    ref_affine = ref_im.affine
+
+    # Combining the different affines
+    ref_affine_inv = np.linalg.inv(ref_affine)
+    transform_affine_inv = np.linalg.inv(transform_affine)  # ANTs affines must be inversed
+    full_affine = np.matmul(ref_affine_inv, np.matmul(transform_affine_inv, input_affine))  # TODO: make this work T.T
+    # Getting the new coordinates for each voxel
+    ori_coord = np.argwhere(input_vol)
+    new_coord = nib.affines.apply_affine(full_affine, ori_coord)
+    new_coord = np.round(new_coord).astype(int).T  # rounding and reshaping the coordinate array for indexing
+    # Correcting points that got out of the image
+    new_coord[(new_coord < 0)] = 0
+    new_coord[0, (new_coord[0] >= ref_im.shape[0])] = ref_im.shape[0] - 1
+    new_coord[1, (new_coord[1] >= ref_im.shape[1])] = ref_im.shape[1] - 1
+    new_coord[2, (new_coord[2] >= ref_im.shape[2])] = ref_im.shape[2] - 1
+
+    clust_reg_vol = np.zeros(ref_im.shape, dtype='int16')
+    clust_reg_vol[tuple(new_coord)] = 1
+
+    clust_reg_im = nib.Nifti1Image(clust_reg_vol, affine=ref_affine)
+    return clust_reg_im
