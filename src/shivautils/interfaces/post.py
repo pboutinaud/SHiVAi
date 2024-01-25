@@ -320,7 +320,10 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
                              usedefault=True,
                              desc='Anonymized Subject ID')
 
-    subject_id = traits.Str(desc="id for each subject")
+    subject_id = traits.Str(mandatory=False,
+                            desc="id for each subject")
+
+    db = traits.Str(desc="Name of the data-base")
 
     pvs_metrics_csv = traits.File(desc='csv file with pvs stats',
                                   mandatory=False)
@@ -467,6 +470,10 @@ class SummaryReport(BaseInterface):
             wf_graph = self.inputs.wf_graph
         else:
             wf_graph = None
+        if isdefined(self.inputs.db):
+            db = self.inputs.db
+        else:
+            db = ''
         # process
         summary_report = make_report(
             pred_metrics_dict=pred_metrics_dict,
@@ -498,8 +505,9 @@ class SummaryReport(BaseInterface):
         header = (
             '@page {'
             '   @top-left {'
-            f'      content: "Patient ID: {subject_id}";'
+            f'      content: "Patient ID: {subject_id} \A Data-base: {db}";'
             '       font-size: 10pt;'
+            '       white-space: pre;'
             '   }'
             '   @top-center {'
             f'      content: "Date: {today}";'

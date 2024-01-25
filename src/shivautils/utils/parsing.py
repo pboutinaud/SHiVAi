@@ -30,6 +30,9 @@ def shivaParser():
                         help="Way to grab and manage nifti files : 'standard', 'BIDS' or 'json'",
                         default='standard')
 
+    parser.add_argument('--db_name', dest='input',
+                        help='Name of the data-base the input scans originate from. It is only to add this detail in the report')
+
     sub_lists_args = parser.add_mutually_exclusive_group()
     sub_lists_args.add_argument('--sub_list',
                                 type=str,

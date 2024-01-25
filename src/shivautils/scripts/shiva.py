@@ -87,6 +87,7 @@ def main():
         'PREP_SETTINGS': wf_prep,
         'SUB_WF': True,  # Denotes that the workflows are stringed together
         'SUBJECT_LIST': args.sub_list,
+        'DB': args.db_name,
         'DATA_DIR': subject_directory,  # Default base_directory for the datagrabber
         'BASE_DIR': out_dir,  # Default base_dir for each workflow
         'PREDICTION': args.prediction,  # Needed by the postproc for now

@@ -157,6 +157,8 @@ def genWorkflow(**kwargs) -> Workflow:
         'LAC': kwargs['MIN_LAC_SIZE']
     }
     summary_report.inputs.pred_list = preds
+    if kwargs['DB']:
+        summary_report.inputs.db = kwargs['DB']
 
     return workflow
 
