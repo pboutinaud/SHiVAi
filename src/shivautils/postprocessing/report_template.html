@@ -15,8 +15,6 @@
         {{pred_stat_dict[pred]['metrics_table'] | safe}}
         <p>
             Brain volume: {{ pred_stat_dict[pred]['brain_volume'] }} cm<sup>3</sup><br>
-            Cluster threshold: {{ pred_stat_dict[pred]['cluster_threshold'] }}<br>
-            Cluster size filter: {{ pred_stat_dict[pred]['cluster_min_vol'] }}
         </p>
         <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ pred_stat_dict[pred]["census_figure"] }}'
             width="300" height="200"></object>
@@ -73,7 +71,15 @@
             - "percentile" (as upper threshold during intensity normalisation): {{ percentile }}<br>
             - "threshold" (to binarise estimated brain masks): {{ threshold }}<br>
             - "final_dimensions" (image dimensions output by the AI model): {{ image_size }}<br>
-            - "voxels_size" (resampling resolution, used by the AI model): {{ resolution }} mm<sup>3</p>
+            - "voxels_size" (resampling resolution, used by the AI model): {{ resolution }} mm<sup>3
+        </p>
+        <p><b>Parameters for each biomarker segmentation:</b><br>
+            {% for pred in pred_stat_dict %}
+            For {{ pred }}:<br>
+            - Cluster threshold: {{ pred_stat_dict[pred]['cluster_threshold'] }}<br>
+            - Cluster size filter: {{ pred_stat_dict[pred]['cluster_min_vol'] }}
+            {% endfor %}
+        </p>
         <p><b>Unique identifers (md5) for the AI models:</b></p>
         {% for pred, file_dict in models_uid.items() %}
         <p>{{pred}} model files:<br>

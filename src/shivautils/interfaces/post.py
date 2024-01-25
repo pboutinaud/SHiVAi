@@ -375,8 +375,8 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
                               desc='Dimensions of the cropped image')
     resolution = traits.Tuple(float, float, float,
                               desc='Resampled voxel size of the final image')
-    thr_cluster_val = traits.Float(0.2,
-                                   desc='Threshold used to binarise the predictions')
+    thr_cluster_vals = traits.Dict(key_trait=traits.Str, value_trait=traits.Float,
+                                   desc='Dictionary holding the thresholds used to binarise the predictions')
     min_seg_size = traits.Dict(key_trait=traits.Str, value_trait=traits.Int,
                                desc='Dictionary holding the minimal size set to filter segmented biomarkers')
 
@@ -472,7 +472,7 @@ class SummaryReport(BaseInterface):
             pred_metrics_dict=pred_metrics_dict,
             pred_census_im_dict=pred_census_im_dict,
             brain_vol_vox=brain_vol_vox,
-            thr_cluster_val=self.inputs.thr_cluster_val,
+            thr_cluster_vals=self.inputs.thr_cluster_vals,
             min_seg_size=self.inputs.min_seg_size,
             models_uid=models_uid,
             bounding_crop=crop_brain_img,

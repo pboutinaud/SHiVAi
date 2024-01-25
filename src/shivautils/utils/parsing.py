@@ -192,10 +192,31 @@ def shivaParser():
                         default=0.5,
                         help='Threshold to binarise estimated brain mask')
 
-    parser.add_argument('--threshold_clusters',
+    parser.add_argument('--threshold_pvs',
+                        type=float,
+                        default=0.5,
+                        help='Threshold to compute PVS clusters metrics')
+
+    parser.add_argument('--threshold_wmh',
                         type=float,
                         default=0.2,
-                        help='Threshold to compute clusters metrics')
+                        help='Threshold to compute WMH clusters metrics')
+
+    parser.add_argument('--threshold_cmb',
+                        type=float,
+                        default=0.5,
+                        help='Threshold to compute CMB clusters metrics')
+
+    parser.add_argument('--threshold_lac',
+                        type=float,
+                        default=0.2,
+                        help='Threshold to compute lacuna clusters metrics')
+
+    parser.add_argument('--threshold_clusters',
+                        type=float,
+                        help=('Unique threshold to compute clusters metrics '
+                              'for all biomarkers, override biomarker-specific '
+                              'thresholds'))
 
     parser.add_argument('--min_pvs_size',
                         type=int,
@@ -290,17 +311,9 @@ def set_args_and_check(inParser):
     args.output = os.path.abspath(args.output)
 
     if args.debug:
-        #     args.retry = True
-        # if args.retry:
         args.keep_all = True
 
-    # if (os.path.isdir(args.output)
-    #     and bool(os.listdir(args.output))
-    #         and not args.retry):
-    #     inParser.error(
-    #         'The output directory already exists and is not empty.'
-    #     )
-
+    # Checks and parsing of subjects
     subject_list = os.listdir(args.input)
     if args.sub_list is None:
         if args.exclusion_list:
@@ -311,11 +324,22 @@ def set_args_and_check(inParser):
         args.sub_list = parse_sub_list_file(args.sub_list)
         subs_not_in_dir = set(args.sub_list) - set(subject_list)
         if len(subs_not_in_dir) == len(args.sub_list):
-            raise ValueError('None of the participant IDs given in the sub_list file was found in the input directory.\n'
-                             f'Participant IDs given: {args.sub_list}\n'
-                             f'Participant available: {subject_list}')
+            raise inParser.error('None of the participant IDs given in the sub_list file was found in the input directory.\n'
+                                 f'Participant IDs given: {args.sub_list}\n'
+                                 f'Participant available: {subject_list}')
         elif len(subs_not_in_dir) > 0:
-            raise ValueError(f'Some participants where not found in the input directory: {sorted(list(subs_not_in_dir))}')
+            raise inParser.error(f'Some participants where not found in the input directory: {sorted(list(subs_not_in_dir))}')
+
+    # Parse the thresholds
+    if args.threshold_clusters is not None:
+        if args.model_config:
+            raise inParser.error('Both "--threshold_clusters" and "--model_config" were given as argument, '
+                                 'but only one of them can be used at the same time.')
+        # threshold_clusters override the others
+        args.threshold_pvs = args.threshold_clusters
+        args.threshold_wmh = args.threshold_clusters
+        args.threshold_cmb = args.threshold_clusters
+        args.threshold_lac = args.threshold_clusters
 
     if args.model_config:  # Parse the config file
         args.model_config = os.path.abspath(args.model_config)
@@ -329,7 +353,10 @@ def set_args_and_check(inParser):
         args.model = yaml_content['model_path']  # only used when not with container
         args.percentile = parameters['percentile']
         args.threshold = parameters['threshold']
-        args.threshold_clusters = parameters['threshold_clusters']
+        args.threshold_pvs = parameters['threshold_pvs']
+        args.threshold_wmh = parameters['threshold_wmh']
+        args.threshold_cmb = parameters['threshold_cmb']
+        args.threshold_lac = parameters['threshold_lac']
         if 'min_pvs_size' in parameters.keys():
             args.min_pvs_size = parameters['min_pvs_size']
         if 'min_wmh_size' in parameters.keys():

@@ -11,7 +11,10 @@ parameters:
   LAC_descriptor: "T1.FLAIR-LAC/model_info.json"
   percentile: 99.0
   threshold: 0.5
-  threshold_clusters: 0.2
+  threshold_pvs: 0.5
+  threshold_wmh: 0.2
+  threshold_cmb: 0.5
+  threshold_lac: 0.2
   min_pvs_size: 5
   min_wmh_size: 1
   min_cmb_size: 1

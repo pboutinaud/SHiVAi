@@ -303,10 +303,14 @@ There are also similar options for **Mac** users (check the dedicated section fr
 - **CMB_descriptor** (path) path of Cerebral MicroBleeds tensorflow model descriptor
 - **percentile** (float) : Threshold value for the intensity normalization, expressed as percentile
 - **threshold** (float) : Value of the threshold used to binarize brain masks, default value : 0.5
-- **threshold_clusters** (float) : Threshold to binarize clusters after the segmentation, default value : 0.2
+- **threshold_pvs** (float) : Threshold to binarize PVS clusters after the segmentation, default value : 0.2
+- **threshold_wmh** (float) : Threshold to binarize WMH clusters after the segmentation, default value : 0.2
+- **threshold_cmb** (float) : Threshold to binarize CMB clusters after the segmentation, default value : 0.2
+- **threshold_lac** (float) : Threshold to binarize Lacuna clusters after the segmentation, default value : 0.2
 - **min_pvs_size** (int): Filter size (in voxels) for detected PVS under which the cluster is discarded
 - **min_wmh_size** (int): Filter size (in voxels) for detected WMH under which the cluster is discarded
 - **min_cmb_size** (int): Filter size (in voxels) for detected CMB under which the cluster is discarded
+- **min_lac_size** (int): Filter size (in voxels) for detected Lacuna under which the cluster is discarded
 - **final_dimensions** (list) : Final image array size in i, j, k. Example : [160, 214, 176].
 - **voxels_size** (list) : Voxel size of the final image, example : [1.0, 1.0, 1.0]
 - **interpolation** (str): image resampling method, default interpolation : 'WelchWindowedSinc', others ANTS interpolation possibilities : 'Linear', 'NearestNeighbor', 'CosineWindowedSinc', 'HammingWindowedSinc', 'LanczosWindowedSinc', 'BSpline', 'MultiLabel', 'Gaussian', 'GenericLabel'

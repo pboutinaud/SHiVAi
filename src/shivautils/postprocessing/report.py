@@ -10,7 +10,7 @@ def make_report(
         pred_metrics_dict: dict,
         pred_census_im_dict: dict,
         brain_vol_vox: float,
-        thr_cluster_val: float,
+        thr_cluster_vals: float,
         min_seg_size: dict,
         models_uid: dict,
         bounding_crop: str = None,
@@ -37,7 +37,7 @@ def make_report(
         pred_metrics_dict (dict): Dict of the dataframes holding statistics for each studied biomaerker (keys)
         pred_census_im_dict (dic): Dict of the image path to the swarmplot showing each biomarker size repartition
         brain_vol (float): Intracranial brain volume in voxels
-        thr_cluster_val (float): Threshold applied to raw predictions to binarise them
+        thr_cluster_vals (dict): Thresholds applied to raw predictions to binarise them
         min_seg_size (dict): Dict holding the minimal size used to filter each type of biomarker segmentation 
         bounding_crop (path): PNG file showing the crop box.
         overlayed_brainmask_1 (path): PNG file of cropping box with overlay brainmask
@@ -90,9 +90,9 @@ def make_report(
         pred_stat_dict[seg] = {'title': f'Brain charge statistics for {seg_full_name[seg]} ({seg})',
                                'metrics_table': stat_df_html,
                                'brain_volume': brain_vol,
-                               'cluster_threshold': thr_cluster_val,
+                               'census_figure': pred_census_fig,
+                               'cluster_threshold': thr_cluster_vals[seg],
                                'cluster_min_vol': min_seg_size[seg],
-                               'census_figure': pred_census_fig
                                }
 
     if 'CMB' in pred_metrics_dict.keys() and len(pred_metrics_dict.keys()) == 1:

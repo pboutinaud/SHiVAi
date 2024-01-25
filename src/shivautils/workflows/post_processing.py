@@ -73,7 +73,7 @@ def genWorkflow(**kwargs) -> Workflow:
             lpred = pred.lower()
             cluster_labelling_cmb = Node(Label_clusters(),
                                          name='cluster_labelling_cmb')
-            cluster_labelling_cmb.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
+            cluster_labelling_cmb.inputs.thr_cluster_val = kwargs['THRESHOLD_CMB']
             cluster_labelling_cmb.inputs.thr_cluster_size = kwargs['MIN_CMB_SIZE'] - 1
             cluster_labelling_cmb.inputs.out_name = 'labelled_cmb.nii.gz'
 
@@ -111,7 +111,7 @@ def genWorkflow(**kwargs) -> Workflow:
             lpred = pred.lower()
             cluster_labelling = Node(Label_clusters(),
                                      name=f'cluster_labelling_{lpred}')
-            cluster_labelling.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
+            cluster_labelling.inputs.thr_cluster_val = kwargs[f'THRESHOLD_{pred}']
             cluster_labelling.inputs.thr_cluster_size = kwargs[f'MIN_{pred}_SIZE'] - 1  # "- 1 because thr removes up to given value"
             cluster_labelling.inputs.out_name = f'labelled_{lpred}.nii.gz'
             prediction_metrics = Node(Regionwise_Prediction_metrics(),
@@ -144,12 +144,18 @@ def genWorkflow(**kwargs) -> Workflow:
     summary_report.inputs.threshold = kwargs['THRESHOLD']
     summary_report.inputs.image_size = kwargs['IMAGE_SIZE']
     summary_report.inputs.resolution = kwargs['RESOLUTION']
-    summary_report.inputs.thr_cluster_val = kwargs['THRESHOLD_CLUSTERS']
+    summary_report.inputs.thr_cluster_vals = {
+        'PVS': kwargs['THRESHOLD_PVS'],
+        'WMH': kwargs['THRESHOLD_WMH'],
+        'CMB': kwargs['THRESHOLD_CMB'],
+        'LAC': kwargs['THRESHOLD_LAC']
+    }
     summary_report.inputs.min_seg_size = {
         'PVS': kwargs['MIN_PVS_SIZE'],
         'WMH': kwargs['MIN_WMH_SIZE'],
         'CMB': kwargs['MIN_CMB_SIZE'],
-        'LAC': kwargs['MIN_LAC_SIZE']}
+        'LAC': kwargs['MIN_LAC_SIZE']
+    }
     summary_report.inputs.pred_list = preds
 
     return workflow
