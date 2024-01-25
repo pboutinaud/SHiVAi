@@ -220,7 +220,7 @@ def violinplot_from_census(census_csv: str, pred: str):
         FS_id = ['FreeSurfer_' in reg for reg in census_df['Biomarker region']]
         census_df.loc[FS_id, 'Biomarker region'] = 'Other'
         reg_nb = census_df['Biomarker region'].nunique()
-        fig, ax = plt.subplots(figsize=(6, 1+0.3*reg_nb))
+        fig, ax = plt.subplots(figsize=(2+0.5*reg_nb, 6))
         # Remove outliers and displayt them as dots
         brain_regions = census_df['Biomarker region'].unique()
         extreme_dict = {
@@ -231,13 +231,14 @@ def violinplot_from_census(census_csv: str, pred: str):
         # Set the palette so that the dots and the violins are the same color
         colors = sns.color_palette("hls", len(brain_regions))
         my_palette = {reg: colors[i] for i, reg in enumerate(brain_regions)}
-        sns.violinplot(census_df.loc[~census_df['isXtreme']], x='Biomarker size', y='Biomarker region',
+        sns.violinplot(census_df.loc[~census_df['isXtreme']], y='Biomarker size', x='Biomarker region',
                        hue='Biomarker region', cut=0, bw_adjust=0.7, palette=my_palette,
                        ax=ax)
-        sns.swarmplot(census_df.loc[census_df['isXtreme']], x='Biomarker size', y='Biomarker region',
+        sns.swarmplot(census_df.loc[census_df['isXtreme']], y='Biomarker size', x='Biomarker region',
                       hue='Biomarker region', alpha=0.8, palette=my_palette,
                       ax=ax)
         plt.title(f'{pred} size ditribution')
+        plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
         plt.savefig(save_name, format='svg')
         plt.close(fig)
