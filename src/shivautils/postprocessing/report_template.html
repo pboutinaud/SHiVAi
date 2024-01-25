@@ -30,8 +30,7 @@
         <p>Display of the cropping region used on the conformed image (256x256x256 at 1.0 mm<sup>3</sup>
             resolution), as well as the first brain mask used to position the crop-box. The cropped
             conformed image is what is fed to the deep-learning model.</p>
-
-        <img data='data:image/png;base64, {{ bounding_crop }}' width="600" height="400">
+        <img src='data:image/png;base64, {{ bounding_crop }}' width="600" height="400">
     </div>
     {% endif %}
 
@@ -73,13 +72,14 @@
             - "final_dimensions" (image dimensions output by the AI model): {{ image_size }}<br>
             - "voxels_size" (resampling resolution, used by the AI model): {{ resolution }} mm<sup>3
         </p>
-        <p><b>Parameters for each biomarker segmentation:</b><br>
-            {% for pred in pred_stat_dict %}
+        <p><b>Parameters for each biomarker segmentation:</b></p>
+        {% for pred in pred_stat_dict %}
+        <p>
             For {{ pred }}:<br>
             - Cluster threshold: {{ pred_stat_dict[pred]['cluster_threshold'] }}<br>
             - Cluster size filter: {{ pred_stat_dict[pred]['cluster_min_vol'] }}
-            {% endfor %}
         </p>
+        {% endfor %}
         <p><b>Unique identifers (md5) for the AI models:</b></p>
         {% for pred, file_dict in models_uid.items() %}
         <p>{{pred}} model files:<br>
