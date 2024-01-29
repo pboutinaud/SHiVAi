@@ -4,9 +4,17 @@ import os
 from nipype.interfaces.base import (traits, TraitedSpec,
                                     BaseInterfaceInputSpec)
 
-from shivautils.interfaces.singularity import (CommandLine, SingularityCommandLine,
-                                               SingularityInputSpec, CommandLineInputSpec)
-from nipype.interfaces.ants.registration import RegistrationInputSpec, RegistrationOutputSpec, Registration
+from shivautils.interfaces.singularity import (CommandLine,
+                                               SingularityCommandLine,
+                                               SingularityInputSpec,
+                                               CommandLineInputSpec)
+
+from nipype.interfaces.ants.registration import (RegistrationInputSpec,
+                                                 RegistrationOutputSpec,
+                                                 Registration)
+from nipype.interfaces.ants.resampling import (ApplyTransforms,
+                                               ApplyTransformsInputSpec,
+                                               ApplyTransformsOutputSpec)
 
 
 class PredictInputSpec(BaseInterfaceInputSpec):
@@ -189,7 +197,7 @@ class SynthsegSingularity(SingularityCommandLine):
         return outputs
 
 
-class AntsRegistrationSingularityInputSpec(SingularityInputSpec, RegistrationInputSpec):
+class AntsRegistration_Singularity_InputSpec(SingularityInputSpec, RegistrationInputSpec):
     """antsRegistration input specification (singularity mixin).
 
     Inherits from Singularity command line fields.
@@ -197,11 +205,29 @@ class AntsRegistrationSingularityInputSpec(SingularityInputSpec, RegistrationInp
     pass
 
 
-class AntsRegistrationSingularity(Registration, SingularityCommandLine):
+class AntsRegistration_Singularity(Registration, SingularityCommandLine):
     def __init__(self):
         """Call parent constructor."""
-        super(AntsRegistrationSingularity, self).__init__()
+        super(AntsRegistration_Singularity, self).__init__()
 
-    input_spec = AntsRegistrationSingularityInputSpec
+    input_spec = AntsRegistration_Singularity_InputSpec
     output_spec = RegistrationOutputSpec
     _cmd = Registration._cmd
+
+
+class AntsApplyTransforms_Singularity_InputSpec(SingularityInputSpec, ApplyTransformsInputSpec):
+    """antsApplyTransforms input specification (singularity mixin).
+
+    Inherits from Singularity command line fields.
+    """
+    pass
+
+
+class AntsApplyTransforms_Singularity(ApplyTransforms, SingularityCommandLine):
+    def __init__(self):
+        """Call parent constructor."""
+        super(AntsApplyTransforms_Singularity, self).__init__()
+
+    input_spec = AntsApplyTransforms_Singularity_InputSpec
+    output_spec = ApplyTransformsOutputSpec
+    _cmd = ApplyTransforms._cmd

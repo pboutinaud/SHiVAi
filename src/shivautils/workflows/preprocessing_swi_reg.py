@@ -7,6 +7,7 @@ from nipype.interfaces import ants
 from nipype.pipeline.engine import Node, Workflow
 from shivautils.interfaces.image import Normalization, Conform, Crop, Resample_from_to
 from shivautils.workflows.qc_preproc import qc_wf_add_swi
+from shivautils.interfaces.shiva import AntsRegistration_Singularity, AntsApplyTransforms_Singularity
 
 
 def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
@@ -41,8 +42,15 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
 
     # compute 6-dof coregistration parameters of conformed swi
     # to t1 cropped image
-    swi_to_t1 = Node(ants.Registration(),
-                     name='swi_to_t1')
+    if kwargs['CONTAINERIZE_NODES']:
+        swi_to_t1 = Node(AntsRegistration_Singularity(), name='swi_to_t1')
+        swi_to_t1.inputs.snglrt_bind = [
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            ('`pwd`', '`pwd`', 'rw'),]
+        swi_to_t1.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+    else:
+        swi_to_t1 = Node(ants.Registration(),
+                         name='swi_to_t1')
     swi_to_t1.plugin_args = kwargs['REG_PLUGIN_ARGS']
     swi_to_t1.inputs.transforms = ['Rigid']
     swi_to_t1.inputs.transform_parameters = [(0.1,)]
@@ -64,7 +72,14 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
     workflow.connect(conform_swi, 'resampled', swi_to_t1, 'moving_image')
 
     # Application of the t1 to swi transformation to the t1 mask
-    mask_to_swi = Node(ants.ApplyTransforms(), name="mask_to_swi")
+    if kwargs['CONTAINERIZE_NODES']:
+        mask_to_swi = Node(AntsApplyTransforms_Singularity(), name="mask_to_swi")
+        mask_to_swi.inputs.snglrt_bind = [
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            ('`pwd`', '`pwd`', 'rw'),]
+        mask_to_swi.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+    else:
+        mask_to_swi = Node(ants.ApplyTransforms(), name="mask_to_swi")
     mask_to_swi.inputs.out_postfix = '_swi-space'
     mask_to_swi.inputs.interpolation = 'NearestNeighbor'
     mask_to_swi.inputs.invert_transform_flags = [True]

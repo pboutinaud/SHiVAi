@@ -37,6 +37,7 @@ from shivautils.interfaces.post import SummaryReport
 from shivautils.interfaces.image import (Regionwise_Prediction_metrics,
                                          Brain_Seg_for_biomarker,
                                          Label_clusters)
+from shivautils.interfaces.shiva import AntsApplyTransforms_Singularity
 from shivautils.utils.misc import set_wf_shapers
 
 
@@ -95,8 +96,14 @@ def genWorkflow(**kwargs) -> Workflow:
 
             if kwargs['BRAIN_SEG'] == 'synthseg':
                 prediction_metrics.inputs.brain_seg_type = 'synthseg'
-
-                seg_to_swi = Node(ants.ApplyTransforms(), name="seg_to_swi")  # Register custom parc to swi space
+                if kwargs['CONTAINERIZE_NODES']:
+                    seg_to_swi = Node(AntsApplyTransforms_Singularity(), name="seg_to_swi")
+                    seg_to_swi.inputs.snglrt_bind = [
+                        (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+                        ('`pwd`', '`pwd`', 'rw'),]
+                    seg_to_swi.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+                else:
+                    seg_to_swi = Node(ants.ApplyTransforms(), name="seg_to_swi")  # Register custom parc to swi space
                 seg_to_swi.inputs.interpolation = 'NearestNeighbor'
                 seg_to_swi.inputs.out_postfix = '_swi-space'
                 seg_to_swi.inputs.invert_transform_flags = [True]  # original transform is swi to t1

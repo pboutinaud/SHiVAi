@@ -10,6 +10,7 @@ from nipype.interfaces import ants
 from shivautils.utils.misc import as_list
 
 from shivautils.interfaces.image import Normalization, Conform
+from shivautils.interfaces.shiva import AntsRegistration_Singularity, AntsApplyTransforms_Singularity
 from shivautils.workflows.qc_preproc import qc_wf_add_flair
 
 
@@ -37,8 +38,16 @@ def genWorkflow(workflow: Workflow, **kwargs) -> Workflow:
 
     # compute 6-dof coregistration parameters of accessory scan
     # to cropped t1 image
-    flair_to_t1 = Node(ants.Registration(),
-                       name='flair_to_t1')
+    if kwargs['CONTAINERIZE_NODES']:
+        flair_to_t1 = Node(AntsRegistration_Singularity(), name="flair_to_t1")
+        flair_to_t1.inputs.snglrt_bind = [
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            ('`pwd`', '`pwd`', 'rw'),]
+        flair_to_t1.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+    else:
+        flair_to_t1 = Node(ants.Registration(),
+                           name='flair_to_t1')
+    flair_to_t1.inputs.output_transform_prefix = "flair_to_t1_"
     flair_to_t1.plugin_args = kwargs['REG_PLUGIN_ARGS']
     flair_to_t1.inputs.transforms = ['Rigid']
     flair_to_t1.inputs.transform_parameters = [(0.1,)]
@@ -52,7 +61,6 @@ def genWorkflow(workflow: Workflow, **kwargs) -> Workflow:
     flair_to_t1.inputs.number_of_iterations = [[1000, 500, 250, 125]]
     flair_to_t1.inputs.sampling_strategy = ['Regular']
     flair_to_t1.inputs.sampling_percentage = [0.25]
-    flair_to_t1.inputs.output_transform_prefix = "flair_to_t1_"
     flair_to_t1.inputs.verbose = True
     flair_to_t1.inputs.winsorize_lower_quantile = 0.005
     flair_to_t1.inputs.winsorize_upper_quantile = 0.995
@@ -79,7 +87,15 @@ def genWorkflow(workflow: Workflow, **kwargs) -> Workflow:
                      flair_to_t1, 'fixed_image_masks')
 
     # write mask to flair in native space
-    mask_to_img2 = Node(ants.ApplyTransforms(), name="mask_to_img2")
+    if kwargs['CONTAINERIZE_NODES']:
+        mask_to_img2 = Node(AntsApplyTransforms_Singularity(), name="mask_to_img2")
+        mask_to_img2.inputs.snglrt_bind = [
+            (kwargs['DATA_DIR'], kwargs['DATA_DIR'], 'ro'),
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            ('`pwd`', '`pwd`', 'rw'),]
+        mask_to_img2.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+    else:
+        mask_to_img2 = Node(ants.ApplyTransforms(), name="mask_to_img2")
     mask_to_img2.inputs.out_postfix = '_flair-space'
     mask_to_img2.inputs.interpolation = 'NearestNeighbor'
     mask_to_img2.inputs.invert_transform_flags = [True]
