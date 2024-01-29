@@ -23,11 +23,11 @@ h1,
 h2,
 h3 {
     line-height: 1;
-    page-break-after: avoid-page;
+    break-after: avoid;
 }
 
 h1 {
-    font-size: 2.5em;
+    font-size: 2em;
     margin-bottom: 0.5em;
     page-break-before: always;
 }
@@ -35,7 +35,6 @@ h1 {
 h2 {
     font-size: 1.5em;
     margin-bottom: 0.75em;
-    page-break-after: avoid-page;
 }
 
 h3 {
@@ -133,11 +132,12 @@ caption {
     height: auto;
 }
 
+/* 
 .table {
     page-break-inside: avoid;
-}
+} */
 
 .table object {
-    width: 50%;
-    height: auto;
+    max-width: 18cm;
+    max-height: 8cm;
 }
