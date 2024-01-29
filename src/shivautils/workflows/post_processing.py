@@ -119,7 +119,6 @@ def genWorkflow(**kwargs) -> Workflow:
         else:
             if pred == 'PVS2':
                 pred = 'PVS'
-                pred_and_acq[pred] = f'{t1_acq} and {flair_acq}'
             else:
                 pred_and_acq[pred] = f'{t1_acq}'
             lpred = pred.lower()
