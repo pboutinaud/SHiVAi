@@ -76,6 +76,7 @@
         {% for pred in pred_stat_dict %}
         <p>
             For {{ pred }}:<br>
+            - Input acquisition type: {{ pred_and_acq[pred] }}<br>
             - Cluster threshold: {{ pred_stat_dict[pred]['cluster_threshold'] }}<br>
             - Cluster size filter: {{ pred_stat_dict[pred]['cluster_min_vol'] }}
         </p>

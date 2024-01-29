@@ -58,18 +58,30 @@ def genWorkflow(**kwargs) -> Workflow:
     # Setting up the different cases to build the workflows (should clarify things)
     with_t1, with_flair, with_swi = set_wf_shapers(kwargs['PREDICTION'])
 
+    # Setting the different acqisitions per prediction
+    if kwargs['ACQUISITIONS']['t1-like']:
+        t1_acq = kwargs['ACQUISITIONS']['t1-like']
+    else:
+        t1_acq = 't1'
+    if kwargs['ACQUISITIONS']['flair-like']:
+        flair_acq = kwargs['ACQUISITIONS']['flair-like']
+    else:
+        flair_acq = 'flair'
+    if kwargs['ACQUISITIONS']['swi-like']:
+        swi_acq = kwargs['ACQUISITIONS']['swi-like']
+    else:
+        swi_acq = 'swi'
+
     name_workflow = "post_processing_workflow"
     workflow = Workflow(name_workflow)
     workflow.base_dir = kwargs['BASE_DIR']
 
     # Preparing stats and figures for the report
     # Segmentation part
-    preds = []
     summary_report = Node(SummaryReport(), name="summary_report")
     for pred in kwargs['PREDICTION']:
         model_descriptor = os.path.join(kwargs['MODELS_PATH'], kwargs[f'{pred}_DESCRIPTOR'])
         if pred == 'CMB' and with_t1:  # Requires registrations to T1 and SWI
-            preds.append('CMB')
             lpred = pred.lower()
             cluster_labelling_cmb = Node(Label_clusters(),
                                          name='cluster_labelling_cmb')
@@ -107,7 +119,9 @@ def genWorkflow(**kwargs) -> Workflow:
         else:
             if pred == 'PVS2':
                 pred = 'PVS'
-            preds.append(pred)
+                pred_and_acq[pred] = f'{t1_acq} and {flair_acq}'
+            else:
+                pred_and_acq[pred] = f'{t1_acq}'
             lpred = pred.lower()
             cluster_labelling = Node(Label_clusters(),
                                      name=f'cluster_labelling_{lpred}')
@@ -156,7 +170,20 @@ def genWorkflow(**kwargs) -> Workflow:
         'CMB': kwargs['MIN_CMB_SIZE'],
         'LAC': kwargs['MIN_LAC_SIZE']
     }
-    summary_report.inputs.pred_list = preds
+
+    pred_and_acq = {}
+    if 'PVS' in kwargs['PREDICTION']:
+        pred_and_acq['PVS'] = t1_acq
+    if 'PVS2' in kwargs['PREDICTION']:
+        pred_and_acq['PVS'] = f'{t1_acq} and {flair_acq}'
+    if 'WMH' in kwargs['PREDICTION']:
+        pred_and_acq['WMH'] = f'{t1_acq} and {flair_acq}'
+    if 'LAC' in kwargs['PREDICTION']:
+        pred_and_acq['LAC'] = f'{t1_acq} and {flair_acq}'
+    if 'CMB' in kwargs['PREDICTION']:
+        pred_and_acq['CMB'] = swi_acq
+
+    summary_report.inputs.pred_and_acq = pred_and_acq
     if kwargs['DB']:
         summary_report.inputs.db = kwargs['DB']
 

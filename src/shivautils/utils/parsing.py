@@ -64,6 +64,27 @@ def shivaParser():
                               "- 'all' for doing 'PVS2', 'WMH', and 'CMB' segmentation (requires T1, FLAIR, and SWI scans)"),
                         default=['PVS'])
 
+    parser.add_argument('--replace_t1',
+                        type=str,
+                        metavar='img_type',
+                        help=('Image type to be used instead of T1w for PVS (and PVS2), WMH, and Lacuna segmentations.\n'
+                              '(Note that part of the labels may keep the "t1" notation instead of the image type you '
+                              'specified)'))
+
+    parser.add_argument('--replace_flair',
+                        type=str,
+                        metavar='img_type',
+                        help=('Image type to be used instead of FLAIR for PVS2, WMH, and Lacuna segmentations.\n'
+                              '(Note that part of the labels may keep the "flair" notation instead of the image type you '
+                              'specified)'))
+
+    parser.add_argument('--replace_swi',
+                        type=str,
+                        metavar='img_type',
+                        help=('Image type to be used instead of SWI for CMB segmentations.\n'
+                              '(Note that part of the labels may keep the "swi" notation instead of the image type you '
+                              'specified)'))
+
     parser.add_argument('--synthseg',
                         action='store_true',
                         help='Optional FreeSurfer segmentation of regions to compute metrics clusters of specific regions')
@@ -344,7 +365,8 @@ def set_args_and_check(inParser):
         args.threshold_cmb = args.threshold_clusters
         args.threshold_lac = args.threshold_clusters
 
-    if args.model_config:  # Parse the config file
+    # Parse the config file
+    if args.model_config:
         args.model_config = os.path.abspath(args.model_config)
         with open(args.model_config, 'r') as file:
             yaml_content = yaml.safe_load(file)
@@ -379,6 +401,7 @@ def set_args_and_check(inParser):
         args.lac_descriptor = parameters['LAC_descriptor']
     args.model = os.path.abspath(args.model)
 
+    # Check containerizing options
     if (args.containerized_all or args.containerized_nodes) and not args.container_image:
         inParser.error(
             'Using a container (with the "--containerized_all" or "containerized_nodes" arguments) '
@@ -388,7 +411,8 @@ def set_args_and_check(inParser):
         inParser.error(
             'Using the "containerized_nodes" option with synthseg, but no synthseg apptainer image was provided')
 
-    if args.run_plugin_args:  # Parse the plugin arguments
+    # Parse the plugin arguments
+    if args.run_plugin_args:
         with open(args.run_plugin_args, 'r') as file:
             yaml_content = yaml.safe_load(file)
         args.run_plugin_args = yaml_content
@@ -406,6 +430,7 @@ def set_args_and_check(inParser):
     if args.containerized_all:
         args.model = '/mnt/model'
 
+    # Parse the prediction
     if 'all' in args.prediction:
         if 'PVS' in args.prediction:
             args.prediction = ['PVS', 'WMH', 'CMB', 'LAC']
@@ -414,6 +439,7 @@ def set_args_and_check(inParser):
     if not isinstance(args.prediction, list):  # When only one input
         args.prediction = [args.prediction]
 
+    # Check the preprocessing files input when given
     if args.preproc_results is not None:
         args.preproc_results = os.path.abspath(args.preproc_results)
         if not os.path.exists(args.preproc_results):

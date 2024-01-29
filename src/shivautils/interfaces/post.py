@@ -342,8 +342,10 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
     lac_census_csv = traits.File(desc='csv file compiling each lac size (and region)',
                                  mandatory=False)
 
-    pred_list = traits.List(traits.Str,
-                            desc='List of the different predictions computed ("PVS", "WMH", "CMB" or "LAC")')
+    pred_and_acq = traits.Dict(key_trait=traits.Str, value_trait=traits.Str,
+                               desc=('Dict of the different predictions computed ("PVS", "WMH", "CMB" or "LAC") '
+                                     'with their used acquisition (t1, flair, swi, or custom ones) written in one string '
+                                     '(e.g. "t1 and flair")'))
 
     brainmask = traits.File(exists=True,
                             desc='Nifti file of the brain mask in t1 space, 1x1x1mm resolution')
@@ -431,20 +433,20 @@ class SummaryReport(BaseInterface):
         pred_metrics_dict = {}  # Will contain the stats dataframe for each biomarker
         pred_census_im_dict = {}  # Will contain the path to the swarm plot for each biomarker
         models_uid = {}  # Will contain the md5 hash for each file of each predictive model
-        pred_list = self.inputs.pred_list
-        if 'PVS' in pred_list:
+        pred_and_acq = self.inputs.pred_and_acq
+        if 'PVS' in pred_and_acq:
             pred_metrics_dict['PVS'] = pd.read_csv(self.inputs.pvs_metrics_csv)
             pred_census_im_dict['PVS'] = violinplot_from_census(self.inputs.pvs_census_csv, 'PVS')
             models_uid['PVS'] = get_md5_from_json(self.inputs.pvs_model_descriptor)
-        if 'WMH' in pred_list:
+        if 'WMH' in pred_and_acq:
             pred_metrics_dict['WMH'] = pd.read_csv(self.inputs.wmh_metrics_csv)
             pred_census_im_dict['WMH'] = violinplot_from_census(self.inputs.wmh_census_csv, 'WMH')
             models_uid['WMH'] = get_md5_from_json(self.inputs.wmh_model_descriptor)
-        if 'CMB' in pred_list:
+        if 'CMB' in pred_and_acq:
             pred_metrics_dict['CMB'] = pd.read_csv(self.inputs.cmb_metrics_csv)
             pred_census_im_dict['CMB'] = violinplot_from_census(self.inputs.cmb_census_csv, 'CMB')
             models_uid['CMB'] = get_md5_from_json(self.inputs.cmb_model_descriptor)
-        if 'LAC' in pred_list:
+        if 'LAC' in pred_and_acq:
             pred_metrics_dict['LAC'] = pd.read_csv(self.inputs.lac_metrics_csv)
             pred_census_im_dict['LAC'] = violinplot_from_census(self.inputs.lac_census_csv, 'Lacuna')
             models_uid['LAC'] = get_md5_from_json(self.inputs.lac_model_descriptor)
@@ -478,6 +480,7 @@ class SummaryReport(BaseInterface):
         summary_report = make_report(
             pred_metrics_dict=pred_metrics_dict,
             pred_census_im_dict=pred_census_im_dict,
+            pred_and_acq=pred_and_acq,
             brain_vol_vox=brain_vol_vox,
             thr_cluster_vals=self.inputs.thr_cluster_vals,
             min_seg_size=self.inputs.min_seg_size,

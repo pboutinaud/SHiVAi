@@ -9,6 +9,7 @@ from shivautils.postprocessing import __file__ as postproc_init
 def make_report(
         pred_metrics_dict: dict,
         pred_census_im_dict: dict,
+        pred_and_acq: dict,
         brain_vol_vox: float,
         thr_cluster_vals: float,
         min_seg_size: dict,
@@ -91,6 +92,7 @@ def make_report(
                                'metrics_table': stat_df_html,
                                'brain_volume': brain_vol,
                                'census_figure': pred_census_fig,
+                               'acquisitions': pred_and_acq[seg],
                                'cluster_threshold': thr_cluster_vals[seg],
                                'cluster_min_vol': min_seg_size[seg],
                                }
@@ -132,6 +134,7 @@ def make_report(
     filled_template_report = tm.render(
         data_origin=subject_id,
         pred_stat_dict=pred_stat_dict,
+        pred_and_acq=pred_and_acq,
         models_uid=models_uid,
         overlayed_brainmask_1=overlayed_brainmask_1,
         overlayed_brainmask_2=overlayed_brainmask_2,

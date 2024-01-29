@@ -74,7 +74,10 @@ def generate_main_wf(**kwargs) -> Workflow:
     input_type = kwargs['PREP_SETTINGS']['input_type']
 
     if with_t1:
-        acquisitions.append(('img1', 't1'))
+        if kwargs['ACQUISITIONS']['t1-like']:
+            acquisitions.append(('img1', kwargs['ACQUISITIONS']['t1-like']))
+        else:
+            acquisitions.append(('img1', 't1'))
         if kwargs['BRAIN_SEG'] == 'masked':
             wf_preproc = genWorkflow_preproc_masked(**kwargs, wf_name=wf_name)
         elif kwargs['BRAIN_SEG'] == 'synthseg':
@@ -82,10 +85,16 @@ def generate_main_wf(**kwargs) -> Workflow:
         else:
             wf_preproc = genWorkflowPreproc(**kwargs, wf_name=wf_name)
         if with_flair:
-            acquisitions.append(('img2', 'flair'))
+            if kwargs['ACQUISITIONS']['flair-like']:
+                acquisitions.append(('img2', kwargs['ACQUISITIONS']['flair-like']))
+            else:
+                acquisitions.append(('img2', 'flair'))
             wf_preproc = genWorkflowDualPreproc(wf_preproc, **kwargs)
         if with_swi:  # Adding the swi preprocessing steps to the preproc workflow
-            acquisitions.append(('img3', 'swi'))
+            if kwargs['ACQUISITIONS']['swi-like']:
+                acquisitions.append(('img3', kwargs['ACQUISITIONS']['swi-like']))
+            else:
+                acquisitions.append(('img3', 'swi'))
             cmb_preproc_wf_name = 'swi_preprocessing'
             wf_preproc = graft_workflow_swi(wf_preproc, **kwargs, wf_name=cmb_preproc_wf_name)
         wf_preproc = update_wf_grabber(wf_preproc, input_type, acquisitions)

@@ -80,7 +80,18 @@ def main():
     if 'reg' in args.node_plugin_args.keys():
         reg_plugin_args = args.node_plugin_args['reg']
 
-    wf_prep = {'input_type': args.input_type, 'prev_qc': args.prev_qc, 'preproc_res': args.preproc_results}
+    wf_prep = {
+        'input_type': args.input_type,
+        'prev_qc': args.prev_qc,
+        'preproc_res': args.preproc_results
+    }
+
+    # Acquisitions per prediction:
+    pred_acqui = {
+        't1-like': args.replace_t1,
+        'flair-like': args.replace_flair,
+        'swi-like': args.replace_swi,
+    }
 
     # wfargs are settings shared between workflows. It's clearer to have them all in one dict and pass it around
     wfargs = {
@@ -99,6 +110,7 @@ def main():
         'PVS2_DESCRIPTOR': pvs2_descriptor,
         'CMB_DESCRIPTOR': cmb_descriptor,
         'LAC_DESCRIPTOR': lac_descriptor,
+        'ACQUISITIONS': pred_acqui,
         'CONTAINER_IMAGE': args.container_image,
         'SYNTHSEG_IMAGE': args.synthseg_image,
         'CONTAINERIZE_NODES': args.containerized_nodes,
