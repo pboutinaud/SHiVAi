@@ -45,8 +45,8 @@
 
     {% if isocontour_slides_FLAIR_T1 %}
     <div class="qc">
-        <h2>Isocontour Slides for coregistration FLAIR on T1w</h2>
-        <p>Isocontour of the FLAIR image coregister on T1w image that enters the classifier: {{ resolution }}
+        <h2>Isocontour Slides for coregistration of the different acquisitions</h2>
+        <p>Isocontour info: {{ resolution }}
             mm<sup>3</sup> with {{ image_size }}, (within brain mask and with censoring for voxels outside the brain
             mask)</p>
         <img src='data:image/png;base64, {{ isocontour_slides_FLAIR_T1 }}' width="600" height="300">
@@ -55,8 +55,8 @@
 
     {% if overlayed_brainmask_2 %}
     <div class="qc">
-        <h2>Overlay of final brainmask over cropped SWI</h2>
-        <p>Overlay of the brainmask on SWI image: {{ image_size }} voxels at {{ resolution }} mm<sup>3</sup>,
+        <h2>Overlay of final brainmask over the cropped acquisition</h2>
+        <p>Overlay info: {{ image_size }} voxels at {{ resolution }} mm<sup>3</sup>,
             (with censoring for voxels outside the brain mask)</p>
         <img src='data:image/png;base64, {{ overlayed_brainmask_2 }}' width="600" height="300">
     </div>
