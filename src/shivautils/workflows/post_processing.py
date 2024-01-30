@@ -104,6 +104,7 @@ def genWorkflow(**kwargs) -> Workflow:
                     seg_to_swi.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
                 else:
                     seg_to_swi = Node(ants.ApplyTransforms(), name="seg_to_swi")  # Register custom parc to swi space
+                seg_to_swi.inputs.float = True
                 seg_to_swi.inputs.interpolation = 'NearestNeighbor'
                 seg_to_swi.inputs.out_postfix = '_swi-space'
                 seg_to_swi.inputs.invert_transform_flags = [True]  # original transform is swi to t1

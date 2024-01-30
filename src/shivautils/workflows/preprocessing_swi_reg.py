@@ -51,6 +51,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
     else:
         swi_to_t1 = Node(ants.Registration(),
                          name='swi_to_t1')
+    swi_to_t1.inputs.float = True
     swi_to_t1.plugin_args = kwargs['REG_PLUGIN_ARGS']
     swi_to_t1.inputs.transforms = ['Rigid']
     swi_to_t1.inputs.transform_parameters = [(0.1,)]
@@ -80,6 +81,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
         mask_to_swi.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
     else:
         mask_to_swi = Node(ants.ApplyTransforms(), name="mask_to_swi")
+    mask_to_swi.inputs.float = True
     mask_to_swi.inputs.out_postfix = '_swi-space'
     mask_to_swi.inputs.interpolation = 'NearestNeighbor'
     mask_to_swi.inputs.invert_transform_flags = [True]

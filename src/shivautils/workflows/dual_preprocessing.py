@@ -47,6 +47,7 @@ def genWorkflow(workflow: Workflow, **kwargs) -> Workflow:
     else:
         flair_to_t1 = Node(ants.Registration(),
                            name='flair_to_t1')
+    flair_to_t1.inputs.float = True
     flair_to_t1.inputs.output_transform_prefix = "flair_to_t1_"
     flair_to_t1.plugin_args = kwargs['REG_PLUGIN_ARGS']
     flair_to_t1.inputs.transforms = ['Rigid']
@@ -96,6 +97,7 @@ def genWorkflow(workflow: Workflow, **kwargs) -> Workflow:
         mask_to_img2.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
     else:
         mask_to_img2 = Node(ants.ApplyTransforms(), name="mask_to_img2")
+    mask_to_img2.inputs.float = True
     mask_to_img2.inputs.out_postfix = '_flair-space'
     mask_to_img2.inputs.interpolation = 'NearestNeighbor'
     mask_to_img2.inputs.invert_transform_flags = [True]
