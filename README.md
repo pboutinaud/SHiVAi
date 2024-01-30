@@ -1,8 +1,8 @@
-# SHIV-AI: SHIVA preprocessing and deep learning segmentation workflow
+# SHiVAi: SHiVA preprocessing and deep learning segmentation workflow
 
-The shivautils package includes a set of image analysis tools for the study of covert cerebral small vessel diseases (cCSVD) with structural Magnetic Resonance Imaging. More specifically, it installs **SHIV-AI**, the full pipeline for preprocessing, AI-based segmentation, and reporting of cCVSD biomarkers.
+The shivautils package includes a set of image analysis tools for the study of covert cerebral small vessel diseases (cCSVD) with structural Magnetic Resonance Imaging. More specifically, it installs **SHiVAi**, the full pipeline for preprocessing, AI-based segmentation, and reporting of cCVSD biomarkers.
 
-The SHIV-AI segmentation tools currently include Cerebral MicroBleeds (CMB),  PeriVascular Spaces (PVS) (also known as Virchow Robin Spaces - VRS), and White Matter Hyperintensities (WMH). The 3D-Unet model weights are available separately at https://github.com/pboutinaud.
+The SHiVAi segmentation tools currently include Cerebral MicroBleeds (CMB),  PeriVascular Spaces (PVS) (also known as Virchow Robin Spaces - VRS), and White Matter Hyperintensities (WMH). The 3D-Unet model weights are available separately at https://github.com/pboutinaud.
 
 The tools cover preprocessing (image resampling and cropping to match the required size for the deep learning models, coregistration for multimodal segmentation tools), automatic segmentation, and reporting (QC and results).
 
@@ -16,10 +16,10 @@ The tools cover preprocessing (image resampling and cropping to match the requir
     - [Mixed approach (recommended)](#mixed-approach-recommended)
 - [Running the process](#running-the-process)
     - [Segmentation choice](#segmentation-choice)
-    - [Running SHIV-AI from a container](#running-shiv-ai-from-a-container)
-    - [Running SHIV-AI from direct package commands (recommended)](#running-shiv-ai-from-direct-package-commands-recommended)
+    - [Running SHiVAi from a container](#running-shivai-from-a-container)
+    - [Running SHIVAI from direct package commands (recommended)](#running-shivai-from-direct-package-commands-recommended)
 - [Results](#results)
-- [Data structures accepted by SHIV-AI](#data-structures-accepted-by-shiv-ai)
+- [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai)
 - [Additional info](#additional-info)
     - [Create missing json file](#create-missing-json-file)
     - [Apptainer image](#apptainer-image)
@@ -29,13 +29,13 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 ## Dependencies and hardware requirements
 
-The SHIV-AI application requires a Linux machine with a GPU (with 16GB of dedicated memory).
+The SHiVAi application requires a Linux machine with a GPU (with 16GB of dedicated memory).
 
 The deep-learning models relies on Tensorflow 2.7.13. The processing pipelines are implemented with Nipype and make use of ANTs for image registration. Quality control reporting uses (among others) DOG contours from: https://github.com/neurolabusc/PyDog. Building and/or using the container image relies on Apptainer (https://apptainer.org). More details about Apptainer in the [Apptainer image](#apptainer-image) section.
 
 ## Package Installation
 
-Depending on your situation you may want to deploy SHIV-AI in different ways:
+Depending on your situation you may want to deploy SHiVAi in different ways:
 - **Fully contained process**: The simplest approach. All the computation is done through the Apptainer image. It accounts for most of the local environment set-up, which simplifies the installation and ensure portability.
 - **Traditional python install**: does not require singularity as all the dependencies will have to be installed locally. Useful for full control and development of the package, however it may lead to problems due to the finicky nature of TensorFlow and CUDA.
 - **Mixed approach**: Local installation of the package without TensorFlow (and so without troubles), but using the Apptainer image to run the deep-learning processes (using TensorFlow). Ideal for parallelization of the processes and use on HPC clusters.
@@ -72,7 +72,7 @@ and
 
 5. Finally, set-up a minimal Python virtual environment with the `pyyaml` package installed.
 
-Next, see [Running a contained SHIV-AI](#running-a-contained-shiv-ai)
+Next, see [Running a contained SHiVAi](#running-a-contained-shivai)
 
 ### Traditional python install
 
@@ -96,7 +96,7 @@ The scripts should then be available from the command line prompt.
 
 Optionally, you can download and prepare the `config_example.yml` like explained in the [Fully contained process](#fully-contained-process) section. This will ease the command call as a lot of arguments will be given through the yaml file (instead of manually entered with the command).
 
-Next, see [Running SHIV-AI from direct package commands](#running-shiv-ai-from-direct-package-commands)
+Next, see [Running SHiVAi from direct package commands](#running-shivai-from-direct-package-commands)
 
 ### Mixed approach (recommended)
 
@@ -108,7 +108,7 @@ python -m pip install .
 
 Then, download the Apptainer image and prepare the configuration file as explained in [Fully contained process](#fully-contained-process) (you can ignore the point 3 as you won't need the `run_shiva.py` script).
 
-To run SHIV-AI with this approach, see point **2** in [Running SHIV-AI from direct package commands (recommended)](#running-shiv-ai-from-direct-package-commands-recommended)
+To run SHiVAi with this approach, see point **2** in [Running SHiVAi from direct package commands (recommended)](#running-shivai-from-direct-package-commands-recommended)
 
 ## Running the process
 
@@ -121,13 +121,13 @@ In all cases below, you will be prompted to chose a "prediction". This refers to
 - CMB: Mono-modal segmentation of cerebral microbleeds -> Uses SWI acquisitions
 - all: PVS2 + WMH + CMB -> Uses T1, FLAIR, and SWI acquisitions
 
-### Running SHIV-AI from a container
+### Running SHiVAi from a container
 
-When running SHIV-AI from an Apptainer image, you can do it linearly (no parallelisation of the process, default behavior), or in parallel using the Python multiprocessing library, [as implemented by Nypipe](https://nipype.readthedocs.io/en/0.11.0/users/plugins.html#multiproc).
+When running SHiVAi from an Apptainer image, you can do it linearly (no parallelisation of the process, default behavior), or in parallel using the Python multiprocessing library, [as implemented by Nypipe](https://nipype.readthedocs.io/en/0.11.0/users/plugins.html#multiproc).
 
 To run the shiva process, you will need:
 - The `run_shiva.py`
-- The input dataset (see [Data structures accepted by SHIV-AI](#data-structures-accepted-by-shiv-ai))
+- The input dataset (see [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai))
 - The Apptainer image (`shiva.sif`)
 - The trained AI model (that we provide and you should have downloaded)
 - A configuration file (.yml) that will contain all the options and various paths needed for the workflow
@@ -150,7 +150,7 @@ Locally running the processing (from the directory where you stored `run_shiva.p
 python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config /myHome/myProject/myConfig.yml
 ```
 
-Using SLURM to run on a grid (not the best way to interface SHIV-AI with SLURM though): 
+Using SLURM to run on a grid (not the best way to interface SHiVAi with SLURM though): 
 
 ```bash
 srun –gpus 1 -c 8 python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config  /myHome/myProject/myConfig.yml --run_plugin MultiProc --run_plugin_args /myHome/myProject/nipype_plugin_args.yml
@@ -160,7 +160,7 @@ with `/myHome/myProject/nipype_plugin_args.yml` filled with:
 n_procs: 8
 ```
 
-### Running SHIV-AI from direct package commands (recommended)
+### Running SHiVAi from direct package commands (recommended)
 
 From the virtual environment where you installed shivautils, run the command `shiva` (calling the `shiva.py` script).
 
@@ -194,7 +194,7 @@ The results will be stored in the `results` folder in your output folder (so `/m
 You will also find a PDF report for each participant detailing statics about their segmentation and QC in `results/participantXXXX/report/_subject_id_participantXXXX/summary.pdf`
 
 
-## Data structures accepted by SHIV-AI
+## Data structures accepted by SHiVAi
 
 Example of `BIDS` structure folders:
 
@@ -280,7 +280,7 @@ prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 
 ### Apptainer image
 
-Apptainer is a container solution, meaning that you can run SHIV-AI using an Apptainer image (a file with the *.sif* extension) containing all the software and environment necessary. You can get the SHIV-AI image from us (https://cloud.efixia.com/sharing/TAHaV6ZgZ) or build it yourself.
+Apptainer is a container solution, meaning that you can run SHiVAi using an Apptainer image (a file with the *.sif* extension) containing all the software and environment necessary. You can get the SHiVAi image from us (https://cloud.efixia.com/sharing/TAHaV6ZgZ) or build it yourself.
 
 To build the Apptainer image, you need a machine on which you are *root* user. Then, from the **shivautils/singularity** directory, run the following command to build the SHIVA Apptainer container image :
 
