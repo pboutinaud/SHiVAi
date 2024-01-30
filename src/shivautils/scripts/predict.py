@@ -218,8 +218,12 @@ def main():
     if _VERBOSE:
         print(f'Inference time : {chrono1} sec.')
 
+    # Threshold to remove near-zero voxels
+    pred = predictions[0]
+    pred[pred < 0.001] = 0
+
     # Save prediction
-    nifti = nibabel.Nifti1Image(predictions[0], affine=affine)
+    nifti = nibabel.Nifti1Image(pred.astype('float32'), affine=affine)
     nibabel.save(nifti, output_path)
 
     if _VERBOSE:
