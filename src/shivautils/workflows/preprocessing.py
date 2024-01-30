@@ -23,7 +23,6 @@
 import os
 
 from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces import ants
 from nipype.interfaces.io import DataGrabber
 
 from shivautils.interfaces.image import (Threshold, Normalization,

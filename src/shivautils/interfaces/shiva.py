@@ -2,12 +2,12 @@
 import os
 
 from nipype.interfaces.base import (traits, TraitedSpec,
-                                    BaseInterfaceInputSpec)
+                                    BaseInterfaceInputSpec,
+                                    CommandLineInputSpec,
+                                    CommandLine,)
 
-from shivautils.interfaces.singularity import (CommandLine,
-                                               SingularityCommandLine,
-                                               SingularityInputSpec,
-                                               CommandLineInputSpec)
+from shivautils.interfaces.singularity import (SingularityCommandLine,
+                                               SingularityInputSpec)
 
 from nipype.interfaces.ants.registration import (RegistrationInputSpec,
                                                  RegistrationOutputSpec,
