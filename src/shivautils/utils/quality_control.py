@@ -460,7 +460,7 @@ def create_edges(path_image, path_ref_image, path_brainmask, nb_of_slices=12, sl
 
         dog = difference_of_gaussian(dog_fdata, img.affine, fwhm, verbose)
 
-        out_img = nib.Nifti1Image(dog, img.affine, img.header)
+        out_img = nib.Nifti1Image(dog.astype('f'), img.affine, img.header)
         # update header
         out_img.header.set_data_dtype(np.uint8)
         out_img.header['intent_code'] = 0

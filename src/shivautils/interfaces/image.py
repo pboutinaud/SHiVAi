@@ -136,7 +136,7 @@ class Conform(BaseInterface):
                 simplified_rot[0] *= img.header['pixdim'][0]  # Keeping the L/R orientation
                 trans_centered = -simplified_rot.dot(cdg_ijk)
                 simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
-                img = nib.Nifti1Image(vol, simplified_affine_centered)
+                img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
 
         if not (isdefined(self.inputs.voxel_size)):
             # resample so as to keep FOV

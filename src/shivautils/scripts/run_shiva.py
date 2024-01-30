@@ -163,9 +163,6 @@ def main():
                     "shiva --containerized_all", input, output, pred, config
                     ] + opt_args
 
-    # if args.retry:
-    #     command_list.append('--retry')
-
     if args.keep_all:
         command_list.append('--keep_all')
 

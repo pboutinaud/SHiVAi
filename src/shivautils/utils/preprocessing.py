@@ -54,7 +54,7 @@ def normalization(img: nb.Nifti1Image,
     # Normalization information
     report, mode = histogram(array_normalized, percentile, bins=64)
 
-    img_nifti_normalized = nip.Nifti1Image(array_normalized, img.affine)
+    img_nifti_normalized = nip.Nifti1Image(array_normalized.astype('f'), img.affine)
 
     return img_nifti_normalized, report, mode
 
@@ -140,7 +140,7 @@ def threshold(img: nb.Nifti1Image,
                 cluster_mask = (labeled_clusters == clst[0])
         array *= cluster_mask
 
-    thresholded = nip.Nifti1Image(array, img.affine)
+    thresholded = nip.Nifti1Image(array.astype('f'), img.affine)
 
     return thresholded
 
@@ -283,7 +283,7 @@ def crop(roi_mask: nb.Nifti1Image,
     affine_out[:, 3] = affine_out[:, 3] + (cdg_xyz - halfs_xyz) + offset_padding
 
     # We write the result image
-    cropped = nip.Nifti1Image(array_out, affine_out)
+    cropped = nip.Nifti1Image(array_out.astype('f'), affine_out)
 
     return cropped, cdg_ijk, bbox1, bbox2
 
@@ -300,7 +300,7 @@ def reverse_crop(original_img: nb.Nifti1Image,
     array_apply_to = apply_to.get_fdata()
     reverse_crop_array = np.zeros_like(conform_array)
     reverse_crop_array[bbox1[0]:bbox2[0], bbox1[1]:bbox2[1], bbox1[2]:bbox2[2]] = array_apply_to
-    reverse_img = nip.Nifti1Image(reverse_crop_array, original_img.affine)
+    reverse_img = nip.Nifti1Image(reverse_crop_array.astype('f'), original_img.affine)
     return reverse_img
 
 
@@ -345,7 +345,7 @@ def make_offset(img: nb.Nifti1Image, offset: tuple = False):
     affine_out = img.affine
     affine_out[:, 3] = affine_out[:, 3] - (offset_xyz - affine_out[:, 3])
 
-    shifted_img = nb.Nifti1Image(new_array, affine_out, img.header)
+    shifted_img = nb.Nifti1Image(new_array.astype('f'), affine_out, img.header)
 
     return shifted_img, offset_number
 
@@ -372,6 +372,6 @@ def apply_mask(file_prediction: nb.Nifti1Image,
 
     masked_prediction = array_prediction * array_brainmask
 
-    masked_prediction_Nifti = nb.Nifti1Image(masked_prediction, file_prediction.affine, file_prediction.header)
+    masked_prediction_Nifti = nb.Nifti1Image(masked_prediction.astype('f'), file_prediction.affine, file_prediction.header)
 
     return masked_prediction_Nifti
