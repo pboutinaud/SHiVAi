@@ -46,13 +46,21 @@ def md5(fname):
     return hash_md5.hexdigest()
 
 
-def get_md5_from_json(json_path):
+def get_md5_from_json(json_path, get_url=False):
     with open(json_path) as f:
         meta_data = json.load(f)
     uid_model = {}
     for i, model_file in enumerate(meta_data["files"]):
-        uid_model[f'Model file {i + 1}'] = model_file["md5"]
-    return uid_model
+        filename = os.path.basename(model_file["name"])
+        uid_model[f'Model file {i + 1}'] = (filename, model_file["md5"])
+    if get_url:
+        if 'url' in meta_data:
+            url = meta_data["url"]
+        else:
+            url = None
+        return uid_model, url
+    else:
+        return uid_model
 
 
 def set_wf_shapers(predictions):

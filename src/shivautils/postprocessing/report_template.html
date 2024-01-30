@@ -84,8 +84,12 @@
         <p><b>Unique identifers (md5) for the AI models:</b></p>
         {% for pred, file_dict in models_uid.items() %}
         <p>{{pred}} model files:<br>
-            {% for filename, md5 in file_dict.items() %}
-            - {{filename}}: {{md5}}<br>
+            {% if 'url' in file_dict %}
+            - Downloaded from <a href={{ file_dict['url'] }}>{{ file_dict['url'] }}</a><br>
+            {% endif %}
+            {% for id, (filename, md5) in file_dict['id'].items() %}
+            - {{id}} name: {{filename}}<br>
+            - {{id}} md5: {{md5}}<br>
             {% endfor %}
         </p>
         {% endfor %}

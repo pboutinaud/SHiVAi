@@ -435,21 +435,37 @@ class SummaryReport(BaseInterface):
         models_uid = {}  # Will contain the md5 hash for each file of each predictive model
         pred_and_acq = self.inputs.pred_and_acq
         if 'PVS' in pred_and_acq:
+            models_uid['PVS'] = {}
             pred_metrics_dict['PVS'] = pd.read_csv(self.inputs.pvs_metrics_csv)
             pred_census_im_dict['PVS'] = violinplot_from_census(self.inputs.pvs_census_csv, 'PVS')
-            models_uid['PVS'] = get_md5_from_json(self.inputs.pvs_model_descriptor)
+            ids, url = get_md5_from_json(self.inputs.pvs_model_descriptor, get_url=True)
+            models_uid['PVS']['id'] = ids
+            if url:
+                models_uid['PVS']['url'] = url
         if 'WMH' in pred_and_acq:
+            models_uid['WMH'] = {}
             pred_metrics_dict['WMH'] = pd.read_csv(self.inputs.wmh_metrics_csv)
             pred_census_im_dict['WMH'] = violinplot_from_census(self.inputs.wmh_census_csv, 'WMH')
-            models_uid['WMH'] = get_md5_from_json(self.inputs.wmh_model_descriptor)
+            ids, url = get_md5_from_json(self.inputs.wmh_model_descriptor, get_url=True)
+            models_uid['WMH']['id'] = ids
+            if url:
+                models_uid['WMH']['url'] = url
         if 'CMB' in pred_and_acq:
+            models_uid['CMB'] = {}
             pred_metrics_dict['CMB'] = pd.read_csv(self.inputs.cmb_metrics_csv)
             pred_census_im_dict['CMB'] = violinplot_from_census(self.inputs.cmb_census_csv, 'CMB')
-            models_uid['CMB'] = get_md5_from_json(self.inputs.cmb_model_descriptor)
+            ids, url = get_md5_from_json(self.inputs.cmb_model_descriptor, get_url=True)
+            models_uid['CMB']['id'] = ids
+            if url:
+                models_uid['CMB']['url'] = url
         if 'LAC' in pred_and_acq:
+            models_uid['LAC'] = {}
             pred_metrics_dict['LAC'] = pd.read_csv(self.inputs.lac_metrics_csv)
             pred_census_im_dict['LAC'] = violinplot_from_census(self.inputs.lac_census_csv, 'Lacuna')
-            models_uid['LAC'] = get_md5_from_json(self.inputs.lac_model_descriptor)
+            ids, url = get_md5_from_json(self.inputs.lac_model_descriptor, get_url=True)
+            models_uid['LAC']['id'] = ids
+            if url:
+                models_uid['LAC']['url'] = url
 
         # set optional inputs to None if undefined
         if isdefined(self.inputs.overlayed_brainmask_1):

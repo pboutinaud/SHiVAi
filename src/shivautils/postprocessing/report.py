@@ -38,8 +38,12 @@ def make_report(
         pred_metrics_dict (dict): Dict of the dataframes holding statistics for each studied biomaerker (keys)
         pred_census_im_dict (dic): Dict of the image path to the swarmplot showing each biomarker size repartition
         brain_vol (float): Intracranial brain volume in voxels
+        pred_and_acq (dict):
+        brain_vol_vox (float):
         thr_cluster_vals (dict): Thresholds applied to raw predictions to binarise them
         min_seg_size (dict): Dict holding the minimal size used to filter each type of biomarker segmentation 
+        models_uid (dict): Dict with keys = predictions, and values = dict with keys = 'url' and 'id'. 'url' is the url to the pred model files
+                           and 'id' is a dict with keys = generic model file id, and vales = tuple(filename, md5)
         bounding_crop (path): PNG file showing the crop box.
         overlayed_brainmask_1 (path): PNG file of cropping box with overlay brainmask
         overlayed_brainmask_2 (path): PNG file of cropping box with overlay brainmask (for SWI if done at the same time as non-CMB predictions)

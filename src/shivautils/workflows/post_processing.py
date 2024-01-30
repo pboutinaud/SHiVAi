@@ -126,8 +126,6 @@ def genWorkflow(**kwargs) -> Workflow:
         else:
             if pred == 'PVS2':
                 pred = 'PVS'
-            else:
-                pred_and_acq[pred] = f'{t1_acq}'
             lpred = pred.lower()
             cluster_labelling = Node(Label_clusters(),
                                      name=f'cluster_labelling_{lpred}')
