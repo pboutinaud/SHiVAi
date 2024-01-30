@@ -158,14 +158,14 @@ def shivaParser():
                               'preprocessing. This data will be used to estimate outliers and thus help detect '
                               'participants that may have a faulty preprocessing'))
 
-    parser.add_argument('--preproc_results',
-                        type=str,
-                        help=(
-                            'Path to the results folder of a previous shiva run, containing all the preprocessed data.\n'
-                            'Requires that all the subjects from the current subject list (as per the content of --in or --sub_list) '
-                            'are available in the results folder. If you have subjects with missing preprocessed data, you will '
-                            'need to run their processing separatly.'
-                        ))
+    # parser.add_argument('--preproc_results',
+    #                     type=str,
+    #                     help=(
+    #                         'Path to the results folder of a previous shiva run, containing all the preprocessed data.\n'
+    #                         'Requires that all the subjects from the current subject list (as per the content of --in or --sub_list) '
+    #                         'are available in the results folder. If you have subjects with missing preprocessed data, you will '
+    #                         'need to run their processing separatly.'
+    #                     ))
 
     file_management = parser.add_mutually_exclusive_group()
 
