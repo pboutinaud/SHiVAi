@@ -40,8 +40,16 @@ def shivaParser():
                                 help=('Text file containing the list of participant IDs to be processed. The IDs must be '
                                       'the same as the ones given in the input folder. In the file, the IDs can be separated '
                                       'by a whitespace, a new line, or any of the following characters [ "," ";" "|" ] '
-                                      '(or a combination of those). If this argument is not given, all the participants '
-                                      'in the input folder will be processed'))
+                                      '(or a combination of those). If none of --sub_list, --sub_names, or --exclusion_list '
+                                      'are used, all the participants in the input folder will be processed'))
+
+    sub_lists_args.add_argument('--sub_names',
+                                nargs='+',
+                                required=False,
+                                help=('List of participant IDs to be processed. With this option, the IDs are given directly '
+                                      'in the command line, separated by a white-space, and must be the same as the ones given '
+                                      'in the input folder. If none of --sub_list, --sub_names, or --exclusion_list '
+                                      'are used, all the participants in the input folder will be processed'))
 
     sub_lists_args.add_argument('--exclusion_list',
                                 type=str,
@@ -49,7 +57,9 @@ def shivaParser():
                                 help=('Text file containing the list of participant IDs to NOT be processed. This option can be '
                                       'used when processing all the data in the input folder except for a few (because they have '
                                       'faulty data for exemple).\n'
-                                      'In the file, the syntax is the same as for --sub_list.'))
+                                      'In the file, the syntax is the same as for --sub_list\n.'
+                                      'If none of --sub_list, --sub_names, or --exclusion_list '
+                                      'are used, all the participants in the input folder will be processed'))
 
     parser.add_argument('--prediction',
                         choices=['PVS', 'PVS2', 'WMH', 'CMB', 'LAC', 'all'],
@@ -339,13 +349,16 @@ def set_args_and_check(inParser):
 
     # Checks and parsing of subjects
     subject_list = os.listdir(args.input)
-    if args.sub_list is None:
+    if args.sub_list is None and args.sub_names is None:
         if args.exclusion_list:
             args.exclusion_list = parse_sub_list_file(args.exclusion_list)
             subject_list = sorted(list(set(subject_list) - set(args.exclusion_list)))
         args.sub_list = subject_list
     else:
-        args.sub_list = parse_sub_list_file(args.sub_list)
+        if args.sub_list:
+            args.sub_list = parse_sub_list_file(args.sub_list)
+        elif args.sub_names:
+            args.sub_list = args.sub_names
         subs_not_in_dir = set(args.sub_list) - set(subject_list)
         if len(subs_not_in_dir) == len(args.sub_list):
             raise inParser.error('None of the participant IDs given in the sub_list file was found in the input directory.\n'
