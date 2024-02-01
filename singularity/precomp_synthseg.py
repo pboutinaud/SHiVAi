@@ -23,6 +23,7 @@ class SynthSegInputSpec(CommandLineInputSpec):
                         exists=True)
 
     out_filename = traits.Str('synthseg_parc.nii.gz', argstr='--o %s',
+                              usedefault=True,
                               desc='Output file path.')
 
     threads = traits.Int(10, argstr='--threads %d',
@@ -182,6 +183,11 @@ def synthsegParser():
                         action='store_true',
                         help='If selected, will run Synthseg using CPUs instead of GPUs')
 
+    parser.add_argument('--threads',
+                        default=8,
+                        type=int,
+                        help='Number of threads to create for parallel computation when using --synthseg_cpu (default is 8).')
+
     parser.add_argument('--gpu',
                         type=int,
                         help='ID of the GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
@@ -304,11 +310,11 @@ def main():
     synthseg = Node(SynthSeg(),
                     name='synthseg')
     synthseg.inputs.cpu = wfargs['SYNTHSEG_ON_CPU']
+    synthseg.inputs.threads = args.threads
 
     # Initializing the data sinks
     sink_node_subjects = Node(DataSink(), name='sink_node_subjects')
     sink_node_subjects.inputs.base_directory = os.path.join(wfargs['BASE_DIR'], 'results')
-    # Name substitutions in the results
     sink_node_subjects.inputs.substitutions = [
         ('_subject_id_', ''),
     ]
@@ -318,3 +324,7 @@ def main():
     synthseg_wf.connect(synthseg, 'segmentation', sink_node_subjects, 'shiva_preproc.synthseg')
 
     synthseg_wf.run(plugin=args.run_plugin, plugin_args=args.run_plugin_args)
+
+
+if __name__ == "__main__":
+    main()

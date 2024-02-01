@@ -4,6 +4,7 @@ Stage: build
 
 %files
     synthseg_models.zip /usr/local/
+    precomp_synthseg.py /usr/local/bin
 
 %environment
     PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -34,3 +35,7 @@ Stage: build
     sed -i '1s/^/#!\/usr\/local\/bin\/python\n# -*- coding: utf-8 -*-\n/' mri_synthseg
     chmod +x mri_synthseg
 
+    # Making standalone Nypipe workflow executable (for fully-contained processing)
+    pip install nipype
+    cd /usr/local/bin
+    chmod +x precomp_synthseg.py

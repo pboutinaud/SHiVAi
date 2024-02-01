@@ -9,6 +9,7 @@ from shivautils.workflows.dual_preprocessing import genWorkflow as genWorkflowDu
 from shivautils.workflows.preprocessing_swi_reg import graft_workflow_swi
 from shivautils.workflows.preprocessing_premasked import genWorkflow as genWorkflow_preproc_masked
 from shivautils.workflows.preprocessing_synthseg import genWorkflow as genWorkflow_preproc_synthseg
+from shivautils.workflows.preprocessing_synthseg_precomp import genWorkflow as genWorkflow_preproc_synthseg_precomp
 from shivautils.interfaces.post import Join_Prediction_metrics, Join_QC_metrics
 from nipype.pipeline.engine import Workflow, Node, JoinNode
 from nipype.interfaces.utility import IdentityInterface
@@ -74,22 +75,32 @@ def generate_main_wf(**kwargs) -> Workflow:
     input_type = kwargs['PREP_SETTINGS']['input_type']
 
     if with_t1:
+        # What main acquisition to use
         if kwargs['ACQUISITIONS']['t1-like']:
             acquisitions.append(('img1', kwargs['ACQUISITIONS']['t1-like']))
         else:
             acquisitions.append(('img1', 't1'))
+
+        # What type of preprocessing (basic / synthseg / premasked input)
         if kwargs['BRAIN_SEG'] == 'masked':
             wf_preproc = genWorkflow_preproc_masked(**kwargs, wf_name=wf_name)
         elif kwargs['BRAIN_SEG'] == 'synthseg':
-            wf_preproc = genWorkflow_preproc_synthseg(**kwargs, wf_name=wf_name)
+            if kwargs['SYNTHSEG_PRECOMP']:
+                wf_preproc = genWorkflow_preproc_synthseg_precomp(**kwargs, wf_name=wf_name)
+            else:
+                wf_preproc = genWorkflow_preproc_synthseg(**kwargs, wf_name=wf_name)
         else:
             wf_preproc = genWorkflowPreproc(**kwargs, wf_name=wf_name)
+
+        # Checking if dual preprocessing is needed (and chich type of secondary aquisition)
         if with_flair:
             if kwargs['ACQUISITIONS']['flair-like']:
                 acquisitions.append(('img2', kwargs['ACQUISITIONS']['flair-like']))
             else:
                 acquisitions.append(('img2', 'flair'))
             wf_preproc = genWorkflowDualPreproc(wf_preproc, **kwargs)
+
+        # Checking if SWI (or equivalent) need to be preprocessed
         if with_swi:  # Adding the swi preprocessing steps to the preproc workflow
             if kwargs['ACQUISITIONS']['swi-like']:
                 acquisitions.append(('img3', kwargs['ACQUISITIONS']['swi-like']))
@@ -97,6 +108,8 @@ def generate_main_wf(**kwargs) -> Workflow:
                 acquisitions.append(('img3', 'swi'))
             cmb_preproc_wf_name = 'swi_preprocessing'
             wf_preproc = graft_workflow_swi(wf_preproc, **kwargs, wf_name=cmb_preproc_wf_name)
+
+        # Updating the datagrabber with all this info
         wf_preproc = update_wf_grabber(wf_preproc, input_type, acquisitions)
     elif with_swi and not with_t1:  # CMB alone
         acquisitions.append(('img1', 'swi'))
@@ -114,6 +127,8 @@ def generate_main_wf(**kwargs) -> Workflow:
 
     # Set all the connections between preproc and postproc
     main_wf.connect(subject_iterator, 'subject_id', wf_preproc, 'datagrabber.subject_id')
+    if kwargs['SYNTHSEG_PRECOMP']:  # "synthseg" is a datagrabber here
+        main_wf.connect(subject_iterator, 'subject_id', wf_preproc, 'synthseg.subject_id')
     main_wf.connect(subject_iterator, 'subject_id', wf_post, 'summary_report.subject_id')
     main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_crop_box.crop_brain_img', wf_post, 'summary_report.crop_brain_img')
     main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_overlay_brainmask.overlayed_brainmask', wf_post, 'summary_report.overlayed_brainmask_1')
@@ -383,7 +398,7 @@ def generate_main_wf(**kwargs) -> Workflow:
     if kwargs['BRAIN_SEG'] is None:
         main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@brain_mask_raw_space')
     if kwargs['BRAIN_SEG'] == 'synthseg':
-        main_wf.connect(wf_preproc, 'synthseg.segmentation', sink_node_subjects, 'shiva_preproc.synthseg')
+        main_wf.connect(wf_preproc, 'synthseg.segmentation', sink_node_subjects, 'shiva_preproc.synthseg')  # TODO: See how it works if synthseg is a datagrabber
         main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', sink_node_subjects, 'shiva_preproc.synthseg.@cropped')
         main_wf.connect(wf_preproc, 'custom_parc.brain_parc', sink_node_subjects, 'shiva_preproc.synthseg.@custom')
     main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@bb1')
