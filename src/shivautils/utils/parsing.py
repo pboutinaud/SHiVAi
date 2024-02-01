@@ -466,6 +466,7 @@ def set_args_and_check(inParser):
         args.prediction = [args.prediction]
 
     # Check the preprocessing files input when given
+    setattr(args, 'preproc_results', None)  # TODO: remove when preproc_results updated
     if args.preproc_results is not None:
         args.preproc_results = os.path.abspath(args.preproc_results)
         if not os.path.exists(args.preproc_results):

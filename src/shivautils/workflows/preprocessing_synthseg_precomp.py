@@ -48,3 +48,5 @@ def genWorkflow(**kwargs) -> Workflow:
     # Creates our custom segmentation with WM parcellation and lobar distinctions
     custom_parc = Node(Parc_from_Synthseg(), name='custom_parc')
     workflow.connect(mask_to_crop, 'resampled_image', custom_parc, 'brain_seg')
+
+    return workflow
