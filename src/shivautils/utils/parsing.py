@@ -103,6 +103,11 @@ def shivaParser():
                         action='store_true',
                         help='If selected, will run Synthseg using CPUs instead of GPUs')
 
+    parser.add_argument('--synthseg_threads',
+                        default=8,
+                        type=int,
+                        help='Number of threads to create for parallel computation when using --synthseg_cpu (default is 8).')
+
     parser.add_argument('--masked',
                         action='store_true',
                         help='Select this if the input images are masked (i.e. with the brain extracted)')
@@ -117,7 +122,7 @@ def shivaParser():
 
     container_args = parser.add_mutually_exclusive_group()
 
-    container_args.add_argument('--containerized_all',  # TODO: Check if compatible with containerized Synthseg
+    container_args.add_argument('--containerized_all',
                                 help='Used when the whole process is launched from inside a container',
                                 action='store_true')
 
@@ -176,6 +181,14 @@ def shivaParser():
     #                         'are available in the results folder. If you have subjects with missing preprocessed data, you will '
     #                         'need to run their processing separatly.'
     #                     ))
+
+    parser.add_argument('--synthseg_precomp',
+                        action='store_true',
+                        help=(
+                            "Option used when the Synthseg parcellation has already been computed AND is stored "
+                            "in the process's result folder. This is specifically designed to work with the "
+                            "'precomp_synthseg.py script called when using 'run_shiva' and using --containerized_all "
+                            "here."))
 
     file_management = parser.add_mutually_exclusive_group()
 

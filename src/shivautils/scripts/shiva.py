@@ -67,6 +67,10 @@ def main():
 
     if args.synthseg:
         seg = 'synthseg'
+        if args.synthseg_cpu:
+            ss_threads = args.synthseg_threads
+        else:
+            ss_threads = 0
     elif args.masked:
         seg = 'masked'
     else:
@@ -103,7 +107,8 @@ def main():
         'BASE_DIR': out_dir,  # Default base_dir for each workflow
         'PREDICTION': args.prediction,  # Needed by the postproc for now
         'BRAIN_SEG': seg,
-        'SYNTHSEG_ON_CPU': args.synthseg_cpu,  # Wether to run Synthseg on CPUs
+        'SYNTHSEG_ON_CPU': ss_threads,  # Number of threads to use for Synthseg on CPUs
+        'SYNTHSEG_PRECOMP': args.synthseg_precomp,
         'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
         'WMH_DESCRIPTOR': wmh_descriptor,
         'PVS_DESCRIPTOR': pvs_descriptor,
