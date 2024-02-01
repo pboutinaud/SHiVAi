@@ -121,7 +121,9 @@ class SynthSegInputSpec(CommandLineInputSpec):
                         desc='The structural image of the subject (use an image input file, not a file list or folder).',
                         exists=True)
 
-    out_filename = traits.Str('synthseg_parc.nii.gz', argstr='--o %s',
+    out_filename = traits.Str('synthseg_parc.nii.gz',
+                              argstr='--o %s',
+                              usedefault=True,
                               desc='Output file path.')
 
     threads = traits.Int(10, argstr='--threads %d',
