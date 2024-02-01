@@ -139,6 +139,7 @@ class SynthSegInputSpec(CommandLineInputSpec):
                        usedefault=True)
 
     cpu = traits.Bool(False, argstr='--cpu', mandatory=False,
+                      usedefault=True,
                       desc='Use CPU instead of GPU for computations')
 
     vol = traits.Str('volumes.csv', argstr='--vol %s', mandatory=False,
