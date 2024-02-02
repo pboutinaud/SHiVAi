@@ -36,6 +36,6 @@ Stage: build
     chmod +x mri_synthseg
 
     # Making standalone Nypipe workflow executable (for fully-contained processing)
-    pip install nipype
+    pip install nipype pyyaml
     cd /usr/local/bin
     chmod +x precomp_synthseg.py

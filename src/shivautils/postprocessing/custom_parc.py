@@ -4,9 +4,10 @@ Each function requires our Synthseg-derived parcellation
 '''
 
 import numpy as np
+from typing import Tuple
 
 
-def seg_for_pvs(parc: np.ndarray) -> tuple[np.ndarray, dict]:
+def seg_for_pvs(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
     '''
     Will segment PVS into:  L / R
         - Deep:             1 / 6
@@ -57,7 +58,7 @@ def seg_for_pvs(parc: np.ndarray) -> tuple[np.ndarray, dict]:
     return pvs_seg, seg_labels
 
 
-def seg_for_wmh(parc: np.ndarray) -> tuple[np.ndarray, dict]:
+def seg_for_wmh(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
     '''
     Will segment WMH into:  L / R
         - Shallow:          1 / 5  (includes the cortex, i.e. GM)
@@ -100,7 +101,7 @@ def seg_for_wmh(parc: np.ndarray) -> tuple[np.ndarray, dict]:
     return wmh_seg, seg_labels
 
 
-def seg_from_mars(parc: np.ndarray) -> tuple[np.ndarray, dict]:
+def seg_from_mars(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
     '''
     Based on the Microbleed Anatomical Rating Scale (MARS)
     Will segment CMBs into: L / R

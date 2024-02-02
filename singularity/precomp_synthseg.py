@@ -7,6 +7,8 @@ any change made in shivautils must be manually re-implemented here too.
 
 import argparse
 import os
+import json
+import yaml
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.io import DataGrabber, DataSink
 from nipype.interfaces.utility import IdentityInterface
@@ -198,7 +200,7 @@ def synthsegParser():
                               '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
                               'for more details )'))
 
-    parser.add_argument('--run_plugin_args',
+    parser.add_argument('--run_plugin_args',  # hidden feature: you can also give a json string '{"arg1": val1, ...}'
                         type=str,
                         help=('Configuration file (.yml) for the plugin used by Nipype to run the workflow.\n'
                               'It will be imported as a dictionary and given plugin_args '
@@ -250,6 +252,7 @@ def main():
         elif len(subs_not_in_dir) > 0:
             raise parser.error(f'Some participants where not found in the input directory: {sorted(list(subs_not_in_dir))}')
 
+    # Parse data structure type
     if args.input_type == 'standard' or args.input_type == 'BIDS':
         subject_directory = args.input
         out_dir = args.output
@@ -258,6 +261,17 @@ def main():
             'Sorry, using the json input format has not been implemented here. '
             'Please use "standard" or "BIDS".'
         )
+
+    # Parse the plugin arguments
+    if args.run_plugin_args:
+        if os.path.isfile(args.run_plugin_args):
+            with open(args.run_plugin_args, 'r') as file:
+                yaml_content = yaml.safe_load(file)
+            args.run_plugin_args = yaml_content
+        else:
+            args.run_plugin_args = json.loads(args.run_plugin_args)
+    else:
+        args.run_plugin_args = {}
 
     wfargs = {
         'DATA_DIR': subject_directory,

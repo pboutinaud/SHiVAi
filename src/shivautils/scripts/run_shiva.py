@@ -3,6 +3,7 @@ import subprocess
 import argparse
 from pathlib import Path
 import yaml
+import json
 import os
 import os.path as op
 
@@ -134,7 +135,7 @@ def singParser():
                         help=('Type of plugin used by Nipype to run the workflow.\n'
                               '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
                               'for more details )'))
-    parser.add_argument('--run_plugin_args',
+    parser.add_argument('--run_plugin_args',  # hidden feature: you can also give a json string '{"arg1": val1, ...}'
                         type=str,
                         help=('Configuration file (.yml) for the plugin used by Nipype to run the workflow.\n'
                               'It will be imported as a dictionary and given plugin_args '
@@ -168,6 +169,13 @@ def main():
     if not (op.exists(args.output) and op.isdir(args.output)):
         os.makedirs(args.output)
 
+    # Convert the run_plugin_args yaml file to a json string to avoid mounting too many folders
+    if args.run_plugin_args:
+        if os.path.isfile(args.run_plugin_args):
+            with open(args.run_plugin_args, 'r') as file:
+                args.run_plugin_args = json.dumps(yaml.safe_load(file))
+        # else: already json sring or empty, which is fine for both
+
     # Optional inputs (common Shiva and Synthseg)
     opt_args1_names = ['replace_t1',
                        'replace_swi',
@@ -175,7 +183,7 @@ def main():
                        'run_plugin',
                        'run_plugin_args',
                        'gpu']
-    opt_args1 = [f'--{arg_name} {args[arg_name]}' for arg_name in opt_args1_names if args[arg_name]]
+    opt_args1 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args1_names if getattr(args, arg_name)]
     bind_sublist = None
     if args.sub_list:
         bind_sublist = f"{op.dirname(op.abspath(args.sub_list))}:/mnt/sublist:rw"
@@ -214,7 +222,7 @@ def main():
         # singularity exec --bind /scratch/nozais/test_shiva/MRI_anat_moi:/mnt/data/input:rw,/scratch/nozais/test_shiva/test_synthprecomp:/mnt/data/output:rw /scratch/nozais/test_shiva/synthseg_test.sif precomp_synthseg.py --in /mnt/data/input --out /mnt/data/output --synthseg_cpu
 
         res_proc = subprocess.run(command_ss, shell=True)
-        if res_proc['returncode'] != 0:
+        if res_proc.returncode != 0:
             raise RuntimeError('The Synthseg process failed. Interrupting the Shiva process.')
 
     bind_model = f"{yaml_content['model_path']}:/mnt/model:ro"
@@ -228,7 +236,7 @@ def main():
     opt_args2_names = ['db_name',
                        'replace_flair',
                        'masked',]
-    opt_args2 = [f'--{arg_name} {args[arg_name]}' for arg_name in opt_args2_names if args[arg_name]]
+    opt_args2 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args2_names if getattr(args, arg_name)]
     preproc = None
     if args.preproc_results:
         preproc = f"{args.preproc_results}:/mnt/preproc:rw"

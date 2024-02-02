@@ -65,12 +65,11 @@ def main():
         cmb_descriptor = os.path.join(args.model, args.cmb_descriptor)
         lac_descriptor = os.path.join(args.model, args.lac_descriptor)
 
+    ss_threads = 0
     if args.synthseg:
         seg = 'synthseg'
         if args.synthseg_cpu:
             ss_threads = args.synthseg_threads
-        else:
-            ss_threads = 0
     elif args.masked:
         seg = 'masked'
     else:

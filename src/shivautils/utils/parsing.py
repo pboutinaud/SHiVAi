@@ -2,6 +2,7 @@
 import os
 import argparse
 import yaml
+import json
 
 
 def shivaParser():
@@ -144,7 +145,7 @@ def shivaParser():
                               '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
                               'for more details )'))
 
-    parser.add_argument('--run_plugin_args',
+    parser.add_argument('--run_plugin_args',  # hidden feature: you can also give a json string '{"arg1": val1, ...}'
                         type=str,
                         help=('Configuration file (.yml) for the plugin used by Nipype to run the workflow.\n'
                               'It will be imported as a dictionary and given plugin_args '
@@ -439,9 +440,12 @@ def set_args_and_check(inParser):
 
     # Parse the plugin arguments
     if args.run_plugin_args:
-        with open(args.run_plugin_args, 'r') as file:
-            yaml_content = yaml.safe_load(file)
-        args.run_plugin_args = yaml_content
+        if os.path.isfile(args.run_plugin_args):
+            with open(args.run_plugin_args, 'r') as file:
+                yaml_content = yaml.safe_load(file)
+            args.run_plugin_args = yaml_content
+        else:
+            args.run_plugin_args = json.loads(args.run_plugin_args)
     else:
         args.run_plugin_args = {}
     args.run_plugin_args['max_jobs'] = args.max_jobs

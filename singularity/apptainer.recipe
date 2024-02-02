@@ -17,7 +17,7 @@ Stage: build
     python -m pip install build
     python -m pip install .
     pip cache purge
-    rm /usr/local/src/shivautils
+    rm -rf /usr/local/src/shivautils
 
     # Installing ANTs
     cd /opt
