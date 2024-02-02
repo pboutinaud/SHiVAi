@@ -199,10 +199,10 @@ def main():
         args_ss = []
         if args.synthseg_cpu:
             args_ss.append("--synthseg_cpu")
+            args_ss.append(f"--threads {args.synthseg_threads}")
             nv = ''  # nvidia support for GPU usage with Singularity
         else:
             nv = '--nv'
-        args_ss.append(f"--threads {args.synthseg_threads}")
         sing_image_ss = f"{yaml_content['synthseg_image']}"
         bind_list_ss = [f"{args.input}:/mnt/data/input:rw", f"{args.output}:/mnt/data/output:rw"]
         if args.run_plugin_args:
@@ -241,6 +241,8 @@ def main():
     if args.preproc_results:
         preproc = f"{args.preproc_results}:/mnt/preproc:rw"
         opt_args2.append("--preproc_results /mnt/preproc")
+    if args.synthseg:
+        opt_args2.append("--synthseg_precomp")
 
     bind_list = [bind_model, bind_input, bind_output, bind_config]
     if bind_sublist:

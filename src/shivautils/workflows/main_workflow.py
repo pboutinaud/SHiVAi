@@ -112,11 +112,17 @@ def generate_main_wf(**kwargs) -> Workflow:
         # Updating the datagrabber with all this info
         wf_preproc = update_wf_grabber(wf_preproc, input_type, acquisitions)
     elif with_swi and not with_t1:  # CMB alone
-        acquisitions.append(('img1', 'swi'))
+        if kwargs['ACQUISITIONS']['swi-like']:
+            acquisitions.append(('img1', kwargs['ACQUISITIONS']['swi-like']))
+        else:
+            acquisitions.append(('img1', 'swi'))
         if kwargs['BRAIN_SEG'] == 'masked':
             wf_preproc = genWorkflow_preproc_masked(**kwargs, wf_name=wf_name)
         elif kwargs['BRAIN_SEG'] == 'synthseg':
-            wf_preproc = genWorkflow_preproc_synthseg(**kwargs, wf_name=wf_name)
+            if kwargs['SYNTHSEG_PRECOMP']:
+                wf_preproc = genWorkflow_preproc_synthseg_precomp(**kwargs, wf_name=wf_name)
+            else:
+                wf_preproc = genWorkflow_preproc_synthseg(**kwargs, wf_name=wf_name)
         else:
             wf_preproc = genWorkflowPreproc(**kwargs, wf_name=wf_name)
         wf_preproc = update_wf_grabber(wf_preproc, input_type, acquisitions)
