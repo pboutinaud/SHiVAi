@@ -270,15 +270,7 @@ def main():
     else:
         args.run_plugin_args = {}
 
-    wfargs = {
-        'DATA_DIR': subject_directory,
-        'BASE_DIR': out_dir,
-        'PREDICTION': args.prediction,
-        'SUBJECT_LIST': args.sub_list,
-        'SYNTHSEG_ON_CPU': args.synthseg_cpu,
-    }
-
-    with_t1, with_flair, with_swi = set_wf_shapers(wfargs['PREDICTION'])
+    with_t1, with_flair, with_swi = set_wf_shapers(args.prediction)
 
     if with_t1:
         if args.replace_t1:
@@ -292,7 +284,7 @@ def main():
             acq = 'swi'
 
     synthseg_wf = Workflow('synthseg_wf')
-    synthseg_wf.base_dir = wfargs['BASE_DIR']
+    synthseg_wf.base_dir = out_dir
 
     # Start by initializing the iterable
     subject_iterator = Node(
@@ -300,14 +292,14 @@ def main():
             fields=['subject_id'],
             mandatory_inputs=True),
         name="subject_iterator")
-    subject_iterator.iterables = ('subject_id', wfargs['SUBJECT_LIST'])
+    subject_iterator.iterables = ('subject_id', args.sub_list)
 
     # Initialize the datagrabber
     datagrabber = Node(DataGrabber(
         infields=['subject_id'],
         outfields=['img1']),
         name='datagrabber')
-    datagrabber.inputs.base_directory = wfargs['DATA_DIR']
+    datagrabber.inputs.base_directory = subject_directory
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
     datagrabber.inputs.template = '%s/%s/*.nii*'
@@ -320,12 +312,12 @@ def main():
 
     synthseg = Node(SynthSeg(),
                     name='synthseg')
-    synthseg.inputs.cpu = wfargs['SYNTHSEG_ON_CPU']
+    synthseg.inputs.cpu = args.synthseg_cpu
     synthseg.inputs.threads = args.threads
 
     # Initializing the data sinks
     sink_node_subjects = Node(DataSink(), name='sink_node_subjects')
-    sink_node_subjects.inputs.base_directory = os.path.join(wfargs['BASE_DIR'], 'results')
+    sink_node_subjects.inputs.base_directory = os.path.join(out_dir, 'results')
     sink_node_subjects.inputs.substitutions = [
         ('_subject_id_', ''),
     ]
