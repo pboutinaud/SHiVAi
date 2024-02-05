@@ -229,6 +229,15 @@ def main():
     parser = synthsegParser()
     args = parser.parse_args()
 
+    # Parse the prediction
+    if 'all' in args.prediction:
+        if 'PVS' in args.prediction:
+            args.prediction = ['PVS', 'WMH', 'CMB', 'LAC']
+        else:
+            args.prediction = ['PVS2', 'WMH', 'CMB', 'LAC']
+    if not isinstance(args.prediction, list):  # When only one input
+        args.prediction = [args.prediction]
+
     # Checks and parsing of subjects
     subject_list = os.listdir(args.input)
     if args.sub_list is None and args.sub_names is None:
