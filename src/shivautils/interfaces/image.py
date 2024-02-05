@@ -1248,7 +1248,9 @@ class Labelled_Clusters_Registration(BaseInterface):
     def _run_interface(self, runtime):
         input_im = nib.load(self.inputs.input_image)
         ref_im = nib.load(self.inputs.reference_image)
-        transform_affine_raw = loadmat(self.inputs.transform_affine)['AffineTransform_double_3_3']
+        mat = loadmat(self.inputs.transform_affine)
+        key_name = [k for k in mat if 'AffineTransform_' in k][0]  # AffineTransform_*_3_3
+        transform_affine_raw = mat[key_name]
         transform_affine = np.eye(4)
         transform_affine[:3, :3] = transform_affine_raw[:9].reshape((3, 3))
         transform_affine[:3, 3] = transform_affine_raw[9:12].squeeze()

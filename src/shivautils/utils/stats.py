@@ -278,8 +278,9 @@ def transf_from_affine(mat_file: str):
     # from scipy.io import loadmat
 
     mat = loadmat(mat_file)
-    rot = mat['AffineTransform_double_3_3'][0:9].reshape((3, 3))
-    trans = mat['AffineTransform_double_3_3'][9:12]
+    key_name = [k for k in mat if 'AffineTransform_' in k][0]  # AffineTransform_*_3_3
+    rot = mat[key_name][0:9].reshape((3, 3))
+    trans = mat[key_name][9:12]
     r = Rotation.from_matrix(rot)
     r_tot = np.abs(r.as_euler('xyz', degrees=True)).sum()
     t_norm = np.linalg.norm(trans)
