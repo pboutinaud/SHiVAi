@@ -22,7 +22,7 @@ def genWorkflow(**kwargs) -> Workflow:
     if 'wf_name' not in kwargs.keys():
         kwargs['wf_name'] = 'shiva_preprocessing_synthseg'
 
-    workflow = gen_premasked_wf(**kwargs)
+    workflow = gen_premasked_wf(**kwargs, )
 
     datagrabber = workflow.get_node('datagrabber')
 
