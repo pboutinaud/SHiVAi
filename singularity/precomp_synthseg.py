@@ -14,10 +14,11 @@ from nipype.interfaces.io import DataGrabber, DataSink
 from nipype.interfaces.utility import IdentityInterface
 from nipype.interfaces.base import (traits, TraitedSpec,
                                     CommandLineInputSpec,
+                                    BaseInterfaceInputSpec,
                                     CommandLine,)
 
 
-class SynthSegInputSpec(CommandLineInputSpec):
+class SynthSegInputSpec(BaseInterfaceInputSpec):  # CommandLineInputSpec ?
     """Input arguments structure for Freesurfer synthseg."""
 
     input = traits.File(argstr='--i %s',
@@ -190,10 +191,6 @@ def synthsegParser():
                         type=int,
                         help='Number of threads to create for parallel computation when using --synthseg_cpu (default is 8).')
 
-    parser.add_argument('--gpu',
-                        type=int,
-                        help='ID of the GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
-
     parser.add_argument('--run_plugin',
                         default='Linear',
                         help=('Type of plugin used by Nipype to run the workflow.\n'
@@ -280,7 +277,7 @@ def main():
         'SUBJECT_LIST': args.sub_list,
         'SYNTHSEG_ON_CPU': args.synthseg_cpu,
     }
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+
     with_t1, with_flair, with_swi = set_wf_shapers(wfargs['PREDICTION'])
 
     if with_t1:
