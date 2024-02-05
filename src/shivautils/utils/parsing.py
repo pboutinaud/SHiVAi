@@ -401,8 +401,6 @@ def set_args_and_check(inParser):
             args.container_image = yaml_content['apptainer_image']
         if args.synthseg:
             args.synthseg_image = yaml_content['synthseg_image']
-        if args.synthseg_precomp:
-            args.synthseg = True
         parameters = yaml_content['parameters']
         args.model = yaml_content['model_path']  # only used when not with container
         args.percentile = parameters['percentile']
@@ -429,6 +427,9 @@ def set_args_and_check(inParser):
         args.cmb_descriptor = parameters['CMB_descriptor']
         args.lac_descriptor = parameters['LAC_descriptor']
     args.model = os.path.abspath(args.model)
+
+    if args.synthseg_precomp:
+        args.synthseg = True
 
     # Check containerizing options
     if (args.containerized_all or args.containerized_nodes) and not args.container_image:
