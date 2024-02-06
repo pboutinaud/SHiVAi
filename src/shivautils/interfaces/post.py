@@ -434,38 +434,23 @@ class SummaryReport(BaseInterface):
         pred_census_im_dict = {}  # Will contain the path to the swarm plot for each biomarker
         models_uid = {}  # Will contain the md5 hash for each file of each predictive model
         pred_and_acq = self.inputs.pred_and_acq
-        if 'PVS' in pred_and_acq:
-            models_uid['PVS'] = {}
-            pred_metrics_dict['PVS'] = pd.read_csv(self.inputs.pvs_metrics_csv)
-            pred_census_im_dict['PVS'] = violinplot_from_census(self.inputs.pvs_census_csv, 'PVS')
-            ids, url = get_md5_from_json(self.inputs.pvs_model_descriptor, get_url=True)
-            models_uid['PVS']['id'] = ids
+
+        # Generate the distribution figures for each prediction and fill models_uid
+        for pred in pred_and_acq:
+            lpred = pred.lower()  # "pred" is uppercase, so we also need a lowercase version
+            if pred == 'LAC':
+                name_in_plot = 'Lacuna'
+            else:
+                name_in_plot = pred
+            models_uid[pred] = {}
+            pred_metrics_dict[pred] = pd.read_csv(getattr(self.inputs, f'{lpred}_metrics_csv'))
+            pred_census_im_dict[pred] = violinplot_from_census(getattr(self.inputs, f'{lpred}_census_csv'),
+                                                               self.inputs.resolution,
+                                                               name_in_plot)
+            ids, url = get_md5_from_json(getattr(self.inputs, f'{lpred}_model_descriptor'), get_url=True)
+            models_uid[pred]['id'] = ids
             if url:
-                models_uid['PVS']['url'] = url
-        if 'WMH' in pred_and_acq:
-            models_uid['WMH'] = {}
-            pred_metrics_dict['WMH'] = pd.read_csv(self.inputs.wmh_metrics_csv)
-            pred_census_im_dict['WMH'] = violinplot_from_census(self.inputs.wmh_census_csv, 'WMH')
-            ids, url = get_md5_from_json(self.inputs.wmh_model_descriptor, get_url=True)
-            models_uid['WMH']['id'] = ids
-            if url:
-                models_uid['WMH']['url'] = url
-        if 'CMB' in pred_and_acq:
-            models_uid['CMB'] = {}
-            pred_metrics_dict['CMB'] = pd.read_csv(self.inputs.cmb_metrics_csv)
-            pred_census_im_dict['CMB'] = violinplot_from_census(self.inputs.cmb_census_csv, 'CMB')
-            ids, url = get_md5_from_json(self.inputs.cmb_model_descriptor, get_url=True)
-            models_uid['CMB']['id'] = ids
-            if url:
-                models_uid['CMB']['url'] = url
-        if 'LAC' in pred_and_acq:
-            models_uid['LAC'] = {}
-            pred_metrics_dict['LAC'] = pd.read_csv(self.inputs.lac_metrics_csv)
-            pred_census_im_dict['LAC'] = violinplot_from_census(self.inputs.lac_census_csv, 'Lacuna')
-            ids, url = get_md5_from_json(self.inputs.lac_model_descriptor, get_url=True)
-            models_uid['LAC']['id'] = ids
-            if url:
-                models_uid['LAC']['url'] = url
+                models_uid[pred]['url'] = url
 
         # set optional inputs to None if undefined
         if isdefined(self.inputs.overlayed_brainmask_1):
@@ -574,6 +559,7 @@ class SummaryReport(BaseInterface):
 
         setattr(self, 'summary_report', os.path.abspath('summary_report.html'))
         setattr(self, 'summary', os.path.abspath('summary.pdf'))
+        return runtime
 
     def _list_outputs(self):
         """Fill in the output structure."""

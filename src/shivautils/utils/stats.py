@@ -203,14 +203,16 @@ def extreme_val(series: pd.Series) -> float:
     )
 
 
-def violinplot_from_census(census_csv: str, pred: str):
+def violinplot_from_census(census_csv: str, resolution: tuple, pred: str):
     census_df = pd.read_csv(census_csv)
+    scale = resolution[0] * resolution[1] * resolution[2]
+    census_df['Biomarker size ($mm^3$)'] = census_df['Biomarker size'] * scale
     save_name = f'{pred}_census_plot.svg'
     plt.ioff()
     if 'Biomarker region' not in census_df.columns:
         fig, ax = plt.subplots(figsize=(6, 4))
         # sns.stripplot(census_df, y='Biomarker size')  # replaced swamplot
-        sns.histplot(census_df, x='Biomarker size', ax=ax)
+        sns.histplot(census_df, x='Biomarker size ($mm^3$)', ax=ax)
         plt.title(f'{pred} size ditribution')
         plt.tight_layout()
         plt.savefig(save_name, format='svg')
@@ -221,21 +223,31 @@ def violinplot_from_census(census_csv: str, pred: str):
         census_df.loc[FS_id, 'Biomarker region'] = 'Other'
         reg_nb = census_df['Biomarker region'].nunique()
         fig, ax = plt.subplots(figsize=(2+0.5*reg_nb, 6))
-        # Remove outliers and displayt them as dots
+
+        # Detect outliers and display them as dots
         brain_regions = census_df['Biomarker region'].unique()
         extreme_dict = {
-            reg: extreme_val(census_df.loc[census_df['Biomarker region'] == reg, 'Biomarker size']) for reg in brain_regions
+            reg: extreme_val(census_df.loc[census_df['Biomarker region'] == reg, 'Biomarker size ($mm^3$)']) for reg in brain_regions
         }
-        census_df['isXtreme'] = census_df.apply(lambda row: row['Biomarker size'] > extreme_dict[row['Biomarker region']], axis=1)
+        census_df['isXtreme'] = census_df.apply(lambda row: row['Biomarker size ($mm^3$)'] > extreme_dict[row['Biomarker region']], axis=1)
+
+        # Detect regions with low biomarker count to display as swarmplot
+        reg_swarm = [reg for reg in brain_regions if (census_df['Biomarker region'] == reg).sum() < 10]
+        census_df['swarm'] = census_df.apply(lambda row: row['Biomarker region'] in reg_swarm, axis=1)
 
         # Set the palette so that the dots and the violins are the same color
         colors = sns.color_palette("hls", len(brain_regions))
         my_palette = {reg: colors[i] for i, reg in enumerate(brain_regions)}
-        sns.violinplot(census_df.loc[~census_df['isXtreme']], y='Biomarker size', x='Biomarker region',
-                       hue='Biomarker region', cut=0, bw_adjust=0.7, palette=my_palette,
+
+        # Plots
+        sns.violinplot(census_df.loc[~census_df['isXtreme'] & ~census_df['swarm']], y='Biomarker size ($mm^3$)', x='Biomarker region',
+                       hue='Biomarker region', cut=0, bw_adjust=0.7, palette=my_palette, log_scale=True,
                        ax=ax)
-        sns.swarmplot(census_df.loc[census_df['isXtreme']], y='Biomarker size', x='Biomarker region',
-                      hue='Biomarker region', alpha=0.8, palette=my_palette,
+        sns.swarmplot(census_df.loc[census_df['isXtreme']], y='Biomarker size ($mm^3$)', x='Biomarker region',
+                      hue='Biomarker region', alpha=0.8, palette=my_palette, log_scale=True,
+                      ax=ax)
+        sns.swarmplot(census_df.loc[census_df['swarm']], y='Biomarker size ($mm^3$)', x='Biomarker region',
+                      hue='Biomarker region', palette=my_palette, log_scale=True,
                       ax=ax)
         plt.title(f'{pred} size ditribution')
         plt.xticks(rotation=45, ha='right')
