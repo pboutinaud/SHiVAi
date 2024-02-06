@@ -375,3 +375,49 @@ def apply_mask(file_prediction: nb.Nifti1Image,
     masked_prediction_Nifti = nb.Nifti1Image(masked_prediction.astype('f'), file_prediction.affine, file_prediction.header)
 
     return masked_prediction_Nifti
+
+
+def seg_cleaner(raw_seg: np.ndarray, max_size: int = 300, ignore_labels: list = []) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    '''
+    Removes isolated islands from segmented labels, replacing the value of the island
+    by the value of the neighbor with the most neighboring voxels.
+
+    max_size is the maximum size (in voxel number) under which an "island" is considered as such.
+    If it's too big, it propably isn't a faulty segmentation.
+
+    ignore_labels is a list of regions (given by their label number) that will be ignored here
+    (typically for CSF)
+
+    Outputs the cleaned segmentation and all the deleted islands (with their original labels)
+    '''
+    labels = np.unique(raw_seg).tolist()
+    try:
+        labels.remove(0)
+    except ValueError:
+        pass
+
+    cleaned_seg = raw_seg.copy()
+    removed_islands = np.zeros(raw_seg.shape, dtype='int16')
+    kept_islands = np.zeros(raw_seg.shape, dtype='int16')
+
+    for lab in labels:
+        if lab in ignore_labels:
+            continue
+        lab_seg = (raw_seg == lab)
+        relabeled_lab, lab_num = label(lab_seg, return_num=True)
+        if lab_num > 1:
+            clust_vals, clust_cnt = np.unique(relabeled_lab[relabeled_lab != 0], return_counts=True)
+            main_clust_val = clust_vals[clust_cnt.argmax()]
+            isls_clust_vals = [val for val, n in zip(clust_vals, clust_cnt) if n <= max_size and val != main_clust_val]
+            for isl_val in isls_clust_vals:
+                clust_isle = (relabeled_lab == isl_val)
+                neighbors = ndimage.binary_dilation(clust_isle) & ~clust_isle
+                neighbors_vals, neighbors_cnt = np.unique(raw_seg[neighbors], return_counts=True)
+                # if len(neighbors_vals) == 1:  # Island is enclosed in one region
+                # cleaned_seg[clust_isle] = neighbors_vals[0]
+                # removed_islands[clust_isle] = lab
+                # else:
+                #     kept_islands[clust_isle] = lab
+                cleaned_seg[clust_isle] = neighbors_vals[np.argmax(neighbors_cnt)]
+                removed_islands[clust_isle] = lab
+    return cleaned_seg, removed_islands  # , kept_islands

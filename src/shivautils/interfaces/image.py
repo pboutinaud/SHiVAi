@@ -7,7 +7,7 @@ from shivautils.postprocessing.pvs import quantify_clusters
 from shivautils.postprocessing.basalganglia import create_basalganglia_slice_mask
 from shivautils.postprocessing.wmh import metrics_clusters_latventricles
 from shivautils.utils.stats import prediction_metrics, get_mask_regions
-from shivautils.utils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask
+from shivautils.utils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask, seg_cleaner
 from shivautils.utils.quality_control import create_edges, save_histogram, bounding_crop, overlay_brainmask
 from shivautils.utils.misc import label_clusters, cluster_registration
 from shivautils.interfaces.singularity import SingularityCommandLine, SingularityInputSpec
@@ -841,6 +841,80 @@ class Apply_mask(BaseInterface):  # TODO: Unused, to remove
         _, base, _ = split_filename(fname)
         outputs["segmentation_filtered"] = os.path.abspath(base + 'segmentation_filtered.nii.gz')
 
+        return outputs
+
+
+class Segmentation_Cleaner_InputSpec(BaseInterfaceInputSpec):
+    input_seg = traits.File(exists=True,
+                            mandatory=True,
+                            desc='Raw SynthSeg ouput')
+
+    max_island_size = traits.Int(100,
+                                 mandatory=False,
+                                 usedefault=True,
+                                 desc=('Maximum size (in voxel) under which a detached part of a brain '
+                                       'region is considered as an "island" to be removed.'))
+
+    seg_type = traits.Str('synthseg',
+                          mandatory=False,
+                          usedefault=True,
+                          desc=('Type of segmentation input in "input_seg". Is used to define '
+                                'which label values should be ignored.'))
+
+
+class Segmentation_Cleaner_OutputSpec(TraitedSpec):
+    ouput_seg = traits.File(exists=True,
+                            desc='Cleaned SynthSeg segmentation')
+
+    sunk_islands = traits.File(exists=True,
+                               desc=('"Islands" that have been removed in "ouput_seg". If no island was '
+                                     'detected, does not return any file.'))
+
+    # kept_islands = traits.File(exists=True,
+    #                            desc=('"Islands" that have been kept in "ouput_seg" as they have mutliple neighbors, '
+    #                                  'but are suspecious. If no island was detected, does not return any file.'))
+
+
+class Segmentation_Cleaner(BaseInterface):
+    """Remove small 'islands' parcels detached from the main region in a brain parcellisation"""
+    input_spec = Segmentation_Cleaner_InputSpec
+    output_spec = Segmentation_Cleaner_OutputSpec
+
+    def _run_interface(self, runtime):
+        if self.inputs.seg_type == 'synthseg':
+            ignore_list = [24]  # CSF
+        seg_im = nib.load(self.inputs.input_seg)
+        seg_vol = seg_im.get_fdata().astype('int16')
+        cleaned_vol, sunk_islands_vol = seg_cleaner(seg_vol,
+                                                    self.inputs.max_island_size,
+                                                    ignore_list)
+
+        cleaned_im = nib.Nifti1Image(cleaned_vol, affine=seg_im.affine)
+        outname = 'cleaned_' + os.path.basename(self.inputs.input_seg)
+        nib.save(cleaned_im, outname)
+        setattr(self, 'outfile', os.path.abspath(outname))
+
+        if np.any(sunk_islands_vol):  # islands_vol not filled with 0 only
+            sunk_islands_im = nib.Nifti1Image(sunk_islands_vol, affine=seg_im.affine)
+            sunk_island_name = 'removed_clusters_' + os.path.basename(self.inputs.input_seg)
+            nib.save(sunk_islands_im, sunk_island_name)
+            setattr(self, 'sunk_islands', os.path.abspath(sunk_island_name))
+
+        # if np.any(kept_islands_vol):  # islands_vol not filled with 0 only
+        #     kept_islands_im = nib.Nifti1Image(kept_islands_vol, affine=seg_im.affine)
+        #     kept_island_name = 'kept_clusters_' + os.path.basename(self.inputs.input_seg)
+        #     nib.save(kept_islands_im, kept_island_name)
+        #     setattr(self, 'kept_islands', os.path.abspath(kept_island_name))
+
+        return runtime
+
+    def _list_outputs(self):
+        outputs = self.output_spec().trait_get()
+        outputs['ouput_seg'] = getattr(self, 'outfile')
+        if hasattr(self, 'sunk_islands'):
+            outputs['sunk_islands'] = getattr(self, 'sunk_islands')
+        if hasattr(self, 'kept_islands'):
+            outputs['kept_islands'] = getattr(self, 'kept_islands')
         return outputs
 
 
