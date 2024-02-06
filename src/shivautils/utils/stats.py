@@ -213,7 +213,7 @@ def violinplot_from_census(census_csv: str, resolution: tuple, pred: str):
         fig, ax = plt.subplots(figsize=(6, 4))
         # sns.stripplot(census_df, y='Biomarker size')  # replaced swamplot
         sns.histplot(census_df, x='Biomarker size ($mm^3$)', ax=ax)
-        plt.title(f'{pred} size ditribution')
+        plt.title(f'{pred} size distribution')
         plt.tight_layout()
         plt.savefig(save_name, format='svg')
         plt.close(fig)
@@ -249,7 +249,7 @@ def violinplot_from_census(census_csv: str, resolution: tuple, pred: str):
         sns.swarmplot(census_df.loc[census_df['swarm']], y='Biomarker size ($mm^3$)', x='Biomarker region',
                       hue='Biomarker region', palette=my_palette, log_scale=True,
                       ax=ax)
-        plt.title(f'{pred} size ditribution')
+        plt.title(f'{pred} size distribution')
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
         plt.savefig(save_name, format='svg')
