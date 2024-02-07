@@ -398,20 +398,24 @@ def seg_cleaner(raw_seg: np.ndarray, max_size: int = 300, ignore_labels: list = 
 
     cleaned_seg = raw_seg.copy()
     removed_islands = np.zeros(raw_seg.shape, dtype='int16')
-    kept_islands = np.zeros(raw_seg.shape, dtype='int16')
+    # kept_islands = np.zeros(raw_seg.shape, dtype='int16')
 
+    relabeled_seg = label(raw_seg)
     for lab in labels:
         if lab in ignore_labels:
             continue
-        lab_seg = (raw_seg == lab)
-        relabeled_lab, lab_num = label(lab_seg, return_num=True)
-        if lab_num > 1:
-            clust_vals, clust_cnt = np.unique(relabeled_lab[relabeled_lab != 0], return_counts=True)
+        relabeled_lab = relabeled_seg * (raw_seg == lab)
+        clust_vals, clust_cnt = np.unique(relabeled_lab[relabeled_lab != 0], return_counts=True)
+        if len(clust_cnt) > 1:
             main_clust_val = clust_vals[clust_cnt.argmax()]
-            isls_clust_vals = [val for val, n in zip(clust_vals, clust_cnt) if n <= max_size and val != main_clust_val]
-            for isl_val in isls_clust_vals:
+            isls_clust_vals = [(val, n) for val, n in zip(clust_vals, clust_cnt) if n <= max_size and val != main_clust_val]
+            for isl_val, n in isls_clust_vals:
                 clust_isle = (relabeled_lab == isl_val)
-                neighbors = ndimage.binary_dilation(clust_isle) & ~clust_isle
+                if n == 1:  # Manually getting the neighbors is faster here
+                    vox_coord_dif = np.concatenate([np.eye(3), -np.eye(3)], axis=0).astype(int)
+                    neighbors = tuple((np.argwhere(clust_isle) + vox_coord_dif).T)
+                else:
+                    neighbors = ndimage.binary_dilation(clust_isle) & ~clust_isle
                 neighbors_vals, neighbors_cnt = np.unique(raw_seg[neighbors], return_counts=True)
                 # if len(neighbors_vals) == 1:  # Island is enclosed in one region
                 # cleaned_seg[clust_isle] = neighbors_vals[0]
