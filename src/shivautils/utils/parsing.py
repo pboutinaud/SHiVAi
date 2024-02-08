@@ -174,14 +174,14 @@ def shivaParser():
                               'preprocessing. This data will be used to estimate outliers and thus help detect '
                               'participants that may have a faulty preprocessing'))
 
-    # parser.add_argument('--preproc_results',
-    #                     type=str,
-    #                     help=(
-    #                         'Path to the results folder of a previous shiva run, containing all the preprocessed data.\n'
-    #                         'Requires that all the subjects from the current subject list (as per the content of --in or --sub_list) '
-    #                         'are available in the results folder. If you have subjects with missing preprocessed data, you will '
-    #                         'need to run their processing separatly.'
-    #                     ))
+    parser.add_argument('--preproc_results',
+                        type=str,
+                        help=(
+                            'Path to the results folder of a previous shiva run, containing all the preprocessed data.\n'
+                            'Requires that all the subjects from the current subject list (as per the content of --in or --sub_list) '
+                            'are available in the results folder. If you have subjects with missing preprocessed data, you will '
+                            'need to run their processing separatly.'
+                        ))
 
     parser.add_argument('--synthseg_precomp',
                         action='store_true',
@@ -473,7 +473,7 @@ def set_args_and_check(inParser):
         args.prediction = [args.prediction]
 
     # Check the preprocessing files input when given
-    setattr(args, 'preproc_results', None)  # TODO: remove when preproc_results updated
+    # setattr(args, 'preproc_results', None)  # TODO: remove when preproc_results updated
     if args.preproc_results is not None:
         args.preproc_results = os.path.abspath(args.preproc_results)
         if not os.path.exists(args.preproc_results):

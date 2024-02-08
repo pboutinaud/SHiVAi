@@ -98,10 +98,15 @@ def genWorkflow(**kwargs) -> Workflow:
                 prediction_metrics.inputs.brain_seg_type = 'synthseg'
                 if kwargs['CONTAINERIZE_NODES']:
                     seg_to_swi = Node(AntsApplyTransforms_Singularity(), name="seg_to_swi")
+                    seg_to_swi.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
                     seg_to_swi.inputs.snglrt_bind = [
                         (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
                         ('`pwd`', '`pwd`', 'rw'),]
-                    seg_to_swi.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+                    preproc_dir = kwargs['PREP_SETTINGS']['preproc_res']
+                    if preproc_dir and kwargs['BASE_DIR'] not in preproc_dir:  # Preprocessed data not in BASE_DIR
+                        seg_to_swi.inputs.snglrt_bind.append(
+                            (preproc_dir, preproc_dir, 'ro')
+                        )
                 else:
                     seg_to_swi = Node(ants.ApplyTransforms(), name="seg_to_swi")  # Register custom parc to swi space
                 seg_to_swi.inputs.float = True

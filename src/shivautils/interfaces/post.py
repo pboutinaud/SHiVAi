@@ -403,8 +403,8 @@ class SummaryReportOutputSpec(TraitedSpec):
     """Output class
 
     Args:
-        summary_report (html): summary report for each subject
-        summary_report (pdf): summary report for each subject
+        html_report (html): summary report for each subject
+        pdf_report (pdf): summary report for each subject
     """
     html_report = traits.Any(exists=True,
                              desc='summary html report')
@@ -478,7 +478,7 @@ class SummaryReport(BaseInterface):
         else:
             db = ''
         # process
-        summary_report = make_report(
+        html_report = make_report(
             pred_metrics_dict=pred_metrics_dict,
             pred_census_im_dict=pred_census_im_dict,
             pred_and_acq=pred_and_acq,
@@ -498,8 +498,8 @@ class SummaryReport(BaseInterface):
             wf_graph=wf_graph
         )
 
-        with open('summary_report.html', 'w', encoding='utf-8') as fid:
-            fid.write(summary_report)
+        with open('Shiva_report.html', 'w', encoding='utf-8') as fid:
+            fid.write(html_report)
 
         # Convert the HTML file to PDF using CSS
         # Creating custom CSSin addition to the main one for the pages header and the logos
