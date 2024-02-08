@@ -406,11 +406,11 @@ class SummaryReportOutputSpec(TraitedSpec):
         summary_report (html): summary report for each subject
         summary_report (pdf): summary report for each subject
     """
-    summary_report = traits.Any(exists=True,
-                                desc='summary html report')
+    html_report = traits.Any(exists=True,
+                             desc='summary html report')
 
-    summary = traits.Any(exists=True,
-                         desc='summary pdf report')
+    pdf_report = traits.Any(exists=True,
+                            desc='summary pdf report')
 
 
 class SummaryReport(BaseInterface):
@@ -554,18 +554,18 @@ class SummaryReport(BaseInterface):
             '}'
         )
         logo_css = CSS(string=logo)
-        HTML('summary_report.html').write_pdf('summary.pdf',
-                                              stylesheets=[css, css_header, logo_css])
+        HTML('Shiva_report.html').write_pdf('Shiva_report.pdf',
+                                            stylesheets=[css, css_header, logo_css])
 
-        setattr(self, 'summary_report', os.path.abspath('summary_report.html'))
-        setattr(self, 'summary', os.path.abspath('summary.pdf'))
+        setattr(self, 'html_report', os.path.abspath('Shiva_report.html'))
+        setattr(self, 'pdf_report', os.path.abspath('Shiva_report.pdf'))
         return runtime
 
     def _list_outputs(self):
         """Fill in the output structure."""
         outputs = self.output_spec().trait_get()
-        outputs['summary_report'] = getattr(self, 'summary_report')
-        outputs['summary'] = getattr(self, 'summary')
+        outputs['html_report'] = getattr(self, 'html_report')
+        outputs['pdf_report'] = getattr(self, 'pdf_report')
 
         return outputs
 
