@@ -586,6 +586,8 @@ class Join_Prediction_metrics_OutputSpec(TraitedSpec):
     """
     prediction_metrics_csv = traits.File(exists=True,
                                          desc='csv file with metrics about each prediction')
+    prediction_metrics_wide_csv = traits.File(exists=True,
+                                              desc='csv file with metrics about each prediction, with one row per subject')
 
 
 class Join_Prediction_metrics(BaseInterface):
@@ -607,15 +609,30 @@ class Join_Prediction_metrics(BaseInterface):
             sub_df.insert(0, 'sub_id', [sub_id]*sub_df.shape[0])
             csv_list.append(sub_df)
         all_sub_metrics = pd.concat(csv_list)
-        all_sub_metrics.to_csv('prediction_metrics.csv', index=False)
+        all_sub_metrics.set_index('sub_id', inplace=True)
+        all_sub_metrics.to_csv('prediction_metrics.csv', float_format='%.2f')
+
+        # Display the data in "wide"
+        metrics_col = all_sub_metrics.columns.to_list()
+        metrics_col.remove('Region')
+        all_sub_metrics_wide = all_sub_metrics.pivot_table(index=['sub_id'],
+                                                           columns=['Region'],
+                                                           values=metrics_col,)
+        all_sub_metrics_wide.columns = [f'{s2} - {s1}' for (s1, s2) in all_sub_metrics_wide.columns.tolist()]
+        all_sub_metrics_wide.reset_index(inplace=True)
+        all_sub_metrics_wide.set_index('sub_id', inplace=True)
+        all_sub_metrics_wide = all_sub_metrics_wide.reindex(sorted(all_sub_metrics_wide.columns), axis=1)
+        all_sub_metrics_wide.to_csv('prediction_metrics_wide.csv', float_format='%.2f')
 
         setattr(self, 'prediction_metrics_csv', os.path.abspath("prediction_metrics.csv"))
+        setattr(self, 'prediction_metrics_wide_csv', os.path.abspath("prediction_metrics_wide.csv"))
         return runtime
 
     def _list_outputs(self):
         """File in the output structure."""
         outputs = self.output_spec().trait_get()
         outputs['prediction_metrics_csv'] = getattr(self, 'prediction_metrics_csv')
+        outputs['prediction_metrics_wide_csv'] = getattr(self, 'prediction_metrics_wide_csv')
         return outputs
 
 

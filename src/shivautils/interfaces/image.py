@@ -1206,6 +1206,8 @@ class Regionwise_Prediction_metrics_OutputSpec(TraitedSpec):
                                        desc='csv file listing all segmented biomarkers with their size')
     biomarker_stats_csv = traits.File(exists=True,
                                       desc='csv file with statistics on the segmented biomarkers')
+    biomarker_stats_wide_csv = traits.File(exists=True,
+                                           desc='csv file with statistics on the segmented biomarkers with "wide')
 
 
 class Regionwise_Prediction_metrics(BaseInterface):
@@ -1279,9 +1281,23 @@ class Regionwise_Prediction_metrics(BaseInterface):
         cluster_measures.to_csv(f'{biomarker}_census.csv', index=False)
         cluster_stats.to_csv(f'{biomarker}_stats.csv', index=False)
 
+        # Set cluster_stats in wide format
+        metrics_col = cluster_stats.columns.to_list()
+        metrics_col.remove('Region')
+        cluster_stats['Index'] = 'Values'  # Dummy index for pivot_table
+        cluster_stats_wide = cluster_stats.pivot_table(index='Index',
+                                                       columns=['Region'],
+                                                       values=metrics_col,)
+        cluster_stats_wide.columns = [f'{s2} - {s1}' for (s1, s2) in cluster_stats_wide.columns.tolist()]
+        cluster_stats_wide.reset_index(inplace=True)
+        cluster_stats_wide.set_index('Index', inplace=True)
+        cluster_stats_wide = cluster_stats_wide.reindex(sorted(cluster_stats_wide.columns), axis=1)
+        cluster_stats_wide.to_csv(f'{biomarker}_stats_wide.csv', float_format='%.2f', index=False)
+
         # Set the attribute to pass as output
         setattr(self, 'biomarker_census_csv', os.path.abspath(f"{biomarker}_census.csv"))
         setattr(self, 'biomarker_stats_csv', os.path.abspath(f"{biomarker}_stats.csv"))
+        setattr(self, 'biomarker_stats_wide_csv', os.path.abspath(f"{biomarker}_stats_wide.csv"))
 
         return runtime
 
@@ -1290,6 +1306,7 @@ class Regionwise_Prediction_metrics(BaseInterface):
         outputs = self.output_spec().trait_get()
         outputs['biomarker_census_csv'] = getattr(self, 'biomarker_census_csv')
         outputs['biomarker_stats_csv'] = getattr(self, 'biomarker_stats_csv')
+        outputs['biomarker_stats_wide_csv'] = getattr(self, 'biomarker_stats_wide_csv')
         return outputs
 
 

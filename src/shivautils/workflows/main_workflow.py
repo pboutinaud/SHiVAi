@@ -14,6 +14,7 @@ from shivautils.interfaces.post import Join_Prediction_metrics, Join_QC_metrics
 from nipype.pipeline.engine import Workflow, Node, JoinNode
 from nipype.interfaces.utility import IdentityInterface
 from nipype.interfaces.io import DataSink, DataGrabber
+from shivautils.interfaces.datasink import DataSink_CSV_Append
 import os
 
 
@@ -408,7 +409,7 @@ def generate_main_wf(**kwargs) -> Workflow:
     ]
     main_wf.connect(wf_post, 'summary_report.pdf_report', sink_node_subjects, 'report')
 
-    sink_node_all = Node(DataSink(infields=['wf_graph']), name='sink_node_all')
+    sink_node_all = Node(DataSink_CSV_Append(infields=['wf_graph']), name='sink_node_all')
     sink_node_all.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
     sink_node_all.inputs.container = 'results_summary'
 
@@ -446,8 +447,10 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(segmentation_wf, 'predict_pvs.segmentation', sink_node_subjects, 'segmentations.pvs_segmentation')
         main_wf.connect(wf_post, 'cluster_labelling_pvs.labelled_biomarkers', sink_node_subjects, 'segmentations.pvs_segmentation.@labelled')
         main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_csv', sink_node_subjects, 'segmentations.pvs_segmentation.@metrics')
+        main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_stats_wide_csv', sink_node_subjects, 'segmentations.pvs_segmentation.@metrics_wide')
         main_wf.connect(wf_post, 'prediction_metrics_pvs.biomarker_census_csv', sink_node_subjects, 'segmentations.pvs_segmentation.@census')
         main_wf.connect(prediction_metrics_pvs_all, 'prediction_metrics_csv', sink_node_all, 'segmentations.pvs_metrics')
+        main_wf.connect(prediction_metrics_pvs_all, 'prediction_metrics_wide_csv', sink_node_all, 'segmentations.pvs_metrics.@wide')
         if kwargs['BRAIN_SEG'] == 'synthseg':
             main_wf.connect(wf_post, 'custom_pvs_parc.brain_seg', sink_node_subjects, 'segmentations.pvs_segmentation.@parc')
             main_wf.connect(wf_post, 'custom_pvs_parc.region_dict', sink_node_subjects, 'segmentations.pvs_segmentation.@parc_dict')
@@ -455,8 +458,10 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(segmentation_wf, 'predict_wmh.segmentation', sink_node_subjects, 'segmentations.wmh_segmentation')
         main_wf.connect(wf_post, 'cluster_labelling_wmh.labelled_biomarkers', sink_node_subjects, 'segmentations.wmh_segmentation.@labelled')
         main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_stats_csv', sink_node_subjects, 'segmentations.wmh_segmentation.@metrics')
+        main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_stats_wide_csv', sink_node_subjects, 'segmentations.wmh_segmentation.@metrics_wide')
         main_wf.connect(wf_post, 'prediction_metrics_wmh.biomarker_census_csv', sink_node_subjects, 'segmentations.wmh_segmentation.@census')
         main_wf.connect(prediction_metrics_wmh_all, 'prediction_metrics_csv', sink_node_all, 'segmentations.wmh_metrics')
+        main_wf.connect(prediction_metrics_wmh_all, 'prediction_metrics_wide_csv', sink_node_all, 'segmentations.wmh_metrics.@wide')
         if kwargs['BRAIN_SEG'] == 'synthseg':
             main_wf.connect(wf_post, 'custom_wmh_parc.brain_seg', sink_node_subjects, 'segmentations.wmh_segmentation.@parc')
             main_wf.connect(wf_post, 'custom_wmh_parc.region_dict', sink_node_subjects, 'segmentations.wmh_segmentation.@parc_dict')
@@ -465,8 +470,10 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(segmentation_wf, 'predict_cmb.segmentation', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space')
         main_wf.connect(wf_post, 'cluster_labelling_cmb.labelled_biomarkers', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space.@labelled')
         main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_csv', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space.@metrics')
+        main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_stats_wide_csv', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space.@metrics_wide')
         main_wf.connect(wf_post, 'prediction_metrics_cmb.biomarker_census_csv', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space.@census')
         main_wf.connect(prediction_metrics_cmb_all, 'prediction_metrics_csv', sink_node_all, 'segmentations.cmb_metrics_swi-space')
+        main_wf.connect(prediction_metrics_cmb_all, 'prediction_metrics_wide_csv', sink_node_all, 'segmentations.cmb_metrics_swi-space.@wide')
         if with_t1:
             # main_wf.connect(wf_post, 'swi_clust_to_t1.output_image', sink_node_subjects, f'segmentations.cmb_segmentation_t1-space')
             if kwargs['BRAIN_SEG'] == 'synthseg':
@@ -479,8 +486,10 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(segmentation_wf, 'predict_lac.segmentation', sink_node_subjects, 'segmentations.lac_segmentation')
         main_wf.connect(wf_post, 'cluster_labelling_lac.labelled_biomarkers', sink_node_subjects, 'segmentations.lac_segmentation.@labelled')
         main_wf.connect(wf_post, 'prediction_metrics_lac.biomarker_stats_csv', sink_node_subjects, 'segmentations.lac_segmentation.@metrics')
+        main_wf.connect(wf_post, 'prediction_metrics_lac.biomarker_stats_wide_csv', sink_node_subjects, 'segmentations.lac_segmentation.@metrics_wide')
         main_wf.connect(wf_post, 'prediction_metrics_lac.biomarker_census_csv', sink_node_subjects, 'segmentations.lac_segmentation.@census')
         main_wf.connect(prediction_metrics_lac_all, 'prediction_metrics_csv', sink_node_all, 'segmentations.lac_metrics')
+        main_wf.connect(prediction_metrics_lac_all, 'prediction_metrics_wide_csv', sink_node_all, 'segmentations.lac_metrics.@wide')
         if kwargs['BRAIN_SEG'] == 'synthseg':
             main_wf.connect(wf_post, 'custom_lac_parc.brain_seg', sink_node_subjects, 'segmentations.lac_segmentation.@parc')
             main_wf.connect(wf_post, 'custom_lac_parc.region_dict', sink_node_subjects, 'segmentations.lac_segmentation.@parc_dict')
@@ -593,7 +602,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
     wf_post = genWorkflowPost(**kwargs)
     main_wf.add_nodes([wf_post])
 
-    sink_node_all = Node(DataSink(infields=['wf_graph']), name='sink_node_all')
+    sink_node_all = Node(DataSink_CSV_Append(infields=['wf_graph']), name='sink_node_all')
     sink_node_all.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
     sink_node_all.inputs.container = 'results_summary'
 
@@ -672,6 +681,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
         main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_csv', prediction_metrics_all, 'csv_files')
         main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_all, 'subject_id')
         main_wf.connect(prediction_metrics_all, 'prediction_metrics_csv', sink_node_all, f'segmentations.{lpred}_metrics')
+        main_wf.connect(prediction_metrics_all, 'prediction_metrics_wide_csv', sink_node_all, f'segmentations.{lpred}_metrics.@wide')
 
     # The workflow graph
     wf_graph = main_wf.write_graph(graph2use='colored', dotfilename='graph.svg', format='svg')
@@ -700,6 +710,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
         lpred = pred.lower()
         main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}')
         main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@metrics')
+        main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_wide_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@metrics_wide')
         main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_census_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@census')
         main_wf.connect(wf_post, f'cluster_labelling_{lpred}.labelled_biomarkers', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@labeled')
         if kwargs['BRAIN_SEG'] == 'synthseg':
