@@ -195,7 +195,7 @@ def main():
         opt_args1.append(f"--sub_names {' '.join(args.sub_names)}")
 
     # Synthseg precomputation
-    if args.synthseg:
+    if args.synthseg and not args.preproc_results:
         args_ss = []
         if args.synthseg_cpu:
             args_ss.append("--synthseg_cpu")
@@ -239,8 +239,13 @@ def main():
     opt_args2 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args2_names if getattr(args, arg_name)]
     preproc = None
     if args.preproc_results:
-        preproc = f"{args.preproc_results}:/mnt/preproc:rw"
-        opt_args2.append("--preproc_results /mnt/preproc")
+        if args.output in args.preproc_results:
+            path_end = os.path.relpath(args.preproc_results, args.output)
+            mounted_path = os.path.join('/mnt/data/output', path_end)
+            opt_args2.append(f"--preproc_results {mounted_path}")
+        else:
+            preproc = f"{args.preproc_results}:/mnt/preproc:rw"
+            opt_args2.append("--preproc_results /mnt/preproc")
     if args.synthseg:
         opt_args2.append("--synthseg_precomp")
 
