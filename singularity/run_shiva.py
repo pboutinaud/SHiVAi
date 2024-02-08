@@ -239,7 +239,7 @@ def main():
     opt_args2 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args2_names if getattr(args, arg_name)]
     preproc = None
     if args.preproc_results:
-        if args.output in args.preproc_results:
+        if str(args.output) in args.preproc_results:
             path_end = os.path.relpath(args.preproc_results, args.output)
             mounted_path = os.path.join('/mnt/data/output', path_end)
             opt_args2.append(f"--preproc_results {mounted_path}")
