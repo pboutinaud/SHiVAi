@@ -66,13 +66,14 @@
     <div class="info">
         <h1>Additional workflow informations and parameters</h1>
         <p><b>Shiva version:</b> {{ version }}</p>
-        <p><b>Input parameters:</b><br>
+        <h3>Input parameters:</h3>
+        <p>
             - "percentile" (as upper threshold during intensity normalisation): {{ percentile }}<br>
             - "threshold" (to binarise estimated brain masks): {{ threshold }}<br>
             - "final_dimensions" (image dimensions output by the AI model): {{ image_size }}<br>
             - "voxels_size" (resampling resolution, used by the AI model): {{ resolution }} mm<sup>3
         </p>
-        <p><b>Parameters for each biomarker segmentation:</b></p>
+        <h3>Parameters for each biomarker segmentation:</h3>
         {% for pred in pred_stat_dict %}
         <p>
             For {{ pred }}:<br>
@@ -81,7 +82,7 @@
             - Cluster size filter: {{ pred_stat_dict[pred]['cluster_min_vol'] }}
         </p>
         {% endfor %}
-        <p><b>Unique identifers (md5) for the AI models:</b></p>
+        <h3>Unique identifers (md5) for the AI models:</h3>
         {% for pred, file_dict in models_uid.items() %}
         <p>{{pred}} model files:<br>
             {% if 'url' in file_dict %}

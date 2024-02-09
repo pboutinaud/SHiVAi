@@ -72,10 +72,10 @@ def make_report(
     for seg, stat_df in pred_metrics_dict.items():
         metrics = ['Region',
                    f'Number of {seg}',
-                   f'Total volume of all {seg} (mm<sup>3</sup>)',
+                   'Total volume (mm<sup>3</sup>)',
                    'Mean volume (mm<sup>3</sup>)',
                    'Median volume (mm<sup>3</sup>)',
-                   'StD of the volume (mm<sup>3</sup>)',
+                   'Standard Dev. (mm<sup>3</sup>)',
                    'Min volume (mm<sup>3</sup>)',
                    'Max volume (mm<sup>3</sup>)',]
         col_maper = {col: metric for col, metric in zip(stat_df.columns, metrics)}
@@ -84,9 +84,15 @@ def make_report(
         mm3_cols = metrics[2:]
         for col in mm3_cols:
             stat_df[col] = (stat_df[col] * vol_mm3_per_voxel).map('{:.2f}'.format)
-        stat_df.set_index('Region', inplace=True)
-        stat_df_html = stat_df.to_html(justify='center', escape=False)
-        stat_df_html = stat_df_html.replace('table border="1"', 'table')  # quick fix to a weird formatting
+        # stat_df.set_index('Region', inplace=True)
+        stat_df_html = stat_df.to_html(justify='center', escape=False, index=False)
+        # quick fix to a weird formatting and getting the first col as <th>
+        stat_df_html = stat_df_html.replace('table border="1"', 'table')
+        stat_df_html_list = stat_df_html.splitlines()
+        ind_1st_col = [i + 1 for i, line in enumerate(stat_df_html_list) if '<tr>' in line]
+        for ind in ind_1st_col:
+            stat_df_html_list[ind] = stat_df_html_list[ind].replace('td', 'th')
+        stat_df_html = '\n'.join(stat_df_html_list)
 
         with open(pred_census_im_dict[seg], 'rb') as f:
             image_data = f.read()

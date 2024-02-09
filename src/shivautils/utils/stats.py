@@ -4,7 +4,6 @@ import pandas as pd
 import nibabel as nb
 import seaborn as sns
 import matplotlib.pyplot as plt
-from statistics import median
 import os
 from scipy.spatial.transform import Rotation
 from scipy.io import loadmat
@@ -249,8 +248,11 @@ def violinplot_from_census(census_csv: str, resolution: tuple, pred: str):
         sns.swarmplot(census_df.loc[census_df['swarm']], y='Biomarker size ($mm^3$)', x='Biomarker region',
                       hue='Biomarker region', palette=my_palette, log_scale=True,
                       ax=ax)
-        plt.title(f'{pred} size distribution')
-        plt.xticks(rotation=45, ha='right')
+        plt.title(f'{pred} size distribution', fontsize=18, weight='bold')
+        plt.xticks(rotation=35, ha='right', fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.xlabel('Biomarker location', fontsize=16)
+        plt.ylabel('Biomarker size ($mm^3$)', fontsize=16)
         plt.tight_layout()
         plt.savefig(save_name, format='svg')
         plt.close(fig)
