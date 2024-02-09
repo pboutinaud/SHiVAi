@@ -254,7 +254,7 @@ def violinplot_from_census(census_csv: str, resolution: tuple, pred: str):
         plt.xlabel('Biomarker location', fontsize=16)
         plt.ylabel('Biomarker size ($mm^3$)', fontsize=16)
         plt.tight_layout()
-        plt.savefig(save_name, format='svg')
+        plt.savefig(save_name, format='svg', bbox_inches='tight')
         plt.close(fig)
     return os.path.abspath(save_name)
 
