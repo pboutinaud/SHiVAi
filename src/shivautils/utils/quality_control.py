@@ -14,98 +14,68 @@ from scipy.ndimage import (
 from shivautils.utils.stats import get_mode
 
 
-def overlay_brainmask(img_ref, brainmask):
+def overlay_brainmask(ref_vol, brainmask_vol, save_fig, nb_of_cols=6, orient='XYZ'):
     """Overlay brainmask on t1 images for 40 slices
 
     Args:
-        img_ref (nib.Nifti1Image): t1 nifti images overlay with brainmask
-        brainmask (nib.Nifti1Image): brainmask file to overlay with t1 nifti file
-
+        ref_vol (ndarray): t1 nifti images overlay with brainmask
+        brainmask_vol (ndarray): brainmask to overlay with t1 nifti file
+        save_fig (str): filename of the figure to be saved
+        nb_of_cols (int): number of columns in the image
+        orient (str): Dimension(s) on which to do the slices for each row. e.g. 'XYZ' for all, or 'ZZ' for Axial slices only on 2 rows
     Returns:
-        png: png file with 40 slices of overlay brainmask on t1 nifti file
+        png: png file  brainmask overlaid on t1
     """
 
-    ref_im = nib.load(img_ref)
-    ref_vol = ref_im.get_fdata()
-    brainmask_im = nib.load(brainmask)
-    brainmask_vol = brainmask_im.get_fdata()
+    orient = orient.upper()
 
-    nb_of_slices = 6  # define the number of columns in the image
-
-    # creating cmap to overlay reference image and given image
+    # creating cmap to overlay reference image and given image (we don't actually need this here...)
     cmap = plt.cm.Reds
     my_cmap = cmap(np.arange(cmap.N))
     my_cmap[:, -1] = np.linspace(0, 1, cmap.N)
     my_cmap = ListedColormap(my_cmap)
 
     # Getting slices in each dim
+    row_nb = 0
     crop_ratio = 0.1  # 10% of the slice
-    border_crop_X = math.ceil(crop_ratio * ref_vol.shape[0])
-    croped_shape_X = (1-2*crop_ratio)*ref_vol.shape[0]  # can be non-integer at this step, not important
-    slices_ind_X = np.arange(border_crop_X, ref_vol.shape[0]-border_crop_X, croped_shape_X/nb_of_slices).astype(int)
-    slices_X = [(ref_vol[ind, :, :], brainmask_vol[ind, :, :], ind) for ind in slices_ind_X]
-
-    border_crop_Y = math.ceil(crop_ratio * ref_vol.shape[1])
-    croped_shape_Y = (1-2*crop_ratio)*ref_vol.shape[1]
-    slices_ind_Y = np.arange(border_crop_Y, ref_vol.shape[1]-border_crop_Y, croped_shape_Y/nb_of_slices).astype(int)
-    slices_Y = [(ref_vol[:, ind, :], brainmask_vol[:, ind, :], ind) for ind in slices_ind_Y]
-
-    border_crop_Z = math.ceil(crop_ratio * ref_vol.shape[2])
-    croped_shape_Z = (1-2*crop_ratio)*ref_vol.shape[2]
-    slices_ind_Z = np.arange(border_crop_Z, ref_vol.shape[2]-border_crop_Z, croped_shape_Z/nb_of_slices).astype(int)
-    slices_Z = [(ref_vol[:, :, ind], brainmask_vol[:, :, ind], ind) for ind in slices_ind_Z]
+    slices_dict = {}
+    for dim in ['X', 'Y', 'Z']:
+        slices_nb = orient.count(dim) * nb_of_cols
+        border_crop = math.ceil(crop_ratio * ref_vol.shape[0])
+        croped_shape = (1-2*crop_ratio)*ref_vol.shape[0]  # can be non-integer at this step, not important
+        slices_ind_X = np.arange(border_crop, ref_vol.shape[0]-border_crop, croped_shape/slices_nb).astype(int)
+        slices_dict[dim] = [(ref_vol[ind, :, :], brainmask_vol[ind, :, :], ind) for ind in slices_ind_X]
+        row_nb += orient.count(dim)
 
     # Affichage dans les trois axes
-    fig, ax = plt.subplots(3, nb_of_slices, figsize=(nb_of_slices, 3), dpi=300)
+    fig, ax = plt.subplots(row_nb, nb_of_cols, figsize=(nb_of_cols, row_nb), dpi=300)
     fig.patch.set_facecolor('k')
     alpha = 0.5
 
-    for col in range(nb_of_slices):
-        # X
-        ax[0, col].imshow(slices_X[col][0].T,
-                          origin='lower',
-                          cmap='gray')
-        ax[0, col].imshow(slices_X[col][1].T,
-                          origin='lower',
-                          alpha=alpha,
-                          cmap=my_cmap)
-        label_X = ax[0, col].set_xlabel(f'k = {slices_X[col][2]}')
-        label_X.set_fontsize(5)  # Définir la taille de la police du label
-        label_X.set_color('white')
-        ax[0, col].get_xaxis().set_ticks([])
-        ax[0, col].get_yaxis().set_ticks([])
-        # Y
-        ax[1, col].imshow(slices_Y[col][0].T,
-                          origin='lower',
-                          cmap='gray')
-        ax[1, col].imshow(slices_Y[col][1].T,
-                          origin='lower',
-                          alpha=alpha,
-                          cmap=my_cmap)
-        label_Y = ax[1, col].set_xlabel(f'k = {slices_Y[col][2]}')
-        label_Y.set_fontsize(5)  # Définir la taille de la police du label
-        label_Y.set_color('white')
-        ax[1, col].get_xaxis().set_ticks([])
-        ax[1, col].get_yaxis().set_ticks([])
-        # Z
-        ax[2, col].imshow(slices_Z[col][0].T,
-                          origin='lower',
-                          cmap='gray')
-        ax[2, col].imshow(slices_Z[col][1].T,
-                          origin='lower',
-                          alpha=alpha,
-                          cmap=my_cmap)
-        label_Z = ax[2, col].set_xlabel(f'k = {slices_Z[col][2]}')
-        label_Z.set_fontsize(5)  # Définir la taille de la police du label
-        label_Z.set_color('white')
-        ax[2, col].get_xaxis().set_ticks([])
-        ax[2, col].get_yaxis().set_ticks([])
+    row = 0
+    for dim in ['X', 'Y', 'Z']:
+        row_dim_nb = orient.count(dim)
+        for row_dim in range(row_dim_nb):
+            for col in range(nb_of_cols):
+                slice_n = col + row_dim * nb_of_cols
+                ax[row, col].imshow(slices_dict[dim][slice_n][0].T,
+                                    origin='lower',
+                                    cmap='gray')
+                ax[row, col].imshow(slices_dict[dim][slice_n][1].T,
+                                    origin='lower',
+                                    alpha=alpha,
+                                    cmap=my_cmap)
+                label_X = ax[row, col].set_xlabel(f'k = {slices_dict[dim][slice_n][2]}')
+                label_X.set_fontsize(5)  # Définir la taille de la police du label
+                label_X.set_color('white')
+                ax[row, col].get_xaxis().set_ticks([])
+                ax[row, col].get_yaxis().set_ticks([])
+            row += 1
 
     fig.tight_layout()
+    plt.savefig(save_fig)
 
-    plt.savefig('qc_overlay_brainmask_T1.png')
-    overlayed_brainmask = op.abspath('qc_overlay_brainmask_T1.png')
-    return overlayed_brainmask
+    return op.abspath(save_fig)
 
 
 def bounding_crop(brain_img: str,

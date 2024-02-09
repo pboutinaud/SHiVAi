@@ -1084,7 +1084,13 @@ class Brainmask_QC(BaseInterface):
         img_ref = self.inputs.img_ref
         brainmask = self.inputs.brainmask
 
-        overlayed_brainmask = overlay_brainmask(img_ref, brainmask)
+        ref_im = nib.load(img_ref)
+        ref_vol = ref_im.get_fdata()
+        brainmask_im = nib.load(brainmask)
+        brainmask_vol = brainmask_im.get_fdata()
+
+        overlayed_brainmask = overlay_brainmask(ref_vol, brainmask_vol, 'qc_overlay_brainmask_T1.png')
+
         setattr(self, 'overlayed_brainmask', overlayed_brainmask)  # overlayed_brainmask is already an absolute path
 
         return runtime
