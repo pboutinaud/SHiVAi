@@ -15,7 +15,7 @@ from shivautils.utils.stats import get_mode
 
 
 def overlay_brainmask(ref_vol, brainmask_vol, save_fig, nb_of_cols=6, orient='XYZ'):
-    """Overlay brainmask on t1 images for 40 slices
+    """Overlay brainmask on t1 images
 
     Args:
         ref_vol (ndarray): t1 nifti images overlay with brainmask
