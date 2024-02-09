@@ -21,13 +21,13 @@ def seg_for_pvs(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
     seg_vals = {  # See src/shivautils/postprocessing/lobarseg.py for labels
         # Left
         'Left Deep WM': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 46],  # With cortical GM for now
-        'Left Basal Ganglia': [17, 40, 41, 44, 45],
+        'Left Basal Gang.': [17, 40, 41, 44, 45],
         'Left Hippocampal': [43],
         'Left Cerebellar': [47],
         'Left Ventral DC': [42],
         # Right
         'Right Deep WM': [21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 56],
-        'Right Basal Ganglia': [37, 50, 51, 54, 55],
+        'Right Basal Gang.': [37, 50, 51, 54, 55],
         'Right Hippocampal': [53],
         'Right Cerebellar': [57],
         'Right Ventral DC': [52],
@@ -37,13 +37,13 @@ def seg_for_pvs(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
     seg_labels = {
         # Left
         'Left Deep WM': 1,
-        'Left Basal Ganglia': 2,
+        'Left Basal Gang.': 2,
         'Left Hippocampal': 3,
         'Left Cerebellar': 4,
         'Left Ventral DC': 5,
         # Right
         'Right Deep WM': 6,
-        'Right Basal Ganglia': 7,
+        'Right Basal Gang.': 7,
         'Right Hippocampal': 8,
         'Right Cerebellar': 9,
         'Right Ventral DC': 10,
@@ -113,12 +113,12 @@ def seg_from_mars(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
         - Basal Ganglia:    6 / 20
         - Thalamus:         7 / 21
         - Ventral DC:       8 / 22
-        - Hippocampus:      9 / 23
-        - Int. Capsule:    10 / 24
-        - Ext. Capsule:    11 / 25
-        - Corp. Call.:     12 / 26
-        - Deep and PV WM:  13 / 27
-        - Cerebellum:      14 / 28
+        - Hippoc.:      9 / 23
+        - Int. Caps.:        10 / 24
+        - Ext. Caps.:        11 / 25
+        - Corp. Call.:      12 / 26
+        - D&PV WM:          13 / 27
+        - Cerebellum:       14 / 28
         - Brainstem:          29
 
     '''
@@ -129,14 +129,14 @@ def seg_from_mars(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
         'Left Temporal': [9, 10],
         'Left Occipital': [13, 14],
         'Left Insula': [17],
-        'Left Basal Ganglia': [40],
+        'Left Basal Gang.': [40],
         'Left Thalamus': [41],
         'Left Ventral DC': [42],
-        'Left Hippocampus': [43],
-        'Left Int. Capsule': [44],
-        'Left Ext. Capsule': [45],
-        'Left Corp. Call': [46],
-        'Left Deep and PV WM': [3, 4, 7, 8, 11, 12, 15, 16],
+        'Left Hippoc.': [43],
+        'Left Int. Caps.': [44],
+        'Left Ext. Caps.': [45],
+        'Left Corp. Call.': [46],
+        'Left D&PV WM': [3, 4, 7, 8, 11, 12, 15, 16],
         'Left Cerebellum': [47],
         # Right
         'Right Frontal': [21, 22],
@@ -144,14 +144,14 @@ def seg_from_mars(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
         'Right Temporal': [29, 30],
         'Right Occipital': [33, 34],
         'Right Insula': [37],
-        'Right Basal Ganglia': [50],
+        'Right Basal Gang.': [50],
         'Right Thalamus': [51],
         'Right Ventral DC': [52],
-        'Right Hippocampus': [53],
-        'Right Int. Capsule': [54],
-        'Right Ext. Capsule': [55],
-        'Right Corp. Call': [56],
-        'Right Deep and PV WM': [23, 24, 27, 28, 31, 32, 35, 36],
+        'Right Hippoc.': [53],
+        'Right Int. Caps.': [54],
+        'Right Ext. Caps.': [55],
+        'Right Corp. Call.': [56],
+        'Right D&PV WM': [23, 24, 27, 28, 31, 32, 35, 36],
         'Right Cerebellum': [57],
         #
         'Brainstem': 60
@@ -163,14 +163,14 @@ def seg_from_mars(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
         'Left Temporal': 3,
         'Left Occipital': 4,
         'Left Insula': 5,
-        'Left Basal Ganglia': 6,
+        'Left Basal Gang.': 6,
         'Left Thalamus': 7,
         'Left Ventral DC': 8,
-        'Left Hippocampus': 9,
-        'Left Int. Capsule': 10,
-        'Left Ext. Capsule': 11,
-        'Left Corp. Call': 12,
-        'Left Deep and PV WM': 13,
+        'Left Hippoc.': 9,
+        'Left Int. Caps.': 10,
+        'Left Ext. Caps.': 11,
+        'Left Corp. Call.': 12,
+        'Left D&PV WM': 13,
         'Left Cerebellum': 14,
         # Right
         'Right Frontal': 15,
@@ -178,14 +178,14 @@ def seg_from_mars(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
         'Right Temporal': 17,
         'Right Occipital': 18,
         'Right Insula': 19,
-        'Right Basal Ganglia': 20,
+        'Right Basal Gang.': 20,
         'Right Thalamus': 21,
         'Right Ventral DC': 22,
-        'Right Hippocampus': 23,
-        'Right Int. Capsule': 24,
-        'Right Ext. Capsule': 25,
-        'Right Corp. Call': 26,
-        'Right Deep and PV WM': 27,
+        'Right Hippoc': 23,
+        'Right Int. Caps.': 24,
+        'Right Ext. Caps.': 25,
+        'Right Corp. Call.': 26,
+        'Right D&PV WM': 27,
         'Right Cerebellum': 28,
         #
         'Brainstem': 29
