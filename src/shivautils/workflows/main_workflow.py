@@ -666,13 +666,18 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
         segmentation_wf.add_nodes([predictor])
         if pred in ['PVS', 'WMH', 'LAC']:  # with T1 always
             main_wf.connect(preproc_grabber, 't1_intensity_normalized', segmentation_wf, f'predict_{lpred}.t1')
+            main_wf.connect(preproc_grabber, 't1_intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
         if pred in ['WMH', 'LAC'] or pvs2:  # with FLAIR
             main_wf.connect(preproc_grabber, 'flair_intensity_normalized', segmentation_wf, f'predict_{lpred}.flair')
         if pred == 'CMB':  # with SWI
             main_wf.connect(preproc_grabber, 'swi_intensity_normalized', segmentation_wf, f'predict_{lpred}.swi')
+            main_wf.connect(preproc_grabber, 'swi_intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
+
+        main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation', wf_post, f'{lpred}_overlay_node.brainmask')
 
         # main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation', wf_post, f'prediction_metrics_{lpred}.img')
         main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation', wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
+
         if pred == 'CMB' and with_t1:  # Case with registration steps
             if kwargs['BRAIN_SEG'] == 'synthseg':
                 main_wf.connect(preproc_grabber, 'swi2t1_transforms',
