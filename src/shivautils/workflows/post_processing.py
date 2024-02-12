@@ -36,7 +36,8 @@ from nipype.interfaces import ants
 from shivautils.interfaces.post import SummaryReport
 from shivautils.interfaces.image import (Regionwise_Prediction_metrics,
                                          Brain_Seg_for_biomarker,
-                                         Label_clusters)
+                                         Label_clusters,
+                                         Brainmask_Overlay)
 from shivautils.interfaces.shiva import AntsApplyTransforms_Singularity
 from shivautils.utils.misc import set_wf_shapers
 
@@ -156,6 +157,13 @@ def genWorkflow(**kwargs) -> Workflow:
                 prediction_metrics.inputs.brain_seg_type = 'brain_mask'
                 prediction_metrics.inputs.region_list = ['Whole brain']
             workflow.connect(cluster_labelling, 'labelled_biomarkers', prediction_metrics, 'labelled_clusters')
+
+        # Adding nodes for theoverlay of predictions on the brain
+        pred_overlay = Node(Brainmask_Overlay(),  # Needs to be connected with the prediction and the main image externally
+                            name=f'{lpred}_overlay_node')
+        pred_overlay.inputs.outname = f'{lpred}_overlay.png'
+        pred_overlay.inputs.orient = 'ZZZ'  # 3 row with only axial slices
+        workflow.connect(pred_overlay, 'overlayed_brainmask', summary_report, f'{lpred}_overlay')
 
         # Building the actual report (html then pdf)
         setattr(summary_report.inputs, f'{lpred}_model_descriptor', model_descriptor)

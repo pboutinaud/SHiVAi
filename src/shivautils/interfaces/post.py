@@ -325,6 +325,15 @@ class SummaryReportInputSpec(BaseInterfaceInputSpec):
 
     db = traits.Str(desc="Name of the data-base")
 
+    pvs_overlay = traits.File(desc='PNG image of the PVS overlaid on the brain',
+                              mandatory=False)
+    wmh_overlay = traits.File(desc='PNG image of the WMH overlaid on the brain',
+                              mandatory=False)
+    lac_overlay = traits.File(desc='PNG image of the lacunas overlaid on the brain',
+                              mandatory=False)
+    cmb_overlay = traits.File(desc='PNG image of the CMB overlaid on the brain',
+                              mandatory=False)
+
     pvs_metrics_csv = traits.File(desc='csv file with pvs stats',
                                   mandatory=False)
     wmh_metrics_csv = traits.File(desc='csv file with wmh stats',
@@ -432,6 +441,7 @@ class SummaryReport(BaseInterface):
         brain_vol_vox = nib.load(self.inputs.brainmask).get_fdata().astype(bool).sum()  # in voxels
         pred_metrics_dict = {}  # Will contain the stats dataframe for each biomarker
         pred_census_im_dict = {}  # Will contain the path to the swarm plot for each biomarker
+        pred_overlay_im_dict = {}  # Will contain the path to the figure with biomarkers overlaid on the brain
         models_uid = {}  # Will contain the md5 hash for each file of each predictive model
         pred_and_acq = self.inputs.pred_and_acq
 
@@ -447,6 +457,7 @@ class SummaryReport(BaseInterface):
             pred_census_im_dict[pred] = violinplot_from_census(getattr(self.inputs, f'{lpred}_census_csv'),
                                                                self.inputs.resolution,
                                                                name_in_plot)
+            pred_overlay_im_dict[pred] = getattr(self.inputs, f'{lpred}_overlay')
             ids, url = get_md5_from_json(getattr(self.inputs, f'{lpred}_model_descriptor'), get_url=True)
             models_uid[pred]['id'] = ids
             if url:
@@ -481,6 +492,7 @@ class SummaryReport(BaseInterface):
         html_report = make_report(
             pred_metrics_dict=pred_metrics_dict,
             pred_census_im_dict=pred_census_im_dict,
+            pred_overlay_im_dict=pred_overlay_im_dict,
             pred_and_acq=pred_and_acq,
             brain_vol_vox=brain_vol_vox,
             thr_cluster_vals=self.inputs.thr_cluster_vals,

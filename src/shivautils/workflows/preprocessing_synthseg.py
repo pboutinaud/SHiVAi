@@ -48,6 +48,7 @@ def genWorkflow(**kwargs) -> Workflow:
     if kwargs['SYNTHSEG_ON_CPU']:
         synthseg.inputs.cpu = True
         synthseg.inputs.threads = kwargs['SYNTHSEG_ON_CPU']
+    synthseg.plugin_args = kwargs['PRED_PLUGIN_ARGS']
 
     workflow.connect(datagrabber, 'img1', synthseg, 'input')
 

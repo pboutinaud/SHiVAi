@@ -10,7 +10,7 @@
     <h1>Results report {{ data_origin }}</h1>
 
     {% for pred in pred_stat_dict %}
-    <div class="table">
+    <div class="stats">
         <h2> {{ pred_stat_dict[pred]['title'] }}</h2>
         {{pred_stat_dict[pred]['metrics_table'] | safe}}
         <p>
@@ -18,6 +18,8 @@
         </p>
         <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ pred_stat_dict[pred]["census_figure"] }}'
             width="300" height="200"></object>
+        <h3>Detected biomarkers overlaid on the brain</h3>
+        <img src='data:image/png;base64, {{ pred_stat_dict[pred]["overlay_figure"] }}' width="600" height="400">
     </div>
     {% endfor %}
 

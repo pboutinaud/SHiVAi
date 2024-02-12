@@ -319,10 +319,13 @@ def main():
         datagrabber.inputs.field_template = {'img1': f'%s/anat/%s_{acq.upper()}*.nii*'}
         datagrabber.inputs.template_args = {'img1': [['subject_id', 'subject_id']]}
 
+    pred_plugin_args = {'sbatch_args': f'--nodes 1 --cpus-per-task {args.threads} --gpus 1'}
+    pred_plugin_args.update(args.run_plugin_args)
     synthseg = Node(SynthSeg(),
                     name='synthseg')
     synthseg.inputs.cpu = args.synthseg_cpu
     synthseg.inputs.threads = args.threads
+    synthseg.plugin_args = pred_plugin_args
 
     # Initializing the data sinks
     sink_node_subjects = Node(DataSink(), name='sink_node_subjects')

@@ -9,6 +9,7 @@ from shivautils.postprocessing import __file__ as postproc_init
 def make_report(
         pred_metrics_dict: dict,
         pred_census_im_dict: dict,
+        pred_overlay_im_dict: dict,
         pred_and_acq: dict,
         brain_vol_vox: float,
         thr_cluster_vals: float,
@@ -37,6 +38,7 @@ def make_report(
     Args:
         pred_metrics_dict (dict): Dict of the dataframes holding statistics for each studied biomaerker (keys)
         pred_census_im_dict (dic): Dict of the image path to the swarmplot showing each biomarker size repartition
+        pred_overlay_im_dict (dic): Dict of the image path to the overlau showing biomarkers on the brain
         brain_vol (float): Intracranial brain volume in voxels
         pred_and_acq (dict):
         brain_vol_vox (float):
@@ -86,22 +88,40 @@ def make_report(
             stat_df[col] = (stat_df[col] * vol_mm3_per_voxel).map('{:.2f}'.format)
         # stat_df.set_index('Region', inplace=True)
         stat_df_html = stat_df.to_html(justify='center', escape=False, index=False)
-        # quick fix to a weird formatting and getting the first col as <th>
+
+        # quick fix to a weird formatting
         stat_df_html = stat_df_html.replace('table border="1"', 'table')
+
+        # Some finer formatting
         stat_df_html_list = stat_df_html.splitlines()
-        ind_1st_col = [i + 1 for i, line in enumerate(stat_df_html_list) if '<tr>' in line]
-        for ind in ind_1st_col:
-            stat_df_html_list[ind] = stat_df_html_list[ind].replace('td', 'th')
+        row_ind = [i for i, line in enumerate(stat_df_html_list) if '<tr>' in line]
+        for ind in row_ind:
+            # getting the first col as <th> to have it bold
+            stat_df_html_list[ind + 1] = stat_df_html_list[ind + 1].replace('td', 'th')
+            # Finding rows with 0 biomarkers and setting a special tr class to format with css
+            if '<td>0</td>' in stat_df_html_list[ind + 2]:
+                stat_df_html_list[ind] = stat_df_html_list[ind].replace('<tr>', '<tr class="empty_reg">')
+                # Replace the NaN with empty cells
+                ind2 = ind + 2
+                while '</tr>' not in stat_df_html_list[ind2]:
+                    stat_df_html_list[ind2] = stat_df_html_list[ind2].replace('<td>NaN</td>', '<td></td>')
+                    stat_df_html_list[ind2] = stat_df_html_list[ind2].replace('<td>nan</td>', '<td></td>')
+                    ind2 += 1
         stat_df_html = '\n'.join(stat_df_html_list)
 
         with open(pred_census_im_dict[seg], 'rb') as f:
             image_data = f.read()
         pred_census_fig = base64.b64encode(image_data).decode()
 
+        with open(pred_overlay_im_dict[seg], 'rb') as f:
+            image_data = f.read()
+        pred_overlay_fig = base64.b64encode(image_data).decode()
+
         pred_stat_dict[seg] = {'title': f'Brain charge statistics for {seg_full_name[seg]} ({seg})',
                                'metrics_table': stat_df_html,
                                'brain_volume': brain_vol,
                                'census_figure': pred_census_fig,
+                               'overlay_figure': pred_overlay_fig,
                                'acquisitions': pred_and_acq[seg],
                                'cluster_threshold': thr_cluster_vals[seg],
                                'cluster_min_vol': min_seg_size[seg],

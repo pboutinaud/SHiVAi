@@ -1067,6 +1067,20 @@ class Brainmask_QC_InputSpec(BaseInterfaceInputSpec):
     brainmask = traits.File(exists=True,
                             mandatory=True,
                             desc='Brain mask file')
+    outname = traits.Str(usedefault=True,
+                         mandatory=True,
+                         desc='Name of the output image')
+    cols_nb = traits.Int(6,
+                         mandatory=False,
+                         usedefault=True,
+                         desc='Number of columns in the ouput images')
+    orient = traits.Str('XYZ',
+                        mandatory=False,
+                        usedefault=True,
+                        desc=('Orientations to slice through. Can be "X", "Y", or "Z". '
+                              'Each instance of an orientation letter will add a row '
+                              'with slices in this orientation in the images (e.g. "ZZZ" '
+                              'will ouput an image with 3 rows showing slices in the Z dim)'))
 
 
 class Brainmask_QC_OutputSpec(TraitedSpec):
@@ -1075,7 +1089,7 @@ class Brainmask_QC_OutputSpec(TraitedSpec):
                                       desc='PNG file with the brainmask overlayed on the brain')
 
 
-class Brainmask_QC(BaseInterface):
+class Brainmask_Overlay(BaseInterface):
     """Generates an image showing the brain mask and the crop-box overlayed on the original brain"""
     input_spec = Brainmask_QC_InputSpec
     output_spec = Brainmask_QC_OutputSpec
@@ -1083,13 +1097,16 @@ class Brainmask_QC(BaseInterface):
     def _run_interface(self, runtime):
         img_ref = self.inputs.img_ref
         brainmask = self.inputs.brainmask
+        outname = self.inputs.outname
+        cols_nb = self.inputs.cols_nb
+        orient = self.inputs.orient
 
         ref_im = nib.load(img_ref)
-        ref_vol = ref_im.get_fdata()
+        ref_vol = ref_im.get_fdata().squeeze()
         brainmask_im = nib.load(brainmask)
-        brainmask_vol = brainmask_im.get_fdata()
+        brainmask_vol = brainmask_im.get_fdata().squeeze().astype(bool)
 
-        overlayed_brainmask = overlay_brainmask(ref_vol, brainmask_vol, 'qc_overlay_brainmask_T1.png')
+        overlayed_brainmask = overlay_brainmask(ref_vol, brainmask_vol, outname, cols_nb, orient)
 
         setattr(self, 'overlayed_brainmask', overlayed_brainmask)  # overlayed_brainmask is already an absolute path
 

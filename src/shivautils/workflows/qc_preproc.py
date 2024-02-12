@@ -5,7 +5,7 @@ Workflow computing the different quality control steps of the preprocessing
 
 from nipype.pipeline.engine import Node, Workflow
 from shivautils.interfaces.post import QC_metrics
-from shivautils.interfaces.image import Isocontour, Save_Histogram, Mask_and_Crop_QC, Brainmask_QC
+from shivautils.interfaces.image import Isocontour, Save_Histogram, Mask_and_Crop_QC, Brainmask_Overlay
 
 
 def gen_qc_wf(workflow_name) -> Workflow:
@@ -51,8 +51,9 @@ def gen_qc_wf(workflow_name) -> Workflow:
     qc_crop_box = Node(Mask_and_Crop_QC(),
                        name='qc_crop_box')
 
-    qc_overlay_brainmask = Node(Brainmask_QC(),
+    qc_overlay_brainmask = Node(Brainmask_Overlay(),
                                 name='qc_overlay_brainmask')
+    qc_overlay_brainmask.inputs.outname = 'qc_overlay_brainmask.png'
 
     save_hist_final = Node(Save_Histogram(),
                            name='save_hist_final')
@@ -82,8 +83,9 @@ def qc_wf_add_flair(workflow: Workflow) -> Workflow:
 
 def qc_wf_add_swi(workflow) -> Workflow:
     # if with_swi and with_t1:
-    qc_overlay_brainmask_swi = Node(Brainmask_QC(),
+    qc_overlay_brainmask_swi = Node(Brainmask_Overlay(),
                                     name='qc_overlay_brainmask_swi')
+    qc_overlay_brainmask_swi.inputs.outname = 'qc_overlay_brainmask.png'
 
     workflow.add_nodes([qc_overlay_brainmask_swi])
 

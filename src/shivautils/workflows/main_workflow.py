@@ -199,6 +199,10 @@ def generate_main_wf(**kwargs) -> Workflow:
         lpred = 'pvs'  # Using this just for this bit so that it corresponds to "wf_post" internal synthax
         main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation',
                         wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized',
+                        wf_post, f'{lpred}_overlay_node.img_ref')
+        main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation',
+                        wf_post, f'{lpred}_overlay_node.brainmask')
         if kwargs['BRAIN_SEG'] == 'synthseg':
             main_wf.connect(wf_preproc, 'custom_parc.brain_parc',
                             wf_post, f'custom_{lpred}_parc.brain_seg')
@@ -254,6 +258,10 @@ def generate_main_wf(**kwargs) -> Workflow:
         lpred = 'wmh'
         main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation',
                         wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized',
+                        wf_post, f'{lpred}_overlay_node.img_ref')
+        main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation',
+                        wf_post, f'{lpred}_overlay_node.brainmask')
         if kwargs['BRAIN_SEG'] == 'synthseg':
             main_wf.connect(wf_preproc, 'custom_parc.brain_parc',
                             wf_post, f'custom_{lpred}_parc.brain_seg')
@@ -273,6 +281,7 @@ def generate_main_wf(**kwargs) -> Workflow:
 
     # CMB
     if 'CMB' in kwargs['PREDICTION']:
+        lpred = 'cmb'
         # Prediction Node set-up
         if kwargs['CONTAINERIZE_NODES']:
             predict_cmb = Node(PredictSingularity(), name="predict_cmb")
@@ -300,9 +309,17 @@ def generate_main_wf(**kwargs) -> Workflow:
         if with_t1:
             main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_intensity_normalisation.intensity_normalized',
                             segmentation_wf, 'predict_cmb.swi')
+            main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.swi_intensity_normalisation.intensity_normalized',
+                            wf_post, f'{lpred}_overlay_node.img_ref')
+            main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation',
+                            wf_post, f'{lpred}_overlay_node.brainmask')
         else:
             main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized',
                             segmentation_wf, 'predict_cmb.swi')
+            main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized',
+                            wf_post, f'{lpred}_overlay_node.img_ref')
+            main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation',
+                            wf_post, f'{lpred}_overlay_node.brainmask')
 
         # Connection with post-processing wf
         if with_t1:
@@ -321,7 +338,6 @@ def generate_main_wf(**kwargs) -> Workflow:
                 main_wf.connect(wf_preproc, f'{cmb_preproc_wf_name}.mask_to_crop.resampled_image',
                                 wf_post, 'prediction_metrics.brain_seg')
         else:  # Default connections, like PVS, WMH, and LAC
-            lpred = 'cmb'
             main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation',
                             wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
             if kwargs['BRAIN_SEG'] == 'synthseg':
@@ -377,6 +393,10 @@ def generate_main_wf(**kwargs) -> Workflow:
         lpred = 'lac'
         main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation',
                         wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
+        main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized',
+                        wf_post, f'{lpred}_overlay_node.img_ref')
+        main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation',
+                        wf_post, f'{lpred}_overlay_node.brainmask')
         if kwargs['BRAIN_SEG'] == 'synthseg':
             main_wf.connect(wf_preproc, 'custom_parc.brain_parc',
                             wf_post, f'custom_{lpred}_parc.brain_seg')

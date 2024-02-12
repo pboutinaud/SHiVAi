@@ -162,7 +162,8 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
 
         cluster_measures['Biomarker region'] = clust_reg
 
-        regions_seg = [reg for reg in region_dict.keys() if reg in clust_reg]  # Sorted like in the input dict
+        # regions_seg = [reg for reg in region_dict.keys() if reg in clust_reg]  # Sorted like in the input dict
+        regions_seg = list(region_dict)  # Keeping all regions, even if empty
         regions += regions_seg
 
         for reg in regions_seg:
