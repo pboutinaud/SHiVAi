@@ -162,7 +162,8 @@ def genWorkflow(**kwargs) -> Workflow:
         pred_overlay = Node(Brainmask_Overlay(),  # Needs to be connected with the prediction and the main image externally
                             name=f'{lpred}_overlay_node')
         pred_overlay.inputs.outname = f'{lpred}_overlay.png'
-        pred_overlay.inputs.orient = 'ZZZ'  # 3 row with only axial slices
+        pred_overlay.inputs.orient = 'ZZ'  # 2 row with only axial slices
+        pred_overlay.inputs.alpha = 1
         workflow.connect(pred_overlay, 'overlayed_brainmask', summary_report, f'{lpred}_overlay')
 
         # Building the actual report (html then pdf)
