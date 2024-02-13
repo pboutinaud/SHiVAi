@@ -1060,7 +1060,7 @@ class Mask_and_Crop_QC(BaseInterface):
         return outputs
 
 
-class Brainmask_QC_InputSpec(BaseInterfaceInputSpec):
+class Brainmask_Overlay_InputSpec(BaseInterfaceInputSpec):
     img_ref = traits.File(exists=True,
                           mandatory=True,
                           desc='Reference nifti images to overlay with the brainmask')
@@ -1081,9 +1081,17 @@ class Brainmask_QC_InputSpec(BaseInterfaceInputSpec):
                               'Each instance of an orientation letter will add a row '
                               'with slices in this orientation in the images (e.g. "ZZZ" '
                               'will ouput an image with 3 rows showing slices in the Z dim)'))
+    alpha = traits.Float(0.5,
+                         usedefault=True,
+                         mandatory=False,
+                         desc='Alpha transparency for the overlaid mask. Default is 0.5.')
+    fov_mask = traits.File(mandatory=False,
+                           desc=('Nifti file with binary image that will be used to define '
+                                 'the field of view of the slices by both masking the images '
+                                 'and cropping to adjust to the mask.'))
 
 
-class Brainmask_QC_OutputSpec(TraitedSpec):
+class Brainmask_Overlay_OutputSpec(TraitedSpec):
 
     overlayed_brainmask = traits.File(exists=True,
                                       desc='PNG file with the brainmask overlayed on the brain')
@@ -1091,8 +1099,8 @@ class Brainmask_QC_OutputSpec(TraitedSpec):
 
 class Brainmask_Overlay(BaseInterface):
     """Generates an image showing the brain mask and the crop-box overlayed on the original brain"""
-    input_spec = Brainmask_QC_InputSpec
-    output_spec = Brainmask_QC_OutputSpec
+    input_spec = Brainmask_Overlay_InputSpec
+    output_spec = Brainmask_Overlay_OutputSpec
 
     def _run_interface(self, runtime):
         img_ref = self.inputs.img_ref
@@ -1100,13 +1108,32 @@ class Brainmask_Overlay(BaseInterface):
         outname = self.inputs.outname
         cols_nb = self.inputs.cols_nb
         orient = self.inputs.orient
+        alpha = self.inputs.alpha
 
         ref_im = nib.load(img_ref)
         ref_vol = ref_im.get_fdata().squeeze()
         brainmask_im = nib.load(brainmask)
         brainmask_vol = brainmask_im.get_fdata().squeeze().astype(bool)
 
-        overlayed_brainmask = overlay_brainmask(ref_vol, brainmask_vol, outname, cols_nb, orient)
+        if isdefined(self.inputs.fov_mask):
+            fov_mask_vol = nib.load(self.inputs.fov_mask).get_fdata().squeeze().astype(bool)
+            fov_box = np.ones(fov_mask_vol.shape)
+            fov_min_max = [(ind.min(), ind.max()) for ind in np.where(fov_mask_vol)]
+            # There must be a better way...
+            fov_box_shape = tuple(ind_max - ind_min for ind_min, ind_max in fov_min_max)
+            fov_box[:fov_min_max[0][0], :, :] = 0
+            fov_box[fov_min_max[0][1]:, :, :] = 0
+            fov_box[:, :fov_min_max[1][0], :] = 0
+            fov_box[:, fov_min_max[1][1]:, :] = 0
+            fov_box[:, :, :fov_min_max[2][0]] = 0
+            fov_box[:, :, fov_min_max[2][1]:] = 0
+            fov_box = fov_box.astype(bool)
+            brainmask_vol_masked = brainmask_vol * fov_mask_vol  # masking
+            brainmask_vol = brainmask_vol_masked[fov_box].reshape(fov_box_shape)  # new fov
+            ref_vol_masked = ref_vol * fov_mask_vol  # masking
+            ref_vol = ref_vol_masked[fov_box].reshape(fov_box_shape)  # new fov
+
+        overlayed_brainmask = overlay_brainmask(ref_vol, brainmask_vol, outname, cols_nb, orient, alpha)
 
         setattr(self, 'overlayed_brainmask', overlayed_brainmask)  # overlayed_brainmask is already an absolute path
 
