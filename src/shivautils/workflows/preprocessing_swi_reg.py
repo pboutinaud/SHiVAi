@@ -82,7 +82,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
     else:
         mask_to_swi = Node(ants.ApplyTransforms(), name="mask_to_swi")
     mask_to_swi.inputs.float = True
-    mask_to_swi.inputs.out_postfix = '_swi-space'
+    mask_to_swi.inputs.out_postfix = '_conformed_swi-space'
     mask_to_swi.inputs.interpolation = 'NearestNeighbor'
     mask_to_swi.inputs.invert_transform_flags = [True]
     workflow.connect(swi_to_t1, 'forward_transforms', mask_to_swi, 'transforms')
@@ -95,16 +95,17 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
     workflow.connect(mask_to_swi, 'output_image', crop_swi, 'roi_mask')
 
     # Conformed mask (256x256x256) to cropped space
-    mask_to_crop = Node(Resample_from_to(),
-                        name='mask_to_crop')
-    mask_to_crop.inputs.spline_order = 0
-    workflow.connect(mask_to_swi, 'output_image', mask_to_crop, 'moving_image')
-    workflow.connect(crop_swi, 'cropped', mask_to_crop, 'fixed_image')
+    mask_to_crop_swi = Node(Resample_from_to(),
+                            name='mask_to_crop_swi')
+    mask_to_crop_swi.inputs.spline_order = 0
+    mask_to_crop_swi.inputs.out_name = 'brainmask_cropped_swi-space.nii.gz'
+    workflow.connect(mask_to_swi, 'output_image', mask_to_crop_swi, 'moving_image')
+    workflow.connect(crop_swi, 'cropped', mask_to_crop_swi, 'fixed_image')
 
     # Intensity normalization of the cropped image for the segmentation (ENDPOINT)
     swi_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="swi_intensity_normalisation")
     workflow.connect(crop_swi, 'cropped', swi_norm, 'input_image')
-    workflow.connect(mask_to_crop, 'resampled_image', swi_norm, 'brain_mask')
+    workflow.connect(mask_to_crop_swi, 'resampled_image', swi_norm, 'brain_mask')
 
     # Adding the subworkflow to the main preprocessing workflow and connecting the nodes
     preproc_wf.add_nodes([workflow])
@@ -122,7 +123,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
     qc_overlay_brainmask_swi = qc_wf.get_node('qc_overlay_brainmask_swi')
     qc_metrics = qc_wf.get_node('qc_metrics')
 
-    qc_wf.connect(mask_to_crop, 'resampled_image', qc_overlay_brainmask_swi, 'brainmask')
+    qc_wf.connect(mask_to_crop_swi, 'resampled_image', qc_overlay_brainmask_swi, 'brainmask')
     qc_wf.connect(swi_norm, 'intensity_normalized', qc_overlay_brainmask_swi, 'img_ref')
     qc_wf.connect(swi_norm, 'mode', qc_metrics, 'swi_norm_peak')
     qc_wf.connect(swi_to_t1, 'forward_transforms', qc_metrics, 'swi_reg_mat')
