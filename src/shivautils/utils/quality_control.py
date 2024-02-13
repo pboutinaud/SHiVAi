@@ -14,7 +14,7 @@ from scipy.ndimage import (
 from shivautils.utils.stats import get_mode
 
 
-def overlay_brainmask(ref_vol, brainmask_vol, save_fig, nb_of_cols=6, orient='XYZ'):
+def overlay_brainmask(ref_vol, brainmask_vol, save_fig, nb_of_cols=6, orient='XYZ', alpha=0.5):
     """Overlay brainmask on t1 images
 
     Args:
@@ -54,9 +54,9 @@ def overlay_brainmask(ref_vol, brainmask_vol, save_fig, nb_of_cols=6, orient='XY
             row_nb += orient.count(dim)
 
     # Affichage dans les trois axes
-    fig, ax = plt.subplots(row_nb, nb_of_cols, figsize=(nb_of_cols, row_nb), dpi=300)
+    fig, ax = plt.subplots(row_nb, nb_of_cols, figsize=(nb_of_cols*0.75, row_nb), dpi=300)
     fig.patch.set_facecolor('k')
-    alpha = 0.5
+    # alpha = 0.5
 
     row = 0
     for dim in ['X', 'Y', 'Z']:
