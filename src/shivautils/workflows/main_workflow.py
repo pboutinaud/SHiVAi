@@ -280,7 +280,7 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(prediction_metrics_all, 'prediction_metrics_wide_csv', sink_node_all, f'segmentations.{lpred}_metrics{space}.@wide')
         if kwargs['BRAIN_SEG'] == 'synthseg':
             main_wf.connect(wf_post, f'custom_{lpred}_parc.brain_seg', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@parc')
-            main_wf.connect(wf_post, f'custom_{lpred}_parc.region_dict', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@parc_dict')
+            main_wf.connect(wf_post, f'custom_{lpred}_parc.region_dict_json', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@parc_dict')
 
         if pred_with_swi and with_t1:
             # main_wf.connect(wf_post, 'swi_clust_to_t1.output_image', sink_node_subjects, f'segmentations.{lpred}_segmentation_t1-space')  # TODO at some point
@@ -513,7 +513,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
         main_wf.connect(wf_post, f'cluster_labelling_{lpred}.labelled_biomarkers', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@labeled')
         if kwargs['BRAIN_SEG'] == 'synthseg':
             main_wf.connect(wf_post, f'custom_{lpred}_parc.brain_seg', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@parc')
-            main_wf.connect(wf_post, f'custom_{lpred}_parc.region_dict', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@parc_dict')
+            main_wf.connect(wf_post, f'custom_{lpred}_parc.region_dict_json', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@parc_dict')
         if pred == 'CMB' and with_t1:
             # main_wf.connect(wf_post, 'swi_clust_to_t1.output_image', sink_node_subjects, f'segmentations.cmb_segmentation_t1-space')  # not implemented yet
             if kwargs['BRAIN_SEG'] == 'synthseg':
