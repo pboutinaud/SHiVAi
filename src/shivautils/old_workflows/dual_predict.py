@@ -2,7 +2,7 @@
 import os
 
 from nipype.pipeline.engine import Workflow
-from shivautils.workflows.predict import genWorkflow as genWorkflowPredict
+from shivautils.workflows.predict_wf import genWorkflow as genWorkflowPredict
 
 
 dummy_args = {'SUBJECT_LIST': ['BIOMIST::SUBJECT_LIST'],
