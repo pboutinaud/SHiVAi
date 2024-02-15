@@ -115,6 +115,7 @@ def main():
         'CMB_DESCRIPTOR': cmb_descriptor,
         'LAC_DESCRIPTOR': lac_descriptor,
         'ACQUISITIONS': pred_acqui,
+        'USE_T1': args.use_t1,
         'CONTAINER_IMAGE': args.container_image,
         'SYNTHSEG_IMAGE': args.synthseg_image,
         'CONTAINERIZE_NODES': args.containerized_nodes,

@@ -51,6 +51,9 @@ def generate_main_wf(**kwargs) -> Workflow:
     # Set the booleans to shape the main workflow
     with_t1, with_flair, with_swi = set_wf_shapers(kwargs['PREDICTION'])
 
+    if kwargs['USE_T1']:  # Override the default with_t1 deduced from the predictions
+        with_t1 = True
+
     # Declaration of the main workflow, it is modular and will contain smaller workflows
     main_wf = Workflow('main_workflow')
     main_wf.base_dir = kwargs['BASE_DIR']
