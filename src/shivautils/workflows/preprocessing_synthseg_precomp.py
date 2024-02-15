@@ -7,7 +7,7 @@ import os
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.io import DataGrabber
 from shivautils.workflows.preprocessing_premasked import genWorkflow as gen_premasked_wf
-from shivautils.interfaces.image import Parc_from_Synthseg
+from shivautils.interfaces.image import Parc_from_Synthseg, Segmentation_Cleaner
 
 
 def genWorkflow(**kwargs) -> Workflow:
@@ -36,10 +36,15 @@ def genWorkflow(**kwargs) -> Workflow:
     synthseg.inputs.field_template = {'segmentation': '%s/synthseg_parc.nii*'}  # add 'qc' and 'volumes' here if needed
     synthseg.inputs.template_args = {'segmentation': [['subject_id']]}
 
+    # Correct small "islands" mislabelled by Synthseg
+    seg_cleaning = Node(Segmentation_Cleaner(),
+                        name='seg_cleaning')
+    workflow.connect(synthseg, 'segmentation', seg_cleaning, 'input_seg')
+
     # conform segmentation to 256x256x256 size (already 1mm3 resolution)
     conform_mask = workflow.get_node('conform_mask')
-    workflow.disconnect(datagrabber, "img1", conform_mask, 'img')  # Changing the connection
-    workflow.connect(synthseg, 'segmentation', conform_mask, 'img')
+    workflow.disconnect(datagrabber, 'img1', conform_mask, 'img')  # Changing the connection
+    workflow.connect(seg_cleaning, 'ouput_seg', conform_mask, 'img')
 
     mask_to_crop = workflow.get_node('mask_to_crop')
     mask_to_crop.inputs.out_name = 'synthseg_cropped.nii.gz'

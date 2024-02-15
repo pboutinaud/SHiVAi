@@ -241,7 +241,8 @@ def generate_main_wf(**kwargs) -> Workflow:
     if kwargs['BRAIN_SEG'] is None:
         main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@brain_mask_raw_space')
     if kwargs['BRAIN_SEG'] == 'synthseg':
-        main_wf.connect(wf_preproc, 'synthseg.segmentation', sink_node_subjects, 'shiva_preproc.synthseg')
+        main_wf.connect(wf_preproc, 'seg_cleaning.input_seg', sink_node_subjects, 'shiva_preproc.synthseg')
+        main_wf.connect(wf_preproc, 'seg_cleaning.sunk_islands', sink_node_subjects, 'shiva_preproc.synthseg.@removed')
         main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', sink_node_subjects, 'shiva_preproc.synthseg.@cropped')
         main_wf.connect(wf_preproc, 'custom_parc.brain_parc', sink_node_subjects, 'shiva_preproc.synthseg.@custom')
     main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@bb1')
