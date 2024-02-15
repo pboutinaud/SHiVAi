@@ -7,10 +7,14 @@ import os
 
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces import ants
+from nipype.interfaces.quickshear import Quickshear
+
 from shivautils.utils.misc import as_list
 
 from shivautils.interfaces.image import Normalization, Conform
-from shivautils.interfaces.shiva import AntsRegistration_Singularity, AntsApplyTransforms_Singularity
+from shivautils.interfaces.shiva import (AntsRegistration_Singularity,
+                                         AntsApplyTransforms_Singularity,
+                                         Quickshear_Singularity)
 from shivautils.workflows.qc_preproc import qc_wf_add_flair
 
 
@@ -109,9 +113,23 @@ def genWorkflow(workflow: Workflow, **kwargs) -> Workflow:
     workflow.connect(datagrabber, 'img2',
                      mask_to_img2, 'reference_image')
 
+    # Defacing the conformed image (uses the conformed mask from the 'unpreconform' node)
+    if kwargs['CONTAINERIZE_NODES']:
+        defacing_flair = Node(Quickshear_Singularity(), name="defacing_flair")
+        defacing_flair.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+        defacing_flair.inputs.snglrt_bind = [
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            ('`pwd`', '`pwd`', 'rw')]  # TODO: See if this works
+    else:
+        defacing_flair = Node(Quickshear(),
+                              name='defacing_flair')
+
+    workflow.connect(flair_to_t1, 'warped_image', defacing_flair, 'in_file')
+    workflow.connect(hard_post_brain_mask, 'thresholded', defacing_flair, 'mask_file')
+
     # Intensity normalize co-registered image for tensorflow (ENDPOINT 2)
     img2_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="img2_final_intensity_normalization")
-    workflow.connect(flair_to_t1, 'warped_image',
+    workflow.connect(defacing_flair, 'out_file',
                      img2_norm, 'input_image')
     workflow.connect(hard_post_brain_mask, 'thresholded',
                      img2_norm, 'brain_mask')

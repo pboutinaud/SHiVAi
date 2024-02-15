@@ -5,9 +5,13 @@ segmentation while a T1 is available from another segmentation
 """
 from nipype.interfaces import ants
 from nipype.pipeline.engine import Node, Workflow
+from nipype.interfaces.quickshear import Quickshear
+
 from shivautils.interfaces.image import Normalization, Conform, Crop, Resample_from_to
 from shivautils.workflows.qc_preproc import qc_wf_add_swi
-from shivautils.interfaces.shiva import AntsRegistration_Singularity, AntsApplyTransforms_Singularity
+from shivautils.interfaces.shiva import (AntsRegistration_Singularity,
+                                         AntsApplyTransforms_Singularity,
+                                         Quickshear_Singularity)
 
 
 def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
@@ -88,10 +92,24 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
     workflow.connect(swi_to_t1, 'forward_transforms', mask_to_swi, 'transforms')
     workflow.connect(conform_swi, 'resampled', mask_to_swi, 'reference_image')
 
+    # Defacing the conformed image
+    if kwargs['CONTAINERIZE_NODES']:
+        defacing_swi = Node(Quickshear_Singularity(), name="defacing_swi")
+        defacing_swi.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+        defacing_swi.inputs.snglrt_bind = [
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            ('`pwd`', '`pwd`', 'rw')]  # TODO: See if this works
+    else:
+        defacing_swi = Node(Quickshear(),
+                            name='defacing_swi')
+
+    workflow.connect(conform_swi, 'resampled', defacing_swi, 'in_file')
+    workflow.connect(mask_to_swi, 'output_image', 'resampled', defacing_swi, 'mask_file')
+
     # Crop SWI image
     crop_swi = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),
                     name="crop_swi")
-    workflow.connect(conform_swi, 'resampled', crop_swi, 'apply_to')
+    workflow.connect(defacing_swi, 'out_file', crop_swi, 'apply_to')
     workflow.connect(mask_to_swi, 'output_image', crop_swi, 'roi_mask')
 
     # Conformed mask (256x256x256) to cropped space

@@ -16,6 +16,10 @@ from nipype.interfaces.ants.resampling import (ApplyTransforms,
                                                ApplyTransformsInputSpec,
                                                ApplyTransformsOutputSpec)
 
+from nipype.interfaces.quickshear import (Quickshear,
+                                          QuickshearInputSpec,
+                                          QuickshearOutputSpec)
+
 
 class PredictInputSpec(BaseInterfaceInputSpec):
     """Predict input specification."""
@@ -234,3 +238,21 @@ class AntsApplyTransforms_Singularity(ApplyTransforms, SingularityCommandLine):
     input_spec = AntsApplyTransforms_Singularity_InputSpec
     output_spec = ApplyTransformsOutputSpec
     _cmd = ApplyTransforms._cmd
+
+
+class Quickshear_Singularity_InputSpec(SingularityInputSpec, QuickshearInputSpec):
+    """Quickshear input specification (singularity mixin).
+
+    Inherits from Singularity command line fields.
+    """
+    pass
+
+
+class Quickshear_Singularity(Quickshear, SingularityCommandLine):
+    def __init__(self):
+        """Call parent constructor."""
+        super(Quickshear_Singularity, self).__init__()
+
+    input_spec = Quickshear_Singularity_InputSpec
+    output_spec = QuickshearOutputSpec
+    _cmd = Quickshear._cmd

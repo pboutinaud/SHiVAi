@@ -8,8 +8,10 @@
 
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.io import DataGrabber
-from shivautils.workflows.qc_preproc import gen_qc_wf
+from nipype.interfaces.quickshear import Quickshear
 
+from shivautils.interfaces.shiva import Quickshear_Singularity
+from shivautils.workflows.qc_preproc import gen_qc_wf
 from shivautils.interfaces.image import (Normalization, Threshold,
                                          Conform, Crop, Resample_from_to)
 
@@ -59,10 +61,24 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(datagrabber, "img1", conform_mask, 'img')
 
+    # Defacing the conformed image (uses the conformed mask from the 'unpreconform' node)
+    if kwargs['CONTAINERIZE_NODES']:
+        defacing_img1 = Node(Quickshear_Singularity(), name="defacing_img1")
+        defacing_img1.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+        defacing_img1.inputs.snglrt_bind = [
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            ('`pwd`', '`pwd`', 'rw')]  # TODO: See if this works
+    else:
+        defacing_img1 = Node(Quickshear(),
+                             name='defacing_img1')
+
+    workflow.connect(conform, 'resampled', defacing_img1, 'in_file')
+    workflow.connect(conform_mask, 'resampled', defacing_img1, 'mask_file')
+
     # crop img1 centered on mask
     crop = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),
                 name="crop")
-    workflow.connect(conform, 'resampled',
+    workflow.connect(defacing_img1, 'out_file',
                      crop, 'apply_to')
     workflow.connect(conform_mask, 'resampled',
                      crop, 'roi_mask')
@@ -93,7 +109,7 @@ def genWorkflow(**kwargs) -> Workflow:
     qc_wf = gen_qc_wf('preproc_qc_workflow')
     workflow.add_nodes([qc_wf])
     # Connect QC nodes
-    workflow.connect(conform, 'resampled', qc_wf, 'qc_crop_box.brain_img')
+    workflow.connect(defacing_img1, 'out_file', qc_wf, 'qc_crop_box.brain_img')
     workflow.connect(conform_mask, 'resampled', qc_wf, 'qc_crop_box.brainmask')  # Specific preprocessing with brain seg
     workflow.connect(crop, 'bbox1', qc_wf, 'qc_crop_box.bbox1')
     workflow.connect(crop, 'bbox2', qc_wf, 'qc_crop_box.bbox2')

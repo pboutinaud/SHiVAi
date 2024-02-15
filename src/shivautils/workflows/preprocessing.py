@@ -24,10 +24,11 @@ import os
 
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.io import DataGrabber
+from nipype.interfaces.quickshear import Quickshear
 
 from shivautils.interfaces.image import (Threshold, Normalization,
                                          Conform, Crop, Resample_from_to)
-from shivautils.interfaces.shiva import Predict, PredictSingularity
+from shivautils.interfaces.shiva import Predict, PredictSingularity, Quickshear_Singularity
 from shivautils.workflows.qc_preproc import gen_qc_wf
 
 
@@ -130,6 +131,20 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(pre_brain_mask, 'segmentation', unpreconform, 'img')
 
+    # Defacing the conformed image (uses the conformed mask from the 'unpreconform' node)
+    if kwargs['CONTAINERIZE_NODES']:
+        defacing_img1 = Node(Quickshear_Singularity(), name="defacing_img1")
+        defacing_img1.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+        defacing_img1.inputs.snglrt_bind = [
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            ('`pwd`', '`pwd`', 'rw')]  # TODO: See if this works
+    else:
+        defacing_img1 = Node(Quickshear(),
+                             name='defacing_img1')
+
+    workflow.connect(conform, 'resampled', defacing_img1, 'in_file')
+    workflow.connect(unpreconform, 'resampled', defacing_img1, 'mask_file')
+
     # binarize unpreconformed brain mask
     hard_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="hard_brain_mask")
     hard_brain_mask.inputs.binarize = True
@@ -140,7 +155,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # normalize intensities between 0 and 1 for Tensorflow
     post_normalization = Node(Normalization(percentile=kwargs['PERCENTILE']), name="post_intensity_normalization")
-    workflow.connect(conform, 'resampled',
+    workflow.connect(defacing_img1, 'out_file',
                      post_normalization, 'input_image')
     workflow.connect(hard_brain_mask, 'thresholded',
                      post_normalization, 'brain_mask')
@@ -157,7 +172,7 @@ def genWorkflow(**kwargs) -> Workflow:
     # crop img1 centered on mask
     crop = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),
                 name="crop")
-    workflow.connect(conform, 'resampled',
+    workflow.connect(defacing_img1, 'out_file',
                      crop, 'apply_to')
     workflow.connect(hard_brain_mask, 'thresholded',
                      crop, 'roi_mask')
@@ -214,7 +229,7 @@ def genWorkflow(**kwargs) -> Workflow:
     qc_wf = gen_qc_wf('preproc_qc_workflow')
     workflow.add_nodes([qc_wf])
     # Connect QC nodes
-    workflow.connect(conform, 'resampled', qc_wf, 'qc_crop_box.brain_img')
+    workflow.connect(defacing_img1, 'out_file', qc_wf, 'qc_crop_box.brain_img')
     workflow.connect(hard_brain_mask, 'thresholded', qc_wf, 'qc_crop_box.brainmask')  # Specific to full preprocessing (no inpu brain seg)
     workflow.connect(crop, 'bbox1', qc_wf, 'qc_crop_box.bbox1')
     workflow.connect(crop, 'bbox2', qc_wf, 'qc_crop_box.bbox2')

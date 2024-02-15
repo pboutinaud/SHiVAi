@@ -31,7 +31,7 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 The SHiVAi application requires a Linux machine with a GPU (with 16GB of dedicated memory).
 
-The deep-learning models relies on Tensorflow 2.7.13. The processing pipelines are implemented with Nipype and make use of ANTs for image registration. Quality control reporting uses (among others) DOG contours from: https://github.com/neurolabusc/PyDog. Building and/or using the container image relies on Apptainer (https://apptainer.org). More details about Apptainer in the [Apptainer image](#apptainer-image) section.
+The deep-learning models relies on Tensorflow 2.7.13. The processing pipelines are implemented with Nipype and make use of ANTs (Copyright 2009-2023, ConsortiumOfANTS) for image registration and [Quickshear](https://github.com/nipy/quickshear) (Copyright 2011, Nakeisha Schimke) for defacing. Quality control reporting uses (among others) DOG contours [PyDog](https://github.com/neurolabusc/PyDog) (Copyright 2021, Chris Rorden). Building and/or using the container image relies on Apptainer (https://apptainer.org). More details about Apptainer in the [Apptainer image](#apptainer-image) section.
 
 ## Package Installation
 
@@ -88,7 +88,7 @@ If you already have CUDA installed on your machine, with the proper environment 
 python -m pip install .[TF]
 ```
 
-You will also need the ANTs toolbox (which can be downloaded from [the original repository](http://stnava.github.io/ANTs/) or conveniently installed with `conda` if you use it using the `conda install -c aramislab ants` command line)
+You will also need the ANTs toolbox (which can be downloaded from [the original repository](http://stnava.github.io/ANTs/) or conveniently installed with `conda` if you use it using the `conda install -c aramislab ants` command line), and that you will have to download (or clone) from [its github repository](https://github.com/nipy/quickshear) and install in the python environment as well (with `python -m pip install .` when located in your local copy of the quickshear repository).
 
 Two final pieces of software you will need installed (but only if you are using the Synthseg analysis) are [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg) (available as part of recent versions of FreeSurfer) and [niimath](https://github.com/rordenlab/niimath).
 

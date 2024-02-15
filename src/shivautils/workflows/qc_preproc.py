@@ -14,7 +14,7 @@ def gen_qc_wf(workflow_name) -> Workflow:
 
     Required external connections:
         # qc_crop_box
-    ____.connect(____, 'conform.resampled', ____, 'qc_crop_box.brain_img')
+    ____.connect(____, 'defacing_img1.out_file', ____, 'qc_crop_box.brain_img')
     ____.connect(____, 'hard_brain_mask.thresholded', ____, 'qc_crop_box.brainmask')
     ____.connect(____, 'crop.bbox1', ____, 'qc_crop_box.bbox1')
     ____.connect(____, 'crop.bbox2', ____, 'qc_crop_box.bbox2')
