@@ -48,15 +48,15 @@ def genWorkflow(**kwargs) -> Workflow:
     if kwargs['SYNTHSEG_ON_CPU']:
         synthseg.inputs.cpu = True
         synthseg.inputs.threads = kwargs['SYNTHSEG_ON_CPU']
-        synthseg.plugin_args = {'sbatch_args': f'--nodes 1 --cpus-per-task {kwargs['SYNTHSEG_ON_CPU']}'}
+        synthseg.plugin_args = {'sbatch_args': f'--nodes 1 --cpus-per-task {kwargs["SYNTHSEG_ON_CPU"]}'}
     else:
         synthseg.plugin_args = kwargs['PRED_PLUGIN_ARGS']
 
     workflow.connect(datagrabber, 'img1', synthseg, 'input')
-    
+
     # Correct small "islands" mislabelled by Synthseg
     seg_cleaning = Node(Segmentation_Cleaner(),
-                     name='seg_cleaning')
+                        name='seg_cleaning')
     workflow.connect(synthseg, 'segmentation', seg_cleaning, 'input_seg')
 
     # conform segmentation to 256x256x256 size (already 1mm3 resolution)

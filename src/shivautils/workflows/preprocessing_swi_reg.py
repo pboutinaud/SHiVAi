@@ -104,7 +104,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
                             name='defacing_swi')
 
     workflow.connect(conform_swi, 'resampled', defacing_swi, 'in_file')
-    workflow.connect(mask_to_swi, 'output_image', 'resampled', defacing_swi, 'mask_file')
+    workflow.connect(mask_to_swi, 'output_image', defacing_swi, 'mask_file')
 
     # Crop SWI image
     crop_swi = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),
