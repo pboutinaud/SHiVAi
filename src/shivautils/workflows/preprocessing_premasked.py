@@ -61,6 +61,14 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(datagrabber, "img1", conform_mask, 'img')
 
+    # binarize brain mask (to be sure to have a good mask for Quickshear and crop)
+    hard_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="hard_brain_mask")
+    hard_brain_mask.inputs.binarize = True
+    hard_brain_mask.inputs.open = 3  # morphological opening of clusters using a ball of radius 3
+    hard_brain_mask.inputs.minVol = 30000  # Get rif of potential small clusters
+    hard_brain_mask.inputs.clusterCheck = 'size'  # Select biggest cluster
+    workflow.connect(conform_mask, 'resampled', hard_brain_mask, 'img')
+
     # Defacing the conformed image (uses the conformed mask from the 'unpreconform' node)
     if kwargs['CONTAINERIZE_NODES']:
         defacing_img1 = Node(Quickshear_Singularity(), name="defacing_img1")
@@ -73,20 +81,20 @@ def genWorkflow(**kwargs) -> Workflow:
                              name='defacing_img1')
 
     workflow.connect(conform, 'resampled', defacing_img1, 'in_file')
-    workflow.connect(conform_mask, 'resampled', defacing_img1, 'mask_file')
+    workflow.connect(hard_brain_mask, 'thresholded', defacing_img1, 'mask_file')
 
     # crop img1 centered on mask
     crop = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),
                 name="crop")
     workflow.connect(defacing_img1, 'out_file',
                      crop, 'apply_to')
-    workflow.connect(conform_mask, 'resampled',
+    workflow.connect(hard_brain_mask, 'thresholded',
                      crop, 'roi_mask')
 
     mask_to_crop = Node(Resample_from_to(),
                         name='mask_to_crop')
     mask_to_crop.inputs.spline_order = 0  # should be equivalent to NearestNeighbor(?)
-    workflow.connect(conform_mask, 'resampled', mask_to_crop, 'moving_image')
+    workflow.connect(hard_brain_mask, 'thresholded', mask_to_crop, 'moving_image')
     workflow.connect(crop, "cropped", mask_to_crop, 'fixed_image')
 
     # binarize brain mask, not strictly necessary, but makes the workflow compatible with others

@@ -131,6 +131,14 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(pre_brain_mask, 'segmentation', unpreconform, 'img')
 
+    # binarize unpreconformed brain mask
+    hard_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="hard_brain_mask")
+    hard_brain_mask.inputs.binarize = True
+    hard_brain_mask.inputs.open = 3  # morphological opening of clusters using a ball of radius 3
+    hard_brain_mask.inputs.minVol = 30000  # Get rif of potential small clusters
+    hard_brain_mask.inputs.clusterCheck = 'size'  # Select biggest cluster
+    workflow.connect(unpreconform, 'resampled', hard_brain_mask, 'img')
+
     # Defacing the conformed image (uses the conformed mask from the 'unpreconform' node)
     if kwargs['CONTAINERIZE_NODES']:
         defacing_img1 = Node(Quickshear_Singularity(), name="defacing_img1")
@@ -143,15 +151,7 @@ def genWorkflow(**kwargs) -> Workflow:
                              name='defacing_img1')
 
     workflow.connect(conform, 'resampled', defacing_img1, 'in_file')
-    workflow.connect(unpreconform, 'resampled', defacing_img1, 'mask_file')
-
-    # binarize unpreconformed brain mask
-    hard_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="hard_brain_mask")
-    hard_brain_mask.inputs.binarize = True
-    hard_brain_mask.inputs.open = 3  # morphological opening of clusters using a ball of radius 3
-    hard_brain_mask.inputs.minVol = 30000  # Get rif of potential small clusters
-    hard_brain_mask.inputs.clusterCheck = 'size'  # Select biggest cluster
-    workflow.connect(unpreconform, 'resampled', hard_brain_mask, 'img')
+    workflow.connect(hard_brain_mask, 'thresholded', defacing_img1, 'mask_file')
 
     # normalize intensities between 0 and 1 for Tensorflow
     post_normalization = Node(Normalization(percentile=kwargs['PERCENTILE']), name="post_intensity_normalization")
