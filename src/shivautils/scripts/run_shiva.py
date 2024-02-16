@@ -108,13 +108,15 @@ def singParser():
                               '(Note that part of the labels may keep the "swi" notation instead of the image type you '
                               'specified)'))
 
+    parser.add_argument('--use_t1',
+                        action='store_true',
+                        help=('Can be used when predicting CMBs only (so only expecting SWI acquisitions) while T1 acquisitions '
+                              'are available. This enable the CMB preprocessing steps using t1 for the brain parcelization. '
+                              'This option can also be used with "replace_t1" to use another type of acquisition.'))
+
     parser.add_argument('--masked',
                         action='store_true',
                         help='Select this if the input images are masked (i.e. with the brain extracted)')
-
-    parser.add_argument('--gpu',
-                        type=int,
-                        help='ID of the GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
 
     parser.add_argument('--synthseg',
                         action='store_true',
@@ -181,9 +183,10 @@ def main():
                        'replace_swi',
                        'input_type',
                        'run_plugin',
-                       'run_plugin_args',
-                       'gpu']
+                       'run_plugin_args',]
     opt_args1 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args1_names if getattr(args, arg_name)]
+    if args.use_t1:
+        opt_args1.append('--use_t1')
     bind_sublist = None
     if args.sub_list:
         bind_sublist = f"{op.dirname(op.abspath(args.sub_list))}:/mnt/sublist:rw"

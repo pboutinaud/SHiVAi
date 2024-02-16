@@ -181,6 +181,12 @@ def synthsegParser():
                               '(Note that part of the labels may keep the "swi" notation instead of the image type you '
                               'specified)'))
 
+    parser.add_argument('--use_t1',
+                        action='store_true',
+                        help=('Can be used when predicting CMBs only (so only expecting SWI acquisitions) while T1 acquisitions '
+                              'are available. This enable the CMB preprocessing steps using t1 for the brain parcelization. '
+                              'This option can also be used with "replace_t1" to use another type of acquisition.'))
+
     parser.add_argument('--synthseg_cpu',
                         action='store_true',
                         help='If selected, will run Synthseg using CPUs instead of GPUs')
@@ -279,6 +285,9 @@ def main():
         args.run_plugin_args = {}
 
     with_t1, with_flair, with_swi = set_wf_shapers(args.prediction)
+
+    if args.use_t1:  # Override default with_t1 value
+        with_t1 = True
 
     if with_t1:
         if args.replace_t1:
