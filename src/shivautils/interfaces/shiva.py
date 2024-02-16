@@ -130,9 +130,8 @@ class SynthSegInputSpec(CommandLineInputSpec):
                               usedefault=True,
                               desc='Output file path.')
 
-    threads = traits.Int(10, argstr='--threads %d',
-                         desc='Number of threads',
-                         usedefault=True)
+    threads = traits.Int(argstr='--threads %d',
+                         desc='Number of threads (only used when using CPUs)')
 
     robust = traits.Bool(True, argstr='--robust',
                          desc='Perform robust computations for noisy images.',
