@@ -12,7 +12,7 @@ from nipype.pipeline.engine import Node, Workflow
 from shivautils.workflows.preprocessing_premasked import genWorkflow as gen_premasked_wf
 from shivautils.interfaces.shiva import SynthSeg, SynthsegSingularity
 
-from shivautils.interfaces.image import Parc_from_Synthseg, Segmentation_Cleaner
+from shivautils.interfaces.image import Parc_from_Synthseg, Segmentation_Cleaner, Resample_from_to
 
 
 def genWorkflow(**kwargs) -> Workflow:
@@ -64,12 +64,17 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.disconnect(datagrabber, 'img1', conform_mask, 'img')  # Changing the connection
     workflow.connect(seg_cleaning, 'ouput_seg', conform_mask, 'img')
 
-    mask_to_crop = workflow.get_node('mask_to_crop')
-    mask_to_crop.inputs.out_name = 'synthseg_cropped.nii.gz'
-    # mask_to_crop.resampled_image contains the parcelization just before the binarization
+    # Putting the synthseg parc in cropped space
+    crop = workflow.get_node('crop')
+    seg_to_crop = Node(Resample_from_to(),
+                       name='seg_to_crop')
+    seg_to_crop.inputs.spline_order = 0  # should be equivalent to NearestNeighbor(?)
+    seg_to_crop.inputs.out_name = 'synthseg_cropped.nii.gz'
+    workflow.connect(conform_mask, 'resampled', seg_to_crop, 'moving_image')
+    workflow.connect(crop, "cropped", seg_to_crop, 'fixed_image')
 
     # Creates our custom segmentation with WM parcellation and lobar distinctions
     custom_parc = Node(Parc_from_Synthseg(), name='custom_parc')
-    workflow.connect(mask_to_crop, 'resampled_image', custom_parc, 'brain_seg')
+    workflow.connect(seg_to_crop, 'resampled_image', custom_parc, 'brain_seg')
 
     return workflow
