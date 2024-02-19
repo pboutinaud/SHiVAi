@@ -171,7 +171,6 @@ def generate_main_wf(**kwargs) -> Workflow:
         # Connection with inputs
         if pred_with_t1:
             main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', segmentation_wf, f'predict_{lpred}.t1')
-            main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
         if pred_with_flair:
             main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', segmentation_wf, f'predict_{lpred}.flair')
         if pred_with_swi:
@@ -185,6 +184,10 @@ def generate_main_wf(**kwargs) -> Workflow:
                 main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, f'{lpred}_overlay_node.fov_mask')
         else:
             main_wf.connect(wf_preproc, 'hard_post_brain_mask.thresholded', wf_post, f'{lpred}_overlay_node.fov_mask')
+            if pred in ['WMH', 'LAC']:
+                main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
+            else:
+                main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
         main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation', wf_post, f'{lpred}_overlay_node.brainmask')
 
         main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentation', wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
