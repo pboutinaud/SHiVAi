@@ -68,14 +68,11 @@ table {
     /* page-break-inside: avoid; */
 }
 
-th {
-    font-weight: bold;
-}
-
 thead th {
     background-color: #27AED9;
     color: #ffffff;
     font-size: 14px;
+    font-weight: bold;
 }
 
 th,
@@ -87,6 +84,7 @@ caption {
 tbody th {
     text-align: left;
     border-bottom: 1px solid #dddddd;
+    font-weight: bold;
 }
 
 tbody td {
@@ -104,8 +102,13 @@ tbody tr:last-of-type {
 
 /* Row with empty region (no biomarker) */
 tbody tr.empty_reg {
-    font-weight: normal !important;
+    font-weight: normal;
     color: #525151;
+}
+
+tbody tr.empty_reg td:first-child {
+    /* First cell of en empty-region row is aligned like the normal th */
+    text-align: left;
 }
 
 /* Round the top corners */
@@ -154,6 +157,13 @@ caption {
 .stats img {
     width: 100%;
     height: auto;
+}
+
+.stats li {
+    display: block;
+    width: 33%;
+    float: left;
+    font-size: 14px;
 }
 
 .info p {

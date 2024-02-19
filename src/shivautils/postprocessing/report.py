@@ -36,7 +36,8 @@ def make_report(
     - Processing workflow diagram
 
     Args:
-        pred_metrics_dict (dict): Dict of the dataframes holding statistics for each studied biomaerker (keys)
+        pred_metrics_dict (dict): Dict of tuples with the dataframes holding statistics and a boolean indicating
+            wether to prune out empty regions, for each studied biomarker (keys)
         pred_census_im_dict (dic): Dict of the image path to the swarmplot showing each biomarker size repartition
         pred_overlay_im_dict (dic): Dict of the image path to the overlau showing biomarkers on the brain
         brain_vol (float): Intracranial brain volume in voxels
@@ -71,7 +72,7 @@ def make_report(
     vol_mm3_per_voxel = resolution[0] * resolution[1] * resolution[2]  # Should be 1.0 mm3 by default
     brain_vol = brain_vol_vox * vol_mm3_per_voxel / 1000  # in cm3
     pred_stat_dict = {}
-    for seg, stat_df in pred_metrics_dict.items():
+    for seg, (stat_df, prune_empty_reg) in pred_metrics_dict.items():
         metrics = ['Region',
                    f'Number of {seg}',
                    'Total volume (mm<sup>3</sup>)',
@@ -86,6 +87,14 @@ def make_report(
         mm3_cols = metrics[2:]
         for col in mm3_cols:
             stat_df[col] = (stat_df[col] * vol_mm3_per_voxel).map('{:.2f}'.format)
+
+        # Removing rows with no biomarker if the option is selected
+        if prune_empty_reg:
+            empty_reg_ind = stat_df[stat_df[f'Number of {seg}'] == 0].index
+            empty_reg_list = stat_df.loc[empty_reg_ind, 'Region'].to_list()
+            stat_df = stat_df.drop(empty_reg_ind)
+        else:
+            empty_reg_list = []
         # stat_df.set_index('Region', inplace=True)
         stat_df_html = stat_df.to_html(justify='center', escape=False, index=False)
 
@@ -96,8 +105,6 @@ def make_report(
         stat_df_html_list = stat_df_html.splitlines()
         row_ind = [i for i, line in enumerate(stat_df_html_list) if '<tr>' in line]
         for ind in row_ind:
-            # getting the first col as <th> to have it bold
-            stat_df_html_list[ind + 1] = stat_df_html_list[ind + 1].replace('td', 'th')
             # Finding rows with 0 biomarkers and setting a special tr class to format with css
             if '<td>0</td>' in stat_df_html_list[ind + 2]:
                 stat_df_html_list[ind] = stat_df_html_list[ind].replace('<tr>', '<tr class="empty_reg">')
@@ -107,6 +114,10 @@ def make_report(
                     stat_df_html_list[ind2] = stat_df_html_list[ind2].replace('<td>NaN</td>', '<td></td>')
                     stat_df_html_list[ind2] = stat_df_html_list[ind2].replace('<td>nan</td>', '<td></td>')
                     ind2 += 1
+            else:
+                # getting the first col as <th> to have it bold (unless it's an empty region)
+                stat_df_html_list[ind + 1] = stat_df_html_list[ind + 1].replace('td', 'th')
+
         stat_df_html = '\n'.join(stat_df_html_list)
 
         with open(pred_census_im_dict[seg], 'rb') as f:
@@ -119,6 +130,7 @@ def make_report(
 
         pred_stat_dict[seg] = {'title': f'Brain charge statistics for {seg_full_name[seg]} ({seg})',
                                'metrics_table': stat_df_html,
+                               'empty_reg': empty_reg_list,
                                'brain_volume': brain_vol,
                                'census_figure': pred_census_fig,
                                'overlay_figure': pred_overlay_fig,

@@ -13,6 +13,16 @@
     <div class="stats">
         <h2> {{ pred_stat_dict[pred]['title'] }}</h2>
         {{pred_stat_dict[pred]['metrics_table'] | safe}}
+        {% if pred_stat_dict[pred]['empty_reg']|length > 0 %}
+        <div>
+            <p>Brain regions with no biomarker detected:</p>
+            <ul>
+                {% for reg in pred_stat_dict[pred]['empty_reg'] %}
+                <li>{{ reg }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
         <p>
             Brain volume: {{ pred_stat_dict[pred]['brain_volume'] }} cm<sup>3</sup><br>
         </p>

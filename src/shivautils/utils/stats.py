@@ -240,20 +240,21 @@ def violinplot_from_census(census_csv: str, resolution: tuple, pred: str):
         my_palette = {reg: colors[i] for i, reg in enumerate(brain_regions)}
 
         # Plots
+        logscale = True
         sns.violinplot(census_df.loc[~census_df['isXtreme'] & ~census_df['swarm']], y='Biomarker size ($mm^3$)', x='Biomarker region',
-                       hue='Biomarker region', cut=0, bw_adjust=0.7, palette=my_palette, log_scale=True,
+                       hue='Biomarker region', cut=0, bw_adjust=0.7, palette=my_palette, log_scale=logscale,
                        ax=ax)
         sns.swarmplot(census_df.loc[census_df['isXtreme']], y='Biomarker size ($mm^3$)', x='Biomarker region',
-                      hue='Biomarker region', alpha=0.8, palette=my_palette, log_scale=True,
+                      hue='Biomarker region', alpha=0.8, palette=my_palette, log_scale=logscale,
                       ax=ax)
         sns.swarmplot(census_df.loc[census_df['swarm']], y='Biomarker size ($mm^3$)', x='Biomarker region',
-                      hue='Biomarker region', palette=my_palette, log_scale=True,
+                      hue='Biomarker region', palette=my_palette, log_scale=logscale,
                       ax=ax)
         plt.title(f'{pred} size distribution', fontsize=18, weight='bold')
         plt.xticks(rotation=35, ha='right', fontsize=14)
         plt.yticks(fontsize=14)
         plt.xlabel('Biomarker location', fontsize=16)
-        plt.ylabel('Biomarker size ($mm^3$)', fontsize=16)
+        plt.ylabel(f'Biomarker size ($mm^3$){"(log scale)" if logscale else ""}', fontsize=16)
         plt.tight_layout()
         plt.savefig(save_name, format='svg', bbox_inches='tight')
         plt.close(fig)
