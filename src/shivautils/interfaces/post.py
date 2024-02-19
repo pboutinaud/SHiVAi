@@ -7,7 +7,7 @@ Contains custom interfaces wrapping scripts/functions used by the nipype workflo
 import os
 import os.path as op
 import json
-from datetime import date
+from datetime import datetime, timezone
 import base64
 
 import numpy as np
@@ -527,7 +527,7 @@ class SummaryReport(BaseInterface):
         # Creating custom CSSin addition to the main one for the pages header and the logos
         postproc_dir = os.path.dirname(postproc_init)
         css = CSS(os.path.join(postproc_dir, 'printed_styling.css'))
-        today = date.today().strftime("%m/%d/%Y")
+        now = datetime.now(timezone.utc).strftime("%Y/%m/%d - %H:%M (UTC)")
         header = (
             '@page {'
             '   @top-left {'
@@ -536,7 +536,7 @@ class SummaryReport(BaseInterface):
             '       white-space: pre;'
             '   }'
             '   @top-center {'
-            f'      content: "Date: {today}";'
+            f'      content: "{now}";'
             '       font-size: 10pt;'
             '   }'
             '}'
@@ -554,10 +554,7 @@ class SummaryReport(BaseInterface):
             '@page {'
             '   @bottom-left {'
             f'      background-image: url(data:image/png;base64,{other_logo});'
-            #       'background-size: 654px 70px;'
-            #       'background-size: 560px 60px;'
-            #       'background-size: 467px 50px;'
-            '       background-size: 374px 40px;'
+            '       background-size: 552px 45px;'
             '       display: inline-block;'
             '       width: 560px; '
             '       height: 60px;'
