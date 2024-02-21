@@ -27,8 +27,8 @@ def singParser():
 
     parser.add_argument("-it", "--input_type",
                         default='standard',
-                        choices=['standard', 'BIDS', 'json'],
-                        help="File staging convention: 'standard', 'BIDS' or 'json'")
+                        choices=['standard', 'BIDS'],  # , 'json'
+                        help="File staging convention: 'standard' or 'BIDS'")
 
     parser.add_argument("-db", "--db_name",
                         help='Name of the data-base the input scans originate from. It is only to add this detail in the report')

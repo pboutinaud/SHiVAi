@@ -27,8 +27,8 @@ def shivaParser():
                         required=True)
 
     parser.add_argument('--input_type',
-                        choices=['standard', 'BIDS', 'json'],
-                        help="Way to grab and manage nifti files : 'standard', 'BIDS' or 'json'",
+                        choices=['standard', 'BIDS'],  # , 'json'
+                        help="Way to grab and manage nifti files : 'standard' or 'BIDS'",
                         default='standard')
 
     parser.add_argument('--db_name',
