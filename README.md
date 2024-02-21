@@ -171,19 +171,19 @@ shiva -h
 
 Here is an example of a shiva call, using a config .yml file, processing linearly on GPU "0":
 ```bash
-shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --model_config /myHome/myProject/myConfig.yml --gpu 0
+shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config /myHome/myProject/myConfig.yml --gpu 0
 ```
 
 Using SLURM to parallelize the processes (use `--run_plugin SLURM` in the arguments):
 1. Without Apptainer image (requires TensorFlow, CUDA, ANTs and niimath locally installed):
 > ```bash
-> shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --model_config /myHome/myProject/myConfig.yml --run_plugin SLURM
+> shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config /myHome/myProject/myConfig.yml --run_plugin SLURM
 > ```
 > Here, the configuration file (`/myHome/myProject/myConfig.yml`) is optional, but helps with the readability of the command line
 
 2. With the Apptainer image used on the nodes requiring TensorFlow, CUDA and ANTs (use `--containerized_nodes` in the arguments):
 > ```bash
-> shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --model_config /myHome/myProject/myConfig.yml --run_plugin SLURM --containerized_nodes
+> shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config /myHome/myProject/myConfig.yml --run_plugin SLURM --containerized_nodes
 > ```
 > Here, the configuration file (`/myHome/myProject/myConfig.yml`) is absolutly necessary as it holds the path to the Apptainer image.
 

@@ -213,7 +213,7 @@ def shivaParser():
                                        'Obvioulsy not compatible with debugging or re-running the workflow.'))
 
     # Config file where lots of arguments are already written
-    parser.add_argument('--model_config',
+    parser.add_argument('--config',
                         type=str,
                         help=('Configuration file (.yml) containing the information and parameters for the '
                               'AI model (as well as the path to the AppTainer container when used).\n'
@@ -389,8 +389,8 @@ def set_args_and_check(inParser):
 
     # Parse the thresholds
     if args.threshold_clusters is not None:
-        if args.model_config:
-            raise inParser.error('Both "--threshold_clusters" and "--model_config" were given as argument, '
+        if args.config:
+            raise inParser.error('Both "--threshold_clusters" and "--config" were given as argument, '
                                  'but only one of them can be used at the same time.')
         # threshold_clusters override the others
         args.threshold_pvs = args.threshold_clusters
@@ -399,9 +399,9 @@ def set_args_and_check(inParser):
         args.threshold_lac = args.threshold_clusters
 
     # Parse the config file
-    if args.model_config:
-        args.model_config = os.path.abspath(args.model_config)
-        with open(args.model_config, 'r') as file:
+    if args.config:
+        args.config = os.path.abspath(args.config)
+        with open(args.config, 'r') as file:
             yaml_content = yaml.safe_load(file)
         if args.containerized_all or args.containerized_nodes:
             args.container_image = yaml_content['apptainer_image']

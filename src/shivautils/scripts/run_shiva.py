@@ -166,7 +166,7 @@ def main():
     input = "--in /mnt/data/input"
     output = "--out /mnt/data/output"
     pred = f"--prediction {' '.join(args.prediction)}"
-    config = f"--model_config /mnt/config/{op.basename(args.config)}"  # Only for Shiva
+    config = f"--config /mnt/config/{op.basename(args.config)}"  # Only for Shiva
 
     if not (op.exists(args.output) and op.isdir(args.output)):
         os.makedirs(args.output)
