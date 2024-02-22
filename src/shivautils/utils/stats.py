@@ -112,7 +112,7 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
     # Associate a label with a region name
     swaped_region_dict = {val: reg for reg, val in region_dict.items()}
     if prio_labels:
-        prio_dict = {reg: region_dict[reg] for reg in prio_labels}
+        prio_dict = {reg: region_dict[reg] for reg in prio_labels if reg in region_dict}
 
     clust_labels, clust_size = np.unique(clusters_vol[clusters_vol > 0], return_counts=True)
 
