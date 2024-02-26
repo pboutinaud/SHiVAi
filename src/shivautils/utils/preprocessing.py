@@ -138,6 +138,8 @@ def threshold(img: nb.Nifti1Image,
                         'The biggest cluster in the mask is not the one at '
                         'the top of the brain. Check the data for that participant.')
                 cluster_mask = (labeled_clusters == clst[0])
+        else:  # only minVol filtering
+            cluster_mask = np.isin(labeled_clusters, clst)
         array *= cluster_mask
 
     thresholded = nip.Nifti1Image(array.astype('f'), img.affine)
