@@ -138,11 +138,11 @@ def make_report(
                                'cluster_min_vol': min_seg_size[seg],
                                }
 
-    if pred_metrics_dict.keys() == {'CMB'}:
+    if pred_and_acq.keys() == {'CMB'}:
         modality = pred_and_acq['CMB'].upper()
     else:
-        pred_nonCMB = list(pred_metrics_dict.keys() - {'CMB'})[0]
-        modalities = pred_metrics_dict[pred_nonCMB].split(' and ')
+        pred_nonCMB = list(pred_and_acq.keys() - {'CMB'})[0]
+        modalities = pred_and_acq[pred_nonCMB].split(' and ')
         modality = modalities[0].upper()
 
     # Conversion of images in base64 objects
