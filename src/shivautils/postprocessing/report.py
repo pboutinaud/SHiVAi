@@ -138,10 +138,12 @@ def make_report(
                                'cluster_min_vol': min_seg_size[seg],
                                }
 
-    if 'CMB' in pred_metrics_dict.keys() and len(pred_metrics_dict.keys()) == 1:
-        modality = 'SWI'
-    else:  # TODO : make this more adaptative
-        modality = 'T1w'
+    if pred_metrics_dict.keys() == {'CMB'}:
+        modality = pred_and_acq['CMB'].upper()
+    else:
+        pred_nonCMB = list(pred_metrics_dict.keys() - {'CMB'})[0]
+        modalities = pred_metrics_dict[pred_nonCMB].split(' and ')
+        modality = modalities[0].upper()
 
     # Conversion of images in base64 objects
     if overlayed_brainmask_1 is not None:
