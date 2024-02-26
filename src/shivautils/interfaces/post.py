@@ -445,13 +445,6 @@ class SummaryReport(BaseInterface):
         models_uid = {}  # Will contain the md5 hash for each file of each predictive model
         pred_and_acq = self.inputs.pred_and_acq
 
-        prune_empty_reg_dict = {
-            'PVS': False,
-            'WMH': False,
-            'LAC': True,  # Uses MARS segmentation, too big to keep all regions in the table
-            'CMB': True,  # Idem, uses MARS segmentation
-        }
-
         # Generate the distribution figures for each prediction and fill models_uid
         for pred in pred_and_acq:
             lpred = pred.lower()  # "pred" is uppercase, so we also need a lowercase version
@@ -460,10 +453,7 @@ class SummaryReport(BaseInterface):
             else:
                 name_in_plot = pred
             models_uid[pred] = {}
-            pred_metrics_dict[pred] = (
-                pd.read_csv(getattr(self.inputs, f'{lpred}_metrics_csv')),
-                prune_empty_reg_dict[pred]
-            )
+            pred_metrics_dict[pred] = pd.read_csv(getattr(self.inputs, f'{lpred}_metrics_csv'))
             pred_census_im_dict[pred] = violinplot_from_census(getattr(self.inputs, f'{lpred}_census_csv'),
                                                                self.inputs.resolution,
                                                                name_in_plot)

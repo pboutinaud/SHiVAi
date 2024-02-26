@@ -36,8 +36,7 @@ def make_report(
     - Processing workflow diagram
 
     Args:
-        pred_metrics_dict (dict): Dict of tuples with the dataframes holding statistics and a boolean indicating
-            wether to prune out empty regions, for each studied biomarker (keys)
+        pred_metrics_dict (dict): Dict of dataframes (values) holding statistics for each studied biomarker (keys)
         pred_census_im_dict (dic): Dict of the image path to the swarmplot showing each biomarker size repartition
         pred_overlay_im_dict (dic): Dict of the image path to the overlau showing biomarkers on the brain
         brain_vol (float): Intracranial brain volume in voxels
@@ -72,7 +71,7 @@ def make_report(
     vol_mm3_per_voxel = resolution[0] * resolution[1] * resolution[2]  # Should be 1.0 mm3 by default
     brain_vol = brain_vol_vox * vol_mm3_per_voxel / 1000  # in cm3
     pred_stat_dict = {}
-    for seg, (stat_df, prune_empty_reg) in pred_metrics_dict.items():
+    for seg, stat_df in pred_metrics_dict.items():
         metrics = ['Region',
                    f'Number of {seg}',
                    'Total volume (mm<sup>3</sup>)',
@@ -88,8 +87,8 @@ def make_report(
         for col in mm3_cols:
             stat_df[col] = (stat_df[col] * vol_mm3_per_voxel).map('{:.2f}'.format)
 
-        # Removing rows with no biomarker if the option is selected
-        if prune_empty_reg:
+        # Removing rows with no biomarker if the conditions are met
+        if sum(stat_df[f'Number of {seg}'] == 0) > 7:  # Somewhat arbitrary
             empty_reg_ind = stat_df[stat_df[f'Number of {seg}'] == 0].index
             empty_reg_list = stat_df.loc[empty_reg_ind, 'Region'].to_list()
             stat_df = stat_df.drop(empty_reg_ind)
