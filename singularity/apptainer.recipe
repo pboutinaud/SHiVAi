@@ -32,12 +32,12 @@ Stage: build
     rm niimath_lnx.zip
 
     # Installing Quickshear
-    cd /usr/local/src/
-    curl -fLO https://github.com/nipy/quickshear/archive/refs/heads/master.zip
-    unzip master.zip
-    pip install ./quickshear-master
-    rm -rf ./quickshear-master
-    rm master.zip
+    # cd /usr/local/src/
+    # curl -fLO https://github.com/nipy/quickshear/archive/refs/heads/master.zip
+    # unzip master.zip
+    # pip install ./quickshear-master
+    # rm -rf ./quickshear-master
+    # rm master.zip
 
     mkdir -p /mnt/model
 

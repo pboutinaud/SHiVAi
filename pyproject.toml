@@ -50,6 +50,7 @@ dependencies = [
     "pydot",
     "pydotplus",
     "pyyaml",
+    "quickshear",
     "scikit-image",
     "scipy>=1.7.3",
     "typing-extensions<4.6.0",
