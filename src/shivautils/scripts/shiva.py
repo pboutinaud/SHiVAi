@@ -117,7 +117,6 @@ def main():
         'REG_PLUGIN_ARGS': reg_plugin_args,
         'PRED_PLUGIN_ARGS': pred_plugin_args,
         'ANONYMIZED': args.anonymize,
-        'NO_QC': args.noQC,
         'INTERPOLATION': args.interpolation,
         'PERCENTILE': args.percentile,
         'THRESHOLD': args.threshold,
