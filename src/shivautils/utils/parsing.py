@@ -544,7 +544,11 @@ def set_args_and_check(inParser):
                 yaml_content = yaml.safe_load(file)
             args.run_plugin_args = yaml_content
         else:
-            args.run_plugin_args = json.loads(args.run_plugin_args)
+            try:
+                args.run_plugin_args = json.loads(args.run_plugin_args)
+            except json.JSONDecodeError:
+                raise ValueError('The "--run_plugin_args" argument was not recognised as a file path (file not existing) '
+                                 f'nor a json string (bad formatting possibly). Input string: {args.run_plugin_args}')
     else:
         args.run_plugin_args = {}
     args.run_plugin_args['max_jobs'] = args.max_jobs
