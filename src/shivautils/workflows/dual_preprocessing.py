@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Add accessory image (flair) co-registration to cropped space (through ANTS),
-   and defacing of native and final images. This also handles back-registration from
-   conformed-crop to t1.
+   and defacing of native and final images.
    """
 import os
 
@@ -18,27 +17,17 @@ from shivautils.interfaces.shiva import (AntsRegistration_Singularity,
 from shivautils.workflows.qc_preproc import qc_wf_add_flair
 
 
-dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
-              "BASE_DIR": os.path.normpath(os.path.expanduser('~')),
-              "DESCRIPTOR": os.path.normpath(os.path.join(os.path.expanduser('~'), '.swomed', 'default_config.ini'))
-              }
-
-
-def genWorkflow(workflow: Workflow, **kwargs) -> Workflow:
-    """Generate a nipype workflow for T1 + FLAIR based on T1-only workflow
+def graft_img2_preproc(workflow: Workflow, **kwargs) -> Workflow:
+    """Add FLAIR preprocessing to a T1-only workflow
+    Doing it this way allows to do all choices relative to brain segmentation
+    in the T1 preproc wf, and just add the FLAIR preproc afterward as needed 
 
     Returns:
         workflow
     """
-    # Import single img preproc workflow to build upon
-    # if kwargs['BRAIN_SEG'] is not None:
-    #     workflow = genWorkflow_preproc_masked(**kwargs)
-    # else:
-    #     workflow = genWorkflowPreproc(**kwargs)
 
     # file selection
     datagrabber = workflow.get_node('datagrabber')
-    datagrabber.inputs.outfields = ['img1', 'img2']
 
     # compute 6-dof coregistration parameters of accessory scan
     # to cropped t1 image
@@ -80,7 +69,7 @@ def genWorkflow(workflow: Workflow, **kwargs) -> Workflow:
 
     crop = workflow.get_node('crop')
     img1_norm = workflow.get_node('img1_final_intensity_normalization')
-    hard_post_brain_mask = workflow.get_node('hard_post_brain_mask')
+    mask_to_crop = workflow.get_node('mask_to_crop')
 
     workflow.connect(datagrabber, "img2",
                      conform_flair, 'img')
@@ -88,7 +77,7 @@ def genWorkflow(workflow: Workflow, **kwargs) -> Workflow:
                      flair_to_t1, 'moving_image')
     workflow.connect(crop, 'cropped',
                      flair_to_t1, 'fixed_image')
-    workflow.connect(hard_post_brain_mask, ('thresholded', as_list),
+    workflow.connect(mask_to_crop, ('resampled_image', as_list),
                      flair_to_t1, 'fixed_image_masks')
 
     # write mask to flair in native space
@@ -108,7 +97,7 @@ def genWorkflow(workflow: Workflow, **kwargs) -> Workflow:
 
     workflow.connect(flair_to_t1, 'forward_transforms',
                      mask_to_img2, 'transforms')
-    workflow.connect(hard_post_brain_mask, 'thresholded',
+    workflow.connect(mask_to_crop, 'resampled_image',
                      mask_to_img2, 'input_image')
     workflow.connect(datagrabber, 'img2',
                      mask_to_img2, 'reference_image')
@@ -125,13 +114,13 @@ def genWorkflow(workflow: Workflow, **kwargs) -> Workflow:
                               name='defacing_flair')
 
     workflow.connect(flair_to_t1, 'warped_image', defacing_flair, 'in_file')
-    workflow.connect(hard_post_brain_mask, 'thresholded', defacing_flair, 'mask_file')
+    workflow.connect(mask_to_crop, 'resampled_image', defacing_flair, 'mask_file')
 
     # Intensity normalize co-registered image for tensorflow (ENDPOINT 2)
     img2_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="img2_final_intensity_normalization")
     workflow.connect(defacing_flair, 'out_file',
                      img2_norm, 'input_image')
-    workflow.connect(hard_post_brain_mask, 'thresholded',
+    workflow.connect(mask_to_crop, 'resampled_image',
                      img2_norm, 'brain_mask')
 
     # QC
@@ -139,14 +128,8 @@ def genWorkflow(workflow: Workflow, **kwargs) -> Workflow:
     qc_wf = qc_wf_add_flair(qc_wf)
     workflow.connect(img2_norm, 'intensity_normalized', qc_wf, 'qc_coreg_FLAIR_T1.path_image')
     workflow.connect(img1_norm, 'intensity_normalized', qc_wf, 'qc_coreg_FLAIR_T1.path_ref_image')
-    workflow.connect(hard_post_brain_mask, 'thresholded', qc_wf, 'qc_coreg_FLAIR_T1.path_brainmask')
+    workflow.connect(mask_to_crop, 'resampled_image', qc_wf, 'qc_coreg_FLAIR_T1.path_brainmask')
     workflow.connect(img2_norm, 'mode', qc_wf, 'qc_metrics.flair_norm_peak')
     workflow.connect(flair_to_t1, 'forward_transforms', qc_wf, 'qc_metrics.flair_reg_mat')
 
     return workflow
-
-
-if __name__ == '__main__':
-    wf = genWorkflow(**dummy_args)
-    wf.config['execution']['remove_unnecessary_outputs'] = False
-    wf.run(plugin='Linear')

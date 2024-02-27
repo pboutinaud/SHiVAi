@@ -5,11 +5,12 @@
     (with freesurfer for example) or that you provide an Appainer image with
     Synthseg. Synthseg must be able to be called with the command "mri_synthseg".
 
-    The workflow is derived from the "preprocessing_premasked" workflow.
 """
 
 from nipype.pipeline.engine import Node, Workflow
-from shivautils.workflows.preprocessing_premasked import genWorkflow as gen_premasked_wf
+
+from shivautils.workflows.preprocessing import genWorkflow as gen_preproc_wf
+
 from shivautils.interfaces.shiva import SynthSeg, SynthsegSingularity
 
 from shivautils.interfaces.image import Parc_from_Synthseg, Segmentation_Cleaner, Resample_from_to
@@ -17,8 +18,6 @@ from shivautils.interfaces.image import Parc_from_Synthseg, Segmentation_Cleaner
 
 def genWorkflow(**kwargs) -> Workflow:
     """Generate a nipype workflow for image preprocessing using Synthseg
-    It is initialized with gen_premasked_wf, which already contains most
-    connections and QCs.
 
     Returns:
         workflow
@@ -26,11 +25,20 @@ def genWorkflow(**kwargs) -> Workflow:
 
     if 'wf_name' not in kwargs.keys():
         kwargs['wf_name'] = 'shiva_preprocessing_synthseg'
+    else:
+        kwargs['wf_name'] = kwargs['wf_name'] + '_synthseg'
 
-    workflow = gen_premasked_wf(**kwargs)
+    # Initilazing the wf
+    workflow = gen_preproc_wf(**kwargs)
 
+    # Preparing the rewiring of the workflow with the new nodes
     datagrabber = workflow.get_node('datagrabber')
+    mask_to_conform = workflow.get_node('mask_to_conform')
+    crop = workflow.get_node('crop')
+    workflow.disconnect(datagrabber, 'seg', mask_to_conform, 'moving_image')
 
+    # Creating the specific Synthseg nodes
+    # First he synthseg node
     if kwargs['CONTAINERIZE_NODES']:
         synthseg = Node(SynthsegSingularity(),
                         name='synthseg')
@@ -52,29 +60,26 @@ def genWorkflow(**kwargs) -> Workflow:
     else:
         synthseg.plugin_args = kwargs['PRED_PLUGIN_ARGS']
 
-    workflow.connect(datagrabber, 'img1', synthseg, 'input')
-
-    # Correct small "islands" mislabelled by Synthseg
+    # Then the correction small "islands" mislabelled by Synthseg
     seg_cleaning = Node(Segmentation_Cleaner(),
                         name='seg_cleaning')
-    workflow.connect(synthseg, 'segmentation', seg_cleaning, 'input_seg')
-
-    # conform segmentation to 256x256x256 size (already 1mm3 resolution)
-    conform_mask = workflow.get_node('conform_mask')
-    workflow.disconnect(datagrabber, 'img1', conform_mask, 'img')  # Changing the connection
-    workflow.connect(seg_cleaning, 'ouput_seg', conform_mask, 'img')
 
     # Putting the synthseg parc in cropped space
-    crop = workflow.get_node('crop')
     seg_to_crop = Node(Resample_from_to(),
                        name='seg_to_crop')
-    seg_to_crop.inputs.spline_order = 0  # should be equivalent to NearestNeighbor(?)
+    seg_to_crop.inputs.spline_order = 0
     seg_to_crop.inputs.out_name = 'synthseg_cropped.nii.gz'
-    workflow.connect(conform_mask, 'resampled', seg_to_crop, 'moving_image')
-    workflow.connect(crop, "cropped", seg_to_crop, 'fixed_image')
 
-    # Creates our custom segmentation with WM parcellation and lobar distinctions
+    # Creates the shiva custom parcellation with WM parcellation and lobar distinctions
     custom_parc = Node(Parc_from_Synthseg(), name='custom_parc')
+
+    # All the connections and rewiring
+    workflow.connect(datagrabber, 'img1', synthseg, 'input')
+    workflow.connect(synthseg, 'segmentation', seg_cleaning, 'input_seg')
+    workflow.connect(seg_cleaning, 'ouput_seg', mask_to_conform, 'moving_image')
+    workflow.connect(mask_to_conform, 'resampled_image', seg_to_crop, 'moving_image')
+    workflow.connect(crop, "cropped", seg_to_crop, 'fixed_image')
     workflow.connect(seg_to_crop, 'resampled_image', custom_parc, 'brain_seg')
 
+    # ENDPOINT: custom_parc.brain_parc
     return workflow

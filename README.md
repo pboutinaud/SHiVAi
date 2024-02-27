@@ -136,7 +136,7 @@ To run the shiva process, you will need:
 
 > --in: Path of the input dataset\
 > --out: Path to where the generated files will be saved\
-> --input_type: Type of structure file, way to capture and manage nifti files : standard, BIDS or json\
+> --input_type: Type of structure file, way to capture and manage nifti files : standard or BIDS\
 > --prediction: Choice of the type of prediction (i.e. segmentation) you want to compute (PVS, PVS2, WMH, CMB, all). Give a combination of these labels separated by blanc spaces.\
 > --config: File with configuration options for the workflow\
 > --run_plugin (opt.): Nipype plugin to use when running the process. Can be set to "MultiProc" for parallel processing\ (also requires the "run_plugin_args" argument)
@@ -201,31 +201,37 @@ Example of `BIDS` structure folders:
     .
     ├── dataset_description.json
     └── rawdata
-        └── sub-21
-            └── anat
-                ├── sub-21_FLAIR_raw.nii.gz
-                └── sub-21_T1_raw.nii.gz
-        └── sub-51
-            └── anat
-                ├── sub-51_FLAIR_raw.nii.gz
-                └── sub-51_T1_raw.nii.gz
+        ├── sub-21
+        │   └── anat
+        │       ├── sub-21_FLAIR_raw.nii.gz
+        │       ├── sub-21_T1_raw.nii.gz
+        │       └── sub-21_seg.nii.gz
+        ├── sub-51
+        │   └── anat
+        │       ├── sub-51_FLAIR_raw.nii.gz
+        │       ├── sub-51_T1_raw.nii.gz
+        ·       └── sub-21_seg.nii.gz
 
 
-Example of `standard` structure folders:
+Example of `standard` structure folders (the important parts are the name of the subject folder, e.g. "sub-21", and the name of the sub folders, e.g. "flair" or "t1", with only one nifti file per folder):
 
     .
-    ├── 21
+    ├── sub-21
     │   ├── flair
-    │   │   └── 21_FLAIR_raw.nii.gz
-    │   └── t1
-    │       └── 21_T1_raw.nii.gz
-    └── 51
-        ├── flair
-        │   └── 51_FLAIR_raw.nii.gz
-        └── t1
-            └── 51_T1_raw.nii.gz
+    │   │   └── sub-21_FLAIR_raw.nii.gz
+    │   ├── t1
+    │   │   └── sub-21_T1_raw.nii.gz
+    │   └── seg
+    │       └── sub-21_brainparc.nii.gz
+    ├── sub-51
+    │   ├── flair
+    │   │   └── sub-51_FLAIR_raw.nii.gz
+    │   ├── t1
+    │   │   └── sub-51_T1_raw.nii.gz
+    │   └── seg
+    ·       └── sub-51_brainparc.nii.gz
 
-
+<!-- 
 Example of `json` structure input:
 ```json
 {
@@ -258,7 +264,7 @@ Example of `json` structure input:
         }
     }
 }
-```
+``` -->
 
 ## Additional info
 

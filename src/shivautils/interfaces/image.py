@@ -14,7 +14,7 @@ from shivautils.interfaces.singularity import SingularityCommandLine, Singularit
 from nipype.utils.filemanip import split_filename
 from nipype.interfaces.base import CommandLine, CommandLineInputSpec, isdefined
 from nipype.interfaces.base import (BaseInterface, BaseInterfaceInputSpec,
-                                    traits, TraitedSpec)
+                                    traits, TraitedSpec, TraitError)
 import os
 import warnings
 import nibabel.processing as nip
@@ -1226,7 +1226,8 @@ class Regionwise_Prediction_metrics_InputSpec(BaseInterfaceInputSpec):
                               desc=('Dictionnary with keys = brain region names, '
                                     'and values = brain region labels (i.e. the corresponding value in brain_seg)\n'
                                     'To be used in conjonction with brain_seg_type = "custom"'),
-                              mandatory=False)
+                              mandatory=False,
+                              usedefault=True)
 
     region_list = traits.List(traits.Str,
                               value=['Whole brain'],
@@ -1317,10 +1318,14 @@ class Regionwise_Prediction_metrics(BaseInterface):
                 brain_seg_vol[(brain_seg_vol >= 1000) | (brain_seg_vol <= 1035)] = 8  # parc labels for left ctx
                 brain_seg_vol[(brain_seg_vol >= 2000) | (brain_seg_vol <= 2035)] = 42  # parc labels for right ctx
                 region_dict = {region: fs_labels[region] for region in region_list if region in fs_labels.keys()}
+        elif brain_seg_type == 'custom':
+            region_dict = self.inputs.region_dict
+            if 'Whole brain' not in region_dict:
+                region_dict = {'Whole brain': -1} | region_dict  # To ensure "Whole brain" is the first key
         else:
-            raise ValueError(f'Unrecognised segmentation type: {brain_seg_type}. Should be "brain_mask", "synthseg" or "custom"')
+            raise TraitError(f'Unrecognised segmentation type: {brain_seg_type}. Should be "brain_mask", "synthseg" or "custom"')
 
-        if biomarker == 'wmh':
+        if biomarker == 'wmh' and brain_seg_type == 'synthseg':
             prio_labels = ['Left PV WM', 'Right PV WM']
         else:
             prio_labels = []

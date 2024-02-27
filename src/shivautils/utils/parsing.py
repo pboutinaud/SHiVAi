@@ -3,6 +3,8 @@ import os
 import argparse
 import yaml
 import json
+import xml.etree.ElementTree as ET
+import pandas as pd
 
 
 def shivaParser():
@@ -102,30 +104,45 @@ def shivaParser():
                               'are available. This enable the CMB preprocessing steps using t1 for the brain parcelization. '
                               'This option can also be used with "replace_t1" to use another type of acquisition.'))
 
-    parser.add_argument('--synthseg',
-                        action='store_true',
-                        help='Optional FreeSurfer segmentation of regions to compute metrics clusters of specific regions')
-
-    parser.add_argument('--synthseg_cpu',
-                        action='store_true',
-                        help='If selected, will run Synthseg using CPUs instead of GPUs')
+    parser.add_argument('--brain_seg',
+                        choices=['shiva', 'shiva_gpu', 'synthseg', 'synthseg_cpu', 'synthseg_precomp', 'premasked', 'custom'],
+                        help=('Type of brain segmentation used in the pipeline\n'
+                              '- "shiva" uses an inhouse AI model to create a simple brain mask. By default it runs on CPUs.\n'
+                              '- "shiva_gpu" is the same as "shiva" but runs on a GPU\n'
+                              '- "synthseg" uses the Synthseg, AI-based, parcellation scheme from FreeSurfer to give a full '
+                              'parcellation of the brain and adapted region-wise metrics of the segmented biomarkers. It uses '
+                              'a GPU by default.\n'
+                              '- "synthseg_cpu" is the same as "synthseg" but running on CPUs (which number can be controlled '
+                              'with "--synthseg_threads"), and is thus much slower\n'
+                              '- "synthseg_precomp" is used when the synthseg parcellisation was precomputed and is already '
+                              'stored in the results (typically used by the run_shiva.py script)\n'
+                              '- "premasked" is to be used if the input images are already masked/brain-extracted\n'
+                              '- "custom" considers that you provide a custom brain segmentation. If the said segmentation is '
+                              'a full brain parcellation for region-wise analysis, a LUT must be provided with the "--custom_LUT"'
+                              'argument. Otherwise, the segmentation is considered simply as a brain mask.'),
+                        default='shiva')
 
     parser.add_argument('--synthseg_threads',
                         default=8,
                         type=int,
-                        help='Number of threads to create for parallel computation when using --synthseg_cpu (default is 8).')
+                        help='Number of threads to create for parallel computation when using "--brain_seg synthseg_cpu" (default is 8).')
 
-    parser.add_argument('--masked',
-                        action='store_true',
-                        help='Select this if the input images are masked (i.e. with the brain extracted)')
+    parser.add_argument('--custom_LUT',
+                        type=str,
+                        help=('Look-up table (LUT) for the association between values and region name in a custom brain segmentation '
+                              '(when using "custom" in "--brain_seg").\n'
+                              'If no LUT is provided, the custom segmentation is assumed to be a simple brain mask.\n'
+                              'The different accepted LUT styles are:\n'
+                              '- .json file with paired brain region names and integer labels (keys and values can be either, but '
+                              'stay consistent in the file)\n'
+                              '- BIDS style .tsv file\n'
+                              '- FSL style .lut file\n'
+                              '- FSL style .xml file\n'
+                              '- FreeSurfer style .txt file'))
 
-    parser.add_argument('--gpu',
-                        type=int,
-                        help='ID of the GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
-
-    parser.add_argument('--mask_on_gpu',
-                        action='store_true',
-                        help='Use GPU to compute the brain mask.')
+    # parser.add_argument('--gpu',
+    #                     type=int,
+    #                     help='ID of the GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
 
     container_args = parser.add_mutually_exclusive_group()
 
@@ -136,10 +153,6 @@ def shivaParser():
     container_args.add_argument('--containerized_nodes',
                                 help='Used when the process uses the container to run specific nodes (prediction and registration)',
                                 action='store_true')
-
-    # parser.add_argument('--retry',
-    #                     action='store_true',
-    #                     help='Relaunch the pipeline from where it stopped')
 
     parser.add_argument('--anonymize',
                         action='store_true',
@@ -201,7 +214,7 @@ def shivaParser():
 
     file_management.add_argument('--keep_all',
                                  action='store_true',
-                                 help='Keep all intermediary file, which is usually necessary for debugging.')
+                                 help='Keep all intermediary file')
 
     file_management.add_argument('--debug',
                                  action='store_true',
@@ -340,6 +353,77 @@ def shivaParser():
     return parser
 
 
+def parse_LUT(inLUT):  # TODO: tester avec de vraies LUT
+    '''
+    Parse the input LUT file into a dict
+    '''
+    # when inLUT is a json file
+    if os.path.splitext(inLUT)[-1] == '.json':
+        with open(inLUT, 'r') as jsonLUT:
+            dictLUT = json.load(jsonLUT)
+        if all(isinstance(k, str) for k in dictLUT) and all(isinstance(val, int) for val in dictLUT.values()):
+            pass  # All is well and good
+        elif all(isinstance(k, int) for k in dictLUT) and all(isinstance(val, str) for val in dictLUT.values()):
+            # keys and values must be swapped
+            dictLUT = {val: k for k, val in dictLUT.items()}
+        else:
+            raise ValueError('Unrecognized key:value structure in the LUT. One must be str and the other int')
+
+    # when inLUT is a tsv file (see )
+    if os.path.splitext(inLUT)[-1] == '.tsv':
+        dictLUT = {}
+        dfLUT = pd.read_csv(inLUT, sep='\t+', engine='python')
+        if 'abbreviation' in dfLUT:
+            regcol = 'abbreviation'
+        else:
+            regcol = 'name'
+        for _, row in dfLUT.iterrows():
+            reg = row[regcol]
+            val = int(row['index'])
+            dictLUT[reg] = val
+
+    # when inLUT is a FSL style .lut LUT
+    if os.path.splitext(inLUT)[-1] == '.lut':
+        dictLUT = {}
+        with open(inLUT, 'r') as lutLUT:
+            for line in lutLUT.readlines():
+                line = line.strip()
+                line = line.split(' ')
+                line = [val for val in line if val != '']  # filtering out additional whitespace spots
+                if line:
+                    if line[0].isdigit():
+                        val = int(line[0])
+                        reg = ' '.join(line[4:])  # Region name can have spaces and starts in 5th position (after label and RGB)
+                        dictLUT[reg] = val
+
+    # when inLUT is a FSL style .xml LUT
+    if os.path.splitext(inLUT)[-1] == '.xml':
+        dictLUT = {}
+        import xml.etree.ElementTree as ET
+        tree = ET.parse(inLUT)
+        root = tree.getroot()
+        for label in root.iter('label'):
+            val = int(label.get('index'))
+            reg = label.text
+            dictLUT[reg] = val
+
+    # when inLUT is a FreeSurfer style .txt LUT (e.g. https://surfer.nmr.mgh.harvard.edu/fswiki/FsTutorial/AnatomicalROI/FreeSurferColorLUT)
+    if os.path.splitext(inLUT)[-1] == '.txt':
+        dictLUT = {}
+        with open(inLUT, 'r') as lutLUT:
+            for line in lutLUT.readlines():
+                line = line.strip()
+                line = line.split(' ')
+                line = [val for val in line if val != '']
+                if line:
+                    if line[0].isdigit():
+                        val = int(line[0])
+                        reg = line[1]
+                        dictLUT[reg] = val
+
+    return dictLUT
+
+
 def set_args_and_check(inParser):
 
     def parse_sub_list_file(filename):
@@ -367,6 +451,12 @@ def set_args_and_check(inParser):
     if args.debug:
         args.keep_all = True
 
+    # Check if there is a LUT with the custom seg and parse it
+    if args.brain_seg == 'custom' and args.custom_LUT:
+        args.custom_LUT = os.path.abspath(args.custom_LUT)
+        if not os.path.exists(args.custom_LUT):
+            raise inParser.error(f'Using the "custom" segmentation with a LUT but the file given with --custom_LUT was not found: {args.custom_LUT}')
+        args.custom_LUT = parse_LUT(args.custom_LUT)
     # Checks and parsing of subjects
     subject_list = os.listdir(args.input)
     if args.sub_list is None and args.sub_names is None:
@@ -405,8 +495,8 @@ def set_args_and_check(inParser):
             yaml_content = yaml.safe_load(file)
         if args.containerized_all or args.containerized_nodes:
             args.container_image = yaml_content['apptainer_image']
-        if args.synthseg:
-            args.synthseg_image = yaml_content['synthseg_image']
+            if 'synthseg' in args.brain_seg and not args.brain_seg == 'synthseg_precomp':
+                args.synthseg_image = yaml_content['synthseg_image']
         parameters = yaml_content['parameters']
         args.model = yaml_content['model_path']  # only used when not with container
         args.percentile = parameters['percentile']
@@ -434,18 +524,18 @@ def set_args_and_check(inParser):
         args.lac_descriptor = parameters['LAC_descriptor']
     args.model = os.path.abspath(args.model)
 
-    if args.synthseg_precomp:
-        args.synthseg = True
-
     # Check containerizing options
     if (args.containerized_all or args.containerized_nodes) and not args.container_image:
         inParser.error(
             'Using a container (with the "--containerized_all" or "containerized_nodes" arguments) '
             'requires a container image (.sif file) but none was given. Add its path --container_image '
             'or in the configuration file (.yaml file).')
-    if args.containerized_nodes and (args.synthseg and not args.synthseg_precomp) and not args.synthseg_image:
+    if args.containerized_nodes and args.brain_seg in ['synthseg', 'synthseg_cpu'] and not args.synthseg_image:
         inParser.error(
             'Using the "containerized_nodes" option with synthseg, but no synthseg apptainer image was provided')
+
+    if args.brain_seg == 'synthseg_precomp':
+        args.synthseg_image = args.container_image  # This is just a dummy here to avoid problems
 
     # Parse the plugin arguments
     if args.run_plugin_args:

@@ -238,7 +238,7 @@ def main():
     # Optional input only for Shiva
     opt_args2_names = ['db_name',
                        'replace_flair',
-                       'masked',]
+                       'premasked',]
     opt_args2 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args2_names if getattr(args, arg_name)]
     preproc = None
     if args.preproc_results:

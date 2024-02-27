@@ -20,19 +20,19 @@ def gen_qc_wf(workflow_name) -> Workflow:
     ____.connect(____, 'crop.bbox2', ____, 'qc_crop_box.bbox2')
     ____.connect(____, 'crop.cdg_ijk', ____, 'qc_crop_box.slice_coord')
         #qc_overlay_brainmask
-    ____.connect(____, 'hard_post_brain_mask.thresholded', ____, 'qc_overlay_brainmask.brainmask')
+    ____.connect(____, 'mask_to_crop.resampled_image', ____, 'qc_overlay_brainmask.brainmask')
     ____.connect(____, 'img1_final_intensity_normalization.intensity_normalized', ____, 'qc_overlay_brainmask.img_ref')
         # save_hist_final
     ____.connect(____, 'img1_final_intensity_normalization.intensity_normalized', ____, 'save_hist_final.img_normalized')
         # qc_metrics
-    ____.connect(____, 'hard_post_brain_mask.thresholded', ____, 'qc_metrics.brain_mask')
+    ____.connect(____, 'mask_to_crop.resampled_image', ____, 'qc_metrics.brain_mask')
 
 
     if with flair:
         # qc_coreg_FLAIR_T1
     ____.connect(____, 'img2_final_intensity_normalization.intensity_normalized', ____, 'qc_coreg_FLAIR_T1.path_image')
     ____.connect(____, 'img1_final_intensity_normalization.intensity_normalized', ____, 'qc_coreg_FLAIR_T1.path_ref_image')
-    ____.connect(____, 'hard_post_brain_mask.thresholded', ____, 'qc_coreg_FLAIR_T1.path_brainmask')
+    ____.connect(____, 'mask_to_crop.resampled_image', ____, 'qc_coreg_FLAIR_T1.path_brainmask')
         # qc_metrics
     ____.connect(____, 'img2_final_intensity_normalization.mode', ____, 'qc_metrics.flair_norm_peak')
     ____.connect(____, 'flair_to_t1.forward_transforms', ____, 'qc_metrics.flair_reg_mat')

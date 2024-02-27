@@ -1,6 +1,8 @@
 '''
 DataSink interface classes overloaded to append data to csv if already exists in the sink.
 Also add an "Append date" column for the lines appended to the csv.
+For PDF files already existing, it saves the new file with a number added at the end of the
+filename (e.g. "report_2.pdf" if "report.pdf" already exists)
 
 All copy-pasted from _list_outputs of DataSink. The modified part can be found under the
 two "# NOTE: OVERLOADED" tags
@@ -21,7 +23,7 @@ from datetime import date
 iflogger = logging.getLogger("nipype.interface")
 
 
-class DataSink_CSV_Append(DataSink):
+class DataSink_CSV_and_PDF_safe(DataSink):
     # List outputs, main run routine
     def _list_outputs(self):
         """Execute this module."""
@@ -149,6 +151,21 @@ class DataSink_CSV_Append(DataSink):
                             src_df['Append date'] = date.today()
                             dst_df = pd.concat([dst_ori_df, src_df])
                             dst_df.to_csv(dst, index=False)
+                        elif os.path.exists(dst) and os.path.splitext(dst)[-1] == '.pdf':
+                            n = 2
+                            dst_bn, ext = os.path.splitext(dst)
+                            savename = dst_bn + f'_{n}' + ext
+                            while os.path.exists(savename):
+                                n += 1
+                                savename = dst_bn + f'_{n}' + ext
+                            iflogger.debug("copyfile: %s %s", src, savename)
+                            copyfile(
+                                src,
+                                savename,
+                                copy=True,
+                                hashmethod="content",
+                                use_hardlink=use_hardlink,
+                            )
                         else:
                             iflogger.debug("copyfile: %s %s", src, dst)
                             copyfile(

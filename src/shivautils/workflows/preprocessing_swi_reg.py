@@ -25,15 +25,13 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
     external connections required: 
         full_wf.connect(wf1, 'datagrabber.img3', wf_swi, 'conform_swi.img')
         full_wf.connect(wf1, 'crop.cropped', wf_swi, 'swi_to_t1.moving_image')
-        full_wf.connect(wf1, ('hard_post_brain_mask.thresholded', lambda input: [input]), wf_swi, 'swi_to_t1.fixed_image_masks')
-        full_wf.connect(wf1, 'hard_post_brain_mask.thresholded', wf_swi, 'mask_to_swi.input_image')
+        full_wf.connect(wf1, ('mask_to_crop.resampled_image', lambda input: [input]), wf_swi, 'swi_to_t1.fixed_image_masks')
+        full_wf.connect(wf1, 'mask_to_crop.resampled_image', wf_swi, 'mask_to_swi.input_image')
     Returns:
         workflow (the preprocessing workflow with the grafted swi part added)
     """
 
     wf_name = 'cmb_preprocessing'
-    if 'wf_name' in kwargs.keys():
-        wf_name = kwargs['wf_name']
     workflow = Workflow(wf_name)
     workflow.base_dir = kwargs['BASE_DIR']
 
@@ -129,11 +127,10 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
     preproc_wf.add_nodes([workflow])
     datagrabber = preproc_wf.get_node('datagrabber')
     crop = preproc_wf.get_node('crop')
-    hard_post_brain_mask = preproc_wf.get_node('hard_post_brain_mask')
+    mask_to_crop = preproc_wf.get_node('mask_to_crop')
     preproc_wf.connect(datagrabber, 'img3', workflow, 'conform_swi.img')
     preproc_wf.connect(crop, 'cropped', workflow, 'swi_to_t1.fixed_image')
-    preproc_wf.connect(hard_post_brain_mask, 'thresholded', mask_to_swi, 'input_image')
-    # using "workflow, ' mask_to_swi.input_image'"" does not work for some reason...
+    preproc_wf.connect(mask_to_crop, 'resampled_image', mask_to_swi, 'input_image')  # using "workflow, 'mask_to_swi.input_image'" does not work for some reason...
 
     # Adding SWI/CMB nodes to the QC sub-workflow and connecting the nodes
     qc_wf = preproc_wf.get_node('preproc_qc_workflow')

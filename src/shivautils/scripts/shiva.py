@@ -28,8 +28,6 @@ def main():
     parser = shivaParser()
     args = set_args_and_check(parser)
 
-    # synthseg = args.synthseg  # Unused for now
-
     if args.input_type == 'json':  # TODO: Homogenize with the .yml file
         with open(args.input, 'r') as json_in:
             subject_dict = json.load(json_in)
@@ -66,14 +64,8 @@ def main():
         lac_descriptor = os.path.join(args.model, args.lac_descriptor)
 
     ss_threads = 0
-    if args.synthseg:
-        seg = 'synthseg'
-        if args.synthseg_cpu:
-            ss_threads = args.synthseg_threads
-    elif args.masked:
-        seg = 'masked'
-    else:
-        seg = None
+    if args.brain_seg == 'synthseg_cpu':
+        ss_threads = args.synthseg_threads
 
     # Plugin arguments for predictions (shiva pred and synthseg)
     pred_plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 4 --gpus 1'}
@@ -105,9 +97,9 @@ def main():
         'DATA_DIR': subject_directory,  # Default base_directory for the datagrabber
         'BASE_DIR': out_dir,  # Default base_dir for each workflow
         'PREDICTION': args.prediction,  # Needed by the postproc for now
-        'BRAIN_SEG': seg,
+        'BRAIN_SEG': args.brain_seg,
         'SYNTHSEG_ON_CPU': ss_threads,  # Number of threads to use for Synthseg on CPUs
-        'SYNTHSEG_PRECOMP': args.synthseg_precomp,
+        'CUSTOM_LUT': args.custom_LUT,
         'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
         'WMH_DESCRIPTOR': wmh_descriptor,
         'PVS_DESCRIPTOR': pvs_descriptor,
@@ -121,11 +113,11 @@ def main():
         'CONTAINERIZE_NODES': args.containerized_nodes,
         # 'CONTAINER': True #  legacy variable. Only when used by SMOmed usually
         'MODELS_PATH': args.model,
-        'GPU': args.gpu,
-        'MASK_ON_GPU': args.mask_on_gpu,
+        'GPU': None,  # args.gpu,
         'REG_PLUGIN_ARGS': reg_plugin_args,
         'PRED_PLUGIN_ARGS': pred_plugin_args,
-        'ANONYMIZED': args.anonymize,  # TODO: Improve + defacing
+        'ANONYMIZED': args.anonymize,
+        'NO_QC': args.noQC,
         'INTERPOLATION': args.interpolation,
         'PERCENTILE': args.percentile,
         'THRESHOLD': args.threshold,
