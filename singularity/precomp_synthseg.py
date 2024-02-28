@@ -9,11 +9,12 @@ import argparse
 import os
 import json
 import yaml
+import shutil
+from nipype import config
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.io import DataGrabber, DataSink
 from nipype.interfaces.utility import IdentityInterface
 from nipype.interfaces.base import (traits, TraitedSpec,
-                                    CommandLineInputSpec,
                                     BaseInterfaceInputSpec,
                                     CommandLine,)
 
@@ -208,6 +209,21 @@ def synthsegParser():
                               'It will be imported as a dictionary and given plugin_args '
                               '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
                               'for more details )'))
+
+    file_management = parser.add_mutually_exclusive_group()
+
+    file_management.add_argument('--keep_all',
+                                 action='store_true',
+                                 help='Keep all intermediary file')
+
+    file_management.add_argument('--debug',
+                                 action='store_true',
+                                 help='Like --keep_all plus stop on first crash')
+
+    file_management.add_argument('--remove_intermediates',
+                                 action='store_true',
+                                 help=('Remove the folder containing all the intermediary steps, keeping only the "results" folder.\n'
+                                       'Obvioulsy not compatible with debugging or re-running the workflow.'))
     return parser
 
 
@@ -351,7 +367,17 @@ def main():
     synthseg_wf.connect(datagrabber, 'img1', synthseg, 'input')
     synthseg_wf.connect(synthseg, 'segmentation', sink_node_subjects, 'shiva_preproc.synthseg')
 
+    if args.keep_all or args.debug:
+        config.enable_provenance()
+        synthseg_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
+    if args.debug:
+        synthseg_wf.config['execution']['stop_on_first_crash'] = 'True'
     synthseg_wf.run(plugin=args.run_plugin, plugin_args=args.run_plugin_args)
+
+    # Remove intermediate files if asked
+    if args.remove_intermediates:
+        workflow_dir = os.path.join(out_dir, 'synthseg_wf')
+        shutil.rmtree(workflow_dir)
 
 
 if __name__ == "__main__":

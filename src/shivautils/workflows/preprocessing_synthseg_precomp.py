@@ -10,7 +10,7 @@ from shivautils.workflows.preprocessing_synthseg import genWorkflow as gen_synth
 
 
 def genWorkflow(**kwargs) -> Workflow:
-    """Generate a nipype workflow for image preprocessing using Synthseg precomputed segmenation
+    """Generate a nipype workflow for image preprocessing using Synthseg precomputed segmentation
     It is initialized with gen_synthseg_wf
 
     Returns:
@@ -33,7 +33,7 @@ def genWorkflow(**kwargs) -> Workflow:
     synthseg_grabber.inputs.raise_on_empty = True
     synthseg_grabber.inputs.sort_filelist = True
     synthseg_grabber.inputs.template = '%s/%s/*.nii*'
-    synthseg_grabber.inputs.field_template = {'segmentation': '%s/cleaned_synthseg_parc.nii*'}  # add 'qc' and 'volumes' here if needed
+    synthseg_grabber.inputs.field_template = {'segmentation': '%s/synthseg_parc.nii*'}  # add 'qc' and 'volumes' here if needed
     synthseg_grabber.inputs.template_args = {'segmentation': [['subject_id']]}
 
     # Rewiring the workflow with the new nodes

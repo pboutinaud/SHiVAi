@@ -108,33 +108,54 @@ def singParser():
                               '(Note that part of the labels may keep the "swi" notation instead of the image type you '
                               'specified)'))
 
-    parser.add_argument('--masked',
+    parser.add_argument('--use_t1',
                         action='store_true',
-                        help='Select this if the input images are masked (i.e. with the brain extracted)')
+                        help=('Can be used when predicting CMBs only (so only expecting SWI acquisitions) while T1 acquisitions '
+                              'are available. This enable the CMB preprocessing steps using t1 for the brain parcelization. '
+                              'This option can also be used with "replace_t1" to use another type of acquisition.'))
 
-    parser.add_argument('--gpu',
-                        type=int,
-                        help='ID of the GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
-
-    parser.add_argument('--synthseg',
-                        action='store_true',
-                        help=('Use SynthSeg to create a parcellation of the brain. Is will be used as a brain mask '
-                              'and will allow the classification of segmented biomarkers by region.'))
-
-    parser.add_argument('--synthseg_cpu',
-                        action='store_true',
-                        help='If selected, will run Synthseg using CPUs instead of GPUs')
+    parser.add_argument('--brain_seg',
+                        choices=['shiva', 'shiva_gpu', 'synthseg', 'synthseg_cpu', 'synthseg_precomp', 'premasked', 'custom'],
+                        help=('Type of brain segmentation used in the pipeline\n'
+                              '- "shiva" uses an inhouse AI model to create a simple brain mask. By default it runs on CPUs.\n'
+                              '- "shiva_gpu" is the same as "shiva" but runs on a GPU\n'
+                              '- "synthseg" uses the Synthseg, AI-based, parcellation scheme from FreeSurfer to give a full '
+                              'parcellation of the brain and adapted region-wise metrics of the segmented biomarkers. It uses '
+                              'a GPU by default.\n'
+                              '- "synthseg_cpu" is the same as "synthseg" but running on CPUs (which number can be controlled '
+                              'with "--synthseg_threads"), and is thus much slower\n'
+                              '- "synthseg_precomp" is used when the synthseg parcellisation was precomputed and is already '
+                              'stored in the results (typically used by the run_shiva.py script)\n'
+                              '- "premasked" is to be used if the input images are already masked/brain-extracted\n'
+                              '- "custom" considers that you provide a custom brain segmentation. If the said segmentation is '
+                              'a full brain parcellation for region-wise analysis, a LUT must be provided with the "--custom_LUT"'
+                              'argument. Otherwise, the segmentation is considered simply as a brain mask.'),
+                        default='shiva')
 
     parser.add_argument('--synthseg_threads',
                         default=8,
                         type=int,
                         help='Number of threads to create for parallel computation when using --synthseg_cpu (default is 8).')
 
+    parser.add_argument('--custom_LUT',
+                        type=str,
+                        help=('Look-up table (LUT) for the association between values and region name in a custom brain segmentation '
+                              '(when using "custom" in "--brain_seg").\n'
+                              'If no LUT is provided, the custom segmentation is assumed to be a simple brain mask.\n'
+                              'The different accepted LUT styles are:\n'
+                              '- .json file with paired brain region names and integer labels (keys and values can be either, but '
+                              'stay consistent in the file)\n'
+                              '- BIDS style .tsv file\n'
+                              '- FSL style .lut file\n'
+                              '- FSL style .xml file\n'
+                              '- FreeSurfer style .txt file'))
+
     parser.add_argument('--run_plugin',
                         default='Linear',
                         help=('Type of plugin used by Nipype to run the workflow.\n'
                               '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
                               'for more details )'))
+
     parser.add_argument('--run_plugin_args',  # hidden feature: you can also give a json string '{"arg1": val1, ...}'
                         type=str,
                         help=('Configuration file (.yml) for the plugin used by Nipype to run the workflow.\n'
@@ -142,14 +163,29 @@ def singParser():
                               '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
                               'for more details )'))
 
-    parser.add_argument('--keep_all',
+    parser.add_argument('--anonymize',
                         action='store_true',
-                        help='Keep all intermediary file, which is usually necessary for debugging.')
+                        help='Anonymize the report (removes mentions of the participants ID)')
 
-    parser.add_argument('--cpus',
-                        default=10,
-                        type=float,
-                        help="Number of CPUs (can be fractions of CPUs) that the Apptainer image will use at most.")
+    file_management = parser.add_mutually_exclusive_group()
+
+    file_management.add_argument('--keep_all',
+                                 action='store_true',
+                                 help='Keep all intermediary file')
+
+    file_management.add_argument('--debug',
+                                 action='store_true',
+                                 help='Like --keep_all plus stop on first crash')
+
+    file_management.add_argument('--remove_intermediates',
+                                 action='store_true',
+                                 help=('Remove the folder containing all the intermediary steps, keeping only the "results" folder.\n'
+                                       'Obvioulsy not compatible with debugging or re-running the workflow.'))
+
+    # parser.add_argument('--cpus',
+    #                     default=10,
+    #                     type=float,
+    #                     help="Number of CPUs (can be fractions of CPUs) that the Apptainer image will use at most.")
     return parser
 
 
@@ -174,16 +210,21 @@ def main():
         if os.path.isfile(args.run_plugin_args):
             with open(args.run_plugin_args, 'r') as file:
                 args.run_plugin_args = json.dumps(yaml.safe_load(file))
-        # else: already json sring or empty, which is fine for both
 
     # Optional inputs (common Shiva and Synthseg)
     opt_args1_names = ['replace_t1',
                        'replace_swi',
                        'input_type',
                        'run_plugin',
-                       'run_plugin_args',
-                       'gpu']
+                       'run_plugin_args']
+    opt_args1_bool_names = ['use_t1',
+                            'keep_all',
+                            'debug',
+                            'remove_intermediates']
+
     opt_args1 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args1_names if getattr(args, arg_name)]
+    opt_args1 += [f'--{arg_name}' for arg_name in opt_args1_bool_names if getattr(args, arg_name)]
+
     bind_sublist = None
     if args.sub_list:
         bind_sublist = f"{op.dirname(op.abspath(args.sub_list))}:/mnt/sublist:rw"
@@ -195,9 +236,9 @@ def main():
         opt_args1.append(f"--sub_names {' '.join(args.sub_names)}")
 
     # Synthseg precomputation
-    if args.synthseg and not args.preproc_results:
+    if 'synthseg' in args.brain_seg and not args.preproc_results:
         args_ss = []
-        if args.synthseg_cpu:
+        if args.brain_seg == 'synthseg_cpu':
             args_ss.append("--synthseg_cpu")
             args_ss.append(f"--threads {args.synthseg_threads}")
             nv = ''  # nvidia support for GPU usage with Singularity
@@ -205,8 +246,6 @@ def main():
             nv = '--nv'
         sing_image_ss = f"{yaml_content['synthseg_image']}"
         bind_list_ss = [f"{args.input}:/mnt/data/input:rw", f"{args.output}:/mnt/data/output:rw"]
-        if args.run_plugin_args:
-            bind_list_ss.append(f"{op.dirname(op.abspath(args.run_plugin_args))}:/mnt/plugin:rw")
         if bind_sublist:
             bind_list_ss.append(bind_sublist)
         bind_ss = ','.join(bind_list_ss)
@@ -234,8 +273,7 @@ def main():
 
     # Optional input only for Shiva
     opt_args2_names = ['db_name',
-                       'replace_flair',
-                       'masked',]
+                       'replace_flair']
     opt_args2 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args2_names if getattr(args, arg_name)]
     preproc = None
     if args.preproc_results:
@@ -246,17 +284,27 @@ def main():
         else:
             preproc = f"{args.preproc_results}:/mnt/preproc:rw"
             opt_args2.append("--preproc_results /mnt/preproc")
-    if args.synthseg:
-        opt_args2.append("--synthseg_precomp")
+
+    bind_lut = None
+    if 'synthseg' in args.brain_seg:
+        opt_args2.append("--brain_seg synthseg_precomp")
+    else:
+        opt_args2.append(f"--brain_seg {args.brain_seg}")
+        if args.custom_LUT:
+            args.custom_LUT = op.abspath(args.custom_LUT)
+            lut_bn = op.basename(args.custom_LUT)
+            lut_dir = op.dirname(args.custom_LUT)
+            opt_args2.append(f'--custom_LUT /mnt/lut/{lut_bn}')
+            bind_lut = f"{lut_dir}:/mnt/lut:ro"
 
     bind_list = [bind_model, bind_input, bind_output, bind_config]
     if bind_sublist:
         bind_list.append(bind_sublist)
     if preproc:
         bind_list.append(preproc)
-    if args.run_plugin_args:
-        bind_plugin = f"{op.dirname(op.abspath(args.run_plugin_args))}:/mnt/plugin:rw"
-        bind_list.append(bind_plugin)
+    if bind_lut:
+        bind_list.append(bind_lut)
+
     bind = ','.join(bind_list)
 
     command_list = [f"singularity exec --nv --bind", bind,
@@ -264,8 +312,8 @@ def main():
                     "shiva --containerized_all", input, output, pred, config
                     ] + opt_args1 + opt_args2
 
-    if args.keep_all:
-        command_list.append('--keep_all')
+    if args.anonymize:
+        command_list.append('--anonymize')
 
     command = ' '.join(command_list)
 
