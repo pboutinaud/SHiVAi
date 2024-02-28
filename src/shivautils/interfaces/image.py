@@ -81,6 +81,10 @@ class ConformOutputSpec(TraitedSpec):
     resampled = traits.File(exists=True,
                             desc='Image conformed to the required voxel size and shape.')
 
+    corrected_affine = traits.Any(desc=('If the conformed image had a bad affine matrix that needed to be '
+                                        'corrected before the conformation, this output contains the corrected affine '
+                                        'as a 2D Numpy array. Otherwise it stays undefined'))
+
 
 class Conform(BaseInterface):
     """Main class
@@ -110,6 +114,7 @@ class Conform(BaseInterface):
 
         # Center the origin (to the image's center of mass) if it's too close to the image border
         close_to_border = self.inputs.border_too_close
+        simplified_affine_centered = None
         if close_to_border:  # only does it if close_to_border != 0
             rot, trans = nib.affines.to_matvec(img.affine)
             origin_ijk = np.linalg.inv(rot).dot(-trans)
@@ -137,6 +142,7 @@ class Conform(BaseInterface):
                 trans_centered = -simplified_rot.dot(cdg_ijk)
                 simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
                 img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
+        setattr(self, 'corrected_affine', simplified_affine_centered)
 
         if not (isdefined(self.inputs.voxel_size)):
             # resample so as to keep FOV
@@ -163,8 +169,9 @@ class Conform(BaseInterface):
         outputs = self.output_spec().get()
         fname = self.inputs.img
         _, base, _ = split_filename(fname)
-        outputs["resampled"] = os.path.abspath(base +
-                                               '_resampled.nii.gz')
+        outputs["resampled"] = os.path.abspath(base + '_resampled.nii.gz')
+        if self.corrected_affine is not None:
+            outputs['corrected_affine'] = self.corrected_affine
         return outputs
 
 
@@ -186,6 +193,10 @@ class Resample_from_to_InputSpec(BaseInterfaceInputSpec):
     out_name = traits.Str('resampled.nii.gz',
                           usedefault=True,
                           desc='Output filename')
+
+    corrected_affine = traits.Any(desc=('Affine matrix to use instead of the input affine, if defined, '
+                                        'as it means that the original space had a bad affine (e.g. img1 '
+                                        'needed a correction before its conformation)'))
 
 
 class Resample_from_to_OutputSpec(TraitedSpec):
@@ -223,7 +234,11 @@ class Resample_from_to(BaseInterface):
 
         Return: runtime
         """
-        in_img = nib.funcs.squeeze_image(nib.load(self.inputs.moving_image))
+        in_img = nib.load(self.inputs.moving_image)
+        if isdefined(self.inputs.corrected_affine):
+            in_img.set_sform(affine=self.inputs.corrected_affine)
+            in_img.set_qform(affine=self.inputs.corrected_affine)
+        in_img = nib.funcs.squeeze_image(in_img)
         ref_img = nib.funcs.squeeze_image(nib.load(self.inputs.fixed_image))
         resampled = nip.resample_from_to(in_img,
                                          ref_img,

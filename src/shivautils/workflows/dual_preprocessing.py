@@ -62,7 +62,7 @@ def graft_img2_preproc(workflow: Workflow, **kwargs) -> Workflow:
     # Conform img2, should not be necessary but allows for the centering
     # of the origin of the nifti image (if far out of the brain)
     conform_flair = Node(Conform(),
-                         name="conform_flair")
+                         name='conform_flair')
     conform_flair.inputs.dimensions = (256, 256, 256)
     conform_flair.inputs.voxel_size = kwargs['RESOLUTION']
     conform_flair.inputs.orientation = kwargs['ORIENTATION']
@@ -71,36 +71,36 @@ def graft_img2_preproc(workflow: Workflow, **kwargs) -> Workflow:
     img1_norm = workflow.get_node('img1_final_intensity_normalization')
     mask_to_crop = workflow.get_node('mask_to_crop')
 
-    workflow.connect(datagrabber, "img2",
+    workflow.connect(datagrabber, 'img2',
                      conform_flair, 'img')
-    workflow.connect(conform_flair, "resampled",
+    workflow.connect(conform_flair, 'resampled',
                      flair_to_t1, 'moving_image')
     workflow.connect(crop, 'cropped',
                      flair_to_t1, 'fixed_image')
     workflow.connect(mask_to_crop, ('resampled_image', as_list),
                      flair_to_t1, 'fixed_image_masks')
 
-    # write mask to flair in native space
-    if kwargs['CONTAINERIZE_NODES']:
-        mask_to_img2 = Node(AntsApplyTransforms_Singularity(), name="mask_to_img2")
-        mask_to_img2.inputs.snglrt_bind = [
-            (kwargs['DATA_DIR'], kwargs['DATA_DIR'], 'ro'),
-            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
-            ('`pwd`', '`pwd`', 'rw'),]
-        mask_to_img2.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
-    else:
-        mask_to_img2 = Node(ants.ApplyTransforms(), name="mask_to_img2")
-    mask_to_img2.inputs.float = True
-    mask_to_img2.inputs.out_postfix = '_flair-space'
-    mask_to_img2.inputs.interpolation = 'NearestNeighbor'
-    mask_to_img2.inputs.invert_transform_flags = [True]
+    # # write mask to flair in conformed space  # TODO: add it back maybe
+    # if kwargs['CONTAINERIZE_NODES']:
+    #     mask_to_img2 = Node(AntsApplyTransforms_Singularity(), name='mask_to_img2')
+    #     mask_to_img2.inputs.snglrt_bind = [
+    #         (kwargs['DATA_DIR'], kwargs['DATA_DIR'], 'ro'),
+    #         (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+    #         ('`pwd`', '`pwd`', 'rw'),]
+    #     mask_to_img2.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+    # else:
+    #     mask_to_img2 = Node(ants.ApplyTransforms(), name="mask_to_img2")
+    # mask_to_img2.inputs.float = True
+    # mask_to_img2.inputs.out_postfix = '_flair-space'
+    # mask_to_img2.inputs.interpolation = 'NearestNeighbor'
+    # mask_to_img2.inputs.invert_transform_flags = [True]
 
-    workflow.connect(flair_to_t1, 'forward_transforms',
-                     mask_to_img2, 'transforms')
-    workflow.connect(mask_to_crop, 'resampled_image',
-                     mask_to_img2, 'input_image')
-    workflow.connect(datagrabber, 'img2',
-                     mask_to_img2, 'reference_image')
+    # workflow.connect(flair_to_t1, 'forward_transforms',
+    #                  mask_to_img2, 'transforms')
+    # workflow.connect(mask_to_crop, 'resampled_image',
+    #                  mask_to_img2, 'input_image')
+    # workflow.connect(conform_flair, 'resampled',
+    #                  mask_to_img2, 'reference_image')
 
     # Defacing the conformed image (uses the conformed mask from the 'unpreconform' node)
     if kwargs['CONTAINERIZE_NODES']:

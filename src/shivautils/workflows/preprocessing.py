@@ -81,6 +81,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     workflow.connect(datagrabber, 'seg', mask_to_conform, 'moving_image')
     workflow.connect(conform, 'resampled', mask_to_conform, 'fixed_image')
+    workflow.connect(conform, 'corrected_affine', mask_to_conform, 'corrected_affine')
 
     # binarize and clean conformed brain mask
     binarize_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="binarize_brain_mask")

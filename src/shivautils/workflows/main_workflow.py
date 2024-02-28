@@ -219,7 +219,7 @@ def generate_main_wf(**kwargs) -> Workflow:
                 main_wf.connect(wf_preproc, 'seg_to_crop.resampled_image', wf_post, 'seg_to_swi.input_image')
             else:
                 main_wf.connect(wf_preproc, 'cmb_preprocessing.mask_to_crop_swi.resampled_image', wf_post, f'cluster_labelling_{lpred}.brain_seg')
-                main_wf.connect(wf_preproc, 'cmb_preprocessing.mask_to_crop_swi.resampled_image', wf_post, 'prediction_metrics.brain_seg')
+                main_wf.connect(wf_preproc, 'cmb_preprocessing.mask_to_crop_swi.resampled_image', wf_post, 'prediction_metrics_cmb.brain_seg')
         else:
             if 'synthseg' in kwargs['BRAIN_SEG']:
                 main_wf.connect(wf_preproc, 'custom_parc.brain_parc', wf_post, f'custom_{lpred}_parc.brain_seg')
@@ -480,7 +480,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
                 main_wf.connect(preproc_grabber, 'brain_mask_swi',
                                 wf_post, f'cluster_labelling_{lpred}.brain_seg')
                 main_wf.connect(preproc_grabber, 'brain_mask_swi',
-                                wf_post, 'prediction_metrics.brain_seg')
+                                wf_post, 'prediction_metrics_cmb.brain_seg')
         else:
             if 'synthseg' in kwargs['BRAIN_SEG']:
                 main_wf.connect(preproc_grabber, 'brain_seg',  wf_post, f'custom_{lpred}_parc.brain_seg')
