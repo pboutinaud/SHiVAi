@@ -3,11 +3,11 @@
 <img src="src/shivautils/postprocessing/logo_shiva.png" align="right" width="100px"/>
 The shivautils package includes a set of image analysis tools for the study of covert cerebral small vessel diseases (cCSVD) with structural Magnetic Resonance Imaging. More specifically, it installs **SHiVAi**, the full pipeline for preprocessing, AI-based segmentation, and reporting of cCVSD biomarkers.
 
-The SHiVAi segmentation tools currently include Cerebral MicroBleeds (CMB),  PeriVascular Spaces (PVS) (also known as Virchow Robin Spaces - VRS), and White Matter Hyperintensities (WMH). The 3D-Unet model weights are available separately at https://github.com/pboutinaud.
+The SHiVAi segmentation tools currently include Cerebral MicroBleeds (CMB),  PeriVascular Spaces (PVS) (also known as Virchow Robin Spaces - VRS), White Matter Hyperintensities (WMH), and Lacunas. The 3D-Unet model weights are available separately at https://github.com/pboutinaud.
 
 The tools cover preprocessing (image resampling and cropping to match the required size for the deep learning models, coregistration for multimodal segmentation tools), automatic segmentation, and reporting (QC and results).
 
-<br clear="left"/>
+<br clear="right"/>
 
 ## Index
 
@@ -34,22 +34,22 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 The SHiVAi application requires a Linux machine with a GPU (with 16GB of dedicated memory).
 
-The deep-learning models relies on Tensorflow 2.7.13. The processing pipelines are implemented with Nipype and make use of ANTs (Copyright 2009-2023, ConsortiumOfANTS) for image registration and [Quickshear](https://github.com/nipy/quickshear) (Copyright 2011, Nakeisha Schimke) for defacing. Quality control reporting uses (among others) DOG contours [PyDog](https://github.com/neurolabusc/PyDog) (Copyright 2021, Chris Rorden). Building and/or using the container image relies on Apptainer (https://apptainer.org). More details about Apptainer in the [Apptainer image](#apptainer-image) section.
+The deep-learning models relies on Tensorflow 2.7.13. The processing pipelines are implemented with Nipype and make use of ANTs (Copyright 2009-2023, ConsortiumOfANTS) for image registration and [Quickshear](https://github.com/nipy/quickshear) (Copyright 2011, Nakeisha Schimke) for defacing. Quality control reporting uses (among others) DOG contours [PyDog](https://github.com/neurolabusc/PyDog) (Copyright 2021, Chris Rorden). Building and/or using the container image relies on Apptainer (https://apptainer.org). More details about Apptainer in the [Apptainer image](#apptainer-image) section and our [Appatainer readme file](apptainer/README.md).
 
 ## Package Installation
 
 Depending on your situation you may want to deploy SHiVAi in different ways:
-- **Fully contained process**: The simplest approach. All the computation is done through the Apptainer image. It accounts for most of the local environment set-up, which simplifies the installation and ensure portability.
-- **Traditional python install**: does not require singularity as all the dependencies will have to be installed locally. Useful for full control and development of the package, however it may lead to problems due to the finicky nature of TensorFlow and CUDA.
+- **Fully contained process**: The simplest approach. All the computation is done through the Apptainer image. It accounts for most of the local environment set-up, which simplifies the installation and ensure portability. However the process in run linearly (no parallelization of the different steps).
+- **Traditional python install**: does not require apptainer as all the dependencies will have to be installed locally. Useful for full control and development of the package, however it may lead to problems due to the finicky nature of TensorFlow and CUDA.
 - **Mixed approach**: Local installation of the package without TensorFlow (and so without troubles), but using the Apptainer image to run the deep-learning processes (using TensorFlow). Ideal for parallelization of the processes and use on HPC clusters.
 
 ### Trained AI model
 
-In all the mentioned situations, **you will also need** to obtain the trained deep-learning models you want to use (for PVS, WMH, and CMB segmentation). They are available at https://github.com/pboutinaud
+In all the mentioned situations, **you will also need** to obtain the trained deep-learning models you want to use (for PVS, WMH, CMB, and Lacuna segmentation). They are available at https://github.com/pboutinaud
 
 Let's consider that you stored them in `/myHome/myProject/Shiva_AI_models` for the following parts.
 
-> ⚠️For the process too work, a `model_info.json` file must be present in the folder containing the AI model files (e.g. the .h5 files). If it's not the case, see the [Create missing json file](#create-missing-json-file) section, and don't forget to update the config file (see [Fully contained process](#fully-contained-process)) if you use one.
+> ⚠️For the pipeline too work, a `model_info.json` file must be present in the folder containing the AI model files (e.g. the .h5 files). If it's not the case, see the [Create missing json file](#create-missing-json-file) section, and don't forget to update the config file (see [Fully contained process](#fully-contained-process)) if you use one.
 
 ### Fully contained process
 
@@ -59,19 +59,13 @@ https://apptainer.org/docs/user/main/quick_start.html
 2. Download the Apptainer image (.sif file) from https://cloud.efixia.com/sharing/TAHaV6ZgZ.
     Let's assume you saved it in `/myHome/myProject/shiva.sif`
 
-From the shivautils repository (where you are reading this), go to the 'singularity' folder and download:
+3. From the shivautils repository (where you are reading this), navigate to the [apptainer folder](apptainer/) and download [run_shiva.py](apptainer/run_shiva.py) and [config_example.yml](apptainer/config_example.yml)
 
-3. `run_shiva.py`
+4. You now need to prepare this `config_example.yml`, it will hold diverse parameters as well as the path to the AI model and to the apptainer image. There, you should change the placeholder paths for `model_path` and `apptainer_image` with your own paths (e.g. `/myHome/myProject/Shiva_AI_models` and `/myHome/myProject/shiva.sif`). You may also have to set the model descriptors (like `PVS_descriptor` or `WMH_descriptor` with the path to the `model_info.json` file mentioned above and in [Create missing json file](#create-missing-json-file))
 
-and
+    Other than the "descriptor" paths, you shouldn't have to modify any other setting in the `parameters` part.
 
-4. `config_example.yml`
-
-    You now need to prepare this configuration file, it will hold diverse parameters as well as the path to the AI model and to the apptainer image.
-    There, you should change the placeholder paths for `model_path` and `apptainer_image` with your own paths (e.g. `/myHome/myProject/Shiva_AI_models` and `/myHome/myProject/shiva.sif`). You may also have to set the model descriptors (like `PVS_descriptor` or `WMH_descriptor` with the path to the `model_info.json` file)
-    Normally you shouldn't have to modify the `parameters` part, except if you need to change some specific settings like the  size filter (*min_\*_size*) for the different biomarkers.
-
-    For the rest of this readme, let's assume that you now have the config file prepared in `/myHome/myProject/myConfig.yml`.
+    For the rest of this readme, let's assume that you now have the config file prepared and saved as `/myHome/myProject/myConfig.yml`.
 
 5. Finally, set-up a minimal Python virtual environment with the `pyyaml` package installed.
 
@@ -85,15 +79,19 @@ To deploy the python package, create a Python 3.9 virtual environment, clone or 
 python -m pip install .[TF_CUDA]
 ```
 
-If you already have CUDA installed on your machine, with the proper environment variable set-up (such as CUDA_HOME), you can install the package without the CUDA install:
+If you already have CUDA installed on your machine (CUDA 11.8 for Tensofrflow 2.13), with the proper environment variable set-up (such as CUDA_HOME), you can install the package without the CUDA install:
 
 ```bash
 python -m pip install .[TF]
 ```
 
-You will also need the ANTs toolbox (which can be downloaded from [the original repository](http://stnava.github.io/ANTs/) or conveniently installed with `conda` if you use it using the `conda install -c aramislab ants` command line), and that you will have to download (or clone) from [its github repository](https://github.com/nipy/quickshear) and install in the python environment as well (with `python -m pip install .` when located in your local copy of the quickshear repository).
+You will also need a few software locally installed:
 
-Two final pieces of software you will need installed (but only if you are using the Synthseg analysis) are [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg) (available as part of recent versions of FreeSurfer) and [niimath](https://github.com/rordenlab/niimath).
+1. The ANTs toolbox (which can be downloaded from [the original repository](http://stnava.github.io/ANTs/) or conveniently installed with `conda` if you use it using the `conda install -c aramislab ants` command line)
+
+2. [niimath](https://github.com/rordenlab/niimath).
+
+3. And, optionally, [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg) (available as part of recent versions of [FreeSurfer](https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall) or directly from [their GitHub page](https://github.com/BBillot/SynthSeg)). Synthseg is used to provide individual brain parcellations which is used to compute region-wise statistics for each biomarkers. For more info, see the [Region-wise statistics](#region-wise-statistics) section.
 
 The scripts should then be available from the command line prompt.
 
@@ -115,18 +113,51 @@ To run SHiVAi with this approach, see point **2** in [Running SHiVAi from direct
 
 ## Running the process
 
-### Segmentation choice
+### Biomarker segmentation choice
 
 In all cases below, you will be prompted to chose a "prediction". This refers to the type of segmentation you want to compute, and it will depend on your available MRI acquisitions:
 - PVS: Mono-modal segmentation of perivascular spaces -> Uses T1 acquisitions
 - PVS2: Bi-modal segmentation of perivascular spaces -> Uses both T1 and FLAIR acquisitions
 - WMH: Bi-modal segmentation of white matter hyperintensities -> Uses both T1 and FLAIR acquisitions
 - CMB: Mono-modal segmentation of cerebral microbleeds -> Uses SWI acquisitions
+- LAC: Bi-modal segmentation of lacunas -> Uses both T1 and FLAIR acquisitions
 - all: PVS2 + WMH + CMB -> Uses T1, FLAIR, and SWI acquisitions
+
+Examples of segmentations, detected biomarkers overlaid on original image:
+- PVS (overlaid on the T1w acquisition)
+
+<img src="src/shivautils/ressources/pvs.png" width="300px"/>
+
+- WMH (overlaid on the FLAIR acquisition)
+
+<img src="src/shivautils/ressources/wmh.png" width="300px"/>
+
+- CMB (overlaid on the SWI acquisition)
+
+<img src="src/shivautils/ressources/cmb.png" width="300px"/>
+
+- Lacunas (overlaid on the FLAIR acquisition)
+
+<img src="src/shivautils/ressources/lacuna.png" width="300px"/>
+
+### Brain parcellation and region-wise statistics
+
+The SHiVAi pipeline relies on the extraction of the brain at minima, and offers the possibility to count cCSVD biomarkers by brain region if a brain parcellation is available. These options are set with the `brain_seg` argument of the shiva command lines (as is presented below). This argument can be set to `shiva`, `premasked`, `synthseg`, or `custom`.
+
+By default, SHiVAi uses `shiva`, which computes a brain mask using an AI model. Using `premasked` tells the pipeline that the input images are already brain-extracted, and using `custom` (without specifying a lookup-table with the `custom_LUT` argument) tells the pipeline to look for a brain mask among the input data (see [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai) for more details). In these three cases, the biomarker metrics are computed over the whole brain.
+
+However, SHiVAi also accepts brain parcellations and will then associate each biomarker with a region and provide more details about their distribution across the brain. This can be done with the `custom` argument by filling the `custom_LUT` argument with the path to a look-up table stored in a file (see the accepted format in the command line help). But the way we recommand is to use the `synthseg` argument:
+
+In our implementation, we mainly worked with the [Synthseg parcellation](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg) to generate custom parcellation for each type of biomarker (hemispheres are always differenciated in the labels):
+- For PVS, we distinguish the basal ganglia territory, the cerebral white matter (away from the BG), the hippocampus, the cerebellum, the ventral diencephalon, the brainstem.
+- For WMH, we segregate biomarkers between shallow, deep, periventricular, and cerebellar white matter, as well as the brain stem.
+- For CMB and Lacuna, we used the [The Microbleed Anatomical Rating Scale (MARS)](https://doi.org/10.1212/wnl.0b013e3181c34a7d).
+
+Synthseg is a project completly independent from Shiva and it was used here as a very convinient and powerful tool. As such, we do not directly provide the Synthseg software. However, it can be installed through the steps mentioned in [Traditional python install](#traditional-python-install) or, if you are using Apptainer to run SHiVAi (with the "Fully contained process" or the "mixed approach"), we provide a [recipe](src/shivautils/scripts/slicer_run_preprocessing.py) to build an Apptainer image that will contain Synthseg and is designed to properly interface with SHiVAi. More details can be found in the [corresponding section of our Apptainer readme](apptainer/README.md#synthseg-apptainer-image). 
 
 ### Running SHiVAi from a container
 
-When running SHiVAi from an Apptainer image, you can do it linearly (no parallelisation of the process, default behavior), or in parallel using the Python multiprocessing library, [as implemented by Nypipe](https://nipype.readthedocs.io/en/0.11.0/users/plugins.html#multiproc).
+When running SHiVAi from an Apptainer image, you can do it linearly (no parallelisation of the steps, default behavior), or in parallel using the Python multiprocessing library, [as implemented by Nypipe](https://nipype.readthedocs.io/en/0.11.0/users/plugins.html#multiproc).
 
 To run the shiva process, you will need:
 - The `run_shiva.py`
@@ -194,7 +225,7 @@ Using SLURM to parallelize the processes (use `--run_plugin SLURM` in the argume
 
 The results will be stored in the `results` folder in your output folder (so `/myHome/myProject/shiva_results/results` in our example). There you will find the results for individual participants as well as a results_summary folder that contains grouped data like statistics about each subjects segmentation and quality control (QC).
 
-You will also find a PDF report for each participant detailing statics about their segmentation and QC in `results/participantXXXX/report/_subject_id_participantXXXX/summary.pdf`
+You will also find a PDF report for each participant detailing statics about their segmentation and QC in `results/participantXXXX/report/Shiva_report.pdf`
 
 
 ## Data structures accepted by SHiVAi
@@ -291,7 +322,7 @@ prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 
 Apptainer is a container solution, meaning that you can run SHiVAi using an Apptainer image (a file with the *.sif* extension) containing all the software and environment necessary. You can get the SHiVAi image from us (https://cloud.efixia.com/sharing/TAHaV6ZgZ) or build it yourself.
 
-To build the Apptainer image, you need a machine on which you are *root* user. Then, from the **shivautils/singularity** directory, run the following command to build the SHIVA Apptainer container image :
+To build the Apptainer image, you need a machine on which you are *root* user. Then, from the **shivautils/apptainer** directory, run the following command to build the SHIVA Apptainer container image :
 
 ```bash
 apptainer build shiva.sif apptainer_tf.recipe
@@ -304,7 +335,7 @@ There are also similar options for **Mac** users (check the dedicated section fr
 ### More info on the .yml configuration file
 
 - **model_path** (path) : bind mount path for the tensorflow models directory
-- **singularity_image** (path): path of singularity container file
+- **singularity_image** (path): path of apptainer container file
 - **brainmask_descriptor** (path): path to brain_mask tensorflow model descriptor
 - **PVS_descriptor** (path): path of Peri-Vascular Spaces tensorflow model descriptor
 - **PVS2_descriptor**  (path): path of Peri-Vascular Spaces tensorflow model descriptor using t1 and flair together
