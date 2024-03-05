@@ -89,9 +89,11 @@ You will also need a few software locally installed:
 
 1. The ANTs toolbox (which can be downloaded from [the original repository](http://stnava.github.io/ANTs/) or conveniently installed with `conda` if you use it using the `conda install -c aramislab ants` command line)
 
-2. [niimath](https://github.com/rordenlab/niimath).
+2. Graphviz, either with [a classic install](https://graphviz.org/download/) or with `conda` if you are using Anaconda: `conda install graphviz`
 
-3. And, optionally, [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg) (available as part of recent versions of [FreeSurfer](https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall) or directly from [their GitHub page](https://github.com/BBillot/SynthSeg)). Synthseg is used to provide individual brain parcellations which is used to compute region-wise statistics for each biomarkers. For more info, see the [Region-wise statistics](#region-wise-statistics) section.
+3. [niimath](https://github.com/rordenlab/niimath).
+
+4. And, optionally, [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg) (available as part of recent versions of [FreeSurfer](https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall) or directly from [their GitHub page](https://github.com/BBillot/SynthSeg)). Synthseg is used to provide individual brain parcellations which is used to compute region-wise statistics for each biomarkers. For more info, see the [Region-wise statistics](#region-wise-statistics) section.
 
 The scripts should then be available from the command line prompt.
 
@@ -142,7 +144,7 @@ Examples of segmentations, detected biomarkers overlaid on original image:
 
 ### Brain parcellation and region-wise statistics
 
-The SHiVAi pipeline relies on the extraction of the brain at minima, and offers the possibility to count cCSVD biomarkers by brain region if a brain parcellation is available. These options are set with the `brain_seg` argument of the shiva command lines (as is presented below). This argument can be set to `shiva`, `premasked`, `synthseg`, or `custom`.
+The SHiVAi pipeline relies on the extraction of the brain, at minima, and offers the possibility to count cCSVD biomarkers by brain region if a brain parcellation is available. These options are set with the `brain_seg` argument of the shiva command lines (as is presented below). This argument can be set to `shiva`, `premasked`, `synthseg`, or `custom`.
 
 By default, SHiVAi uses `shiva`, which computes a brain mask using an AI model. Using `premasked` tells the pipeline that the input images are already brain-extracted, and using `custom` (without specifying a lookup-table with the `custom_LUT` argument) tells the pipeline to look for a brain mask among the input data (see [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai) for more details). In these three cases, the biomarker metrics are computed over the whole brain.
 
@@ -172,27 +174,28 @@ To run the shiva process, you will need:
 > --out: Path to where the generated files will be saved\
 > --input_type: Type of structure file, way to capture and manage nifti files : standard or BIDS\
 > --prediction: Choice of the type of prediction (i.e. segmentation) you want to compute (PVS, PVS2, WMH, CMB, all). Give a combination of these labels separated by blanc spaces.\
-> --config: File with configuration options for the workflow\
-> --run_plugin (opt.): Nipype plugin to use when running the process. Can be set to "MultiProc" for parallel processing\ (also requires the "run_plugin_args" argument)
-> --run_plugin_args (opt.): YAML file containg the plugin arguments (imported as a dictionary) for the Nipype plugin. See the dedicated [Nipype documentation](https://nipype.readthedocs.io/en/0.11.0/users/plugins.html). For example, with the MultiProc plugin, you can fill the file with "n_procs: 8" if you want 8 parallel processes.
+> --brain_seg: Type of brain segmentation (or parcellation) to use in the pipeline (shiva, premasked, synthseg, or custom)\
+> --config: File with configuration options for the workflow
 
-**Command line examples**
+These are the most useful argument you will want to set. However, there are more arguments available to further control the pipeline. To see them and their description, run `run_shiva.py --help`.
 
-Locally running the processing (from the directory where you stored `run_shiva.py`): 
+**Command line example**
+
+Running the processing (from the directory where you stored `run_shiva.py`): 
 
 ```bash
-python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config /myHome/myProject/myConfig.yml
+python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --brain_seg synthseg --config /myHome/myProject/myConfig.yml
 ```
 
-Using SLURM to run on a grid (not the best way to interface SHiVAi with SLURM though): 
+<!-- Using SLURM to run on a grid (not the best way to interface SHiVAi with SLURM though): 
 
 ```bash
-srun –gpus 1 -c 8 python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config  /myHome/myProject/myConfig.yml --run_plugin MultiProc --run_plugin_args /myHome/myProject/nipype_plugin_args.yml
+srun –gpus 1 -c 8 python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --brain_seg synthseg --config  /myHome/myProject/myConfig.yml --run_plugin MultiProc --run_plugin_args /myHome/myProject/nipype_plugin_args.yml
 ```
 with `/myHome/myProject/nipype_plugin_args.yml` filled with:
 ```yaml
 n_procs: 8
-```
+``` -->
 
 ### Running SHiVAi from direct package commands (recommended)
 
@@ -205,27 +208,103 @@ shiva -h
 
 Here is an example of a shiva call, using a config .yml file, processing linearly on GPU "0":
 ```bash
-shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config /myHome/myProject/myConfig.yml --gpu 0
+shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --brain_seg synthseg --config /myHome/myProject/myConfig.yml --gpu 0
 ```
 
 Using SLURM to parallelize the processes (use `--run_plugin SLURM` in the arguments):
 1. Without Apptainer image (requires TensorFlow, CUDA, ANTs and niimath locally installed):
-> ```bash
-> shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config /myHome/myProject/myConfig.yml --run_plugin SLURM
-> ```
-> Here, the configuration file (`/myHome/myProject/myConfig.yml`) is optional, but helps with the readability of the command line
+    ```bash
+    shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config /myHome/myProject/myConfig.yml --run_plugin SLURM
+    ```
+    Here, the configuration file (`/myHome/myProject/myConfig.yml`) is optional, but helps with the readability of the command line
 
-2. With the Apptainer image used on the nodes requiring TensorFlow, CUDA and ANTs (use `--containerized_nodes` in the arguments):
-> ```bash
-> shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config /myHome/myProject/myConfig.yml --run_plugin SLURM --containerized_nodes
-> ```
-> Here, the configuration file (`/myHome/myProject/myConfig.yml`) is absolutly necessary as it holds the path to the Apptainer image.
+2. With the Apptainer image used on the nodes requiring TensorFlow, CUDA, ANTs or niimath (use `--containerized_nodes` in the arguments):
+    ```bash
+    shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config /myHome/myProject/myConfig.yml --run_plugin SLURM --containerized_nodes
+    ```
+    Here, the configuration file (`/myHome/myProject/myConfig.yml`) is absolutly necessary as it holds the path to the Apptainer image.
 
 ## Results
 
 The results will be stored in the `results` folder in your output folder (so `/myHome/myProject/shiva_results/results` in our example). There you will find the results for individual participants as well as a results_summary folder that contains grouped data like statistics about each subjects segmentation and quality control (QC).
 
-You will also find a PDF report for each participant detailing statics about their segmentation and QC in `results/participantXXXX/report/Shiva_report.pdf`
+You will also find a PDF report for each participant detailing statics about their segmentation and QC in `results/report/{participant_ID}/Shiva_report.pdf`
+
+**Example of results folder**
+
+    results
+    ├── results_summary
+    │   ├── wf_graph
+    │   │   └── graph.svg (graph representation of the pipeline)
+    │   │
+    │   ├── segmentations
+    │   │   ├── pvs_metrics
+    │   │   │   └── prediction_metrics.csv (segmentation metrics for all the participants)
+    │   │   ├── cmb_metrics_swi-space
+    │   │   :
+    │   │
+    │   └── preproc_qc (some QC metrics to run at the group level to check)
+    │       ├── qc_metrics.csv (QC metrics to compare between each participants)
+    │       ├── qc_metrics_plot.svg (image to find problematic participants at a glance)
+    │       └── failed_qc.json (list of participants that failed QCs)
+    │
+    ├── shiva_preproc
+    │   ├── t1_preproc
+    │   │   ├── sub-001
+    │   │   │   ├── sub-001_T1_defaced_cropped_intensity_normed.nii.gz (T1 image after preprocessing)
+    │   │   │   ├── brainmask_cropped.nii.gz (brain mask in the same space as preprocessed images)
+    │   │   │   └── cdg_ijk.txt / bbox1.txt / bbox2.txt (coordinates used for the cropping)
+    │   │   │
+    │   │   ├── sub-002
+    │   │   :
+    │   │
+    │   ├── swi_preproc
+    │   │   ├── sub-001
+    │   │   │   ├── (equivalent ouputs than for t1_preproc, but in SWI space)
+    │   │   │   ├── swi_to_t1__Warped.nii.gz (SWI image registered on the T1)
+    │   │   │   └── swi_to_t1__0GenericAffine.mat (transformation affine for SWI the registration)
+    │   │   │
+    │   │   ├── sub-002
+    │   │   :
+    │   │
+    │   ├── synthseg
+    │   │   ├── sub-001
+    │   │   │   ├── cleaned_synthseg_parc.nii.gz (synthseg brain parcellation after cleaning step)
+    │   │   │   ├── removed_clusters_synthseg_parc.nii.gz (correction from the cleaning step)
+    │   │   │   ├── derived_parc.nii.gz (lobar parcellation derived from synthseg for WM and GM)
+    │   │   │   └── brainmask_cropped.nii.gz (brainmask derived from synthseg parc)
+    │   │   │
+    │   │   ├── sub-002
+    │   │   :
+    │   │
+    │   └── qc_metrics
+    │       ├── sub-001
+    │       │   └── qc_metrics.csv (individual metrics used in results_summary/preproc_qc)
+    │       │
+    │       ├── sub-002
+    │       :
+    │   
+    ├── segmentation
+    │   ├── pvs_segmentation
+    │   │   ├── sub-001
+    │   │   │   ├── pvs_map.nii.gz (raw segmentation ouput by the model)
+    │   │   │   ├── labelled_pvs.nii.gz (labeled clusters detected in the segmentation map)
+    │   │   │   ├── pvs_census.csv (list of all clusters, their label, size, and brain region)
+    │   │   │   ├── pvs_stats.csv (statistics computed on the census, like number or mean size)
+    │   │   │   ├── Brain_Seg_for_PVS.nii.gz (brain parcellation derived from synthseg for PVS)
+    │   │   │   └── pvs_region_dict.json (lookup-table for the brain parcellation)
+    │   │   │
+    │   │   ├── sub-002
+    │   │   :
+    │   ├── cmb_segmentation_swi-space
+    │   :
+    │
+    └── report
+        ├── sub-001
+        │   └── Shiva_report.pdf
+        │
+        ├── sub-002
+        :
 
 
 ## Data structures accepted by SHiVAi
@@ -318,24 +397,11 @@ If you installed the shivautils package, you can directly run the command line:
 prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 ```
 
-### Apptainer image
-
-Apptainer is a container solution, meaning that you can run SHiVAi using an Apptainer image (a file with the *.sif* extension) containing all the software and environment necessary. You can get the SHiVAi image from us (https://cloud.efixia.com/sharing/TAHaV6ZgZ) or build it yourself.
-
-To build the Apptainer image, you need a machine on which you are *root* user. Then, from the **shivautils/apptainer** directory, run the following command to build the SHIVA Apptainer container image :
-
-```bash
-apptainer build shiva.sif apptainer_tf.recipe
-```
-Then you can move the Apptainer image on any computer with Apptainer installed and run the processing even without being a root user on that machine.
-
-Note that if you are on a **Windows** computer, you can use WSL (Windows Subsystem for Linux) to run Apptainer and build the image. You can find more info here https://learn.microsoft.com/windows/wsl/install. With WSL installed, open a command prompt, type `wsl` and you will have access to a Linux terminal where you can install and run Apptainer.
-There are also similar options for **Mac** users (check the dedicated section from https://apptainer.org/docs/admin/main/installation.html).
-
 ### More info on the .yml configuration file
 
 - **model_path** (path) : bind mount path for the tensorflow models directory
-- **singularity_image** (path): path of apptainer container file
+- **apptainer_image** (path): path to apptainer container file for SHiVAi
+- **synthseg_image** (path): path to apptainer container file for SynthSeg (optional)
 - **brainmask_descriptor** (path): path to brain_mask tensorflow model descriptor
 - **PVS_descriptor** (path): path of Peri-Vascular Spaces tensorflow model descriptor
 - **PVS2_descriptor**  (path): path of Peri-Vascular Spaces tensorflow model descriptor using t1 and flair together
@@ -355,26 +421,5 @@ There are also similar options for **Mac** users (check the dedicated section fr
 - **voxels_size** (list) : Voxel size of the final image, example : [1.0, 1.0, 1.0]
 - **interpolation** (str): image resampling method, default interpolation : 'WelchWindowedSinc', others ANTS interpolation possibilities : 'Linear', 'NearestNeighbor', 'CosineWindowedSinc', 'HammingWindowedSinc', 'LanczosWindowedSinc', 'BSpline', 'MultiLabel', 'Gaussian', 'GenericLabel'
 
-### Pipeline description
-
-Performs resampling of a structural NIfTI brain image, followed by intensity normalization, and cropping centering on the brain. Then, PVS, WMH, and CMB are segmented (depending on the input) using a deep-learning model. Finally, quality control measures are generated and all th results are aggregated in a pdf report.   
-
-
-### Preprocessing
-
-1. **Conform**: Resample image to Predictor dimensions (currently 160x214x176) by adjusting the voxel size
-
-2. **Intensity Normalization**: We remove values above the 99th 'percentile' (parameter default value) to avoid hot spots,
-    set values below 0 to 0, set values above 1.3 to 1.3 and normalize the data between 0 and 1
-
-3. **Pre BrainMask Prediction**: Run predict to segment brainmask from resampled structural images with Tensorflow model
-
-4. **Threshold**: Create a binarized brain_mask by putting all the values below the 'threshold' to 0
-
-5. **Crop**: adjust the real-world referential and crop image. With the pre brainmask prediction, the procedure uses the center of mass of the mask to center the bounding box. If no mask is supplied, and default is set to 'xyz' the procedure computes the ijk coordinates of the affine referential coordinates origin. If set to 'ijk', the middle of the image is used.
-
-6. **Final Brainmask**: Run predict to segment brainmask from cropping images with Tensorflow model. 
-
-7. **Coregistration** : Register a FLAIR images on T1w images either through the full interface to the ANTs registration method.
 
 
