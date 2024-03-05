@@ -433,7 +433,7 @@ class SummaryReport(BaseInterface):
         quality control figures.
 
         """
-        if self.inputs.anonymized:  # TODO
+        if self.inputs.anonymized:
             subject_id = None
         else:
             subject_id = self.inputs.subject_id
@@ -518,10 +518,11 @@ class SummaryReport(BaseInterface):
         postproc_dir = os.path.dirname(postproc_init)
         css = CSS(os.path.join(postproc_dir, 'printed_styling.css'))
         now = datetime.now(timezone.utc).strftime("%Y/%m/%d - %H:%M (UTC)")
+        content_sub_id = f'Patient ID: {subject_id} \A ' if subject_id else ''
         header = (
             '@page {'
             '   @top-left {'
-            f'      content: "Patient ID: {subject_id} \A Data-base: {db}";'
+            f'      content: "{content_sub_id}Data-base: {db}";'
             '       font-size: 10pt;'
             '       white-space: pre;'
             '   }'
