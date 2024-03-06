@@ -25,10 +25,7 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 - [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai)
 - [Additional info](#additional-info)
     - [Create missing json file](#create-missing-json-file)
-    - [Apptainer image](#apptainer-image)
     - [More info on the .yml configuration file](#more-info-on-the-yml-configuration-file)
-    - [Pipeline description](#pipeline-description)
-    - [Preprocessing](#preprocessing)
 
 ## Dependencies and hardware requirements
 
