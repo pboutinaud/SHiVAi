@@ -43,12 +43,12 @@ def build_args_parser():
     """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('--in', dest='input', type=existing_file,
+    parser.add_argument('--in', dest='in_dir', type=existing_file,
                         help='Input NIfTI image to preprocess',
                         metavar='path/to/existing/nifti.nii',
                         required=True)
 
-    parser.add_argument('--out', dest='output', type=str,
+    parser.add_argument('--out', dest='out_dir', type=str,
                         help='Output file path',
                         metavar='path/to/cropped.nii',
                         required=True)
@@ -80,7 +80,7 @@ def main():
     """Run preprocessing pipeline."""
     parser = build_args_parser()
     args = parser.parse_args()
-    img = nb.loadsave.load(args.input)
+    img = nb.loadsave.load(args.in_dir)
 
     # argument validation
     required_ndim = 3
@@ -123,11 +123,11 @@ def main():
 
     # intensity normalization
     img_normalized, report, mode = normalization(resampled, 99)
-    nb.loadsave.save(img_normalized, os.path.join(args.output, 'img_normalized.nii.gz'))
+    nb.loadsave.save(img_normalized, os.path.join(args.out_dir, 'img_normalized.nii.gz'))
     thresholded = threshold(img_normalized,
                             thr=args.threshold,
                             binarize=True)
-    nb.loadsave.save(thresholded, os.path.join(args.output, 'brainmask_cropped.nii.gz'))
+    nb.loadsave.save(thresholded, os.path.join(args.out_dir, 'brainmask_cropped.nii.gz'))
     cropped = crop(roi_mask=thresholded,
                    apply_to=img_normalized,
                    dimensions=final_dimensions,
@@ -135,7 +135,7 @@ def main():
 
     # save the image to the desired path
     nb.loadsave.save(cropped[0],
-                     os.path.join(args.output, 'preproc.nii.gz'))
+                     os.path.join(args.out_dir, 'preproc.nii.gz'))
 
 
 if __name__ == "__main__":

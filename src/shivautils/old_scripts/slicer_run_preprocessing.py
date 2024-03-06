@@ -13,7 +13,8 @@ DESCRIPTION = """SHIVA preprocessing for deep learning predictors, for the 3D SL
                  image in same time.
                  
                  Inputs are taken from a JSON file generated from 3D slicer."""
-                 
+
+
 def existing_file(file):
     """Checking if file exist
 
@@ -40,7 +41,7 @@ def build_args_parser():
     """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('--in', dest='input',
+    parser.add_argument('--in', dest='in_dir',
                         help='JSON formatted extract of the Slicer plugin',
                         metavar='path/to/existing/slicer_extension_database.json',
                         required=True)
@@ -57,11 +58,11 @@ def main():
     args = parser.parse_args()
     # the path from which the images to be preprocessed come
     # the preprocessed image destination path
-    with open(args.input, 'r') as json_in:
+    with open(args.in_dir, 'r') as json_in:
         slicerdb = json.load(json_in)
 
     subject_list = list(slicerdb['all_files'].keys())
-    
+
     out_dir = os.path.abspath(slicerdb['parameters']['out_dir'])
     wfargs = {'FILES_LIST': subject_list,
               'ARGS': slicerdb,
@@ -73,7 +74,7 @@ def main():
 
     wf = genWorkflow(**wfargs)
     wf.base_dir = out_dir
-    
+
     wf.get_node('conform').inputs.dimensions = (256, 256, 256)
     wf.get_node('conform').inputs.voxel_size = tuple(slicerdb['parameters']['voxels_size'])
     wf.get_node('conform').inputs.orientation = 'RAS'
@@ -87,16 +88,16 @@ def main():
     wf.get_node('intensity_normalization_2').inputs.percentile = slicerdb['parameters']['percentile']
     # Predictor model descriptor file (JSON)
     wf.get_node('brain_mask_2').plugin_args = {'sbatch_args': '--gpus 1'}
-    
+
     wf.get_node('brain_mask_2').inputs.descriptor = slicerdb['parameters']['brainmask_model']
-    
-    # singularity container bind mounts (so that folders of 
+
+    # singularity container bind mounts (so that folders of
     # the host appear inside the container)
     # gcc, cuda libs, model directory and source data dir on the host
-    wf.get_node('brain_mask_2').inputs.snglrt_bind =  [
-        (out_dir,out_dir,'rw'),
-        ('`pwd`','/mnt/data','rw'),
-        ('/bigdata/resources/cudas/cuda-11.2','/mnt/cuda','ro'),
+    wf.get_node('brain_mask_2').inputs.snglrt_bind = [
+        (out_dir, out_dir, 'rw'),
+        ('`pwd`', '/mnt/data', 'rw'),
+        ('/bigdata/resources/cudas/cuda-11.2', '/mnt/cuda', 'ro'),
         ('/bigdata/resources/gcc-10.1.0', '/mnt/gcc', 'ro'),
         ('/homes_unix/boutinaud/ReferenceModels', '/mnt/model', 'ro'),
         ('/homes_unix/yrio/Documents/data/BORCMB15/test2img/model_info', '/homes_unix/yrio/mnt/descriptor', 'ro')]
@@ -104,7 +105,6 @@ def main():
     wf.get_node('brain_mask_2').inputs.model = '/mnt/model'
     wf.get_node('brain_mask_2').inputs.snglrt_image = '/homes_unix/yrio/singularity/predict.sif'
     wf.get_node('brain_mask_2').inputs.out_filename = '/mnt/data/brain_mask.nii.gz'
-
 
     wf.run(plugin=args.plugin)
 
