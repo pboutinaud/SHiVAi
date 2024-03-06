@@ -17,12 +17,12 @@ def shivaParser():
 
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('--in', dest='input',
+    parser.add_argument('--in', dest='in_dir',
                         help='Folder path with files, BIDS structure folder path or JSON formatted extract of the Slicer plugin',
                         metavar='path/to/existing/folder/structure',
                         required=True)
 
-    parser.add_argument('--out', dest='output',
+    parser.add_argument('--out', dest='out_dir',
                         type=str,
                         help='Output folder path (nipype working directory)',
                         metavar='path/to/nipype_work_dir',
@@ -445,8 +445,8 @@ def set_args_and_check(inParser):
         return sub_list
 
     args = inParser.parse_args()
-    args.input = os.path.abspath(args.input)
-    args.output = os.path.abspath(args.output)
+    args.in_dir = os.path.abspath(args.in_dir)
+    args.out_dir = os.path.abspath(args.out_dir)
 
     if args.debug:
         args.keep_all = True
@@ -458,7 +458,7 @@ def set_args_and_check(inParser):
             raise inParser.error(f'Using the "custom" segmentation with a LUT but the file given with --custom_LUT was not found: {args.custom_LUT}')
         args.custom_LUT = parse_LUT(args.custom_LUT)
     # Checks and parsing of subjects
-    subject_list = os.listdir(args.input)
+    subject_list = os.listdir(args.in_dir)
     if args.sub_list is None and args.sub_names is None:
         if args.exclusion_list:
             args.exclusion_list = parse_sub_list_file(args.exclusion_list)

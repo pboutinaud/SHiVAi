@@ -154,7 +154,7 @@ def main():
             raise ValueError("Mismatch between expected file from the model descriptor and the actual model file")
 
     brainmask = args.braimask
-    output_path = args.output
+    output_path = args.out_dir
 
     affine = None
     image_shape = None

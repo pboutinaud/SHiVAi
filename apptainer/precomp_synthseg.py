@@ -111,12 +111,12 @@ def synthsegParser():
 
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument('--in', dest='input',
+    parser.add_argument('--in', dest='in_dir',
                         help='Folder path with files, BIDS structure folder path or JSON formatted extract of the Slicer plugin',
                         metavar='path/to/existing/folder/structure',
                         required=True)
 
-    parser.add_argument('--out', dest='output',
+    parser.add_argument('--out', dest='out_dir',
                         type=str,
                         help='Output folder path (nipype working directory)',
                         metavar='path/to/nipype_work_dir',
@@ -260,7 +260,7 @@ def main():
         args.prediction = [args.prediction]
 
     # Checks and parsing of subjects
-    subject_list = os.listdir(args.input)
+    subject_list = os.listdir(args.in_dir)
     if args.sub_list is None and args.sub_names is None:
         if args.exclusion_list:
             args.exclusion_list = parse_sub_list_file(args.exclusion_list)
@@ -281,8 +281,8 @@ def main():
 
     # Parse data structure type
     if args.input_type == 'standard' or args.input_type == 'BIDS':
-        subject_directory = args.input
-        out_dir = args.output
+        subject_directory = args.in_dir
+        out_dir = args.out_dir
     elif args.input_type == 'json':
         raise NotImplementedError(
             'Sorry, using the json input format has not been implemented here. '

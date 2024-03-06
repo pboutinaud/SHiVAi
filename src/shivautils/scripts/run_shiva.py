@@ -15,12 +15,12 @@ def singParser():
 
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
-    parser.add_argument("-i", "--in", dest='input',
+    parser.add_argument("-i", "--in", dest='in_dir',
                         type=Path, action='store',
                         help="path of folder images data",
                         required=True)
 
-    parser.add_argument("-o", "--out", dest='output',
+    parser.add_argument("-o", "--out", dest='out_dir',
                         type=Path, action='store',
                         help="path for output of processing",
                         required=True)
@@ -202,8 +202,8 @@ def main():
     pred = f"--prediction {' '.join(args.prediction)}"
     config = f"--config /mnt/config/{op.basename(args.config)}"  # Only for Shiva
 
-    if not (op.exists(args.output) and op.isdir(args.output)):
-        os.makedirs(args.output)
+    if not (op.exists(args.out_dir) and op.isdir(args.out_dir)):
+        os.makedirs(args.out_dir)
 
     # Convert the run_plugin_args yaml file to a json string to avoid mounting too many folders
     if args.run_plugin_args:
@@ -245,7 +245,7 @@ def main():
         else:
             nv = '--nv'
         sing_image_ss = f"{yaml_content['synthseg_image']}"
-        bind_list_ss = [f"{args.input}:/mnt/data/input:rw", f"{args.output}:/mnt/data/output:rw"]
+        bind_list_ss = [f"{args.in_dir}:/mnt/data/input:rw", f"{args.out_dir}:/mnt/data/output:rw"]
         if bind_sublist:
             bind_list_ss.append(bind_sublist)
         bind_ss = ','.join(bind_list_ss)
@@ -265,8 +265,8 @@ def main():
             raise RuntimeError('The Synthseg process failed. Interrupting the Shiva process.')
 
     bind_model = f"{yaml_content['model_path']}:/mnt/model:ro"
-    bind_input = f"{args.input}:/mnt/data/input:rw"
-    bind_output = f"{args.output}:/mnt/data/output:rw"
+    bind_input = f"{args.in_dir}:/mnt/data/input:rw"
+    bind_output = f"{args.out_dir}:/mnt/data/output:rw"
     bind_config = f"{op.dirname(op.abspath(args.config))}:/mnt/config:rw"
 
     singularity_image = f"{yaml_content['apptainer_image']}"
@@ -277,8 +277,8 @@ def main():
     opt_args2 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args2_names if getattr(args, arg_name)]
     preproc = None
     if args.preproc_results:
-        if str(args.output) in args.preproc_results:
-            path_end = os.path.relpath(args.preproc_results, args.output)
+        if str(args.out_dir) in args.preproc_results:
+            path_end = os.path.relpath(args.preproc_results, args.out_dir)
             mounted_path = os.path.join('/mnt/data/output', path_end)
             opt_args2.append(f"--preproc_results {mounted_path}")
         else:
