@@ -255,3 +255,124 @@ class Quickshear_Singularity(Quickshear, SingularityCommandLine):
     input_spec = Quickshear_Singularity_InputSpec
     output_spec = QuickshearOutputSpec
     _cmd = Quickshear._cmd
+
+
+class Shivai_InputSpec(CommandLineInputSpec):
+    """Input arguments structure for the shiva command"""
+
+    in_dir = traits.File(argstr='--in %s',
+                         desc='Directory containing the input data for all participants.',
+                         exists=True,
+                         mandatory=True)
+
+    out_dir = traits.File(argstr='--out %s',
+                          desc='Directory where the results will be saved (in and "results" sub-directory).',
+                          exists=False,
+                          mandatory=True)
+
+    input_type = traits.Enum('standard', 'BIDS',
+                             argstr='--input_type %s',
+                             desc='Input data structure',
+                             mandatory=True)
+
+    db_name = traits.Str(argstr='--db_name %s',
+                         desc='Name of the dataset (e.g. "UKBB").',
+                         mandatory=False)
+
+    sub_names = traits.List(argstr='--sub_names %s',
+                            desc='List of the participants ID to be processed from the input directory.',
+                            mandatory=True)
+
+    prediction = traits.Enum("PVS", "PVS2", "WMH", "CMB", "LAC", "all",
+                             argstr="--prediction %s",
+                             desc='Prediction to run ("PVS", "PVS2", "WMH", "CMB", "LAC", "all")',
+                             mandatory=True)
+
+    replace_t1 = traits.Str(argstr='--replace_t1 %s',
+                            desc='Data type that will replace the "t1" image.',
+                            mandatory=False)
+
+    replace_flair = traits.Str(argstr='--replace_flair %s',
+                               desc='Data type that will replace the "flair" image (e.g. "t2s").',
+                               mandatory=False)
+
+    replace_swi = traits.Str(argstr='--replace_swi %s',
+                             desc='Data type that will replace the "swi" image (e.g. "t2gre").',
+                             mandatory=False)
+
+    use_t1 = traits.Bool(argstr='--use_t1',
+                         desc='Used to perform segmentation on T1 image when running CMB prediction alone (otherwise will use SWI for the seg).',
+                         mandatory=False)
+
+    brain_seg = traits.Enum("shiva", "shiva_gpu", "synthseg", "synthseg_cpu", "synthseg_precomp", "premasked", "custom",
+                            argstr='--brain_seg %s',
+                            desc='Type of segmentation to run. Chose among: "shiva", "shiva_gpu", "synthseg", "synthseg_cpu", "synthseg_precomp", "premasked", "custom"',
+                            mandatory=True)
+
+    synthseg_threads = traits.Int(argstr='--synthseg_threads %d',
+                                  desc='Number of thread to run with "synthseg_cpu".',
+                                  mandatory=False)
+
+    custom_LUT = traits.File(argstr='--custom_LUT %s',
+                             desc='Look-up table file to pair with the custom segmentation when used ("custom" brain_seg)',
+                             exists=True,
+                             mandatory=False)
+
+    anonymize = traits.Bool(argstr='--anonymize',
+                            desc='Anonymize the report',
+                            mandatory=False)
+
+    synthseg_precomp = traits.Bool(argstr='--synthseg_precomp',
+                                   desc='Specify that the synthseg segmentation was run beforehand (typically using precomp_synthseg) and is stored in the results directory',
+                                   mandatory=False)
+
+    keep_all = traits.Bool(argstr='--keep_all',
+                           desc='Keep all intermediary file and provenance files',
+                           mandatory=False)
+    debug = traits.Bool(argstr='--debug',
+                        desc='Like --keep_all plus stop on first crash',
+                        mandatory=False)
+    remove_intermediates = traits.Bool(argstr='--remove_intermediates',
+                                       desc='Removes the folder containing all the intermediary steps, keeping only the "results" folder.',
+                                       mandatory=False)
+
+    config = traits.File(argstr='--config %s',
+                         desc='Configuration file (.yml) containing the information and parameters for the pipeline and AI models',
+                         mandatory=True)
+
+
+class Shivai_OutputSpec(TraitedSpec):
+    """Shivai ports."""
+    result_dir = traits.File(desc='Folder where the results are stored',
+                             exists=True)
+
+
+class Shivai(CommandLine):
+    """Runs the shiva workflow (and thus must be called through the Shivai_Singularity inteface, not this one)."""
+
+    input_spec = Shivai_InputSpec
+    output_spec = Shivai_OutputSpec
+    _cmd = 'shiva'
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs["result_dir"] = os.path.join(os.path.abspath(str(self.inputs.out_dir)), 'results')
+        return outputs
+
+
+class Shivai_Singularity_InputSpec(Shivai_InputSpec, QuickshearInputSpec):
+    """Quickshear input specification (singularity mixin).
+
+    Inherits from Singularity command line fields.
+    """
+    pass
+
+
+class Shivai_Singularity(Shivai, SingularityCommandLine):
+    def __init__(self):
+        """Call parent constructor."""
+        super(Shivai_Singularity, self).__init__()
+
+    input_spec = Shivai_Singularity_InputSpec
+    output_spec = Shivai_OutputSpec
+    _cmd = Shivai._cmd + ' --containerized_all'
