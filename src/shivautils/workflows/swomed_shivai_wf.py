@@ -1,3 +1,8 @@
+"""
+If the workflow is run with synthseg, it needs shivai_node.inputs.brain_seg = 'synthseg_precomp'
+and the synthseg workflow called beforehand needs the same base dir and synthseg.inputs.out_filename = '/mnt/data/synthseg_parc.nii.gz'
+"""
+
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.utility import IdentityInterface
 from nipype.interfaces.io import SelectFiles
@@ -8,6 +13,7 @@ dummy_args = {
     "SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
     "BASE_DIR": os.path.normpath(os.path.expanduser('~')),
     "SHIVAI_CONFIG": __file__,
+    "SHIVAI_IMAGE":  __file__,
 }
 
 
@@ -17,13 +23,20 @@ def genWorkflow(**kwargs) -> Workflow:
 
     shivai_node = Node(Shivai_Singularity(),
                        name='shivai_node')
+    # Singularity settings
+    config_dir = os.path.dirname(kwargs['SHIVAI_CONFIG'])
+    shivai_node.inputs.snglrt_bind = [
+        (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+        (config_dir, config_dir, 'rw'),]
+    shivai_node.inputs.snglrt_image = kwargs['SHIVAI_IMAGE']
+    shivai_node.inputs.snglrt_enable_nvidia = True
     # Mandatory inputs:
     shivai_node.inputs.in_dir = kwargs['BASE_DIR']
     shivai_node.inputs.out_dir = kwargs['BASE_DIR']
     shivai_node.inputs.input_type = 'standard'
     shivai_node.inputs.sub_names = kwargs['SUBJECT_LIST']
-    shivai_node.inputs.prediction = 'PVS'  # placeholder
-    shivai_node.inputs.brain_seg = 'shiva'  # placeholder
+    shivai_node.inputs.prediction = 'PVS'  # placeholder default
+    shivai_node.inputs.brain_seg = 'shiva'  # placeholder default
     shivai_node.inputs.config = kwargs['SHIVAI_CONFIG']
 
     subject_list_out = Node(IdentityInterface(
