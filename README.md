@@ -9,6 +9,10 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 <br clear="right"/>
 
+**SHiVAi detected cCSVD biomarkers**
+
+![biomarkers](src/shivautils/ressources/Brain_medium.avi)
+
 ## Index
 
 - [Dependencies and hardware requirements](#dependencies-and-hardware-requirements)
