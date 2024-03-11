@@ -11,7 +11,7 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 **cCSVD biomarkers detected with SHiVAi**
 
-![Biomarker video](src/shivautils/ressources/shiva_biomarkers.mp4){width=300}
+![Biomarker video](src/shivautils/ressources/shiva_biomarkers.mp4){width=500}
 
 ## Index
 
