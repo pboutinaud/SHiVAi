@@ -145,7 +145,7 @@ class SynthSegInputSpec(CommandLineInputSpec):
                       usedefault=True,
                       desc='Use CPU instead of GPU for computations')
 
-    vol = traits.Str('volumes.csv', argstr='--vol %s', mandatory=False,
+    vol = traits.Str('volumes.csv', argstr='--vol %s', usedefault=True,
                      desc='Path to a CSV file where volumes for all segmented regions will be saved.')
 
     qc = traits.Str('qc.csv', argstr='--qc %s',

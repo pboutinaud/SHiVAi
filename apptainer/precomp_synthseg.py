@@ -44,7 +44,7 @@ class SynthSegInputSpec(BaseInterfaceInputSpec):  # CommandLineInputSpec ?
     cpu = traits.Bool(False, argstr='--cpu', mandatory=False,
                       desc='Use CPU instead of GPU for computations')
 
-    vol = traits.Str('volumes.csv', argstr='--vol %s', mandatory=False,
+    vol = traits.Str('volumes.csv', argstr='--vol %s', usedefault=True,
                      desc='Path to a CSV file where volumes for all segmented regions will be saved.')
 
     qc = traits.Str('qc.csv', argstr='--qc %s',
@@ -366,6 +366,7 @@ def main():
     synthseg_wf.connect(subject_iterator, 'subject_id', datagrabber, 'subject_id')
     synthseg_wf.connect(datagrabber, 'img1', synthseg, 'input')
     synthseg_wf.connect(synthseg, 'segmentation', sink_node_subjects, 'shiva_preproc.synthseg')
+    synthseg_wf.connect(synthseg, 'volumes', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
 
     if args.keep_all or args.debug:
         config.enable_provenance()

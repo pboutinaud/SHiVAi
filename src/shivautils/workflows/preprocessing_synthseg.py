@@ -48,6 +48,7 @@ def genWorkflow(**kwargs) -> Workflow:
             ('`pwd`', '/mnt/data', 'rw'),]
         synthseg.inputs.snglrt_image = kwargs['SYNTHSEG_IMAGE']
         synthseg.inputs.out_filename = '/mnt/data/synthseg_parc.nii.gz'
+        synthseg.inputs.vol = '/mnt/data/volumes.csv'
         if not kwargs['SYNTHSEG_ON_CPU']:
             synthseg.inputs.snglrt_enable_nvidia = True
     else:
