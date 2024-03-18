@@ -158,9 +158,17 @@ class Conform(BaseInterface):
                                 orientation=self.inputs.orientation,
                                 out_class=None)
 
+        # Make sure the resampled data is still in the correct range (cubic spline can mess it up)
+        # And save it as float32 to ensure there is no problem.
+        vol = img.get_fdata(dtype='f')
+        resampled_vol = resampled.get_fdata(dtype='f')
+        resampled_vol[resampled_vol < vol.min()] = vol.min()
+        resampled_vol[resampled_vol > vol.max()] = vol.max()
+        resampled_correct = nib.Nifti1Image(resampled_vol, resampled.affine)
+
         # Save it for later use in _list_outputs
         _, base, _ = split_filename(fname)
-        nib.save(resampled, base + '_resampled.nii.gz')
+        nib.save(resampled_correct, base + '_resampled.nii.gz')
 
         return runtime
 
