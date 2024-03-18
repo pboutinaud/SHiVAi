@@ -119,9 +119,12 @@ def make_report(
 
         stat_df_html = '\n'.join(stat_df_html_list)
 
-        with open(pred_census_im_dict[seg], 'rb') as f:
-            image_data = f.read()
-        pred_census_fig = base64.b64encode(image_data).decode()
+        if pred_census_im_dict[seg]:
+            with open(pred_census_im_dict[seg], 'rb') as f:
+                image_data = f.read()
+            pred_census_fig = base64.b64encode(image_data).decode()
+        else:
+            pred_census_fig = None
 
         with open(pred_overlay_im_dict[seg], 'rb') as f:
             image_data = f.read()

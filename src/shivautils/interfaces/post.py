@@ -454,9 +454,12 @@ class SummaryReport(BaseInterface):
                 name_in_plot = pred
             models_uid[pred] = {}
             pred_metrics_dict[pred] = pd.read_csv(getattr(self.inputs, f'{lpred}_metrics_csv'))
-            pred_census_im_dict[pred] = violinplot_from_census(getattr(self.inputs, f'{lpred}_census_csv'),
-                                                               self.inputs.resolution,
-                                                               name_in_plot)
+            if pred_metrics_dict[pred]['Number of biomarkers'].sum() == 0:  # No biomarker detected
+                pred_census_im_dict[pred] = None
+            else:
+                pred_census_im_dict[pred] = violinplot_from_census(getattr(self.inputs, f'{lpred}_census_csv'),
+                                                                   self.inputs.resolution,
+                                                                   name_in_plot)
             pred_overlay_im_dict[pred] = getattr(self.inputs, f'{lpred}_overlay')
             ids, url = get_md5_from_json(getattr(self.inputs, f'{lpred}_model_descriptor'), get_url=True)
             models_uid[pred]['id'] = ids

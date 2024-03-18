@@ -26,8 +26,10 @@
         <p>
             Brain volume: {{ pred_stat_dict[pred]['brain_volume'] }} cm<sup>3</sup><br>
         </p>
+        {% if pred_stat_dict[pred]["census_figure"] %}
         <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ pred_stat_dict[pred]["census_figure"] }}'
             width="300" height="200"></object>
+        {% endif %}
         <h3>Detected biomarkers overlaid on the brain</h3>
         <img src='data:image/png;base64, {{ pred_stat_dict[pred]["overlay_figure"] }}' width="600" height="400">
     </div>
