@@ -26,7 +26,9 @@ def shiva(in_dir, out_dir, input_type, sub_list, prediction, model, brain_seg, s
           db_name, custom_LUT, use_t1, container_image, synthseg_image, containerized_nodes,
           anonymize, interpolation, percentile, threshold, threshold_pvs, threshold_wmh, threshold_cmb,
           threshold_lac, min_pvs_size, min_wmh_size, min_cmb_size, min_lac_size, final_dimensions,
-          voxels_size, keep_all, debug, remove_intermediates, run_plugin, run_plugin_args):
+          voxels_size, keep_all, debug, remove_intermediates, run_plugin, run_plugin_args,
+          brainmask_descriptor, wmh_descriptor, pvs_descriptor, pvs2_descriptor, cmb_descriptor, lac_descriptor,
+          **kwargs):
     """
     Function that build and run the SHiVAi workflow using the input argument from the parser.
 
