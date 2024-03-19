@@ -79,7 +79,7 @@ def predict_parser():
         help="brain mask image")
 
     parser.add_argument(
-        "-o", "--out_put",
+        "-o", "--out_dir",
         type=Path,
         help="path for the output file (output of the inference from tensorflow model)")
 
