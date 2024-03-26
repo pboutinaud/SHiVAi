@@ -244,8 +244,14 @@ class Resample_from_to(BaseInterface):
         """
         in_img = nib.load(self.inputs.moving_image)
         if isdefined(self.inputs.corrected_affine):
-            in_img.set_sform(affine=self.inputs.corrected_affine)
-            in_img.set_qform(affine=self.inputs.corrected_affine)
+            # Apply the affine correction to the image before resampling
+            # (assuming that in_img is in the same space as the input to the conform node)
+            trans_centered = self.inputs.corrected_affine[:3, 3]
+            simpl_rot_sign = np.sign(np.diag(self.inputs.corrected_affine[:3, :3]))
+            simplified_rot = np.eye(3) * in_img.header['pixdim'][1:4] * simpl_rot_sign  # Keeping the voxel dimensions and signs
+            simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
+            in_img.set_sform(affine=simplified_affine_centered)
+            in_img.set_qform(affine=simplified_affine_centered)
         in_img = nib.funcs.squeeze_image(in_img)
         ref_img = nib.funcs.squeeze_image(nib.load(self.inputs.fixed_image))
         resampled = nip.resample_from_to(in_img,
