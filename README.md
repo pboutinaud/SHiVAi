@@ -395,7 +395,7 @@ python prep_json.py --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 
 If you installed the shivautils package, you can directly run the command line:
 ```bash
-prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
+shiva_prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 ```
 
 ### More info on the .yml configuration file
