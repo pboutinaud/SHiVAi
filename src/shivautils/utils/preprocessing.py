@@ -7,28 +7,28 @@ from skimage.measure import label
 from skimage.morphology import opening, binary_opening, ball
 
 import nibabel.processing as nip
-import nibabel as nb
+import nibabel as nib
 from scipy import ndimage
 from nibabel.orientations import axcodes2ornt, io_orientation, ornt_transform
 
 from shivautils.utils.misc import histogram
 
 
-def normalization(img: nb.Nifti1Image,
+def normalization(img: nib.Nifti1Image,
                   percentile: int,
-                  brain_mask: nb.Nifti1Image = None) -> nb.Nifti1Image:
+                  brain_mask: nib.Nifti1Image = None) -> nib.Nifti1Image:
     """We remove values above the 99th percentile to avoid hot spots,
        set values below 0 to 0, set values above 1.3 to 1.3 and normalize
        the data between 0 and 1.
 
        Args:
-           img (nb.Nifti1Image): image to process
+           img (nib.Nifti1Image): image to process
            percentile (int): value to threshold above this percentile
 
        Returns:
-        nb.Nifti1Image: normalized image
+        nib.Nifti1Image: normalized image
     """
-    if not isinstance(img, nb.nifti1.Nifti1Image):
+    if not isinstance(img, nib.nifti1.Nifti1Image):
         raise TypeError("Only Nifti images are supported")
 
     # We suppress values above the 99th percentile to avoid hot spots
@@ -59,18 +59,18 @@ def normalization(img: nb.Nifti1Image,
     return img_nifti_normalized, report, mode
 
 
-def threshold(img: nb.Nifti1Image,
+def threshold(img: nib.Nifti1Image,
               thr: float = 0.4,
               sign: str = '+',
               binarize: bool = False,
               open: int = 0,
               clusterCheck: str = 'size',
-              minVol: int = 0) -> nb.Nifti1Image:
+              minVol: int = 0) -> nib.Nifti1Image:
     """Create a brain_mask by putting all the values below the threshold.
        to 0. Offer filtering options if multiple clusters are expected.
 
        Args:
-            img (nb.Nifti1Image): image to process
+            img (nib.Nifti1Image): image to process
             thr (float): appropriate value to select mostly brain tissue
                 (white matter) and remove background
             sign (str): '+' zero anything below, '-' zero anythin above threshold
@@ -85,12 +85,12 @@ def threshold(img: nb.Nifti1Image,
                 be used if clusterCheck = 'top'
 
        Returns:
-           nb.Nifti1Image: preprocessed image
+           nib.Nifti1Image: preprocessed image
     """
     import numpy as np
-    import nibabel as nb
+    import nibabel as nib
 
-    if not isinstance(img, nb.nifti1.Nifti1Image):
+    if not isinstance(img, nib.nifti1.Nifti1Image):
         raise TypeError("Only Nifti images are supported")
     if not isinstance(thr, float):
         raise TypeError("'thr' must be a float")
@@ -147,13 +147,13 @@ def threshold(img: nb.Nifti1Image,
     return thresholded
 
 
-def crop(roi_mask: nb.Nifti1Image,
-         apply_to: nb.Nifti1Image,
+def crop(roi_mask: nib.Nifti1Image,
+         apply_to: nib.Nifti1Image,
          dimensions: Tuple[int, int, int],
          cdg_ijk: np.ndarray = None,
          default: str = 'ijk',
          safety_marger: int = 5
-         ) -> Tuple[nb.Nifti1Image,
+         ) -> Tuple[nib.Nifti1Image,
                     Tuple[int, int, int],
                     Tuple[int, int, int],
                     Tuple[int, int, int]]:
@@ -165,16 +165,16 @@ def crop(roi_mask: nb.Nifti1Image,
     referential coordiantes origin. If set to 'ijk', the middle of the image is used.
 
     Args:
-        roi_mask (nb.Nifti1Image): mask used to define the center
+        roi_mask (nib.Nifti1Image): mask used to define the center
                                    of the bounding box (center of gravity of mask)
-        apply_to (nb.Nifti1Image): image to crop
+        apply_to (nib.Nifti1Image): image to crop
         dimensions (Tuple[int, int, int], optional): volume dimensions.
                                                      Defaults to (256 , 256 , 256).
         cdg_ijk: arbitrary crop center ijk coordinates
         safety_marger (int): added deviation from the top of the image if the brain mask is offset
 
     Returns:
-        nb.Nifti1Image: preprocessed image
+        nib.Nifti1Image: preprocessed image
         crop center ijk coordiantes
         bouding box top left ijk coordiantes
         bounding box bottom right coordinates
@@ -185,10 +185,10 @@ def crop(roi_mask: nb.Nifti1Image,
 
     # Reorient first to ensure shape matches expectations
     apply_to = apply_to.as_reoriented(transform)
-    if not isinstance(apply_to, nb.nifti1.Nifti1Image):
+    if not isinstance(apply_to, nib.nifti1.Nifti1Image):
         raise TypeError("apply_to: only Nifti images are supported")
 
-    if roi_mask and not isinstance(roi_mask, nb.nifti1.Nifti1Image):
+    if roi_mask and not isinstance(roi_mask, nib.nifti1.Nifti1Image):
         raise TypeError("roi_mask: only Nifti images are supported")
     elif not roi_mask and not cdg_ijk:
         if default == 'xyz':
@@ -290,8 +290,8 @@ def crop(roi_mask: nb.Nifti1Image,
     return cropped, cdg_ijk, bbox1, bbox2
 
 
-def reverse_crop(original_img: nb.Nifti1Image,
-                 apply_to: nb.Nifti1Image,
+def reverse_crop(original_img: nib.Nifti1Image,
+                 apply_to: nib.Nifti1Image,
                  bbox1: Tuple[int, int, int],
                  bbox2: Tuple[int, int, int]):
     """
@@ -306,11 +306,11 @@ def reverse_crop(original_img: nb.Nifti1Image,
     return reverse_img
 
 
-def make_offset(img: nb.Nifti1Image, offset: tuple = False):
+def make_offset(img: nib.Nifti1Image, offset: tuple = False):
     """Make a random offset of array volume in image space
 
     Args:
-        img (nb.Nifti1Image): image to apply offset
+        img (nib.Nifti1Image): image to apply offset
         offset (tuple): axis offset apply to nifti image
 
     """
@@ -347,18 +347,18 @@ def make_offset(img: nb.Nifti1Image, offset: tuple = False):
     affine_out = img.affine
     affine_out[:, 3] = affine_out[:, 3] - (offset_xyz - affine_out[:, 3])
 
-    shifted_img = nb.Nifti1Image(new_array.astype('f'), affine_out, img.header)
+    shifted_img = nib.Nifti1Image(new_array.astype('f'), affine_out, img.header)
 
     return shifted_img, offset_number
 
 
-def apply_mask(file_prediction: nb.Nifti1Image,
-               brainmask: nb.Nifti1Image):
+def apply_mask(file_prediction: nib.Nifti1Image,
+               brainmask: nib.Nifti1Image):
     """Apply brainmask on prediction file to avoid prediction out of brain image
 
     Args:
-        file_prediction (nb.Nifti1Image): nifti prediction file
-        brainmask (nb.Nifti1Image): nifti brainmask file
+        file_prediction (nib.Nifti1Image): nifti prediction file
+        brainmask (nib.Nifti1Image): nifti brainmask file
 
     Returns:
         masked_prediction_Nifti: file with all prediction out of brain deleted
@@ -374,7 +374,7 @@ def apply_mask(file_prediction: nb.Nifti1Image,
 
     masked_prediction = array_prediction * array_brainmask
 
-    masked_prediction_Nifti = nb.Nifti1Image(masked_prediction.astype('f'), file_prediction.affine, file_prediction.header)
+    masked_prediction_Nifti = nib.Nifti1Image(masked_prediction.astype('f'), file_prediction.affine, file_prediction.header)
 
     return masked_prediction_Nifti
 
