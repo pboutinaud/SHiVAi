@@ -119,9 +119,12 @@ def threshold(img: nib.Nifti1Image,
             array = opening(array, footprint=ball(open))
     if clusterCheck in ('top', 'size') or minVol:
         labeled_clusters = label(array)
-        clst,  clst_cnt = np.unique(  # already sorted by size
+        clst,  clst_cnt = np.unique(
             labeled_clusters[labeled_clusters > 0],
             return_counts=True)
+        # Sorting the clusters by size
+        sort_ind = np.argsort(clst_cnt)[::-1]
+        clst,  clst_cnt = clst[sort_ind],  clst_cnt[sort_ind]
         if minVol:
             clst = clst[clst_cnt > minVol]
         if clusterCheck in ('top', 'size'):
