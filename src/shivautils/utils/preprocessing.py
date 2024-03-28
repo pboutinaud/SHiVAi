@@ -98,7 +98,7 @@ def threshold(img: nb.Nifti1Image,
         raise ValueError(
             f"Input for clusterCheck should be 'top', 'size' or 'all' but {clusterCheck} was given.")
 
-    array = img.get_fdata()
+    array = img.get_fdata().squeeze()
     if sign == '+' and not binarize:
         array[array < thr] = 0
     elif sign == '+' and binarize:
