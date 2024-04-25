@@ -1,0 +1,1 @@
+echo "This is a dummy script used to avoid crash when using SingularityCommandline"

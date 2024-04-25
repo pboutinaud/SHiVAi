@@ -1,0 +1,41 @@
+Bootstrap: docker
+From: tensorflow/tensorflow:2.0.4-gpu-py3
+Stage: build
+
+%files
+    synthseg_models.zip /usr/local/
+    precomp_synthseg.py /usr/local/bin
+
+%environment
+    PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    export PATH
+
+%post
+    rm /etc/apt/sources.list.d/cuda.list
+    rm /etc/apt/sources.list.d/nvidia-ml.list
+    apt-get update && apt-get -y install wget unzip
+    cd /usr/local
+    unzip synthseg_models.zip
+    rm synthseg_models.zip
+    wget https://github.com/BBillot/SynthSeg/archive/refs/heads/master.zip
+    unzip master.zip
+    rm master.zip
+    mv 'synthseg models'/* SynthSeg-master/models/
+    rm -r 'synthseg models'
+    cd SynthSeg-master
+    pip install keras==2.3.1 nibabel==3.2.2 matplotlib==3.3.4
+    pip install . --no-dependencies
+
+    # Creating an executable (python) file to run the command "mri_synthseg"
+    cd /usr/local/bin
+    cp /usr/local/SynthSeg-master/scripts/commands/SynthSeg_predict.py mri_synthseg
+    # Replace relative path by absolute path (to the original directory)
+    sed -i 's+os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(sys.argv\[0\]))))+"/usr/local/SynthSeg-master"+g' mri_synthseg 
+    # Make it executable as a python script
+    sed -i '1s/^/#!\/usr\/local\/bin\/python\n# -*- coding: utf-8 -*-\n/' mri_synthseg
+    chmod +x mri_synthseg
+
+    # Making standalone Nypipe workflow executable (for fully-contained processing)
+    pip install nipype pyyaml
+    cd /usr/local/bin
+    chmod +x precomp_synthseg.py

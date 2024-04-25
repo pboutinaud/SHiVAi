@@ -1,0 +1,24 @@
+model_path: /myHome/myProject/Shiva_AI_models
+apptainer_image: /myHome/myProject/shiva.sif
+synthseg_image: /myHome/myProject/synthseg.sif
+
+parameters:
+  brainmask_descriptor: "brainmask/V0/model_info.json"
+  PVS_descriptor: "T1-PVS/V1/model_info.json"
+  PVS2_descriptor: "T1.FLAIR-PVS/V0/model_info.json"
+  WMH_descriptor: "T1.FLAIR-WMH/V1/model_info.json"
+  CMB_descriptor: "SWI-CMB/V1/model_info.json"
+  LAC_descriptor: "T1.FLAIR-LAC/model_info.json"
+  percentile: 99.0
+  threshold: 0.5
+  threshold_pvs: 0.5
+  threshold_wmh: 0.2
+  threshold_cmb: 0.5
+  threshold_lac: 0.2
+  min_pvs_size: 5
+  min_wmh_size: 1
+  min_cmb_size: 1
+  min_lac_size: 3
+  final_dimensions: [160, 214, 176]
+  voxels_size: [1.0, 1.0, 1.0]
+  interpolation: 'WelchWindowedSinc'

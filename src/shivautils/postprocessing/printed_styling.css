@@ -1,0 +1,171 @@
+@page {
+    size: A4;
+    margin: 2cm;
+    /* margin-top: 0.5cm;
+    margin-bottom: 2cm; */
+
+    /* margin: 25mm 30mm 25mm 3mm;
+    margin-right: 2cm;
+    margin-top: 3cm; */
+    @bottom-right-corner {
+        content: counter(page);
+    }
+}
+
+
+figure {
+    page-break-inside: avoid;
+}
+
+
+h1,
+h2,
+h3 {
+    line-height: 1;
+    break-after: avoid;
+    page-break-after: avoid;
+}
+
+h1 {
+    font-size: 24px;
+    margin-bottom: 0.5em;
+    page-break-before: always;
+}
+
+h2 {
+    font-size: 20px;
+    margin-bottom: 0.75em;
+}
+
+h3 {
+    font-size: 16px;
+    line-height: 1;
+    margin-bottom: 1em;
+}
+
+
+p {
+    page-break-inside: avoid;
+}
+
+/* Tables
+   -------------------------------------------------------------- */
+
+/* 
+       Because of the need for padding on TH and TD, the vertical rhythm 
+       on table cells has to be 27px, instead of the standard 18px or 36px 
+       of other elements. 
+    */
+table {
+    /* margin-bottom: 1.4em; */
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 4px;
+    /* border: 1px solid #ffffff; */
+    font-size: 12px;
+    font-family: sans-serif;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+    /* page-break-inside: avoid; */
+}
+
+thead th {
+    background-color: #27AED9;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+th,
+td,
+caption {
+    padding: 4px 10px 4px 5px;
+}
+
+tbody th {
+    text-align: left;
+    border-bottom: 1px solid #dddddd;
+    font-weight: bold;
+}
+
+tbody td {
+    text-align: center;
+    border-bottom: 1px solid #dddddd;
+}
+
+tbody tr:nth-of-type(even) {
+    background-color: #a7e8fc;
+}
+
+tbody tr:last-of-type {
+    border-bottom: 2px solid #27AED9;
+}
+
+/* Row with empty region (no biomarker) */
+tbody tr.empty_reg {
+    font-weight: normal;
+    color: #525151;
+}
+
+tbody tr.empty_reg td:first-child {
+    /* First cell of en empty-region row is aligned like the normal th */
+    text-align: left;
+}
+
+/* Round the top corners */
+thead tr:first-of-type th:first-of-type {
+    border-top-left-radius: 10px;
+}
+
+thead tr:first-of-type th:last-of-type {
+    border-top-right-radius: 10px;
+}
+
+
+tfoot {
+    font-style: italic;
+}
+
+caption {
+    background: #eee;
+}
+
+
+/* Misc classes
+   -------------------------------------------------------------- */
+/* Report div classes */
+.qc {
+    page-break-inside: avoid;
+}
+
+.qc img {
+    width: 100%;
+    height: auto;
+}
+
+
+.stats {
+    page-break-after: always;
+}
+
+.stats object {
+    max-width: 18cm;
+    max-height: 8cm;
+    margin: auto;
+    display: block;
+}
+
+.stats img {
+    width: 100%;
+    height: auto;
+}
+
+.stats li {
+    display: block;
+    width: 33%;
+    float: left;
+    font-size: 14px;
+}
+
+.info p {
+    font-size: 10px;
+}

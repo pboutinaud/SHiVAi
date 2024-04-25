@@ -5,11 +5,12 @@ import unittest
 import nibabel as nb
 import nibabel.processing as nip
 
-from shivautils.image import normalization, thresholding, crop
+from shivautils.utils.preprocessing import normalization, thresholding, crop
 
 
 class TestImage(unittest.TestCase):
     """Test image module functionalities."""
+
     def setUp(self):
         self.img = nb.loadsave.load("C:/scratch/raw/01.nii")
 
