@@ -20,6 +20,10 @@ from nipype.interfaces.quickshear import (Quickshear,
                                           QuickshearInputSpec,
                                           QuickshearOutputSpec)
 
+from nipype.interfaces.dcm2nii import (Dcm2niix,
+                                       Dcm2niixInputSpec,
+                                       Dcm2niixOutputSpec)
+
 
 class PredictInputSpec(BaseInterfaceInputSpec):
     """Predict input specification."""
@@ -257,6 +261,24 @@ class Quickshear_Singularity(Quickshear, SingularityCommandLine):
     _cmd = Quickshear._cmd
 
 
+class Dcm2niix_Singularity_InputSpec(SingularityInputSpec, Dcm2niixInputSpec):
+    """Quickshear input specification (singularity mixin).
+
+    Inherits from Singularity command line fields.
+    """
+    pass
+
+
+class Dcm2niix_Singularity(Dcm2niix, SingularityCommandLine):
+    def __init__(self):
+        """Call parent constructor."""
+        super(Dcm2niix_Singularity, self).__init__()
+
+    input_spec = Dcm2niix_Singularity_InputSpec
+    output_spec = Dcm2niixOutputSpec
+    _cmd = Dcm2niix._cmd
+
+
 class Shivai_InputSpec(CommandLineInputSpec):
     """Input arguments structure for the shiva command"""
 
@@ -274,6 +296,11 @@ class Shivai_InputSpec(CommandLineInputSpec):
                              argstr='--input_type %s',
                              desc='Input data structure',
                              mandatory=True)
+    
+    file_type = traits.Enum('nifti', 'dicom',
+                            argstr='--file_type %s',
+                            desc='Type of input file (nifti or dicom) for the input images',
+                            mandatory=True)
 
     db_name = traits.Str(argstr='--db_name %s',
                          desc='Name of the dataset (e.g. "UKBB").',
@@ -361,7 +388,7 @@ class Shivai(CommandLine):
 
 
 class Shivai_Singularity_InputSpec(Shivai_InputSpec, QuickshearInputSpec):
-    """Quickshear input specification (singularity mixin).
+    """Shivai input specification (singularity mixin).
 
     Inherits from Singularity command line fields.
     """
