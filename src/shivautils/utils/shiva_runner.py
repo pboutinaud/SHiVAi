@@ -21,7 +21,7 @@ def check_input_for_pred(wfargs):
             raise FileNotFoundError(errormsg)
 
 
-def shiva(in_dir, out_dir, input_type, sub_list, prediction, model, brain_seg, synthseg_threads,
+def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, brain_seg, synthseg_threads,
           node_plugin_args, prev_qc, preproc_results, replace_t1, replace_flair, replace_swi,
           db_name, custom_LUT, use_t1, container_image, synthseg_image, containerized_nodes,
           anonymize, interpolation, percentile, threshold, threshold_pvs, threshold_wmh, threshold_cmb,
@@ -84,6 +84,7 @@ def shiva(in_dir, out_dir, input_type, sub_list, prediction, model, brain_seg, s
 
     wf_prep = {
         'input_type': input_type,
+        'file_type': file_type,
         'prev_qc': prev_qc,
         'preproc_res': preproc_results
     }

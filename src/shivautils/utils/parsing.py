@@ -30,11 +30,16 @@ def shivaParser():
 
     parser.add_argument('--input_type',
                         choices=['standard', 'BIDS'],  # , 'json'
-                        help="Way to grab and manage nifti files : 'standard' or 'BIDS'",
+                        help="Way to grab and manage nifti files : 'standard' (default) or 'BIDS'",
                         default='standard')
 
     parser.add_argument('--db_name',
                         help='Name of the data-base the input scans originate from. It is only to add this detail in the report')
+
+    parser.add_argument('--file_type',
+                        choices=['nifti', 'dicom'],  # , 'json'
+                        help="The type of files input: 'nifti' (default) or 'dicom'",
+                        default='nifti')
 
     sub_lists_args = parser.add_mutually_exclusive_group()
     sub_lists_args.add_argument('--sub_list',
@@ -455,8 +460,13 @@ def set_args_and_check(inParser):
     if args.brain_seg == 'custom' and args.custom_LUT:
         args.custom_LUT = os.path.abspath(args.custom_LUT)
         if not os.path.exists(args.custom_LUT):
-            raise inParser.error(f'Using the "custom" segmentation with a LUT but the file given with --custom_LUT was not found: {args.custom_LUT}')
+            raise inParser.error(f'Using the "custom" segmentation with a LUT but the file given with '
+                                 f'--custom_LUT was not found: {args.custom_LUT}')
         args.custom_LUT = parse_LUT(args.custom_LUT)
+
+    if args.file_type == 'dicom' and args.input_type == 'BIDS':
+        raise inParser.error('BIDS data structure not compatible with DICOM input')
+
     # Checks and parsing of subjects
     subject_list = os.listdir(args.in_dir)
     if args.sub_list is None and args.sub_names is None:

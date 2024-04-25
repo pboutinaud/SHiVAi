@@ -92,9 +92,11 @@ You will also need a few software locally installed:
 
 2. Graphviz, either with [a classic install](https://graphviz.org/download/) or with `conda` if you are using Anaconda: `conda install graphviz`
 
-3. [niimath](https://github.com/rordenlab/niimath).
+3. [dcm2niix](https://github.com/rordenlab/dcm2niix), which has several methods of installations (as per the readme on the linked Github page), among which is a convenient `conda` install: `conda install -c conda-forge dcm2niix`
 
-4. And, optionally, [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg) (available as part of recent versions of [FreeSurfer](https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall) or directly from [their GitHub page](https://github.com/BBillot/SynthSeg)). Synthseg is used to provide individual brain parcellations which is used to compute region-wise statistics for each biomarkers. For more info, see the [Region-wise statistics](#region-wise-statistics) section.
+4. [niimath](https://github.com/rordenlab/niimath) (optional, used for some backward compatibility).
+
+5. And, optionally, [SynthSeg](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg) (available as part of recent versions of [FreeSurfer](https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall) or directly from [their GitHub page](https://github.com/BBillot/SynthSeg)). Synthseg is used to provide individual brain parcellations which is used to compute region-wise statistics for each biomarkers. For more info, see the [Brain parcellation and region-wise statistics](#brain-parcellation-and-region-wise-statistics) section.
 
 The scripts should then be available from the command line prompt.
 

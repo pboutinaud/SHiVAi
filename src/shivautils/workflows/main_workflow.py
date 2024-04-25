@@ -13,6 +13,7 @@ from shivautils.workflows.preprocessing_synthseg import genWorkflow as genWorkfl
 from shivautils.workflows.preprocessing_synthseg_precomp import genWorkflow as genWorkflow_preproc_synthseg_precomp
 from shivautils.workflows.preprocessing_custom_seg import genWorkflow as genWorkflow_preproc_custom_seg
 from shivautils.workflows.predict_wf import genWorkflow as genWorkflow_prediction
+from shivautils.workflows.dcm2nii_grafting import graft_dcm2nii
 from shivautils.interfaces.post import Join_Prediction_metrics, Join_QC_metrics
 from nipype.pipeline.engine import Workflow, Node, JoinNode
 from nipype.interfaces.utility import IdentityInterface
@@ -21,30 +22,37 @@ from shivautils.interfaces.datasink import DataSink_CSV_and_PDF_safe
 import os
 
 
-def update_wf_grabber(wf, data_struct, acquisitions, custom_seg):
+def update_wf_grabber(wf, data_struct, acquisitions, datatype, kwargs):
     """
     Updates the workflow datagrabber to work with the different types on input
         wf: workflow with the datagrabber
         data_struct ('standard', 'BIDS', 'json')
         acquisitions example: [('img1', 't1'), ('img2', 'flair')]
+        datatype ('nifti' or 'dicom')
         custom_seg (bool): wether there is a custom segmentation (brain mask or brain parc) available
     """
+    files = '' if datatype == 'dicom' else '*.nii*'  # no files for dcm, just the whole folder
     datagrabber = wf.get_node('datagrabber')
     if data_struct in ['standard', 'json']:
         # e.g: {'img1': '%s/t1/%s_T1_raw.nii.gz'}
-        datagrabber.inputs.field_template = {acq[0]: f'%s/{acq[1]}/*.nii*' for acq in acquisitions}
+        datagrabber.inputs.field_template = {acq[0]: f'%s/{acq[1]}/{files}' for acq in acquisitions}
         datagrabber.inputs.template_args = {acq[0]: [['subject_id']] for acq in acquisitions}
-        if custom_seg:
-            datagrabber.inputs.field_template['seg'] = '%s/seg/*.nii*'
+        if kwargs['BRAIN_SEG'] == 'custom':
+            datagrabber.inputs.field_template['seg'] = f'%s/seg/*.nii*'  # We expect a nifti here, as dicom is unlikely
             datagrabber.inputs.template_args['seg'] = [['subject_id']]
 
     if data_struct == 'BIDS':
+        if datatype == 'dicom':
+            raise ValueError('BIDS data structure not compatible with DICOM input')
         # e.g: {'img1': '%s/anat/%s_T1_raw.nii.gz}
         datagrabber.inputs.field_template = {acq[0]: f'%s/anat/%s_{acq[1].upper()}*.nii*' for acq in acquisitions}
         datagrabber.inputs.template_args = {acq[0]: [['subject_id', 'subject_id']] for acq in acquisitions}
-        if custom_seg:  # TODO: Correct this for proper bids format. It should actually be in the "derived" folder...
+        if kwargs['BRAIN_SEG'] == 'custom':  # TODO: Correct this for proper bids format. It should actually be in the "derived" folder...
             datagrabber.inputs.field_template['seg'] = '%s/anat/%s_*seg*.nii*'
             datagrabber.inputs.template_args['seg'] = [['subject_id', 'subject_id']]
+
+    if datatype == 'dicom':
+        wf = graft_dcm2nii(wf, **kwargs)
 
     return wf
 
@@ -83,6 +91,7 @@ def generate_main_wf(**kwargs) -> Workflow:
     # Initialise the proper preproc depending on the input images and the type of preproc, and update its datagrabber
     acquisitions = []
     input_type = kwargs['PREP_SETTINGS']['input_type']
+    file_type = kwargs['PREP_SETTINGS']['file_type']
 
     if with_t1:
         # What main acquisition to use
@@ -145,7 +154,7 @@ def generate_main_wf(**kwargs) -> Workflow:
         else:
             raise NotImplementedError(f'The brain segmentation type "{kwargs["BRAIN_SEG"]}" was not recognized')
     # Updating the datagrabber with all this info
-    wf_preproc = update_wf_grabber(wf_preproc, input_type, acquisitions, (kwargs['BRAIN_SEG'] == 'custom'))
+    wf_preproc = update_wf_grabber(wf_preproc, input_type, acquisitions, file_type, kwargs)
 
     # Then initialise the post proc and add the nodes to the main wf
     wf_post = genWorkflowPost(**kwargs)
@@ -268,6 +277,9 @@ def generate_main_wf(**kwargs) -> Workflow:
         img1 = 'swi'
     main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', sink_node_subjects, f'shiva_preproc.{img1}_preproc')
     main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@brain_mask')
+    if file_type == 'dicom':
+        main_wf.connect(wf_preproc, 'dicom2nifti_img1.converted_files', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@converted')
+        main_wf.connect(wf_preproc, 'dicom2nifti_img1.bids', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@converted_bids')
     # if kwargs['BRAIN_SEG'] is None:
     #     main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@brain_mask_raw_space')
     if 'synthseg' in kwargs['BRAIN_SEG']:
@@ -283,6 +295,9 @@ def generate_main_wf(**kwargs) -> Workflow:
     main_wf.connect(wf_preproc, 'crop.cdg_ijk_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@cdg')
     if with_flair:
         main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'shiva_preproc.flair_preproc')
+        if file_type == 'dicom':
+            main_wf.connect(wf_preproc, 'dicom2nifti_img2.converted_files', sink_node_subjects, f'shiva_preproc.flair_preproc.@converted')
+            main_wf.connect(wf_preproc, 'dicom2nifti_img2.bids', sink_node_subjects, f'shiva_preproc.flair_preproc.@converted_bids')
     if with_swi and with_t1:
         main_wf.connect(wf_preproc, 'cmb_preprocessing.swi_intensity_normalisation.intensity_normalized', sink_node_subjects, 'shiva_preproc.swi_preproc')
         main_wf.connect(wf_preproc, 'cmb_preprocessing.mask_to_crop_swi.resampled_image', sink_node_subjects, 'shiva_preproc.swi_preproc.@brain_mask')
@@ -291,6 +306,9 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(wf_preproc, 'cmb_preprocessing.crop_swi.bbox1_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@bb1')
         main_wf.connect(wf_preproc, 'cmb_preprocessing.crop_swi.bbox2_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@bb2')
         main_wf.connect(wf_preproc, 'cmb_preprocessing.crop_swi.cdg_ijk_file', sink_node_subjects, 'shiva_preproc.swi_preproc.@cdg')
+        if file_type == 'dicom':
+            main_wf.connect(wf_preproc, 'dicom2nifti_img3.converted_files', sink_node_subjects, f'shiva_preproc.swi_preproc.@converted')
+            main_wf.connect(wf_preproc, 'dicom2nifti_img3.bids', sink_node_subjects, f'shiva_preproc.swi_preproc.@converted_bids')
     main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', sink_node_subjects, 'shiva_preproc.qc_metrics')
 
     # Pred and postproc
