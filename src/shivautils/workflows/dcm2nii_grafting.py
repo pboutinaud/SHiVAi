@@ -28,8 +28,9 @@ def graft_dcm2nii(workflow: Workflow, **kwargs) -> Workflow:
                     if kwargs['CONTAINERIZE_NODES']:
                         dcm2nii = Node(Dcm2niix_Singularity(), f'dicom2nifti_{grab_out}')
                         dcm2nii.inputs.snglrt_bind = [
-                            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
-                            ('`pwd`', '`pwd`', 'rw'),]
+                            ('`pwd`', '`pwd`', 'rw'),
+                            (kwargs['DATA_DIR'], kwargs['DATA_DIR'], 'rw'),
+                        ]
                         dcm2nii.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
                     else:
                         dcm2nii = Node(Dcm2niix(), name=f'dicom2nifti_{grab_out}')
