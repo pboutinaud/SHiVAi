@@ -60,6 +60,11 @@ class ConformInputSpec(BaseInterfaceInputSpec):
                               desc="orientation of image volume brain",
                               usedefault=True)
 
+    ignore_bad_affine = traits.Bool(False,
+                                    mandatory=False,
+                                    usedefault=True,
+                                    desc='If True, does not check if the affine is correct')
+
 
 class ConformOutputSpec(TraitedSpec):
     """Output class
@@ -101,31 +106,32 @@ class Conform(BaseInterface):
         fname = self.inputs.img
         img = nib.funcs.squeeze_image(nib.load(fname))
 
-        # Create new affine (no rotation, centered on center of mass) if the affine is corrupted
         simplified_affine_centered = None
-        rot, trans = nib.affines.to_matvec(img.affine)
-        # origin_ijk = np.linalg.inv(rot).dot(-trans)
-        # position_ratio = origin_ijk/img.shape
-        test1 = np.isclose(rot.dot(rot.T), np.eye(3), atol=0.0001).all()  # rot x rot.T must give an indentity matrix
-        test2 = np.isclose(np.linalg.det(rot), 1, atol=0.0001)  # Determinant for the rotation must be 1
-        if not all([test1, test2]):
-            warn_msg = (
-                f"BAD AFFINE: in {fname}\n"
-                "The image's affine is corrupted (not encoding a proper rotation).\n"
-                "To avoid problems during registration, a new affine was createdusing the center of mass as origin and "
-                "ignoring any rotation specified by the affine (but keeping voxel dim and left/right orientation).\n"
-                "This will misalign the masks (brain masks and cSVD biomarkers) compared to the raw images but will not "
-                "be a problem if you use the intensity normalized images from the img_preproc folder of the results."
-            )
-            warnings.warn(warn_msg)
-            vol = img.get_fdata()
-            cdg_ijk = np.round(ndimage.center_of_mass(vol))
-            # As the affine may be corrupted, we discard it and create a simplified version (without rotations)
-            simplified_rot = np.eye(3) * img.header['pixdim'][1:4]  # Keeping the voxel dimensions
-            simplified_rot[0] *= img.header['pixdim'][0]  # Keeping the L/R orientation
-            trans_centered = -simplified_rot.dot(cdg_ijk)
-            simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
-            img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
+        if not self.inputs.ignore_bad_affine:
+            # Create new affine (no rotation, centered on center of mass) if the affine is corrupted
+            rot, trans = nib.affines.to_matvec(img.affine)
+            # origin_ijk = np.linalg.inv(rot).dot(-trans)
+            # position_ratio = origin_ijk/img.shape
+            test1 = np.isclose(rot.dot(rot.T), np.eye(3), atol=0.0001).all()  # rot x rot.T must give an indentity matrix
+            test2 = np.isclose(np.linalg.det(rot), 1, atol=0.0001)  # Determinant for the rotation must be 1
+            if not all([test1, test2]):
+                warn_msg = (
+                    f"BAD AFFINE: in {fname}\n"
+                    "The image's affine is corrupted (not encoding a proper rotation).\n"
+                    "To avoid problems during registration, a new affine was createdusing the center of mass as origin and "
+                    "ignoring any rotation specified by the affine (but keeping voxel dim and left/right orientation).\n"
+                    "This will misalign the masks (brain masks and cSVD biomarkers) compared to the raw images but will not "
+                    "be a problem if you use the intensity normalized images from the img_preproc folder of the results."
+                )
+                warnings.warn(warn_msg)
+                vol = img.get_fdata()
+                cdg_ijk = np.round(ndimage.center_of_mass(vol))
+                # As the affine may be corrupted, we discard it and create a simplified version (without rotations)
+                simplified_rot = np.eye(3) * img.header['pixdim'][1:4]  # Keeping the voxel dimensions
+                simplified_rot[0] *= img.header['pixdim'][0]  # Keeping the L/R orientation
+                trans_centered = -simplified_rot.dot(cdg_ijk)
+                simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
+                img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
         setattr(self, 'corrected_affine', simplified_affine_centered)
 
         if not (isdefined(self.inputs.voxel_size)):

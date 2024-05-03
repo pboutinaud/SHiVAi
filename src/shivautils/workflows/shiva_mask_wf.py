@@ -73,6 +73,7 @@ def genWorkflow(**kwargs) -> Workflow:
     conform_premask.inputs.voxel_size = kwargs['RESOLUTION']
     conform_premask.inputs.orientation = kwargs['ORIENTATION']
     conform_premask.inputs.order = 0
+    conform_premask.inputs.ignore_bad_affine = True  # The previous conform breaks the affine, but we don't care here
 
     workflow.connect(pre_brain_mask, 'segmentation', conform_premask, 'img')
 
