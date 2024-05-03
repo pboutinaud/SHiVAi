@@ -1,5 +1,6 @@
 """Interfaces for SHIVA project deep learning segmentation and prediction tools."""
 import os
+import glob
 
 from nipype.interfaces.base import (traits, TraitedSpec,
                                     BaseInterfaceInputSpec,
@@ -295,25 +296,28 @@ class Shivai_InputSpec(CommandLineInputSpec):
     input_type = traits.Enum('standard', 'BIDS',
                              argstr='--input_type %s',
                              desc='Input data structure',
-                             mandatory=True)
-    
+                             usedefault=True,
+                             mandatory=False)
+
     file_type = traits.Enum('nifti', 'dicom',
                             argstr='--file_type %s',
                             desc='Type of input file (nifti or dicom) for the input images',
-                            mandatory=True)
+                            usedefault=True,
+                            mandatory=False)
 
     db_name = traits.Str(argstr='--db_name %s',
                          desc='Name of the dataset (e.g. "UKBB").',
                          mandatory=False)
 
-    sub_names = traits.List(argstr='--sub_names %s',
-                            desc='List of the participants ID to be processed from the input directory.',
-                            mandatory=True)
+    sub_name = traits.Str(argstr='--sub_names %s',
+                          desc='Participant ID to be processed from the input directory.',
+                          mandatory=True)
 
     prediction = traits.Enum("PVS", "PVS2", "WMH", "CMB", "LAC", "all",
                              argstr="--prediction %s",
                              desc='Prediction to run ("PVS", "PVS2", "WMH", "CMB", "LAC", "all")',
-                             mandatory=True)
+                             usedefault=True,
+                             mandatory=False)
 
     replace_t1 = traits.Str(argstr='--replace_t1 %s',
                             desc='Data type that will replace the "t1" image.',
@@ -334,7 +338,8 @@ class Shivai_InputSpec(CommandLineInputSpec):
     brain_seg = traits.Enum("shiva", "shiva_gpu", "synthseg", "synthseg_cpu", "synthseg_precomp", "premasked", "custom",
                             argstr='--brain_seg %s',
                             desc='Type of segmentation to run. Chose among: "shiva", "shiva_gpu", "synthseg", "synthseg_cpu", "synthseg_precomp", "premasked", "custom"',
-                            mandatory=True)
+                            usedefault=True,
+                            mandatory=False)
 
     synthseg_threads = traits.Int(argstr='--synthseg_threads %d',
                                   desc='Number of thread to run with "synthseg_cpu".',
@@ -370,8 +375,50 @@ class Shivai_InputSpec(CommandLineInputSpec):
 
 class Shivai_OutputSpec(TraitedSpec):
     """Shivai ports."""
-    result_dir = traits.File(desc='Folder where the results are stored',
-                             exists=True)
+    # result_dir = traits.File(desc='Folder where the results are stored',
+    #                          exists=True)
+    pvs_census = traits.File(desc='PVS census csv file (size and location of each PVS)', exists=False)
+    wmh_census = traits.File(desc='WMH census csv file (size and location of each WMH)', exists=False)
+    cmb_census = traits.File(desc='CMB census csv file (size and location of each CMB)', exists=False)
+    lac_census = traits.File(desc='Lacuna census csv file (size and location of each lacuna)', exists=False)
+    pvs_stats = traits.File(desc='PVS stats csv file (size metrics and counts for PVS in each region)', exists=False)
+    wmh_stats = traits.File(desc='WMH stats csv file (size metrics and counts for WMH in each region)', exists=False)
+    cmb_stats = traits.File(desc='CMB stats csv file (size metrics and counts for CMB in each region)', exists=False)
+    lac_stats = traits.File(desc='Lacuna stats csv file (size metrics and counts for lacunas in each region)', exists=False)
+    pvs_labelled_map = traits.File(desc='PVS map file with labelled clusters', exists=False)
+    wmh_labelled_map = traits.File(desc='WMH map file with labelled clusters', exists=False)
+    cmb_labelled_map = traits.File(desc='CMB map file with labelled clusters', exists=False)
+    lac_labelled_map = traits.File(desc='Lacuna map file with labelled clusters', exists=False)
+    pvs_raw_map = traits.File(desc='PVS map (raw)', exists=False)
+    wmh_raw_map = traits.File(desc='WMH map (raw)', exists=False)
+    cmb_raw_map = traits.File(desc='CMB map (raw)', exists=False)
+    lac_raw_map = traits.File(desc='Lacuna map (raw)', exists=False)
+    summary_report = traits.File(desc='PDF report file for the analysis', exists=True)
+    converted_t1 = traits.File(desc='Nifti T1 file converted from DICOM', exists=False)
+    converted_flair = traits.File(desc='Nifti FLAIR file converted from DICOM', exists=False)
+    converted_swi = traits.File(desc='Nifti SWI file converted from DICOM', exists=False)
+    sidecar_t1 = traits.File(desc='JSON file sidecar from T1 DICOM conversion', exists=False)
+    sidecar_flair = traits.File(desc='JSON file sidecar from FLAIR DICOM conversion', exists=False)
+    sidecar_swi = traits.File(desc='JSON file sidecar from SWI DICOM conversion', exists=False)
+    t1_preproc = traits.File(desc='Preprocessed T1 file (conformed, cropped, intensity normalized, defaced)', exists=False)
+    flair_preproc = traits.File(desc='Preprocessed FLAIR file (conformed, cropped, intensity normalized, defaced)', exists=False)
+    swi_preproc = traits.File(desc='Preprocessed SWI file (conformed, cropped, intensity normalized, defaced)', exists=False)
+    brain_mask = traits.File(desc='Brain mask (conformed, cropped)', exists=False)
+    # brain_parc = traits.File(desc='Brain parcellation (conformed, cropped)', exists=False)
+    swi2t1_transform = traits.File(desc='ANTs affine matrix for SWI to T1 registration', exists=False)  # for CMB when whith_t1 and brain parc
+    brain_mask_swi = traits.File(desc='Brain mask in SWI space (conformed, cropped)', exists=False)  # for CMB when whith_t1 without brain parc
+    qc_metrics = traits.File(desc='Metrics used for group-level QC in a CSV file', exists=False)
+    ss_cleaned = traits.File(desc='Synthseg parcellation after cleaning mislabeled "islands"', exists=False)
+    ss_volumes = traits.File(desc='CSV file with the volumes of each region from the Synthseg parcellation', exists=False)
+    ss_derived_parc = traits.File(desc='Brain parcellation derived from Synthseg to be used for custom biomarker parcelllation', exists=False)
+    parc4pvs = traits.File(desc='Parcellation for PVS counting (derived from Synthseg)', exists=False)
+    parc4wmh = traits.File(desc='Parcellation for WMH counting (derived from Synthseg)', exists=False)
+    parc4cmb = traits.File(desc='Parcellation for CMB counting (derived from Synthseg)', exists=False)
+    parc4lac = traits.File(desc='Parcellation for lacuna counting (derived from Synthseg)', exists=False)
+    # parc4pvs_dict = traits.File(desc='Dictionnary (in JSON file) with label/region name in parc4pvs', exists=False)
+    # parc4wmh_dict = traits.File(desc='Dictionnary (in JSON file) with label/region name in parc4wmh', exists=False)
+    # parc4cmb_dict = traits.File(desc='Dictionnary (in JSON file) with label/region name in parc4cmb', exists=False)
+    # parc4lac_dict = traits.File(desc='Dictionnary (in JSON file) with label/region name in parc4lac', exists=False)
 
 
 class Shivai(CommandLine):
@@ -382,8 +429,57 @@ class Shivai(CommandLine):
     _cmd = 'shiva'
 
     def _list_outputs(self):
+        subject_id = self.inputs.sub_name
+        res_dir = os.path.join(os.path.abspath(str(self.inputs.out_dir)), 'results')
+        output_dict = {
+            'pvs_census': f'segmentations/pvs_segmentation/{subject_id}/pvs_census.csv',
+            'wmh_census': f'segmentations/wmh_segmentation/{subject_id}/wmh_census.csv',
+            'cmb_census': f'segmentations/cmb_segmentation*/{subject_id}/cmb*_census.csv',
+            'lac_census': f'segmentations/lac_segmentation/{subject_id}/lac_census.csv',
+            'pvs_stats': f'segmentations/pvs_segmentation/{subject_id}/pvs_stats_wide.csv',
+            'wmh_stats': f'segmentations/wmh_segmentation/{subject_id}/wmh_stats_wide.csv',
+            'cmb_stats': f'segmentations/cmb_segmentation*/{subject_id}/cmb*_stats_wide.csv',
+            'lac_stats': f'segmentations/lac_segmentation/{subject_id}/lac_stats_wide.csv',
+            'pvs_labelled_map': f'segmentations/pvs_segmentation/{subject_id}/labelled_pvs.nii.gz',
+            'wmh_labelled_map': f'segmentations/wmh_segmentation/{subject_id}/labelled_wmh.nii.gz',
+            'cmb_labelled_map': f'segmentations/cmb_segmentation*/{subject_id}/labelled_cmb.nii.gz',
+            'lac_labelled_map': f'segmentations/lac_segmentation/{subject_id}/labelled_lac.nii.gz',
+            'pvs_raw_map': f'segmentations/pvs_segmentation/{subject_id}/pvs_map.nii.gz',
+            'wmh_raw_map': f'segmentations/wmh_segmentation/{subject_id}/wmh_map.nii.gz',
+            'cmb_raw_map': f'segmentations/cmb_segmentation*/{subject_id}/cmb_map.nii.gz',
+            'lac_raw_map': f'segmentations/lac_segmentation/{subject_id}/lac_map.nii.gz',
+            'summary_report': f'report/{subject_id}/Shiva_report.pdf',
+            'converted_t1': f'shiva_preproc/t1_preproc/{subject_id}/converted_*.nii.gz',
+            'converted_flair': f'shiva_preproc/flair_preproc/{subject_id}/converted_*.nii.gz',
+            'converted_swi': f'shiva_preproc/swi_preproc/{subject_id}/converted_*.nii.gz',
+            'sidecar_t1': f'shiva_preproc/t1_preproc/{subject_id}/converted_*.json',
+            'sidecar_flair': f'shiva_preproc/flair_preproc/{subject_id}/converted_*.json',
+            'sidecar_swi': f'shiva_preproc/swi_preproc/{subject_id}/converted_*.json',  # TODO: check les nom 'in_swi_space' etc
+            't1_preproc': f'shiva_preproc/t1_preproc/{subject_id}/*_defaced_cropped_intensity_normed.nii.gz',
+            'flair_preproc': f'shiva_preproc/flair_preproc/{subject_id}/*_defaced_cropped_intensity_normed.nii.gz',
+            'swi_preproc': f'shiva_preproc/swi_preproc/{subject_id}/*_defaced_cropped_intensity_normed.nii.gz',
+            'brain_mask': f'shiva_preproc/*_preproc/{subject_id}/brainmask_cropped.nii.gz',  # TODO: check les nom 'in_swi_space' etc
+            'swi2t1_transform': f'shiva_preproc/swi_preproc/{subject_id}/swi_to_t1_0GenericAffine.mat',
+            'brain_mask_swi': f'shiva_preproc/swi_preproc/{subject_id}/brainmask_cropped*.nii.gz',
+            'qc_metrics': f'shiva_preproc/qc_metrics/{subject_id}/qc_metrics.csv',
+            'ss_cleaned': f'shiva_preproc/synthseg/{subject_id}/cleaned_synthseg_parc.nii.gz',
+            'ss_derived_parc': f'shiva_preproc/synthseg/{subject_id}/derived_parc.nii.gz',
+            'ss_volumes': f'shiva_preproc/synthseg/{subject_id}/volumes.csv',
+            'parc4pvs': f'segmentations/pvs_segmentation/{subject_id}/Brain_Seg_for_PVS.nii.gz',
+            'parc4wmh': f'segmentations/wmh_segmentation/{subject_id}/Brain_Seg_for_WMH.nii.gz',
+            'parc4cmb': f'segmentations/cmb_segmentation*/{subject_id}/Brain_Seg_for_CMB*.nii.gz',
+            'parc4lac': f'segmentations/lac_segmentation/{subject_id}/Brain_Seg_for_LAC.nii.gz',
+        }
         outputs = self.output_spec().get()
-        outputs["result_dir"] = os.path.join(os.path.abspath(str(self.inputs.out_dir)), 'results')
+        for output_name, ouput_path in output_dict.items():
+            out_path = os.path.join(res_dir, ouput_path)
+            if '*' in out_path:
+                foundpath = glob.glob(out_path)  # There should only be one file
+                if foundpath:
+                    out_path = foundpath[0]
+                else:
+                    out_path = None
+            outputs[output_name] = out_path
         return outputs
 
 
