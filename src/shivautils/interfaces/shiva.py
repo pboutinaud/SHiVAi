@@ -283,10 +283,10 @@ class Dcm2niix_Singularity(Dcm2niix, SingularityCommandLine):
 class Shivai_InputSpec(CommandLineInputSpec):
     """Input arguments structure for the shiva command"""
 
-    in_dir = traits.File(argstr='--in %s',
-                         desc='Directory containing the input data for all participants.',
-                         exists=True,
-                         mandatory=True)
+    in_dir = traits.Directory(argstr='--in %s',
+                              desc='Directory containing the input data for all participants.',
+                              exists=True,
+                              mandatory=True)
 
     out_dir = traits.File(argstr='--out %s',
                           desc='Directory where the results will be saved (in and "results" sub-directory).',
@@ -478,12 +478,12 @@ class Shivai(CommandLine):
                 if foundpath:
                     out_path = foundpath[0]
                 else:
-                    out_path = None
+                    out_path = ''
             outputs[output_name] = out_path
         return outputs
 
 
-class Shivai_Singularity_InputSpec(Shivai_InputSpec, QuickshearInputSpec):
+class Shivai_Singularity_InputSpec(SingularityInputSpec, Shivai_InputSpec):
     """Shivai input specification (singularity mixin).
 
     Inherits from Singularity command line fields.

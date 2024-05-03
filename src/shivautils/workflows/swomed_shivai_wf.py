@@ -5,22 +5,24 @@ and the synthseg workflow called beforehand needs the same base dir and synthseg
 
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.utility import IdentityInterface
-from nipype.interfaces.io import SelectFiles
 from shivautils.interfaces.shiva import Shivai_Singularity
-from shivautils.utils.misc import as_list
 import os
+import yaml
 
 dummy_args = {
     "SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
     "BASE_DIR": os.path.normpath(os.path.expanduser('~')),
     "SHIVAI_CONFIG": __file__,
-    "SHIVAI_IMAGE":  __file__,
 }
 
 
 def genWorkflow(**kwargs) -> Workflow:
     workflow = Workflow("shivai_singularity_wf")
     workflow.base_dir = kwargs['BASE_DIR']
+
+    # Load config to get the different file path to bind and the singularity images
+    with open(kwargs['SHIVAI_CONFIG'], 'r') as file:
+        config = yaml.safe_load(file)
 
     subject_list_in = Node(IdentityInterface(
         fields=['subject_id'],
@@ -32,10 +34,14 @@ def genWorkflow(**kwargs) -> Workflow:
                        name='shivai_node')
     # Singularity settings
     config_dir = os.path.dirname(kwargs['SHIVAI_CONFIG'])
-    shivai_node.inputs.snglrt_bind = [
+    bind_list = [
+        (config['model_path'], '/mnt/model', 'ro'),
         (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
-        (config_dir, config_dir, 'rw'),]
-    shivai_node.inputs.snglrt_image = kwargs['SHIVAI_IMAGE']
+    ]
+    if os.path.abspath(config_dir) != os.path.abspath(kwargs['BASE_DIR']):
+        bind_list.append((config_dir, config_dir, 'rw'))
+    shivai_node.inputs.snglrt_bind = bind_list
+    shivai_node.inputs.snglrt_image = config['apptainer_image']
     shivai_node.inputs.snglrt_enable_nvidia = True
     # Mandatory inputs:
     shivai_node.inputs.in_dir = kwargs['BASE_DIR']
