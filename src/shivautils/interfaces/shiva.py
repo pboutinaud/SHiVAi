@@ -478,7 +478,9 @@ class Shivai(CommandLine):
                 if foundpath:
                     out_path = foundpath[0]
                 else:
-                    out_path = ''
+                    continue
+            if not os.path.exists(out_path):
+                continue
             outputs[output_name] = out_path
         return outputs
 
