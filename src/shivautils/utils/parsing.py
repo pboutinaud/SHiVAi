@@ -29,7 +29,7 @@ def shivaParser():
                         required=True)
 
     parser.add_argument('--input_type',
-                        choices=['standard', 'BIDS'],  # , 'json'
+                        choices=['standard', 'BIDS', 'swomed'],  # , 'json'
                         help="Way to grab and manage nifti files : 'standard' (default) or 'BIDS'",
                         default='standard')
 
@@ -145,6 +145,22 @@ def shivaParser():
                               '- FSL style .xml file\n'
                               '- FreeSurfer style .txt file'))
 
+    parser.add_argument('--swomed_parc',  # Hidden option overriding 'brain_seg', used in SWOMed to give the path to the synthseg parcelation
+                        required=False,
+                        help=argparse.SUPPRESS)
+
+    parser.add_argument('--swomed_t1',  # Hidden option overriding 't1', used in SWOMed to give the path to the t1 (or equivalent)
+                        required=False,
+                        help=argparse.SUPPRESS)
+
+    parser.add_argument('--swomed_flair',  # Hidden option overriding 'brain_seg', used in SWOMed to give the path to the flair (or equivalent)
+                        required=False,
+                        help=argparse.SUPPRESS)
+
+    parser.add_argument('--swomed_swi',  # Hidden option overriding 'brain_seg', used in SWOMed to give the path to the swi (or equivalent)
+                        required=False,
+                        help=argparse.SUPPRESS)
+
     # parser.add_argument('--gpu',
     #                     type=int,
     #                     help='ID of the GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
@@ -206,14 +222,6 @@ def shivaParser():
                             'are available in the results folder. If you have subjects with missing preprocessed data, you will '
                             'need to run their processing separatly.'
                         ))
-
-    parser.add_argument('--synthseg_precomp',
-                        action='store_true',
-                        help=(
-                            "Option used when the Synthseg parcellation has already been computed AND is stored "
-                            "in the process's result folder. This is specifically designed to work with the "
-                            "'precomp_synthseg.py script called when using 'run_shiva' and using --containerized_all "
-                            "here."))
 
     file_management = parser.add_mutually_exclusive_group()
 
@@ -404,7 +412,7 @@ def parse_LUT(inLUT):  # TODO: tester avec de vraies LUT
     # when inLUT is a FSL style .xml LUT
     if os.path.splitext(inLUT)[-1] == '.xml':
         dictLUT = {}
-        import xml.etree.ElementTree as ET
+        # import xml.etree.ElementTree as ET
         tree = ET.parse(inLUT)
         root = tree.getroot()
         for label in root.iter('label'):
@@ -486,6 +494,16 @@ def set_args_and_check(inParser):
                                  f'Participant available: {subject_list}')
         elif len(subs_not_in_dir) > 0:
             raise inParser.error(f'Some participants where not found in the input directory: {sorted(list(subs_not_in_dir))}')
+
+    # Check the SWOMed direct input paths
+    if args.swomed_parc is not None and not os.path.exists(args.swomed_parc):
+        inParser.error(f'The parcellation given to "--swomed_parc" was not found: {args.swomed_parc}')
+    if args.swomed_t1 is not None and not os.path.exists(args.swomed_t1):
+        inParser.error(f'The t1 given to "--swomed_t1" was not found: {args.swomed_t1}')
+    if args.swomed_flair is not None and not os.path.exists(args.swomed_flair):
+        inParser.error(f'The flair given to "--swomed_flair" was not found: {args.swomed_flair}')
+    if args.swomed_swi is not None and not os.path.exists(args.swomed_swi):
+        inParser.error(f'The swi given to "--swomed_swi" was not found: {args.swomed_swi}')
 
     # Parse the thresholds
     if args.threshold_clusters is not None:

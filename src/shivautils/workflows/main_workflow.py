@@ -11,6 +11,7 @@ from shivautils.workflows.preprocessing_shiva_masking import genWorkflow as genW
 from shivautils.workflows.preprocessing_premasked import genWorkflow as genWorkflow_preproc_masked
 from shivautils.workflows.preprocessing_synthseg import genWorkflow as genWorkflow_preproc_synthseg
 from shivautils.workflows.preprocessing_synthseg_precomp import genWorkflow as genWorkflow_preproc_synthseg_precomp
+from shivautils.workflows.preprocessing_swomed_pre_synthseg import genWorkflow as genWorkflow_preproc_synthseg_swomed
 from shivautils.workflows.preprocessing_custom_seg import genWorkflow as genWorkflow_preproc_custom_seg
 from shivautils.workflows.predict_wf import genWorkflow as genWorkflow_prediction
 from shivautils.workflows.dcm2nii_grafting import graft_dcm2nii
@@ -22,17 +23,17 @@ from shivautils.interfaces.datasink import DataSink_CSV_and_PDF_safe
 import os
 
 
-def update_wf_grabber(wf, data_struct, acquisitions, datatype, kwargs):
+def update_wf_grabber(wf, acquisitions, datatype, kwargs):
     """
     Updates the workflow datagrabber to work with the different types on input
         wf: workflow with the datagrabber
-        data_struct ('standard', 'BIDS', 'json')
         acquisitions example: [('img1', 't1'), ('img2', 'flair')]
         datatype ('nifti' or 'dicom')
         custom_seg (bool): wether there is a custom segmentation (brain mask or brain parc) available
     """
     files = '' if datatype == 'dicom' else '*.nii*'  # no files for dcm, just the whole folder
     datagrabber = wf.get_node('datagrabber')
+    data_struct = kwargs['PREP_SETTINGS']['input_type']
     if data_struct in ['standard', 'json']:
         # e.g: {'img1': '%s/t1/%s_T1_raw.nii.gz'}
         datagrabber.inputs.field_template = {acq[0]: f'%s/{acq[1]}/{files}' for acq in acquisitions}
@@ -50,6 +51,12 @@ def update_wf_grabber(wf, data_struct, acquisitions, datatype, kwargs):
         if kwargs['BRAIN_SEG'] == 'custom':  # TODO: Correct this for proper bids format. It should actually be in the "derived" folder...
             datagrabber.inputs.field_template['seg'] = '%s/anat/%s_*seg*.nii*'
             datagrabber.inputs.template_args['seg'] = [['subject_id', 'subject_id']]
+
+    if data_struct == 'swomed':
+        in_files_dict = kwargs['PREP_SETTINGS']['swomed_input']
+        datagrabber.inputs.base_directory = in_files_dict['base_dir']
+        datagrabber.inputs.field_template = {acq[0]: in_files_dict[acq[1]] for acq in acquisitions}
+        # datagrabber.inputs.template_args = {acq[0]: [['subject_id']] for acq in acquisitions}  # dummy input
 
     if datatype == 'dicom':
         wf = graft_dcm2nii(wf, **kwargs)
@@ -90,7 +97,6 @@ def generate_main_wf(**kwargs) -> Workflow:
 
     # Initialise the proper preproc depending on the input images and the type of preproc, and update its datagrabber
     acquisitions = []
-    input_type = kwargs['PREP_SETTINGS']['input_type']
     file_type = kwargs['PREP_SETTINGS']['file_type']
 
     if with_t1:
@@ -106,6 +112,11 @@ def generate_main_wf(**kwargs) -> Workflow:
         elif kwargs['BRAIN_SEG'] == 'premasked':
             wf_preproc = genWorkflow_preproc_masked(**kwargs, wf_name=wf_name)
         elif 'synthseg' in kwargs['BRAIN_SEG']:
+            if kwargs['PREP_SETTINGS']['input_type'] == 'swomed':
+                wf_preproc = genWorkflow_preproc_synthseg_swomed(**kwargs, wf_name=wf_name)
+                seg_cleaning = wf_preproc.get_node('seg_cleaning')
+                datagrabber = wf_preproc.get_node('datagrabber')
+                wf_preproc.connect(datagrabber, 'seg', seg_cleaning, 'input_seg')
             if kwargs['BRAIN_SEG'] == 'synthseg_precomp':
                 wf_preproc = genWorkflow_preproc_synthseg_precomp(**kwargs, wf_name=wf_name)
             else:
@@ -154,7 +165,7 @@ def generate_main_wf(**kwargs) -> Workflow:
         else:
             raise NotImplementedError(f'The brain segmentation type "{kwargs["BRAIN_SEG"]}" was not recognized')
     # Updating the datagrabber with all this info
-    wf_preproc = update_wf_grabber(wf_preproc, input_type, acquisitions, file_type, kwargs)
+    wf_preproc = update_wf_grabber(wf_preproc, acquisitions, file_type, kwargs)
 
     # Then initialise the post proc and add the nodes to the main wf
     wf_post = genWorkflowPost(**kwargs)
