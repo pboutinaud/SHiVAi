@@ -42,7 +42,7 @@ def genWorkflow(**kwargs) -> Workflow:
         for grab_out, node_in in out_and_in:
             reconnections.append((grab_out, connected_node, node_in))
 
-    # Removing used nodes
+    # Removing unused nodes
     workflow.remove_nodes([datagrabber, synthseg])
 
     # Datagrabber replacement with swomed input

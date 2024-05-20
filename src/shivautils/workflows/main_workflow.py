@@ -7,6 +7,7 @@ from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
 from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from shivautils.workflows.dual_preprocessing import graft_img2_preproc
 from shivautils.workflows.preprocessing_swi_reg import graft_workflow_swi
+from shivautils.workflows.swomed_graft_infiles import graft_swomed_infiles
 from shivautils.workflows.preprocessing_shiva_masking import genWorkflow as genWorkflow_preproc_shiva_mask
 from shivautils.workflows.preprocessing_premasked import genWorkflow as genWorkflow_preproc_masked
 from shivautils.workflows.preprocessing_synthseg import genWorkflow as genWorkflow_preproc_synthseg
@@ -173,6 +174,11 @@ def generate_main_wf(**kwargs) -> Workflow:
             wf_preproc = genWorkflowPreproc(**kwargs, wf_name=wf_name)
         else:
             raise NotImplementedError(f'The brain segmentation type "{kwargs["BRAIN_SEG"]}" was not recognized')
+
+    # Swap the datagrabber for a direct file input in SWOMed case, if not with Synthseg
+    if kwargs['PREP_SETTINGS']['input_type'] == 'swomed' and not 'synthseg' in kwargs['BRAIN_SEG']:
+        wf_preproc = graft_swomed_infiles(wf_preproc)
+
     # Updating the datagrabber with all this info
     wf_preproc = update_wf_grabber(wf_preproc, acquisitions, file_type, kwargs)
 
