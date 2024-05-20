@@ -19,6 +19,7 @@ import os
 import warnings
 import nibabel.processing as nip
 import nibabel as nib
+from nibabel.orientations import axcodes2ornt, io_orientation, ornt_transform
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
@@ -109,11 +110,16 @@ class Conform(BaseInterface):
         simplified_affine_centered = None
         if not self.inputs.ignore_bad_affine:
             # Create new affine (no rotation, centered on center of mass) if the affine is corrupted
-            rot, trans = nib.affines.to_matvec(img.affine)
+            start_ornt = io_orientation(img.affine)
+            end_ornt = axcodes2ornt(self.inputs.orientation)
+            transform = ornt_transform(start_ornt, end_ornt)
+            reoriented = img.as_reoriented(transform)
+            conformed_affine = nib.affines.rescale_affine(reoriented.affine, reoriented.shape, voxel_size, self.inputs.dimensions)
+            rot, trans = nib.affines.to_matvec(conformed_affine)
             # origin_ijk = np.linalg.inv(rot).dot(-trans)
             # position_ratio = origin_ijk/img.shape
             test1 = np.isclose(rot.dot(rot.T), np.eye(3), atol=0.0001).all()  # rot x rot.T must give an indentity matrix
-            test2 = np.isclose(np.linalg.det(rot), 1, atol=0.0001)  # Determinant for the rotation must be 1
+            test2 = np.isclose(np.abs(np.linalg.det(rot)), 1, atol=0.0001)  # Determinant for the rotation must be 1
             if not all([test1, test2]):
                 warn_msg = (
                     f"BAD AFFINE: in {fname}\n"
