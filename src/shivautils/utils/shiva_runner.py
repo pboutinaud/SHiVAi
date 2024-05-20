@@ -23,7 +23,7 @@ def check_input_for_pred(wfargs):
 
 def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, brain_seg, synthseg_threads,
           node_plugin_args, prev_qc, preproc_results, replace_t1, replace_flair, replace_swi,
-          db_name, custom_LUT, swomed_parc, swomed_t1, swomed_flair, swomed_swi, use_t1, container_image, synthseg_image, containerized_nodes,
+          db_name, custom_LUT, swomed_parc, swomed_ssvol, swomed_ssqc, swomed_t1, swomed_flair, swomed_swi, use_t1, container_image, synthseg_image, containerized_nodes,
           anonymize, interpolation, percentile, threshold, threshold_pvs, threshold_wmh, threshold_cmb,
           threshold_lac, min_pvs_size, min_wmh_size, min_cmb_size, min_lac_size, final_dimensions,
           voxels_size, keep_all, debug, remove_intermediates, run_plugin, run_plugin_args,
@@ -86,7 +86,8 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
     t1_name = 't1' if not replace_t1 else replace_t1
     flair_name = 'flair' if not replace_flair else replace_flair
     swi_name = 'swi' if not replace_swi else replace_swi
-    pre_path_dict = {t1_name: swomed_t1, flair_name: swomed_flair, swi_name: swomed_swi, 'seg': swomed_parc}
+    pre_path_dict = {t1_name: swomed_t1, flair_name: swomed_flair, swi_name: swomed_swi,
+                     'seg': swomed_parc, 'synthseg_vol': swomed_ssvol, 'synthseg_qc': swomed_ssqc}
     in_path_dict = {k: val for k, val in pre_path_dict.items() if val is not None}
     # in_path_dict['base_dir'] = os.path.commonprefix(list(pre_path_dict.values()))
     # in_path_dict = {k: val.removeprefix(in_path_dict['base_dir']) for k, val in pre_path_dict.items()}

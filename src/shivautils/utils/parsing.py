@@ -149,6 +149,14 @@ def shivaParser():
                         required=False,
                         help=argparse.SUPPRESS)
 
+    parser.add_argument('--swomed_ssvol',  # Hidden option used in SWOMed to give the path to the synthseg vol.csv file
+                        required=False,
+                        help=argparse.SUPPRESS)
+
+    parser.add_argument('--swomed_ssqc',  # Hidden option used in SWOMed to give the path to the synthseg qc.csv file
+                        required=False,
+                        help=argparse.SUPPRESS)
+
     parser.add_argument('--swomed_t1',  # Hidden option overriding 't1', used in SWOMed to give the path to the t1 (or equivalent)
                         required=False,
                         help=argparse.SUPPRESS)
