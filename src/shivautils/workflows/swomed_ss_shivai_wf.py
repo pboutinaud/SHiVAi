@@ -5,7 +5,7 @@ and the synthseg workflow called beforehand needs the same base dir and synthseg
 
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.utility import IdentityInterface
-from shivautils.interfaces.shiva import Shivai_Singularity
+from shivautils.interfaces.shiva import Shivai_Singularity, SynthsegSingularity
 import os
 import yaml
 
@@ -18,7 +18,7 @@ dummy_args = {
 
 
 def genWorkflow(**kwargs) -> Workflow:
-    workflow = Workflow("shivai_singularity_wf")
+    workflow = Workflow("ss_shivai_singularity_wf")
     workflow.base_dir = kwargs['BASE_DIR']
 
     # Load config to get the different file path to bind and the singularity images
@@ -30,6 +30,9 @@ def genWorkflow(**kwargs) -> Workflow:
         mandatory_inputs=True),
         name="subject_list_in")
     subject_list_in.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
+
+    synthseg_node = Node(SynthsegSingularity(),
+                         name='synthseg_node')
 
     shivai_node = Node(Shivai_Singularity(),
                        name='shivai_node')
