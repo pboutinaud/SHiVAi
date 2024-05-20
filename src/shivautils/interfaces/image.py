@@ -108,6 +108,14 @@ class Conform(BaseInterface):
         img = nib.funcs.squeeze_image(nib.load(fname))
 
         simplified_affine_centered = None
+
+        if not (isdefined(self.inputs.voxel_size)):
+            # resample so as to keep FOV
+            voxel_size = np.divide(np.multiply(img.header['dim'][1:4], img.header['pixdim'][1:4]).astype(np.double),
+                                   self.inputs.dimensions)
+        else:
+            voxel_size = self.inputs.voxel_size
+
         if not self.inputs.ignore_bad_affine:
             # Create new affine (no rotation, centered on center of mass) if the affine is corrupted
             start_ornt = io_orientation(img.affine)
@@ -140,12 +148,6 @@ class Conform(BaseInterface):
                 img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
         setattr(self, 'corrected_affine', simplified_affine_centered)
 
-        if not (isdefined(self.inputs.voxel_size)):
-            # resample so as to keep FOV
-            voxel_size = np.divide(np.multiply(img.header['dim'][1:4], img.header['pixdim'][1:4]).astype(np.double),
-                                   self.inputs.dimensions)
-        else:
-            voxel_size = self.inputs.voxel_size
         resampled = nip.conform(img,
                                 out_shape=self.inputs.dimensions,
                                 voxel_size=voxel_size,
