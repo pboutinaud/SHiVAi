@@ -19,7 +19,7 @@ def make_report(
         overlayed_brainmask_1: str = None,
         overlayed_brainmask_2: str = None,
         isocontour_slides_FLAIR_T1: str = None,
-        subject_id: int = None,
+        subject_id: str = None,
         image_size: tuple = (160, 214, 176),
         resolution: tuple = (1.0, 1.0, 1.0),
         percentile: int = 99,
@@ -50,7 +50,7 @@ def make_report(
         overlayed_brainmask_1 (path): PNG file of cropping box with overlay brainmask
         overlayed_brainmask_2 (path): PNG file of cropping box with overlay brainmask (for SWI if done at the same time as non-CMB predictions)
         isocontour_slides_FLAIR_T1 (path): PNG file with the reference image in the background and the edges of the given image on top
-        subject_id (int): Participant identificator
+        subject_id (str): Participant identificator
         image_size (tuple): Final image dimensions
         resolution (tuple): Voxel size of the final image
         percentile (int): Range of values (in percentile) kept during intensity normalisation

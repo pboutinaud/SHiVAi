@@ -15,7 +15,7 @@
         {{pred_stat_dict[pred]['metrics_table'] | safe}}
         {% if pred_stat_dict[pred]['empty_reg']|length > 0 %}
         <div>
-            <p>Brain regions with no biomarker detected:</p>
+            <p>Brain regions with no cluster detected:</p>
             <ul>
                 {% for reg in pred_stat_dict[pred]['empty_reg'] %}
                 <li>{{ reg }}</li>
@@ -30,7 +30,7 @@
         <object type='image/svg+xml' data='data:image/svg+xml;base64, {{ pred_stat_dict[pred]["census_figure"] }}'
             width="300" height="200"></object>
         {% endif %}
-        <h3>Detected biomarkers overlaid on the brain</h3>
+        <h3>Detected clusters overlaid on the brain</h3>
         <img src='data:image/png;base64, {{ pred_stat_dict[pred]["overlay_figure"] }}' width="600" height="400">
     </div>
     {% endfor %}
@@ -87,7 +87,7 @@
             - "final_dimensions" (image dimensions output by the AI model): {{ image_size }}<br>
             - "voxels_size" (resampling resolution, used by the AI model): {{ resolution }} mm<sup>3
         </p>
-        <h3>Parameters for each biomarker segmentation:</h3>
+        <h3>Parameters for each segmentation type:</h3>
         {% for pred in pred_stat_dict %}
         <p>
             For {{ pred }}:<br>

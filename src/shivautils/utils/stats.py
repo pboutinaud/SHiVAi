@@ -118,7 +118,7 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
 
     cluster_measures = pd.DataFrame(
         {'Biomarker labels': clust_labels,
-         'Biomarker size': clust_size})
+         'Cluster size': clust_size})
 
     regions = []
     biom_num = []
@@ -133,12 +133,12 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
         del region_dict['Whole brain']
         regions.append('Whole brain')
         biom_num.append(cluster_measures.shape[0])
-        biom_tot.append(cluster_measures['Biomarker size'].sum())
-        biom_mean.append(cluster_measures['Biomarker size'].mean())
-        biom_med.append(cluster_measures['Biomarker size'].median())
-        biom_std.append(cluster_measures['Biomarker size'].std())
-        biom_min.append(cluster_measures['Biomarker size'].min())
-        biom_max.append(cluster_measures['Biomarker size'].max())
+        biom_tot.append(cluster_measures['Cluster size'].sum())
+        biom_mean.append(cluster_measures['Cluster size'].mean())
+        biom_med.append(cluster_measures['Cluster size'].median())
+        biom_std.append(cluster_measures['Cluster size'].std())
+        biom_min.append(cluster_measures['Cluster size'].min())
+        biom_max.append(cluster_measures['Cluster size'].max())
 
     # Attribution of one region per cluster (i.e. the most represented region in each cluster = winner-takes-all)
     if len(region_dict):
@@ -169,16 +169,16 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
         for reg in regions_seg:
             clusts_in_reg = cluster_measures.loc[cluster_measures['Biomarker region'] == reg]
             biom_num.append(clusts_in_reg.shape[0])
-            biom_tot.append(clusts_in_reg['Biomarker size'].sum())
-            biom_mean.append(clusts_in_reg['Biomarker size'].mean())
-            biom_med.append(clusts_in_reg['Biomarker size'].median())
-            biom_std.append(clusts_in_reg['Biomarker size'].std())
-            biom_min.append(clusts_in_reg['Biomarker size'].min())
-            biom_max.append(clusts_in_reg['Biomarker size'].max())
+            biom_tot.append(clusts_in_reg['Cluster size'].sum())
+            biom_mean.append(clusts_in_reg['Cluster size'].mean())
+            biom_med.append(clusts_in_reg['Cluster size'].median())
+            biom_std.append(clusts_in_reg['Cluster size'].std())
+            biom_min.append(clusts_in_reg['Cluster size'].min())
+            biom_max.append(clusts_in_reg['Cluster size'].max())
 
     cluster_stats = pd.DataFrame(
         {'Region': regions,
-         'Number of biomarkers': biom_num,
+         'Number of clusters': biom_num,
          'Total Biomarker volume': biom_tot,
          'Mean Biomarker volume': biom_mean,
          'Median Biomarker volume': biom_med,
@@ -206,13 +206,13 @@ def extreme_val(series: pd.Series) -> float:
 def violinplot_from_census(census_csv: str, resolution: tuple, pred: str):
     census_df = pd.read_csv(census_csv)
     scale = resolution[0] * resolution[1] * resolution[2]
-    census_df['Biomarker size ($mm^3$)'] = census_df['Biomarker size'] * scale
+    census_df['Cluster size ($mm^3$)'] = census_df['Cluster size'] * scale
     save_name = f'{pred}_census_plot.svg'
     plt.ioff()
     if 'Biomarker region' not in census_df.columns:
         fig, ax = plt.subplots(figsize=(6, 4))
-        # sns.stripplot(census_df, y='Biomarker size')  # replaced swamplot
-        sns.histplot(census_df, x='Biomarker size ($mm^3$)', ax=ax)
+        # sns.stripplot(census_df, y='Cluster size')  # replaced swamplot
+        sns.histplot(census_df, x='Cluster size ($mm^3$)', ax=ax)
         plt.title(f'{pred} size distribution')
         plt.tight_layout()
         plt.savefig(save_name, format='svg')
@@ -227,9 +227,9 @@ def violinplot_from_census(census_csv: str, resolution: tuple, pred: str):
         # Detect outliers and display them as dots
         brain_regions = census_df['Biomarker region'].unique()
         extreme_dict = {
-            reg: extreme_val(census_df.loc[census_df['Biomarker region'] == reg, 'Biomarker size ($mm^3$)']) for reg in brain_regions
+            reg: extreme_val(census_df.loc[census_df['Biomarker region'] == reg, 'Cluster size ($mm^3$)']) for reg in brain_regions
         }
-        census_df['isXtreme'] = census_df.apply(lambda row: row['Biomarker size ($mm^3$)'] > extreme_dict[row['Biomarker region']], axis=1)
+        census_df['isXtreme'] = census_df.apply(lambda row: row['Cluster size ($mm^3$)'] > extreme_dict[row['Biomarker region']], axis=1)
 
         # Detect regions with low biomarker count to display as swarmplot
         reg_swarm = [reg for reg in brain_regions if (census_df['Biomarker region'] == reg).sum() < 10]
@@ -241,20 +241,20 @@ def violinplot_from_census(census_csv: str, resolution: tuple, pred: str):
 
         # Plots
         logscale = True
-        sns.violinplot(census_df.loc[~census_df['isXtreme'] & ~census_df['swarm']], y='Biomarker size ($mm^3$)', x='Biomarker region',
+        sns.violinplot(census_df.loc[~census_df['isXtreme'] & ~census_df['swarm']], y='Cluster size ($mm^3$)', x='Biomarker region',
                        hue='Biomarker region', cut=0, bw_adjust=0.7, palette=my_palette, log_scale=logscale,
                        ax=ax)
-        sns.swarmplot(census_df.loc[census_df['isXtreme']], y='Biomarker size ($mm^3$)', x='Biomarker region',
+        sns.swarmplot(census_df.loc[census_df['isXtreme']], y='Cluster size ($mm^3$)', x='Biomarker region',
                       hue='Biomarker region', alpha=0.8, palette=my_palette, log_scale=logscale,
                       ax=ax)
-        sns.swarmplot(census_df.loc[census_df['swarm']], y='Biomarker size ($mm^3$)', x='Biomarker region',
+        sns.swarmplot(census_df.loc[census_df['swarm']], y='Cluster size ($mm^3$)', x='Biomarker region',
                       hue='Biomarker region', palette=my_palette, log_scale=logscale,
                       ax=ax)
         plt.title(f'{pred} size distribution', fontsize=18, weight='bold')
         plt.xticks(rotation=35, ha='right', fontsize=14)
         plt.yticks(fontsize=14)
-        plt.xlabel('Biomarker location', fontsize=16)
-        plt.ylabel(f'Biomarker size ($mm^3$){"(log scale)" if logscale else ""}', fontsize=16)
+        plt.xlabel('Cluster location', fontsize=16)
+        plt.ylabel(f'Cluster size ($mm^3$){"(log scale)" if logscale else ""}', fontsize=16)
         plt.tight_layout()
         plt.savefig(save_name, format='svg', bbox_inches='tight')
         plt.close(fig)

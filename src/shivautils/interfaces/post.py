@@ -434,7 +434,7 @@ class SummaryReport(BaseInterface):
 
         """
         if self.inputs.anonymized:
-            subject_id = None
+            subject_id = ''
         else:
             subject_id = self.inputs.subject_id
 
@@ -454,7 +454,7 @@ class SummaryReport(BaseInterface):
                 name_in_plot = pred
             models_uid[pred] = {}
             pred_metrics_dict[pred] = pd.read_csv(getattr(self.inputs, f'{lpred}_metrics_csv'))
-            if pred_metrics_dict[pred]['Number of biomarkers'].sum() == 0:  # No biomarker detected
+            if pred_metrics_dict[pred]['Number of clusters'].sum() == 0:  # No biomarker detected
                 pred_census_im_dict[pred] = None
             else:
                 pred_census_im_dict[pred] = violinplot_from_census(getattr(self.inputs, f'{lpred}_census_csv'),
