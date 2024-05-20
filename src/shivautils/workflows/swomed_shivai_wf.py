@@ -22,8 +22,11 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.base_dir = kwargs['BASE_DIR']
 
     # Load config to get the different file path to bind and the singularity images
-    with open(kwargs['SHIVAI_CONFIG'], 'r') as file:
-        config = yaml.safe_load(file)
+    if os.path.splitext(kwargs['SHIVAI_CONFIG'])[1] in ['.yaml', '.yml']:
+        with open(kwargs['SHIVAI_CONFIG'], 'r') as file:
+            config = yaml.safe_load(file)
+    else:  # dummy args
+        config = {'model_path': kwargs['BASE_DIR'], 'apptainer_image': kwargs['SHIVAI_CONFIG']}
 
     subject_list_in = Node(IdentityInterface(
         fields=['subject_id'],
@@ -48,8 +51,8 @@ def genWorkflow(**kwargs) -> Workflow:
     shivai_node.inputs.in_dir = kwargs['BASE_DIR']
     shivai_node.inputs.out_dir = kwargs['BASE_DIR']
     shivai_node.inputs.config = kwargs['SHIVAI_CONFIG']
-    # shivai_node.inputs.input_type = 'standard'
-    # shivai_node.inputs.sub_names = kwargs['SUBJECT_LIST']
+    shivai_node.inputs.sub_name = 'dummy'
+    shivai_node.inputs.input_type = 'swomed'
     # shivai_node.inputs.prediction = 'PVS'
     # shivai_node.inputs.brain_seg = 'shiva'
 

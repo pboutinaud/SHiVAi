@@ -284,7 +284,7 @@ class Shivai_InputSpec(CommandLineInputSpec):
     """Input arguments structure for the shiva command"""
 
     in_dir = traits.Directory(argstr='--in %s',
-                              desc='Directory containing the input data for all participants.',
+                              desc='Directory containing the input data for all participants. Important for the Singularity bindings',
                               exists=True,
                               mandatory=True)
 
@@ -293,9 +293,9 @@ class Shivai_InputSpec(CommandLineInputSpec):
                           exists=False,
                           mandatory=True)
 
-    input_type = traits.Enum('standard', 'BIDS',
+    input_type = traits.Enum('swomed', 'standard', 'BIDS',
                              argstr='--input_type %s',
-                             desc='Input data structure',
+                             desc='Input data structure. Chose "swomed" when directly inputing the paths to the acquisitions',
                              usedefault=True,
                              mandatory=False)
 
@@ -305,19 +305,20 @@ class Shivai_InputSpec(CommandLineInputSpec):
                             usedefault=True,
                             mandatory=False)
 
-    db_name = traits.Str(argstr='--db_name %s',
-                         desc='Name of the dataset (e.g. "UKBB").',
-                         mandatory=False)
+    t1_image = traits.File(argstr='--swomed_t1 %s',
+                           desc='Path to the T1 (or T1-like) image. Required for PVS, WMH, and Lacunas',
+                           exists=True,
+                           mandatory=False)
 
-    sub_name = traits.Str(argstr='--sub_names %s',
-                          desc='Participant ID to be processed from the input directory.',
-                          mandatory=True)
+    flair_image = traits.File(argstr='--swomed_flair %s',
+                              desc='Path to the FLAIR (or FLAIR-like) image. Required for PVS2, WMH, and Lacunas',
+                              exists=False,
+                              mandatory=True)
 
-    prediction = traits.Enum("PVS", "PVS2", "WMH", "CMB", "LAC", "all",
-                             argstr="--prediction %s",
-                             desc='Prediction to run ("PVS", "PVS2", "WMH", "CMB", "LAC", "all")',
-                             usedefault=True,
-                             mandatory=False)
+    swi_image = traits.File(argstr='--swomed_swi %s',
+                            desc='Path to the SWI (or SWI-like) image. Required for CMB',
+                            exists=False,
+                            mandatory=True)
 
     replace_t1 = traits.Str(argstr='--replace_t1 %s',
                             desc='Data type that will replace the "t1" image.',
@@ -331,19 +332,46 @@ class Shivai_InputSpec(CommandLineInputSpec):
                              desc='Data type that will replace the "swi" image (e.g. "t2gre").',
                              mandatory=False)
 
+    db_name = traits.Str(argstr='--db_name %s',
+                         desc='Name of the dataset for the report (e.g. "UKBB").',
+                         mandatory=False)
+
+    sub_name = traits.Str(argstr='--sub_names %s',
+                          desc='Participant ID to be processed from the input directory.',
+                          mandatory=True)
+
+    prediction = traits.Enum("PVS", "PVS2", "WMH", "CMB", "LAC", "all",
+                             argstr="--prediction %s",
+                             desc='Prediction to run ("PVS", "PVS2", "WMH", "CMB", "LAC", "all")',
+                             usedefault=True,
+                             mandatory=False)
+
     use_t1 = traits.Bool(argstr='--use_t1',
                          desc='Used to perform segmentation on T1 image when running CMB prediction alone (otherwise will use SWI for the seg).',
                          mandatory=False)
 
-    brain_seg = traits.Enum("shiva", "shiva_gpu", "synthseg", "synthseg_cpu", "synthseg_precomp", "premasked", "custom",
+    brain_seg = traits.Enum("shiva", "shiva_gpu", "synthseg", "premasked", "custom",
                             argstr='--brain_seg %s',
-                            desc='Type of segmentation to run. Chose among: "shiva", "shiva_gpu", "synthseg", "synthseg_cpu", "synthseg_precomp", "premasked", "custom"',
+                            desc='Type of segmentation to run. Chose among: "shiva", "shiva_gpu", "synthseg" (requires precomputed parcellation plugged in synthseg_parc), "premasked", "custom"',
                             usedefault=True,
                             mandatory=False)
 
-    synthseg_threads = traits.Int(argstr='--synthseg_threads %d',
-                                  desc='Number of thread to run with "synthseg_cpu".',
-                                  mandatory=False)
+    synthseg_parc = traits.File(argstr='--swomed_parc %s',
+                                desc='Path to the synthseg parcellation of the current subject. Requires brain_seg = "synthseg"',
+                                exists=True,
+                                mandatory=False)
+    synthseg_vol = traits.File(argstr='--swomed_ssvol %s',
+                               desc='Path to the synthseg volume.csv file.',
+                               exists=True,
+                               mandatory=False)
+    synthseg_qc = traits.File(argstr='--swomed_ssqc %s',
+                              desc='Path to the synthseg qc.csv file.',
+                              exists=True,
+                              mandatory=False)
+
+    # synthseg_threads = traits.Int(argstr='--synthseg_threads %d',
+    #                               desc='Number of thread to run with "synthseg_cpu".',
+    #                               mandatory=False)
 
     custom_LUT = traits.File(argstr='--custom_LUT %s',
                              desc='Look-up table file to pair with the custom segmentation when used ("custom" brain_seg)',
@@ -354,16 +382,14 @@ class Shivai_InputSpec(CommandLineInputSpec):
                             desc='Anonymize the report',
                             mandatory=False)
 
-    synthseg_precomp = traits.Bool(argstr='--synthseg_precomp',
-                                   desc='Specify that the synthseg segmentation was run beforehand (typically using precomp_synthseg) and is stored in the results directory',
-                                   mandatory=False)
-
     keep_all = traits.Bool(argstr='--keep_all',
                            desc='Keep all intermediary file and provenance files',
                            mandatory=False)
+
     debug = traits.Bool(argstr='--debug',
                         desc='Like --keep_all plus stop on first crash',
                         mandatory=False)
+
     remove_intermediates = traits.Bool(argstr='--remove_intermediates',
                                        desc='Removes the folder containing all the intermediary steps, keeping only the "results" folder.',
                                        mandatory=False)
@@ -410,6 +436,7 @@ class Shivai_OutputSpec(TraitedSpec):
     qc_metrics = traits.File(desc='Metrics used for group-level QC in a CSV file', exists=False)
     ss_cleaned = traits.File(desc='Synthseg parcellation after cleaning mislabeled "islands"', exists=False)
     ss_volumes = traits.File(desc='CSV file with the volumes of each region from the Synthseg parcellation', exists=False)
+    ss_qc = traits.File(desc='CSV file with the qc from the Synthseg parcellation', exists=False)
     ss_derived_parc = traits.File(desc='Brain parcellation derived from Synthseg to be used for custom biomarker parcelllation', exists=False)
     parc4pvs = traits.File(desc='Parcellation for PVS counting (derived from Synthseg)', exists=False)
     parc4wmh = traits.File(desc='Parcellation for WMH counting (derived from Synthseg)', exists=False)
@@ -454,17 +481,18 @@ class Shivai(CommandLine):
             'converted_swi': f'shiva_preproc/swi_preproc/{subject_id}/converted_*.nii.gz',
             'sidecar_t1': f'shiva_preproc/t1_preproc/{subject_id}/converted_*.json',
             'sidecar_flair': f'shiva_preproc/flair_preproc/{subject_id}/converted_*.json',
-            'sidecar_swi': f'shiva_preproc/swi_preproc/{subject_id}/converted_*.json',  # TODO: check les nom 'in_swi_space' etc
+            'sidecar_swi': f'shiva_preproc/swi_preproc/{subject_id}/converted_*.json',
             't1_preproc': f'shiva_preproc/t1_preproc/{subject_id}/*_defaced_cropped_intensity_normed.nii.gz',
             'flair_preproc': f'shiva_preproc/flair_preproc/{subject_id}/*_defaced_cropped_intensity_normed.nii.gz',
             'swi_preproc': f'shiva_preproc/swi_preproc/{subject_id}/*_defaced_cropped_intensity_normed.nii.gz',
-            'brain_mask': f'shiva_preproc/*_preproc/{subject_id}/brainmask_cropped.nii.gz',  # TODO: check les nom 'in_swi_space' etc
+            'brain_mask': f'shiva_preproc/*_preproc/{subject_id}/brainmask_cropped.nii.gz',
             'swi2t1_transform': f'shiva_preproc/swi_preproc/{subject_id}/swi_to_t1_0GenericAffine.mat',
             'brain_mask_swi': f'shiva_preproc/swi_preproc/{subject_id}/brainmask_cropped*.nii.gz',
             'qc_metrics': f'shiva_preproc/qc_metrics/{subject_id}/qc_metrics.csv',
             'ss_cleaned': f'shiva_preproc/synthseg/{subject_id}/cleaned_synthseg_parc.nii.gz',
             'ss_derived_parc': f'shiva_preproc/synthseg/{subject_id}/derived_parc.nii.gz',
             'ss_volumes': f'shiva_preproc/synthseg/{subject_id}/volumes.csv',
+            'ss_qc': f'shiva_preproc/synthseg/{subject_id}/qc.csv',
             'parc4pvs': f'segmentations/pvs_segmentation/{subject_id}/Brain_Seg_for_PVS.nii.gz',
             'parc4wmh': f'segmentations/wmh_segmentation/{subject_id}/Brain_Seg_for_WMH.nii.gz',
             'parc4cmb': f'segmentations/cmb_segmentation*/{subject_id}/Brain_Seg_for_CMB*.nii.gz',
