@@ -60,7 +60,7 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
     #     else:
     #         lac_descriptor = None
 
-    if input_type == 'standard' or input_type == 'BIDS':
+    if input_type in ['standard', 'BIDS', 'swomed']:
         subject_directory = in_dir
         out_dir = out_dir
         brainmask_descriptor = os.path.join(model, brainmask_descriptor)
@@ -85,19 +85,18 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
     # Prepping the paths for SWOMed
     t1_name = 't1' if not replace_t1 else replace_t1
     flair_name = 'flair' if not replace_flair else replace_flair
-    swi_name = 't1' if not replace_swi else replace_swi
+    swi_name = 'swi' if not replace_swi else replace_swi
     pre_path_dict = {t1_name: swomed_t1, flair_name: swomed_flair, swi_name: swomed_swi, 'seg': swomed_parc}
-    pre_path_dict = {k: val for k, val in pre_path_dict.items() if val is not None}
-    in_path_dict = {}
-    in_path_dict['base_dir'] = os.path.commonprefix(list(pre_path_dict.values()))
-    in_path_dict.update({k: val.removeprefix(in_path_dict['base_dir']) for k, val in pre_path_dict.items()})
+    in_path_dict = {k: val for k, val in pre_path_dict.items() if val is not None}
+    # in_path_dict['base_dir'] = os.path.commonprefix(list(pre_path_dict.values()))
+    # in_path_dict = {k: val.removeprefix(in_path_dict['base_dir']) for k, val in pre_path_dict.items()}
 
     wf_prep = {
         'input_type': input_type,
         'file_type': file_type,
         'prev_qc': prev_qc,
         'preproc_res': preproc_results,
-        'swomed_input': {in_path_dict},
+        'swomed_input': in_path_dict,
     }
 
     # Acquisitions per prediction:

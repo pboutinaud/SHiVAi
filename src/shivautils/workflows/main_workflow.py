@@ -54,9 +54,10 @@ def update_wf_grabber(wf, acquisitions, datatype, kwargs):
 
     if data_struct == 'swomed':
         in_files_dict = kwargs['PREP_SETTINGS']['swomed_input']
-        datagrabber.inputs.base_directory = in_files_dict['base_dir']
-        datagrabber.inputs.field_template = {acq[0]: in_files_dict[acq[1]] for acq in acquisitions}
-        # datagrabber.inputs.template_args = {acq[0]: [['subject_id']] for acq in acquisitions}  # dummy input
+        for imgN, acq in acquisitions:
+            setattr(datagrabber.inputs, imgN, in_files_dict[acq])
+        if 'seg' in in_files_dict:
+            datagrabber.inputs.seg = in_files_dict['seg']
 
     if datatype == 'dicom':
         wf = graft_dcm2nii(wf, **kwargs)
@@ -114,13 +115,14 @@ def generate_main_wf(**kwargs) -> Workflow:
         elif 'synthseg' in kwargs['BRAIN_SEG']:
             if kwargs['PREP_SETTINGS']['input_type'] == 'swomed':
                 wf_preproc = genWorkflow_preproc_synthseg_swomed(**kwargs, wf_name=wf_name)
-                seg_cleaning = wf_preproc.get_node('seg_cleaning')
-                datagrabber = wf_preproc.get_node('datagrabber')
-                wf_preproc.connect(datagrabber, 'seg', seg_cleaning, 'input_seg')
-            if kwargs['BRAIN_SEG'] == 'synthseg_precomp':
-                wf_preproc = genWorkflow_preproc_synthseg_precomp(**kwargs, wf_name=wf_name)
+                # seg_cleaning = wf_preproc.get_node('seg_cleaning')
+                # datagrabber = wf_preproc.get_node('datagrabber')
+                # wf_preproc.connect(datagrabber, 'seg', seg_cleaning, 'input_seg')
             else:
-                wf_preproc = genWorkflow_preproc_synthseg(**kwargs, wf_name=wf_name)
+                if kwargs['BRAIN_SEG'] == 'synthseg_precomp':
+                    wf_preproc = genWorkflow_preproc_synthseg_precomp(**kwargs, wf_name=wf_name)
+                else:
+                    wf_preproc = genWorkflow_preproc_synthseg(**kwargs, wf_name=wf_name)
         elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
             wf_preproc = genWorkflow_preproc_custom_seg(**kwargs, wf_name=wf_name)
         elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is None:
@@ -154,10 +156,13 @@ def generate_main_wf(**kwargs) -> Workflow:
         elif kwargs['BRAIN_SEG'] == 'premasked':
             wf_preproc = genWorkflow_preproc_masked(**kwargs, wf_name=wf_name)
         elif 'synthseg' in kwargs['BRAIN_SEG']:
-            if kwargs['BRAIN_SEG'] == 'synthseg_precomp':
-                wf_preproc = genWorkflow_preproc_synthseg_precomp(**kwargs, wf_name=wf_name)
+            if kwargs['PREP_SETTINGS']['input_type'] == 'swomed':
+                wf_preproc = genWorkflow_preproc_synthseg_swomed(**kwargs, wf_name=wf_name)
             else:
-                wf_preproc = genWorkflow_preproc_synthseg(**kwargs, wf_name=wf_name)
+                if kwargs['BRAIN_SEG'] == 'synthseg_precomp':
+                    wf_preproc = genWorkflow_preproc_synthseg_precomp(**kwargs, wf_name=wf_name)
+                else:
+                    wf_preproc = genWorkflow_preproc_synthseg(**kwargs, wf_name=wf_name)
         elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
             wf_preproc = genWorkflow_preproc_custom_seg(**kwargs, wf_name=wf_name)
         elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is None:
@@ -298,7 +303,11 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(wf_preproc, 'seg_cleaning.sunk_islands', sink_node_subjects, 'shiva_preproc.synthseg.@removed')
         main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', sink_node_subjects, 'shiva_preproc.synthseg.@cropped')
         main_wf.connect(wf_preproc, 'custom_parc.brain_parc', sink_node_subjects, 'shiva_preproc.synthseg.@custom')
-        main_wf.connect(wf_preproc, 'synthseg.volumes', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
+        if kwargs['PREP_SETTINGS']['input_type'] == 'swomed':
+            main_wf.connect(wf_preproc, 'datagrabber.synthseg_vol', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
+            main_wf.connect(wf_preproc, 'datagrabber.synthseg_qc', sink_node_subjects, 'shiva_preproc.synthseg.@qc')
+        else:
+            main_wf.connect(wf_preproc, 'synthseg.volumes', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
     elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
         main_wf.connect(wf_preproc, 'seg_to_crop.resampled_image', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@seg')
     main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@bb1')
