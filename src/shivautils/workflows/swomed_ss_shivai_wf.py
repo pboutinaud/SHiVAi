@@ -3,8 +3,7 @@ If the workflow is run with synthseg, it needs shivai_node.inputs.brain_seg = 's
 and the synthseg workflow called beforehand needs the same base dir and synthseg.inputs.out_filename = '/mnt/data/synthseg_parc.nii.gz'
 """
 
-from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces.utility import IdentityInterface
+from nipype import Node, Workflow, IdentityInterface, DataGrabber
 from shivautils.interfaces.shiva import Shivai_Singularity, SynthsegSingularity
 import os
 import yaml
@@ -18,24 +17,44 @@ dummy_args = {
 
 
 def genWorkflow(**kwargs) -> Workflow:
-    workflow = Workflow("ss_shivai_singularity_wf")
+    workflow = Workflow("synthseg_shivai_singularity_wf")
     workflow.base_dir = kwargs['BASE_DIR']
 
     # Load config to get the different file path to bind and the singularity images
-    with open(kwargs['SHIVAI_CONFIG'], 'r') as file:
-        config = yaml.safe_load(file)
+    if os.path.splitext(kwargs['SHIVAI_CONFIG'])[1] in ['.yaml', '.yml']:
+        with open(kwargs['SHIVAI_CONFIG'], 'r') as file:
+            config = yaml.safe_load(file)
+    else:  # dummy args
+        config = {'model_path': kwargs['BASE_DIR'],
+                  'apptainer_image': kwargs['SHIVAI_CONFIG'],
+                  'synthseg_image': kwargs['SHIVAI_CONFIG'], }
 
-    subject_list_in = Node(IdentityInterface(
+    subject_list = Node(IdentityInterface(
         fields=['subject_id'],
         mandatory_inputs=True),
-        name="subject_list_in")
-    subject_list_in.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
+        name="subject_list")
+    subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
+
+    datagrabber = Node(DataGrabber(infields=['subject_id'],
+                                   outfields=['t1_image', 'flair_image', 'swi_image']),
+                       name='dataGrabber')
+    datagrabber.inputs.raise_on_empty = True
+    datagrabber.inputs.sort_filelist = True
+    datagrabber.inputs.template = '%s/%s/*.*'
 
     synthseg_node = Node(SynthsegSingularity(),
                          name='synthseg_node')
+    synthseg_node.inputs.snglrt_bind = [
+        (kwargs['BASE_DIR'], kwargs['DATA_DIR'], 'ro'),
+        ('`pwd`', '/mnt/data', 'rw'),]
+    synthseg_node.inputs.snglrt_image = config['synthseg_image']
+    synthseg_node.inputs.snglrt_enable_nvidia = True
+    synthseg_node.inputs.out_filename = '/mnt/data/synthseg_parc.nii.gz'
+    synthseg_node.inputs.vol = '/mnt/data/volumes.csv'
 
     shivai_node = Node(Shivai_Singularity(),
                        name='shivai_node')
+
     # Singularity settings
     config_dir = os.path.dirname(kwargs['SHIVAI_CONFIG'])
     bind_list = [
@@ -51,12 +70,17 @@ def genWorkflow(**kwargs) -> Workflow:
     shivai_node.inputs.in_dir = kwargs['BASE_DIR']
     shivai_node.inputs.out_dir = kwargs['BASE_DIR']
     shivai_node.inputs.config = kwargs['SHIVAI_CONFIG']
-    # shivai_node.inputs.input_type = 'standard'
-    # shivai_node.inputs.sub_names = kwargs['SUBJECT_LIST']
+    shivai_node.inputs.sub_name = 'dummy'
+    shivai_node.inputs.input_type = 'swomed'
     # shivai_node.inputs.prediction = 'PVS'
     # shivai_node.inputs.brain_seg = 'shiva'
 
-    workflow.connect(subject_list_in, 'subject_id', shivai_node, 'sub_name')
+    workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
+    workflow.connect(datagrabber, 't1_image', shivai_node, 't1_image')
+    workflow.connect(datagrabber, 'flair_image', shivai_node, 'flair_image')
+    workflow.connect(datagrabber, 'swi_image', shivai_node, 'swi_image')
+    workflow.connect(synthseg_node, 'segmentation', shivai_node, 'seg')
+    workflow.connect(synthseg_node, 'volumes', shivai_node, 'synthseg_vol')
 
     return workflow
 
