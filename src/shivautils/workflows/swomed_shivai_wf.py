@@ -3,8 +3,7 @@ If the workflow is run with synthseg, it needs shivai_node.inputs.brain_seg = 's
 and the synthseg workflow called beforehand needs the same base dir and synthseg.inputs.out_filename = '/mnt/data/synthseg_parc.nii.gz'
 """
 
-from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces.utility import IdentityInterface
+from nipype import Node, Workflow, IdentityInterface, DataGrabber
 from shivautils.interfaces.shiva import Shivai_Singularity
 import os
 import yaml
@@ -28,11 +27,18 @@ def genWorkflow(**kwargs) -> Workflow:
     else:  # dummy args
         config = {'model_path': kwargs['BASE_DIR'], 'apptainer_image': kwargs['SHIVAI_CONFIG']}
 
-    subject_list_in = Node(IdentityInterface(
+    subject_list = Node(IdentityInterface(
         fields=['subject_id'],
         mandatory_inputs=True),
-        name="subject_list_in")
-    subject_list_in.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
+        name="subject_list")
+    subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
+
+    datagrabber = Node(DataGrabber(infields=['subject_id'],
+                                   outfields=['t1_image', 'flair_image', 'swi_image']),
+                       name='dataGrabber')
+    datagrabber.inputs.raise_on_empty = True
+    datagrabber.inputs.sort_filelist = True
+    datagrabber.inputs.template = '%s/%s/*.*'
 
     shivai_node = Node(Shivai_Singularity(),
                        name='shivai_node')
@@ -56,7 +62,10 @@ def genWorkflow(**kwargs) -> Workflow:
     # shivai_node.inputs.prediction = 'PVS'
     # shivai_node.inputs.brain_seg = 'shiva'
 
-    workflow.connect(subject_list_in, 'subject_id', shivai_node, 'sub_name')
+    workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
+    workflow.connect(datagrabber, 't1_image', shivai_node, 't1_image')
+    workflow.connect(datagrabber, 'flair_image', shivai_node, 'flair_image')
+    workflow.connect(datagrabber, 'swi_image', shivai_node, 'swi_image')
 
     return workflow
 
