@@ -5,7 +5,7 @@
 """
 import os
 from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces.utility import IdentityInterface
+from shivautils.interfaces.shiva import Direct_File_Provider
 from shivautils.workflows.preprocessing_synthseg import genWorkflow as gen_synthseg_wf
 
 
@@ -46,11 +46,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.remove_nodes([datagrabber, synthseg])
 
     # Datagrabber replacement with swomed input
-    files_plug = Node(
-        IdentityInterface(
-            fields=['subject_id', 'img1', 'img2', 'img3', 'seg', 'synthseg_vol', 'synthseg_qc'],  # subject_id is just a dummy argument
-            mandatory_inputs=False),
-        name='datagrabber')
+    files_plug = Node(Direct_File_Provider(), name='datagrabber')
 
     # Rewiring the workflow with the new nodes
     for grabber_out, connected_node, node_in in reconnections:

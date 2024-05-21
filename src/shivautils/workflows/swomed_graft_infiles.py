@@ -1,5 +1,5 @@
 from nipype.pipeline.engine import Node, Workflow
-from nipype.interfaces.utility import IdentityInterface
+from shivautils.interfaces.shiva import Direct_File_Provider
 
 
 def graft_swomed_infiles(workflow: Workflow) -> Workflow:
@@ -19,11 +19,7 @@ def graft_swomed_infiles(workflow: Workflow) -> Workflow:
     workflow.remove_nodes([datagrabber])
 
     # Datagrabber replacement with swomed input
-    files_plug = Node(
-        IdentityInterface(
-            fields=['subject_id', 'img1', 'img2', 'img3', 'seg'],  # subject_id is just a dummy argument
-            mandatory_inputs=False),
-        name='datagrabber')
+    files_plug = Node(Direct_File_Provider(), name='datagrabber')
 
     for grabber_out, connected_node, node_in in reconnections:
         workflow.connect(files_plug, grabber_out,
