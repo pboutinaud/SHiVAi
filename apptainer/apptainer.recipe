@@ -10,9 +10,9 @@ Stage: build
     export PATH
 
 %post
-    # Installing shivautils
+    # Installing shivai
     apt update && apt-get install -y build-essential weasyprint libpangocairo-1.0-0 graphviz wget unzip
-    chmod 755 /usr/local/src/shivautils/src/shivautils/scripts/*
+    chmod 755 /usr/local/src/shivautils/src/shivai/scripts/*
     cd /usr/local/src/shivautils
     python -m pip install build
     python -m pip install .
