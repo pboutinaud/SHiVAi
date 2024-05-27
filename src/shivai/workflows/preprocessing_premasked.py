@@ -8,7 +8,7 @@
 
 from nipype.pipeline.engine import Workflow
 
-from shivautils.workflows.preprocessing import genWorkflow as gen_preproc_wf
+from shivai.workflows.preprocessing import genWorkflow as gen_preproc_wf
 
 
 def genWorkflow(**kwargs) -> Workflow:

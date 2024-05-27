@@ -4,8 +4,8 @@ Imports the default preprocessing workflow and add the shiva_mask_wf to create a
 
 
 from nipype.pipeline.engine import Workflow
-from shivautils.workflows.preprocessing import genWorkflow as gen_preproc_wf
-from shivautils.workflows.shiva_mask_wf import genWorkflow as gen_masking_wf
+from shivai.workflows.preprocessing import genWorkflow as gen_preproc_wf
+from shivai.workflows.shiva_mask_wf import genWorkflow as gen_masking_wf
 
 
 def genWorkflow(**kwargs) -> Workflow:

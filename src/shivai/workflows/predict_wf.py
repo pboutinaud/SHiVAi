@@ -3,7 +3,7 @@ import os
 
 from nipype.pipeline.engine import Node, Workflow
 
-from shivautils.interfaces.shiva import Predict, PredictSingularity
+from shivai.interfaces.shiva import Predict, PredictSingularity
 
 
 dummy_args = {'SUBJECT_LIST': ['BIOMIST::SUBJECT_LIST'],

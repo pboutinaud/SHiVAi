@@ -4,7 +4,7 @@ and the synthseg workflow called beforehand needs the same base dir and synthseg
 """
 
 from nipype import Node, Workflow, IdentityInterface, DataGrabber
-from shivautils.interfaces.shiva import Shivai_Singularity, SynthsegSingularity
+from shivai.interfaces.shiva import Shivai_Singularity, SynthsegSingularity
 import os
 import yaml
 

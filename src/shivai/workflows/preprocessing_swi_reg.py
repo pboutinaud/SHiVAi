@@ -7,11 +7,11 @@ from nipype.interfaces import ants
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.quickshear import Quickshear
 
-from shivautils.interfaces.image import Normalization, Conform, Crop, Resample_from_to
-from shivautils.workflows.qc_preproc import qc_wf_add_swi
-from shivautils.interfaces.shiva import (AntsRegistration_Singularity,
-                                         AntsApplyTransforms_Singularity,
-                                         Quickshear_Singularity)
+from shivai.interfaces.image import Normalization, Conform, Crop, Resample_from_to
+from shivai.workflows.qc_preproc import qc_wf_add_swi
+from shivai.interfaces.shiva import (AntsRegistration_Singularity,
+                                     AntsApplyTransforms_Singularity,
+                                     Quickshear_Singularity)
 
 
 def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:

@@ -6,7 +6,7 @@
 import os
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.io import DataGrabber
-from shivautils.workflows.preprocessing_synthseg import genWorkflow as gen_synthseg_wf
+from shivai.workflows.preprocessing_synthseg import genWorkflow as gen_synthseg_wf
 
 
 def genWorkflow(**kwargs) -> Workflow:

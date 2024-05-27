@@ -1,5 +1,5 @@
 from nipype.pipeline.engine import Node, Workflow
-from shivautils.interfaces.shiva import Direct_File_Provider
+from shivai.interfaces.shiva import Direct_File_Provider
 
 
 def graft_swomed_infiles(workflow: Workflow) -> Workflow:

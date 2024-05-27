@@ -4,8 +4,8 @@ Workflow computing the different quality control steps of the preprocessing
 """
 
 from nipype.pipeline.engine import Node, Workflow
-from shivautils.interfaces.post import QC_metrics
-from shivautils.interfaces.image import Isocontour, Save_Histogram, Mask_and_Crop_QC, Brainmask_Overlay
+from shivai.interfaces.post import QC_metrics
+from shivai.interfaces.image import Isocontour, Save_Histogram, Mask_and_Crop_QC, Brainmask_Overlay
 
 
 def gen_qc_wf(workflow_name) -> Workflow:

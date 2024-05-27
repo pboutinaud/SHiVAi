@@ -33,13 +33,13 @@ import os
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces import ants
 
-from shivautils.interfaces.post import SummaryReport
-from shivautils.interfaces.image import (Regionwise_Prediction_metrics,
-                                         Brain_Seg_for_biomarker,
-                                         Label_clusters,
-                                         Brainmask_Overlay)
-from shivautils.interfaces.shiva import AntsApplyTransforms_Singularity
-from shivautils.utils.misc import set_wf_shapers
+from shivai.interfaces.post import SummaryReport
+from shivai.interfaces.image import (Regionwise_Prediction_metrics,
+                                     Brain_Seg_for_biomarker,
+                                     Label_clusters,
+                                     Brainmask_Overlay)
+from shivai.interfaces.shiva import AntsApplyTransforms_Singularity
+from shivai.utils.misc import set_wf_shapers
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],

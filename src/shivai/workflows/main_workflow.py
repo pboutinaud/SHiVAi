@@ -1,26 +1,26 @@
 """
 Main workflow generator, with conditional piping (wf shape depends on the prediction types)
 """
-from shivautils.interfaces.shiva import Predict, PredictSingularity
-from shivautils.utils.misc import set_wf_shapers  # , as_list
-from shivautils.workflows.post_processing import genWorkflow as genWorkflowPost
-from shivautils.workflows.preprocessing import genWorkflow as genWorkflowPreproc
-from shivautils.workflows.dual_preprocessing import graft_img2_preproc
-from shivautils.workflows.preprocessing_swi_reg import graft_workflow_swi
-from shivautils.workflows.swomed_graft_infiles import graft_swomed_infiles
-from shivautils.workflows.preprocessing_shiva_masking import genWorkflow as genWorkflow_preproc_shiva_mask
-from shivautils.workflows.preprocessing_premasked import genWorkflow as genWorkflow_preproc_masked
-from shivautils.workflows.preprocessing_synthseg import genWorkflow as genWorkflow_preproc_synthseg
-from shivautils.workflows.preprocessing_synthseg_precomp import genWorkflow as genWorkflow_preproc_synthseg_precomp
-from shivautils.workflows.preprocessing_swomed_pre_synthseg import genWorkflow as genWorkflow_preproc_synthseg_swomed
-from shivautils.workflows.preprocessing_custom_seg import genWorkflow as genWorkflow_preproc_custom_seg
-from shivautils.workflows.predict_wf import genWorkflow as genWorkflow_prediction
-from shivautils.workflows.dcm2nii_grafting import graft_dcm2nii
-from shivautils.interfaces.post import Join_Prediction_metrics, Join_QC_metrics
+from shivai.interfaces.shiva import Predict, PredictSingularity
+from shivai.utils.misc import set_wf_shapers  # , as_list
+from shivai.workflows.post_processing import genWorkflow as genWorkflowPost
+from shivai.workflows.preprocessing import genWorkflow as genWorkflowPreproc
+from shivai.workflows.dual_preprocessing import graft_img2_preproc
+from shivai.workflows.preprocessing_swi_reg import graft_workflow_swi
+from shivai.workflows.swomed_graft_infiles import graft_swomed_infiles
+from shivai.workflows.preprocessing_shiva_masking import genWorkflow as genWorkflow_preproc_shiva_mask
+from shivai.workflows.preprocessing_premasked import genWorkflow as genWorkflow_preproc_masked
+from shivai.workflows.preprocessing_synthseg import genWorkflow as genWorkflow_preproc_synthseg
+from shivai.workflows.preprocessing_synthseg_precomp import genWorkflow as genWorkflow_preproc_synthseg_precomp
+from shivai.workflows.preprocessing_swomed_pre_synthseg import genWorkflow as genWorkflow_preproc_synthseg_swomed
+from shivai.workflows.preprocessing_custom_seg import genWorkflow as genWorkflow_preproc_custom_seg
+from shivai.workflows.predict_wf import genWorkflow as genWorkflow_prediction
+from shivai.workflows.dcm2nii_grafting import graft_dcm2nii
+from shivai.interfaces.post import Join_Prediction_metrics, Join_QC_metrics
 from nipype.pipeline.engine import Workflow, Node, JoinNode
 from nipype.interfaces.utility import IdentityInterface
 from nipype.interfaces.io import DataGrabber
-from shivautils.interfaces.datasink import DataSink_CSV_and_PDF_safe
+from shivai.interfaces.datasink import DataSink_CSV_and_PDF_safe
 import os
 
 

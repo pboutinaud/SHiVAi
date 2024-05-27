@@ -26,10 +26,10 @@ from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.io import DataGrabber
 from nipype.interfaces.quickshear import Quickshear
 
-from shivautils.interfaces.image import (Threshold, Normalization,
-                                         Conform, Crop, Resample_from_to)
-from shivautils.interfaces.shiva import Quickshear_Singularity
-from shivautils.workflows.qc_preproc import gen_qc_wf
+from shivai.interfaces.image import (Threshold, Normalization,
+                                     Conform, Crop, Resample_from_to)
+from shivai.interfaces.shiva import Quickshear_Singularity
+from shivai.workflows.qc_preproc import gen_qc_wf
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],

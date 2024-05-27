@@ -9,9 +9,9 @@ wf.connect(datagrabber, "img1", preconform, 'img')
 
 from nipype.pipeline.engine import Node, Workflow
 
-from shivautils.interfaces.image import (Threshold, Normalization,
-                                         Conform, Crop)
-from shivautils.interfaces.shiva import Predict, PredictSingularity
+from shivai.interfaces.image import (Threshold, Normalization,
+                                     Conform, Crop)
+from shivai.interfaces.shiva import Predict, PredictSingularity
 
 
 def genWorkflow(**kwargs) -> Workflow:

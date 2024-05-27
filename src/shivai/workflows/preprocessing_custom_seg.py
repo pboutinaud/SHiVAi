@@ -3,11 +3,11 @@ Preprocessing workflow using a custom brain parcellation given by the user
 """
 from nipype.pipeline.engine import Node, Workflow
 
-from shivautils.workflows.preprocessing import genWorkflow as gen_preproc_wf
+from shivai.workflows.preprocessing import genWorkflow as gen_preproc_wf
 
-from shivautils.interfaces.shiva import SynthSeg, SynthsegSingularity
+from shivai.interfaces.shiva import SynthSeg, SynthsegSingularity
 
-from shivautils.interfaces.image import Parc_from_Synthseg, Segmentation_Cleaner, Resample_from_to
+from shivai.interfaces.image import Parc_from_Synthseg, Segmentation_Cleaner, Resample_from_to
 
 
 def genWorkflow(**kwargs) -> Workflow:
