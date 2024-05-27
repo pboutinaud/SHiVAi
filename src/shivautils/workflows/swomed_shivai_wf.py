@@ -35,7 +35,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     datagrabber = Node(DataGrabber(infields=['subject_id'],
                                    outfields=['t1_image', 'flair_image', 'swi_image']),
-                       name='dataGrabber')
+                       name='datagrabber')
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
     datagrabber.inputs.template = '%s/%s/*.*'
