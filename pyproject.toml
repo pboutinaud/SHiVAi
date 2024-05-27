@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "shivautils"
+name = "shivai"
 dynamic = ["version"]
 authors = [
     { name = "Yann RIO", email = "yrio@fealinx.com" },
@@ -62,18 +62,18 @@ TF_CUDA = ["tensorflow[and-cuda]==2.13.*"]
 TF = ["tensorflow==2.13.*"]
 
 [project.scripts]
-shiva = "shivautils.scripts.shiva:main"
-shiva_preproc = "shivautils.scripts.preprocess:main"
-shiva_predict = "shivautils.scripts.predict:main"
-shiva_contained = "shivautils.scripts.run_shiva:main"
-shiva_prep_json = "shivautils.scripts.prep_json:main"
+shiva = "shivai.scripts.shiva:main"
+shiva_preproc = "shivai.scripts.preprocess:main"
+shiva_predict = "shivai.scripts.predict:main"
+shiva_contained = "shivai.scripts.run_shiva:main"
+shiva_prep_json = "shivai.scripts.prep_json:main"
 
 [tool.setuptools.dynamic]
-version = { attr = "shivautils.__version__" }
+version = { attr = "shivai.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"shivautils.postprocessing" = ["*.html", "*.css", "*.png"]
-"shivautils.scripts.snglrt_dummy_bin" = ["*"]
+"shivai.postprocessing" = ["*.html", "*.css", "*.png"]
+"shivai.scripts.snglrt_dummy_bin" = ["*"]
