@@ -3,7 +3,9 @@ import os
 
 from nipype.pipeline.engine import Node, Workflow
 from shivai.interfaces.shiva import SynthSeg, SynthsegSingularity
-from shivai.interfaces.image import MaskRegions
+from shivai.interfaces.image import (MaskRegions, MakeDistanceMap,
+                                     QuantificationWMHLatVentricles,
+                                     PVSQuantificationBG, BGMask)
 
 dummy_args = {'SUBJECT_LIST': ['BIOMIST::SUBJECT_LIST'],
               'BASE_DIR': os.path.normpath(os.path.expanduser('~'))}
@@ -54,13 +56,13 @@ def genWorkflow(**kwargs) -> Workflow:
 
     wmh_quantification_latventricles = Node(QuantificationWMHLatVentricles(), name='wmh_quantification_latventricles')
     wmh_quantification_latventricles.inputs.threshold_clusters = kwargs['THRESHOLD_CLUSTERS']
-    workflow.connect(datagrabber, 'segmentation_wmh', wmh_quantification_latventricles, 'wmh')
+    # workflow.connect(datagrabber, 'segmentation_wmh', wmh_quantification_latventricles, 'wmh')  # TODO: properly plug it
     workflow.connect(make_distance_latventricles_map, 'out_file', wmh_quantification_latventricles, 'latventricles_distance_maps')
-    workflow.connect(subject_list, 'subject_id', wmh_quantification_latventricles, 'subject_id')
+    # workflow.connect(subject_list, 'subject_id', wmh_quantification_latventricles, 'subject_id')  # TODO: properly plug it
 
     pvs_quantification_bg = Node(PVSQuantificationBG(), name="pvs_quantification_bg")
     pvs_quantification_bg.inputs.threshold_clusters = kwargs['THRESHOLD_CLUSTERS']
-    workflow.connect(datagrabber, 'segmentation_pvs', pvs_quantification_bg, "img")
+    # workflow.connect(datagrabber, 'segmentation_pvs', pvs_quantification_bg, "img")  # TODO: properly plug it
     workflow.connect(bg_mask, 'bg_mask', pvs_quantification_bg, "bg_mask")
 
     return workflow

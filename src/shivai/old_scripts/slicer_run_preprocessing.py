@@ -4,7 +4,7 @@ import os
 import argparse
 import json
 
-from shivai.workflows.slicer_preprocessing import genWorkflow
+from shivai.old_workflows.slicer_preprocessing import genWorkflow
 
 DESCRIPTION = """SHIVA preprocessing for deep learning predictors, for the 3D SLicer extension.
                  Perform resampling of a structural NIfTI head image,
