@@ -5,7 +5,7 @@ import unittest
 import nibabel as nb
 import nibabel.processing as nip
 
-from shivautils.utils.preprocessing import normalization, thresholding, crop
+from shivai.utils.preprocessing import normalization, thresholding, crop
 
 
 class TestImage(unittest.TestCase):
