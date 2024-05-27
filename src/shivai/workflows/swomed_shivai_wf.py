@@ -57,7 +57,6 @@ def genWorkflow(**kwargs) -> Workflow:
     shivai_node.inputs.in_dir = kwargs['BASE_DIR']
     shivai_node.inputs.out_dir = kwargs['BASE_DIR']
     shivai_node.inputs.config = kwargs['SHIVAI_CONFIG']
-    shivai_node.inputs.sub_name = 'dummy'
     shivai_node.inputs.input_type = 'swomed'
     # shivai_node.inputs.prediction = 'PVS'
     # shivai_node.inputs.brain_seg = 'shiva'
@@ -66,6 +65,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(datagrabber, 't1_image', shivai_node, 't1_image')
     workflow.connect(datagrabber, 'flair_image', shivai_node, 'flair_image')
     workflow.connect(datagrabber, 'swi_image', shivai_node, 'swi_image')
+    workflow.connect(subject_list, 'subject_id', shivai_node, 'sub_name')
 
     return workflow
 
