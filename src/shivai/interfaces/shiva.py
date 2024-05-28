@@ -313,13 +313,13 @@ class Shivai_InputSpec(CommandLineInputSpec):
 
     flair_image = traits.File(argstr='--swomed_flair %s',
                               desc='Path to the FLAIR (or FLAIR-like) image. Required for PVS2, WMH, and Lacunas',
-                              exists=False,
-                              mandatory=True)
+                              exists=True,
+                              mandatory=False)
 
     swi_image = traits.File(argstr='--swomed_swi %s',
                             desc='Path to the SWI (or SWI-like) image. Required for CMB',
-                            exists=False,
-                            mandatory=True)
+                            exists=True,
+                            mandatory=False)
 
     replace_t1 = traits.Str(argstr='--replace_t1 %s',
                             desc='Data type that will replace the "t1" image.',
