@@ -1,7 +1,7 @@
 # SHiVAi: SHiVA preprocessing and deep learning segmentation workflow
 
-<img src="src/shivautils/postprocessing/logo_shiva.png" align="right" width="100px"/>
-The shivautils package includes a set of image analysis tools for the study of covert cerebral small vessel diseases (cCSVD) with structural Magnetic Resonance Imaging. More specifically, it installs **SHiVAi**, the full pipeline for preprocessing, AI-based segmentation, and reporting of cCVSD biomarkers.
+<img src="src/shivai/postprocessing/logo_shiva.png" align="right" width="100px"/>
+The shivai package includes a set of image analysis tools for the study of covert cerebral small vessel diseases (cCSVD) with structural Magnetic Resonance Imaging. More specifically, it installs **SHiVAi**, the full pipeline for preprocessing, AI-based segmentation, and reporting of cCVSD biomarkers.
 
 The SHiVAi segmentation tools currently include Cerebral MicroBleeds (CMB),  PeriVascular Spaces (PVS) (also known as Virchow Robin Spaces - VRS), White Matter Hyperintensities (WMH), and Lacunas. The 3D-Unet model weights are available separately at https://github.com/pboutinaud.
 
@@ -11,7 +11,7 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 **cCSVD biomarkers detected with SHiVAi**
 
-![Biomarker video](src/shivautils/ressources/shiva_biomarkers.mp4){width=500}
+![Biomarker video](src/shivai/ressources/shiva_biomarkers.mp4){width=500}
 
 ## Index
 
@@ -106,7 +106,7 @@ Next, see [Running SHiVAi from direct package commands](#running-shivai-from-dir
 
 ### Mixed approach (recommended)
 
-For this approach, you will need to both install the shivautils package and download the Apptainer image. First, like in [Traditional python install](#traditional-python-install), create a dedicated Python 3.9 environment, clone or download shivautils, and, from the project's directory (and within the new virtual environment), run:
+For this approach, you will need to both install the shivai package and download the Apptainer image. First, like in [Traditional python install](#traditional-python-install), create a dedicated Python 3.9 environment, clone or download shivautils, and, from the project's directory (and within the new virtual environment), run:
 
 ```bash
 python -m pip install .
@@ -131,19 +131,19 @@ In all cases below, you will be prompted to chose a "prediction". This refers to
 Examples of segmentations, detected biomarkers overlaid on original image:
 - PVS (overlaid on the T1w acquisition)
 
-<img src="src/shivautils/ressources/pvs.png" width="300px"/>
+<img src="src/shivai/ressources/pvs.png" width="300px"/>
 
 - WMH (overlaid on the FLAIR acquisition)
 
-<img src="src/shivautils/ressources/wmh.png" width="300px"/>
+<img src="src/shivai/ressources/wmh.png" width="300px"/>
 
 - CMB (overlaid on the SWI acquisition)
 
-<img src="src/shivautils/ressources/cmb.png" width="300px"/>
+<img src="src/shivai/ressources/cmb.png" width="300px"/>
 
 - Lacunas (overlaid on the FLAIR acquisition)
 
-<img src="src/shivautils/ressources/lacuna.png" width="300px"/>
+<img src="src/shivai/ressources/lacuna.png" width="300px"/>
 
 ### Brain parcellation and region-wise statistics
 
@@ -158,7 +158,7 @@ In our implementation, we mainly worked with the [Synthseg parcellation](https:/
 - For WMH, we segregate biomarkers between shallow, deep, periventricular, and cerebellar white matter, as well as the brain stem.
 - For CMB and Lacuna, we used the [The Microbleed Anatomical Rating Scale (MARS)](https://doi.org/10.1212/wnl.0b013e3181c34a7d).
 
-Synthseg is a project completly independent from Shiva and it was used here as a very convenient and powerful tool. As such, we do not directly provide the Synthseg software. However, it can be installed through the steps mentioned in [Traditional python install](#traditional-python-install) or, if you are using Apptainer to run SHiVAi (with the "Fully contained process" or the "mixed approach"), we provide a [recipe](src/shivautils/scripts/slicer_run_preprocessing.py) to build an Apptainer image that will contain Synthseg and is designed to properly interface with SHiVAi. More details can be found in the [corresponding section of our Apptainer readme](apptainer/README.md#synthseg-apptainer-image). 
+Synthseg is a project completly independent from Shiva and it was used here as a very convenient and powerful tool. As such, we do not directly provide the Synthseg software. However, it can be installed through the steps mentioned in [Traditional python install](#traditional-python-install) or, if you are using Apptainer to run SHiVAi (with the "Fully contained process" or the "mixed approach"), we provide a [recipe](src/shivai/scripts/slicer_run_preprocessing.py) to build an Apptainer image that will contain Synthseg and is designed to properly interface with SHiVAi. More details can be found in the [corresponding section of our Apptainer readme](apptainer/README.md#synthseg-apptainer-image). 
 
 ### Running SHiVAi from a container
 
@@ -202,7 +202,7 @@ n_procs: 8
 
 ### Running SHiVAi from direct package commands (recommended)
 
-From the virtual environment where you installed shivautils, run the command `shiva` (calling the `shiva.py` script).
+From the virtual environment where you installed shivai, run the command `shiva` (calling the `shiva.py` script).
 
 To see the detailed help for this command, you can call:
 ```bash
@@ -386,7 +386,7 @@ Example of `json` structure input:
 
 ### Create missing json file
 
-In some cases, the model_info.json might be missing from the model folder you downloaded. To create it, you need to use the `prep_json.py` script, found in src/shivautils/scripts/prep_json.py.
+In some cases, the model_info.json might be missing from the model folder you downloaded. To create it, you need to use the `prep_json.py` script, found in src/shivai/scripts/prep_json.py.
 
 Let's assume you downloaded the T1-PVS model (for PVS detection using only T1 images), you should now have it in `/myHome/myProject/Shiva_AI_models/T1-PVS` (or something close to this).
 
@@ -395,7 +395,7 @@ If you directly download `prep_json.py` it, you can run it with:
 python prep_json.py --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 ```
 
-If you installed the shivautils package, you can directly run the command line:
+If you installed the shivai package, you can directly run the command line:
 ```bash
 shiva_prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 ```
