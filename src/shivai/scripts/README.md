@@ -1,4 +1,4 @@
-Shivautils commands
+Shivai commands
 -------------------
 These scripts can be run from the shell prompt after installation of the package.
 

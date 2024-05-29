@@ -60,7 +60,7 @@ https://apptainer.org/docs/user/main/quick_start.html
 2. Download the Apptainer image (.sif file) from https://cloud.efixia.com/sharing/TAHaV6ZgZ.
     Let's assume you saved it in `/myHome/myProject/shiva.sif`
 
-3. From the shivautils repository (where you are reading this), navigate to the [apptainer folder](apptainer/) and download [run_shiva.py](apptainer/run_shiva.py) and [config_example.yml](apptainer/config_example.yml)
+3. From the shivai repository (where you are reading this), navigate to the [apptainer folder](apptainer/) and download [run_shiva.py](apptainer/run_shiva.py) and [config_example.yml](apptainer/config_example.yml)
 
 4. You now need to prepare this `config_example.yml`, it will hold diverse parameters as well as the path to the AI model and to the apptainer image. There, you should change the placeholder paths for `model_path` and `apptainer_image` with your own paths (e.g. `/myHome/myProject/Shiva_AI_models` and `/myHome/myProject/shiva.sif`). You may also have to set the model descriptors (like `PVS_descriptor` or `WMH_descriptor` with the path to the `model_info.json` file mentioned above and in [Create missing json file](#create-missing-json-file))
 
@@ -74,7 +74,7 @@ Next, see [Running a contained SHiVAi](#running-a-contained-shivai)
 
 ### Traditional python install
 
-To deploy the python package, create a Python 3.9 virtual environment, clone or download the shivautils project and use the following command line from the project's directory (containing the 'pyproject.toml' file): 
+To deploy the python package, create a Python 3.9 virtual environment, clone or download the shivai project and use the following command line from the project's directory (containing the 'pyproject.toml' file): 
 
 ```bash
 python -m pip install .[TF_CUDA]
@@ -106,7 +106,7 @@ Next, see [Running SHiVAi from direct package commands](#running-shivai-from-dir
 
 ### Mixed approach (recommended)
 
-For this approach, you will need to both install the shivai package and download the Apptainer image. First, like in [Traditional python install](#traditional-python-install), create a dedicated Python 3.9 environment, clone or download shivautils, and, from the project's directory (and within the new virtual environment), run:
+For this approach, you will need to both install the shivai package and download the Apptainer image. First, like in [Traditional python install](#traditional-python-install), create a dedicated Python 3.9 environment, clone or download shivai, and, from the project's directory (and within the new virtual environment), run:
 
 ```bash
 python -m pip install .

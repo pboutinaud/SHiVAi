@@ -18,7 +18,7 @@ def seg_for_pvs(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
         - Brainstem:          11
 
     '''
-    seg_vals = {  # See src/shivautils/postprocessing/lobarseg.py for labels
+    seg_vals = {  # See src/shivai/postprocessing/lobarseg.py for labels
         # Left
         'Left Deep WM': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 46],  # With cortical GM for now
         'Left Basal Gang.': [17, 40, 41, 44, 45],
@@ -67,7 +67,7 @@ def seg_for_wmh(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
         - Cerebellar:       4 / 8
         - Brainstem:          9
     '''
-    seg_vals = {  # See src/shivautils/postprocessing/lobarseg.py for labels
+    seg_vals = {  # See src/shivai/postprocessing/lobarseg.py for labels
         # Left
         'Left Shallow WM': [1, 2, 5, 6, 9, 10, 13, 14, 17, 45],  # With cortical GM
         'Left Deep WM': [3, 7, 11, 15, 44, 46],
@@ -122,7 +122,7 @@ def seg_from_mars(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
         - Brainstem:          29
 
     '''
-    seg_vals = {  # See src/shivautils/postprocessing/lobarseg.py for labels
+    seg_vals = {  # See src/shivai/postprocessing/lobarseg.py for labels
         # Left
         'Left Frontal': [1, 2],
         'Left Parietal': [5, 6],

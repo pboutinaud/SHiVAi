@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
 Standalone workflow that must be installed in the synthseg.sif image.
-As it is standalone and thus does not import functions or class from shivautils,
-any change made in shivautils must be manually re-implemented here too.
+As it is standalone and thus does not import functions or class from shivai,
+any change made in shivai must be manually re-implemented here too.
 """
 
 import argparse

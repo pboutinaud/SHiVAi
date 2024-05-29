@@ -3,7 +3,7 @@ From: tensorflow/tensorflow:2.13.0-gpu
 Stage: build
 
 %files
-    ../../shivautils /usr/local/src/shivautils
+    ../../shivai /usr/local/src/shivai
 
 %environment
     PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/ants-2.4.3/bin
@@ -12,12 +12,12 @@ Stage: build
 %post
     # Installing shivai
     apt update && apt-get install -y build-essential weasyprint libpangocairo-1.0-0 graphviz wget unzip
-    chmod 755 /usr/local/src/shivautils/src/shivai/scripts/*
-    cd /usr/local/src/shivautils
+    chmod 755 /usr/local/src/shivai/src/shivai/scripts/*
+    cd /usr/local/src/shivai
     python -m pip install build
     python -m pip install .
     pip cache purge
-    rm -rf /usr/local/src/shivautils
+    rm -rf /usr/local/src/shivai
 
     # Installing ANTs
     cd /opt

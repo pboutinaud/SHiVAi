@@ -1,4 +1,4 @@
-# from shivautils.utils.stats import save_histogram, bounding_crop
+# from shivai.utils.stats import save_histogram, bounding_crop
 from shivai import __version__ as version
 from jinja2 import Environment, PackageLoader
 import base64
@@ -174,7 +174,7 @@ def make_report(
             image_data = f.read()
         isocontour_slides_FLAIR_T1 = base64.b64encode(image_data).decode()
 
-    env = Environment(loader=PackageLoader('shivautils', 'postprocessing'))
+    env = Environment(loader=PackageLoader('shivai', 'postprocessing'))
     tm = env.get_template('report_template.html')
 
     filled_template_report = tm.render(

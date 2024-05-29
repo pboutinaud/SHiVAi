@@ -10,7 +10,7 @@ from shivai.utils.misc import md5
 def my_parser(targs, mods):
     DESCRIPTION = (
         """
-        Prepares the JSON files necessary for shivautils(SHIV-AI) as they store the 
+        Prepares the JSON files necessary for shivai(SHIV-AI) as they store the 
         information about the deep-learning models being used. If the name of the folder
         containing the data also indicates the necessary modalities (T1, FLAIR, etc.) and
         the target of the segmentation (PVS, WMH, etc.), the program can automatically fill
