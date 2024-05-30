@@ -14,12 +14,13 @@ from shivai.interfaces.shiva import (AntsRegistration_Singularity,
                                      Quickshear_Singularity)
 
 
-def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
+def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     """
     Workflow for SWI preprocessing when doing CMB
     segmentation using the T1-defined mask from another segmentation preproc.
     Graft this subworkflow to the preprocessing workflown, uses the data grabber from the other workflow.
     It's basically a plugin of the T1 workflow
+    (mutate the workflow)
 
 
     external connections required: 
@@ -142,5 +143,3 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs) -> Workflow:
     qc_wf.connect(swi_norm, 'intensity_normalized', qc_overlay_brainmask_swi, 'img_ref')
     qc_wf.connect(swi_norm, 'mode', qc_metrics, 'swi_norm_peak')
     qc_wf.connect(swi_to_t1, 'forward_transforms', qc_metrics, 'swi_reg_mat')
-
-    return preproc_wf

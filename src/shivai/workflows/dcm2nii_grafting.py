@@ -4,9 +4,9 @@ from nipype.interfaces.dcm2nii import Dcm2niix
 from shivai.interfaces.shiva import Dcm2niix_Singularity
 
 
-def graft_dcm2nii(workflow: Workflow, **kwargs) -> Workflow:
+def graft_dcm2nii(workflow: Workflow, **kwargs):
     """This function will interpose a dcm2nii node between the datagrabber
-    and all the relevent connected nodes
+    and all the relevent connected nodes (mutate the workflow)
 
     Args:
         workflow (Workflow): Preprocessing workflow with a databrabber called "databrabber"
@@ -48,5 +48,3 @@ def graft_dcm2nii(workflow: Workflow, **kwargs) -> Workflow:
                             connected_node, node_in)
         workflow.connect(dmc2nii_nodes[grab_out], 'converted_files',
                          connected_node, node_in)
-
-    return workflow

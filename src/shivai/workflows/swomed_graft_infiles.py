@@ -2,11 +2,12 @@ from nipype.pipeline.engine import Node, Workflow
 from shivai.interfaces.shiva import Direct_File_Provider
 
 
-def graft_swomed_infiles(workflow: Workflow) -> Workflow:
+def graft_swomed_infiles(workflow: Workflow):
     '''
     Changes the datagrabber from a processing workflow to and identity interface that gets the
     file paths directly givent to the pipeline in SWOMed
     Only to be used for non-synthseg wf, as synthseg has its own thing
+    (mutate the workflow)
     '''
     datagrabber = workflow.get_node('datagrabber')
     reconnections = []
@@ -24,5 +25,3 @@ def graft_swomed_infiles(workflow: Workflow) -> Workflow:
     for grabber_out, connected_node, node_in in reconnections:
         workflow.connect(files_plug, grabber_out,
                          connected_node, node_in)
-
-    return workflow

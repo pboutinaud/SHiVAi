@@ -17,10 +17,11 @@ from shivai.interfaces.shiva import (AntsRegistration_Singularity,
 from shivai.workflows.qc_preproc import qc_wf_add_flair
 
 
-def graft_img2_preproc(workflow: Workflow, **kwargs) -> Workflow:
+def graft_img2_preproc(workflow: Workflow, **kwargs):
     """Add FLAIR preprocessing to a T1-only workflow
     Doing it this way allows to do all choices relative to brain segmentation
     in the T1 preproc wf, and just add the FLAIR preproc afterward as needed 
+    (mutate the workflow)
 
     Returns:
         workflow
@@ -131,5 +132,3 @@ def graft_img2_preproc(workflow: Workflow, **kwargs) -> Workflow:
     workflow.connect(mask_to_crop, 'resampled_image', qc_wf, 'qc_coreg_FLAIR_T1.path_brainmask')
     workflow.connect(img2_norm, 'mode', qc_wf, 'qc_metrics.flair_norm_peak')
     workflow.connect(flair_to_t1, 'forward_transforms', qc_wf, 'qc_metrics.flair_reg_mat')
-
-    return workflow
