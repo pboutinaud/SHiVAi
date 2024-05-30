@@ -421,27 +421,27 @@ class Shivai_InputSpec(CommandLineInputSpec):
                          mandatory=True)
 
     brainmask_descriptor = traits.File(argstr='--brainmask_descriptor %s',
-                                       desc='Descriptor json file hd5 to check if the loaded models are correct (and keep a trace in swomed)',
+                                       desc='Descriptor json file (with md5) for brain mask models to check if the loaded models are correct (and keep a tract in swomed)',
                                        mandatory=False)
 
     pvs_descriptor = traits.File(argstr='--pvs_descriptor %s',
-                                 desc='Descriptor json file hd5 to check if the loaded models are correct (and keep a trace in swomed)',
+                                 desc='Descriptor json file (with md5) for monomodal PVS models to check if the loaded models are correct (and keep a tract in swomed)',
                                  mandatory=False)
 
     pvs2_descriptor = traits.File(argstr='--pvs2_descriptor %s',
-                                  desc='Descriptor json file hd5 to check if the loaded models are correct (and keep a trace in swomed)',
+                                  desc='Descriptor json file (with md5) for bimodal PVS models to check if the loaded models are correct (and keep a tract in swomed)',
                                   mandatory=False)
 
     wmh_descriptor = traits.File(argstr='--wmh_descriptor %s',
-                                 desc='Descriptor json file hd5 to check if the loaded models are correct (and keep a trace in swomed)',
+                                 desc='Descriptor json file (with md5) for WMH models to check if the loaded models are correct (and keep a tract in swomed)',
                                  mandatory=False)
 
     cmb_descriptor = traits.File(argstr='--cmb_descriptor %s',
-                                 desc='Descriptor json file hd5 to check if the loaded models are correct (and keep a trace in swomed)',
+                                 desc='Descriptor json file (with md5) for CMB models to check if the loaded models are correct (and keep a tract in swomed)',
                                  mandatory=False)
 
     lac_descriptor = traits.File(argstr='--lac_descriptor %s',
-                                 desc='Descriptor json file hd5 to check if the loaded models are correct (and keep a trace in swomed)',
+                                 desc='Descriptor json file (with md5) for lacuna models to check if the loaded models are correct (and keep a tract in swomed)',
                                  mandatory=False)
 
 
