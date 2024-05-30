@@ -12,6 +12,7 @@ from nipype.pipeline.engine import Node, Workflow
 from shivai.interfaces.image import (Threshold, Normalization,
                                      Conform, Crop)
 from shivai.interfaces.shiva import Predict, PredictSingularity
+import os
 
 
 def genWorkflow(**kwargs) -> Workflow:
@@ -31,12 +32,16 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(preconform, 'resampled', preconf_normalization, 'input_image')
 
     # First prediction node for rough mask creation
+    descriptor = kwargs['BRAINMASK_DESCRIPTOR']
     if kwargs['CONTAINERIZE_NODES']:
         pre_brain_mask = Node(PredictSingularity(), name="pre_brain_mask")
         pre_brain_mask.inputs.snglrt_bind = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
             ('`pwd`', '/mnt/data', 'rw'),
             (kwargs['MODELS_PATH'], kwargs['MODELS_PATH'], 'ro')]
+        if kwargs['MODELS_PATH'] not in descriptor:
+            descriptor_dir = os.path.dirname(descriptor)
+            pre_brain_mask.inputs.snglrt_bind.append((descriptor_dir, descriptor_dir, 'ro'))
         pre_brain_mask.inputs.out_filename = '/mnt/data/pre_brain_mask.nii.gz'
         pre_brain_mask.inputs.snglrt_enable_nvidia = True
         pre_brain_mask.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
@@ -61,7 +66,7 @@ def genWorkflow(**kwargs) -> Workflow:
         plugin_args = ' '.join(list_args_noGPU)
 
     pre_brain_mask.plugin_args = plugin_args
-    pre_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
+    pre_brain_mask.inputs.descriptor = descriptor
 
     workflow.connect(preconf_normalization, 'intensity_normalized',
                      pre_brain_mask, 't1')
