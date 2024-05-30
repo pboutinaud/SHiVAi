@@ -84,7 +84,7 @@ def genWorkflow(**kwargs) -> Workflow:
     # Segmentation part
     summary_report = Node(SummaryReport(), name="summary_report")
     for pred in kwargs['PREDICTION']:
-        model_descriptor = os.path.join(kwargs['MODELS_PATH'], kwargs[f'{pred}_DESCRIPTOR'])
+        model_descriptor = kwargs[f'{pred}_DESCRIPTOR']
         if pred == 'CMB' and with_t1:  # Requires registrations to T1 and SWI
             lpred = pred.lower()
             cluster_labelling_cmb = Node(Label_clusters(),
