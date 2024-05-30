@@ -86,8 +86,8 @@ def set_wf_shapers(predictions):
     return with_t1, with_flair, with_swi
 
 
-def as_list(input):
-    return [input]
+def as_list(arg_in):
+    return [arg_in]
 
 
 def histogram(array, percentile, bins):
