@@ -26,7 +26,7 @@ import os
 
 def update_wf_grabber(wf, acquisitions, datatype, kwargs):
     """
-    Updates the workflow datagrabber to work with the different types on input
+    Updates (mutate) the workflow datagrabber to work with the different types on input
         wf: workflow with the datagrabber
         acquisitions example: [('img1', 't1'), ('img2', 'flair')]
         datatype ('nifti' or 'dicom')
@@ -65,9 +65,7 @@ def update_wf_grabber(wf, acquisitions, datatype, kwargs):
             datagrabber.inputs.seg = in_files_dict['synthseg_qc']
 
     if datatype == 'dicom':
-        wf = graft_dcm2nii(wf, **kwargs)
-
-    return wf
+        graft_dcm2nii(wf, **kwargs)
 
 
 def generate_main_wf(**kwargs) -> Workflow:
@@ -141,7 +139,7 @@ def generate_main_wf(**kwargs) -> Workflow:
                 acquisitions.append(('img2', kwargs['ACQUISITIONS']['flair-like']))
             else:
                 acquisitions.append(('img2', 'flair'))
-            wf_preproc = graft_img2_preproc(wf_preproc, **kwargs)
+            graft_img2_preproc(wf_preproc, **kwargs)
 
         # Checking if SWI (or equivalent) need to be preprocessed
         if with_swi:  # Adding the swi preprocessing steps to the preproc workflow
@@ -149,7 +147,7 @@ def generate_main_wf(**kwargs) -> Workflow:
                 acquisitions.append(('img3', kwargs['ACQUISITIONS']['swi-like']))
             else:
                 acquisitions.append(('img3', 'swi'))
-            wf_preproc = graft_workflow_swi(wf_preproc, **kwargs)
+            graft_workflow_swi(wf_preproc, **kwargs)
 
     elif with_swi and not with_t1:  # CMB alone
         if kwargs['ACQUISITIONS']['swi-like']:
@@ -177,10 +175,10 @@ def generate_main_wf(**kwargs) -> Workflow:
 
     # Swap the datagrabber for a direct file input in SWOMed case, if not with Synthseg
     if kwargs['PREP_SETTINGS']['input_type'] == 'swomed' and not 'synthseg' in kwargs['BRAIN_SEG']:
-        wf_preproc = graft_swomed_infiles(wf_preproc)
+        graft_swomed_infiles(wf_preproc)
 
     # Updating the datagrabber with all this info
-    wf_preproc = update_wf_grabber(wf_preproc, acquisitions, file_type, kwargs)
+    update_wf_grabber(wf_preproc, acquisitions, file_type, kwargs)
 
     # Then initialise the post proc and add the nodes to the main wf
     wf_post = genWorkflowPost(**kwargs)

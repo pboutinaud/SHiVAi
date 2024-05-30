@@ -62,13 +62,18 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
 
     if input_type in ['standard', 'BIDS', 'swomed']:
         subject_directory = in_dir
-        out_dir = out_dir
-        brainmask_descriptor = os.path.join(model, brainmask_descriptor)
-        wmh_descriptor = os.path.join(model, wmh_descriptor)
-        pvs_descriptor = os.path.join(model, pvs_descriptor)
-        pvs2_descriptor = os.path.join(model, pvs2_descriptor)
-        cmb_descriptor = os.path.join(model, cmb_descriptor)
-        lac_descriptor = os.path.join(model, lac_descriptor)
+        descriptor_paths = {  # This dict will be injected in wfargs below
+            'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
+            'WMH_DESCRIPTOR': wmh_descriptor,
+            'PVS_DESCRIPTOR': pvs_descriptor,
+            'PVS2_DESCRIPTOR': pvs2_descriptor,
+            'CMB_DESCRIPTOR': cmb_descriptor,
+            'LAC_DESCRIPTOR': lac_descriptor
+        }
+        for desc_k, desc_path in descriptor_paths.items():
+            if desc_path is not None and not os.path.exists(desc_path):
+                # When it's a relative path from the "model" path (default behaviour)
+                descriptor_paths[desc_k] = os.path.join(model, desc_path)
 
     ss_threads = 0
     if brain_seg == 'synthseg_cpu':
@@ -119,12 +124,7 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
         'BRAIN_SEG': brain_seg,
         'SYNTHSEG_ON_CPU': ss_threads,  # Number of threads to use for Synthseg on CPUs
         'CUSTOM_LUT': custom_LUT,
-        'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
-        'WMH_DESCRIPTOR': wmh_descriptor,
-        'PVS_DESCRIPTOR': pvs_descriptor,
-        'PVS2_DESCRIPTOR': pvs2_descriptor,
-        'CMB_DESCRIPTOR': cmb_descriptor,
-        'LAC_DESCRIPTOR': lac_descriptor,
+        **descriptor_paths,
         'ACQUISITIONS': pred_acqui,
         'USE_T1': use_t1,
         'CONTAINER_IMAGE': container_image,

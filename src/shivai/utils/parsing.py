@@ -343,32 +343,32 @@ def shivaParser():
 
     parser.add_argument('--brainmask_descriptor',
                         type=str,
-                        default='brainmask/V0/model_info.json',
+                        # default='brainmask/V0/model_info.json',
                         help='brainmask descriptor file path')
 
     parser.add_argument('--pvs_descriptor',
                         type=str,
-                        default='T1-PVS/V1/model_info.json',
+                        # default='T1-PVS/V1/model_info.json',
                         help='pvs descriptor file path')
 
     parser.add_argument('--pvs2_descriptor',
                         type=str,
-                        default='T1.FLAIR-PVS/V0/model_info.json',
+                        # default='T1.FLAIR-PVS/V0/model_info.json',
                         help='pvs dual descriptor file path')
 
     parser.add_argument('--wmh_descriptor',
                         type=str,
-                        default='T1.FLAIR-WMH/V1/model_info.json',
+                        # default='T1.FLAIR-WMH/V1/model_info.json',
                         help='wmh descriptor file path')
 
     parser.add_argument('--cmb_descriptor',
                         type=str,
-                        default='SWI-CMB/V1/model_info.json',
+                        # default='SWI-CMB/V1/model_info.json',
                         help='cmb descriptor file path')
 
     parser.add_argument('--lac_descriptor',
                         type=str,
-                        default='T1.FLAIR-LAC/model_info.json',
+                        # default='T1.FLAIR-LAC/model_info.json',
                         help='Lacuna descriptor file path')
 
     return parser
@@ -552,12 +552,38 @@ def set_args_and_check(inParser):
         args.final_dimensions = tuple(parameters['final_dimensions'])
         args.voxels_size = tuple(parameters['voxels_size'])
         args.interpolation = parameters['interpolation']
-        args.brainmask_descriptor = parameters['brainmask_descriptor']
-        args.pvs_descriptor = parameters['PVS_descriptor']
-        args.pvs2_descriptor = parameters['PVS2_descriptor']
-        args.wmh_descriptor = parameters['WMH_descriptor']
-        args.cmb_descriptor = parameters['CMB_descriptor']
-        args.lac_descriptor = parameters['LAC_descriptor']
+
+        # Checking and setting the model descriptors (not checking md5 yet though)
+        if args.brainmask_descriptor is None:  # otherwise override the config file when manually inputing the descriptor file
+            if 'brainmask_descriptor' in parameters:
+                args.brainmask_descriptor = parameters['brainmask_descriptor']
+            elif 'shiva' in args.brain_seg:
+                inParser.error('The model descriptor (json file) for the shiva brain masking model has not been specified')
+        if args.pvs_descriptor is None:
+            if 'PVS_descriptor' in parameters:
+                args.pvs_descriptor = parameters['PVS_descriptor']
+            elif 'PVS' in args.prediction:
+                inParser.error('The model descriptor (json file) for the monomodal PVS model has not been specified')
+        if args.pvs2_descriptor is None:
+            if 'PVS2_descriptor' in parameters:
+                args.pvs2_descriptor = parameters['PVS2_descriptor']
+            elif 'PVS2' in args.prediction or ('all' in args.prediction and 'PVS' not in args.prediction):
+                inParser.error('The model descriptor (json file) for the bimodal PVS model has not been specified')
+        if args.wmh_descriptor is None:
+            if 'WMH_descriptor' in parameters:
+                args.wmh_descriptor = parameters['WMH_descriptor']
+            elif 'WMH' in args.prediction or 'all' in args.prediction:
+                inParser.error('The model descriptor (json file) for the WMH model has not been specified')
+        if args.cmb_descriptor is None:
+            if 'CMB_descriptor' in parameters:
+                args.cmb_descriptor = parameters['CMB_descriptor']
+            elif 'CMB' in args.prediction or 'all' in args.prediction:
+                inParser.error('The model descriptor (json file) for the CMB model has not been specified')
+        if args.lac_descriptor is None:
+            if 'LAC' in parameters:
+                args.lac_descriptor = parameters['LAC_descriptor']
+            elif 'LAC' in args.prediction or 'all' in args.prediction:
+                inParser.error('The model descriptor (json file) for the Lacuna model has not been specified')
     args.model = os.path.abspath(args.model)
 
     # Check containerizing options

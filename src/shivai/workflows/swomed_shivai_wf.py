@@ -38,7 +38,7 @@ def genWorkflow(**kwargs) -> Workflow:
                        name='datagrabber')
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
-    datagrabber.inputs.template = '%s/%s/*.*'
+    datagrabber.inputs.template = '%s/%s/*'
 
     shivai_node = Node(Shivai_Singularity(),
                        name='shivai_node')
@@ -48,6 +48,15 @@ def genWorkflow(**kwargs) -> Workflow:
         (config['model_path'], '/mnt/model', 'ro'),
         (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
     ]
+    # Pluging the descriptor files when given by swomed
+    for descriptor in ['brainmask_descriptor',
+                       'wmh_descriptor',
+                       'pvs_descriptor',
+                       'pvs2_descriptor',
+                       'cmb_descriptor',
+                       'lac_descriptor']:
+        if descriptor.upper() in kwargs:
+            setattr(shivai_node.inputs, descriptor, kwargs[descriptor.upper()])
     if os.path.abspath(config_dir) != os.path.abspath(kwargs['BASE_DIR']):
         bind_list.append((config_dir, config_dir, 'rw'))
     shivai_node.inputs.snglrt_bind = bind_list
@@ -58,13 +67,14 @@ def genWorkflow(**kwargs) -> Workflow:
     shivai_node.inputs.out_dir = kwargs['BASE_DIR']
     shivai_node.inputs.config = kwargs['SHIVAI_CONFIG']
     shivai_node.inputs.input_type = 'swomed'
+    shivai_node.inputs.file_type = 'dicom'
     # shivai_node.inputs.prediction = 'PVS'
     # shivai_node.inputs.brain_seg = 'shiva'
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
-    workflow.connect(datagrabber, 't1_image', shivai_node, 't1_image')
-    workflow.connect(datagrabber, 'flair_image', shivai_node, 'flair_image')
-    workflow.connect(datagrabber, 'swi_image', shivai_node, 'swi_image')
+    workflow.connect(datagrabber, 't1_image', shivai_node, 't1_image_dcm')  # swap for t1_image_nii with nifti input
+    workflow.connect(datagrabber, 'flair_image', shivai_node, 'flair_image_dcm')  # flair_image_nii
+    workflow.connect(datagrabber, 'swi_image', shivai_node, 'swi_image_dcm')  # swi_image_nii
     workflow.connect(subject_list, 'subject_id', shivai_node, 'sub_name')
 
     return workflow

@@ -101,7 +101,7 @@ class Predict(CommandLine):
     """
     input_spec = PredictInputSpec
     output_spec = PredictOutputSpec
-    _cmd = 'shiva_predict'  # shivautils.scripts.predict:main
+    _cmd = 'shiva_predict'  # shivai.scripts.predict:main
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
@@ -306,20 +306,41 @@ class Shivai_InputSpec(CommandLineInputSpec):
                             usedefault=True,
                             mandatory=False)
 
-    t1_image = traits.File(argstr='--swomed_t1 %s',
-                           desc='Path to the T1 (or T1-like) image. Required for PVS, WMH, and Lacunas',
-                           exists=True,
-                           mandatory=False)
+    t1_image_nii = traits.File(argstr='--swomed_t1 %s',
+                               desc='Path to the T1 (or T1-like) image (in nifti format). Required for PVS, WMH, and Lacunas',
+                               exists=True,
+                               mandatory=False,
+                               xor=['t1_image_dcm'])
 
-    flair_image = traits.File(argstr='--swomed_flair %s',
-                              desc='Path to the FLAIR (or FLAIR-like) image. Required for PVS2, WMH, and Lacunas',
-                              exists=True,
-                              mandatory=False)
+    t1_image_dcm = traits.Directory(argstr='--swomed_t1 %s',
+                                    desc='Path to the T1 (or T1-like) dicom folder. Required for PVS, WMH, and Lacunas',
+                                    exists=True,
+                                    mandatory=False,
+                                    xor=['t1_image_nii'])
 
-    swi_image = traits.File(argstr='--swomed_swi %s',
-                            desc='Path to the SWI (or SWI-like) image. Required for CMB',
-                            exists=True,
-                            mandatory=False)
+    flair_image_nii = traits.File(argstr='--swomed_flair %s',
+                                  desc='Path to the FLAIR (or FLAIR-like) image. Required for PVS2, WMH, and Lacunas',
+                                  exists=True,
+                                  mandatory=False,
+                                  xor=['flair_image_dcm'])
+
+    flair_image_dcm = traits.Directory(argstr='--swomed_flair %s',
+                                       desc='Path to the FLAIR (or FLAIR-like) image. Required for PVS2, WMH, and Lacunas',
+                                       exists=True,
+                                       mandatory=False,
+                                       xor=['flair_image_nii'])
+
+    swi_image_nii = traits.File(argstr='--swomed_swi %s',
+                                desc='Path to the SWI (or SWI-like) image. Required for CMB',
+                                exists=True,
+                                mandatory=False,
+                                xor=['swi_image_dcm'])
+
+    swi_image_dcm = traits.Directory(argstr='--swomed_swi %s',
+                                     desc='Path to the SWI (or SWI-like) image. Required for CMB',
+                                     exists=True,
+                                     mandatory=False,
+                                     xor=['swi_image_nii'])
 
     replace_t1 = traits.Str(argstr='--replace_t1 %s',
                             desc='Data type that will replace the "t1" image.',
@@ -398,6 +419,30 @@ class Shivai_InputSpec(CommandLineInputSpec):
     config = traits.File(argstr='--config %s',
                          desc='Configuration file (.yml) containing the information and parameters for the pipeline and AI models',
                          mandatory=True)
+
+    brainmask_descriptor = traits.File(argstr='--brainmask_descriptor %s',
+                                       desc='Descriptor json file hd5 to check if the loaded models are correct (and keep a trace in swomed)',
+                                       mandatory=False)
+
+    pvs_descriptor = traits.File(argstr='--pvs_descriptor %s',
+                                 desc='Descriptor json file hd5 to check if the loaded models are correct (and keep a trace in swomed)',
+                                 mandatory=False)
+
+    pvs2_descriptor = traits.File(argstr='--pvs2_descriptor %s',
+                                  desc='Descriptor json file hd5 to check if the loaded models are correct (and keep a trace in swomed)',
+                                  mandatory=False)
+
+    wmh_descriptor = traits.File(argstr='--wmh_descriptor %s',
+                                 desc='Descriptor json file hd5 to check if the loaded models are correct (and keep a trace in swomed)',
+                                 mandatory=False)
+
+    cmb_descriptor = traits.File(argstr='--cmb_descriptor %s',
+                                 desc='Descriptor json file hd5 to check if the loaded models are correct (and keep a trace in swomed)',
+                                 mandatory=False)
+
+    lac_descriptor = traits.File(argstr='--lac_descriptor %s',
+                                 desc='Descriptor json file hd5 to check if the loaded models are correct (and keep a trace in swomed)',
+                                 mandatory=False)
 
 
 class Shivai_OutputSpec(TraitedSpec):
@@ -534,18 +579,18 @@ class Shivai_Singularity(Shivai, SingularityCommandLine):
 
 class Direct_File_Provider_InputSpec(BaseInterfaceInputSpec):
     subject_id = traits.Str(mandatory=True, desc='Dummy argument')
-    img1 = traits.File(exists=True, mandatory=True)
-    img2 = traits.File(exists=True, mandatory=False)
-    img3 = traits.File(exists=True, mandatory=False)
+    img1 = traits.Any(exists=True, mandatory=True)  # Using any as can be File (for nifti) or Directory (for dcm)
+    img2 = traits.Any(exists=True, mandatory=False)
+    img3 = traits.Any(exists=True, mandatory=False)
     seg = traits.File(exists=True, mandatory=False)
     synthseg_vol = traits.File(exists=True, mandatory=False)
     synthseg_qc = traits.File(exists=True, mandatory=False)
 
 
 class Direct_File_Provider_OutputSpec(TraitedSpec):
-    img1 = traits.File(exists=True, mandatory=True)
-    img2 = traits.File(exists=True, mandatory=False)
-    img3 = traits.File(exists=True, mandatory=False)
+    img1 = traits.Any(exists=True, mandatory=True)
+    img2 = traits.Any(exists=True, mandatory=False)
+    img3 = traits.Any(exists=True, mandatory=False)
     seg = traits.File(exists=True, mandatory=False)
     synthseg_vol = traits.File(exists=True, mandatory=False)
     synthseg_qc = traits.File(exists=True, mandatory=False)
