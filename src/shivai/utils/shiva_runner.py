@@ -22,7 +22,7 @@ def check_input_for_pred(wfargs):
 
 
 def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, brain_seg, synthseg_threads,
-          node_plugin_args, prev_qc, preproc_results, replace_t1, replace_flair, replace_swi,
+          node_plugin_args, prev_qc, preproc_results, replace_t1, replace_flair, replace_swi, swi_file_num,
           db_name, custom_LUT, swomed_parc, swomed_ssvol, swomed_ssqc, swomed_t1, swomed_flair, swomed_swi, use_t1, container_image, synthseg_image, containerized_nodes,
           anonymize, interpolation, percentile, threshold, threshold_pvs, threshold_wmh, threshold_cmb,
           threshold_lac, min_pvs_size, min_wmh_size, min_cmb_size, min_lac_size, final_dimensions,
@@ -127,6 +127,7 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
         **descriptor_paths,
         'ACQUISITIONS': pred_acqui,
         'USE_T1': use_t1,
+        'SWI_FILE_NUM': swi_file_num,
         'CONTAINER_IMAGE': container_image,
         'SYNTHSEG_IMAGE': synthseg_image,
         'CONTAINERIZE_NODES': containerized_nodes,

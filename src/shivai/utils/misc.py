@@ -90,6 +90,16 @@ def as_list(arg_in):
     return [arg_in]
 
 
+def file_selector(inArg, fileNum):
+    if isinstance(inArg, list) or isinstance(inArg, tuple):
+        if len(inArg) <= fileNum:
+            raise IndexError(f'The node where "file_selector" was used gave a list of {len(inArg)} elements '
+                             f'but the function tried to get the element {fileNum} (out of range)')
+        return inArg[fileNum]
+    else:
+        return inArg
+
+
 def histogram(array, percentile, bins):
     """Create an histogram with a numpy array. Retrieves the largest value in
     the first axis of of the histogram and returns the corresponding value on

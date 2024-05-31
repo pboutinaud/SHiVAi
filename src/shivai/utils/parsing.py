@@ -103,6 +103,11 @@ def shivaParser():
                               '(Note that part of the labels may keep the "swi" notation instead of the image type you '
                               'specified)'))
 
+    parser.add_argument('--swi_file_num',
+                        default=1,
+                        type=int,
+                        help='Index (starting at 0) of the SWI file to select after DICOM to NIfTI conversion (i.e. which echo to chose)')
+
     parser.add_argument('--use_t1',
                         action='store_true',
                         help=('Can be used when predicting CMBs only (so only expecting SWI acquisitions) while T1 acquisitions '

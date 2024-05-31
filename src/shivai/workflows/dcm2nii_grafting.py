@@ -2,6 +2,7 @@
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.dcm2nii import Dcm2niix
 from shivai.interfaces.shiva import Dcm2niix_Singularity
+from shivai.utils.misc import file_selector
 
 
 def graft_dcm2nii(workflow: Workflow, **kwargs):
@@ -46,5 +47,5 @@ def graft_dcm2nii(workflow: Workflow, **kwargs):
     for grab_out, connected_node, node_in in reconnections:
         workflow.disconnect(datagrabber, grab_out,
                             connected_node, node_in)
-        workflow.connect(dmc2nii_nodes[grab_out], 'converted_files',
+        workflow.connect(dmc2nii_nodes[grab_out], ('converted_files', file_selector, kwargs['SWI_FILE_NUM']),
                          connected_node, node_in)
