@@ -23,13 +23,13 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     (mutate the workflow)
 
 
-    external connections required: 
-        full_wf.connect(wf1, 'datagrabber.img3', wf_swi, 'conform_swi.img')
-        full_wf.connect(wf1, 'crop.cropped', wf_swi, 'swi_to_t1.moving_image')
-        full_wf.connect(wf1, ('mask_to_crop.resampled_image', lambda input: [input]), wf_swi, 'swi_to_t1.fixed_image_masks')
-        full_wf.connect(wf1, 'mask_to_crop.resampled_image', wf_swi, 'mask_to_swi.input_image')
-    Returns:
-        workflow (the preprocessing workflow with the grafted swi part added)
+    Required external input connections: 
+        cmb_preprocessing.swi_intensity_normalisation.intensity_normalized
+        cmb_preprocessing.swi_to_t1.forward_transforms
+        cmb_preprocessing.mask_to_crop_swi.resampled_image
+        cmb_preprocessing.crop_swi.bbox1_file
+        cmb_preprocessing.crop_swi.bbox2_file
+        cmb_preprocessing.crop_swi.cdg_ijk_file
     """
 
     wf_name = 'cmb_preprocessing'

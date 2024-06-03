@@ -13,6 +13,9 @@ def genWorkflow(**kwargs) -> Workflow:
     """Generate a nipype workflow for image preprocessing using Synthseg precomputed segmentation
     It is initialized with gen_synthseg_wf
 
+    Required external input connections:
+        synthseg_grabber.subject_id
+
     Returns:
         workflow
     """

@@ -9,6 +9,14 @@ def graft_dcm2nii(workflow: Workflow, **kwargs):
     """This function will interpose a dcm2nii node between the datagrabber
     and all the relevent connected nodes (mutate the workflow)
 
+    External ouput connections:
+        dicom2nifti_img1.converted_files
+        dicom2nifti_img2.converted_files
+        dicom2nifti_img3.converted_files
+        dicom2nifti_img1.bids
+        dicom2nifti_img2.bids
+        dicom2nifti_img3.bids
+
     Args:
         workflow (Workflow): Preprocessing workflow with a databrabber called "databrabber"
 

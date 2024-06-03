@@ -19,6 +19,12 @@ from shivai.interfaces.image import Parc_from_Synthseg, Segmentation_Cleaner, Re
 def genWorkflow(**kwargs) -> Workflow:
     """Generate a nipype workflow for image preprocessing using Synthseg
 
+    External output connecxions
+        custom_parc.brain_parc
+        seg_cleaning.ouput_seg
+        seg_cleaning.sunk_islands
+        synthseg.volumes
+
     Returns:
         workflow
     """

@@ -4,21 +4,23 @@
     Defacing of native and final images. This also handles back-registration from
     conformed-crop to T1 or SWI ('img1').
 
-    Its datagrabber requires to be connected to an external 'subject_id' from an iterable
-
+    Required external input connections:
+        datagrabber.subject_id
+    
+    External output connections:
+        mask_to_crop.resampled_image
+        img1_final_intensity_normalization.intensity_normalized
+        img2_final_intensity_normalization.intensity_normalized
+        mask_to_crop.resampled_image
+        crop.bbox1_file
+        crop.bbox2_file
+        crop.cdg_ijk_file
+        preproc_qc_workflow.qc_crop_box.crop_brain_img
+        preproc_qc_workflow.qc_overlay_brainmask.overlayed_brainmask
+        preproc_qc_workflow.qc_overlay_brainmask_swi.overlayed_brainmask
+        preproc_qc_workflow.qc_coreg_FLAIR_T1.qc_coreg
+        preproc_qc_workflow.qc_metrics.csv_qc_metrics
         
-    (qc_crop_box, 'brain_img')
-    (qc_crop_box, 'brainmask')
-    (qc_crop_box, 'bbox1')
-    (qc_crop_box, 'bbox2')
-    (qc_crop_box, 'slice_coord')
-    (qc_overlay_brainmask, 'brainmask')
-    (qc_overlay_brainmask, 'img_ref')
-
-    if dual:
-        (qc_coreg_FLAIR_T1, 'path_image')
-        (qc_coreg_FLAIR_T1, 'path_ref_image')
-        (qc_coreg_FLAIR_T1, 'path_brainmask')
 """
 import os
 

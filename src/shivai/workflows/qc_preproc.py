@@ -12,7 +12,7 @@ def gen_qc_wf(workflow_name) -> Workflow:
     """
     Quality control workflow for the preprocessing of the 'main' image (t1 or swi)
 
-    Required external connections:
+    Required external input connections:
         # qc_crop_box
     ____.connect(____, 'defacing_img1.out_file', ____, 'qc_crop_box.brain_img')
     ____.connect(____, 'hard_brain_mask.thresholded', ____, 'qc_crop_box.brainmask')

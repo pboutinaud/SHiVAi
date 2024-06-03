@@ -14,6 +14,9 @@ def genWorkflow(**kwargs) -> Workflow:
     """Generate a nipype workflow for image preprocessing using a custom brain segmentation.
     Very similar to the synthseg preproc wf, but without the specifics of synthseg.
 
+    External output connections:
+        seg_to_crop.resampled_image
+
     Returns:
         workflow
     """
