@@ -68,6 +68,7 @@ def genWorkflow(**kwargs) -> Workflow:
     shivai_node.inputs.config = kwargs['SHIVAI_CONFIG']
     shivai_node.inputs.input_type = 'swomed'
     shivai_node.inputs.file_type = 'dicom'
+    shivai_node.inputs.swi_file_num = 1  # second echo
     # shivai_node.inputs.prediction = 'PVS'
     # shivai_node.inputs.brain_seg = 'shiva'
 

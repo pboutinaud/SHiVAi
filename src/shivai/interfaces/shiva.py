@@ -354,6 +354,10 @@ class Shivai_InputSpec(CommandLineInputSpec):
                              desc='Data type that will replace the "swi" image (e.g. "t2gre").',
                              mandatory=False)
 
+    swi_file_num = traits.Int(argstr='--swi_file_num %s',
+                              desc='Data type that will replace the "swi" image (e.g. "t2gre").',
+                              mandatory=False)
+
     db_name = traits.Str(argstr='--db_name %s',
                          desc='Name of the dataset for the report (e.g. "UKBB").',
                          mandatory=False)
