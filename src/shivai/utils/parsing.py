@@ -103,11 +103,6 @@ def shivaParser():
                               '(Note that part of the labels may keep the "swi" notation instead of the image type you '
                               'specified)'))
 
-    parser.add_argument('--swi_file_num',
-                        default=1,
-                        type=int,
-                        help='Index (starting at 0) of the SWI file to select after DICOM to NIfTI conversion (i.e. which echo to chose)')
-
     parser.add_argument('--use_t1',
                         action='store_true',
                         help=('Can be used when predicting CMBs only (so only expecting SWI acquisitions) while T1 acquisitions '
@@ -257,8 +252,8 @@ def shivaParser():
                         help=('Configuration file (.yml) containing the information and parameters for the '
                               'AI model (as well as the path to the AppTainer container when used).\n'
                               'Using a configuration file is incompatible with the arguments listed below '
-                              '(i.e. --model --percentile --threshold --threshold_clusters --final_dimensions '
-                              '--voxels_size --interpolation --brainmask_descriptor --pvs_descriptor '
+                              '(i.e. --model --swi_file_num --percentile --threshold --threshold_clusters '
+                              '--final_dimensions --voxels_size --interpolation --brainmask_descriptor --pvs_descriptor '
                               '--pvs2_descriptor --wmh_descriptor --cmb_descriptor, --lac_descriptor).'),
                         default=None)
 
@@ -274,6 +269,10 @@ def shivaParser():
     parser.add_argument('--model',
                         default=None,
                         help='path to the AI model weights and descriptors')
+
+    parser.add_argument('--swi_file_num',
+                        type=int,
+                        help='Index (starting at 0) of the SWI file to select after DICOM to NIfTI conversion (i.e. which echo to chose)')
 
     parser.add_argument('--percentile',
                         type=float,
@@ -585,10 +584,17 @@ def set_args_and_check(inParser):
             elif 'CMB' in args.prediction or 'all' in args.prediction:
                 inParser.error('The model descriptor (json file) for the CMB model has not been specified')
         if args.lac_descriptor is None:
-            if 'LAC' in parameters:
+            if 'LAC_descriptor' in parameters:
                 args.lac_descriptor = parameters['LAC_descriptor']
             elif 'LAC' in args.prediction or 'all' in args.prediction:
                 inParser.error('The model descriptor (json file) for the Lacuna model has not been specified')
+        if ('CMB' in args.prediction or 'all' in args.prediction) and args.file_type == 'dicom':
+            if args.swi_file_num is None:
+                if 'swi_echo' in parameters:
+                    args.swi_file_num = parameters['swi_echo']
+                else:
+                    inParser.error('The model descriptor (json file) for the Lacuna model has not been specified')
+
     args.model = os.path.abspath(args.model)
 
     # Check containerizing options

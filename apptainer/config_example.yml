@@ -9,6 +9,7 @@ parameters:
   WMH_descriptor: "T1.FLAIR-WMH/V1/model_info.json"
   CMB_descriptor: "SWI-CMB/V1/model_info.json"
   LAC_descriptor: "T1.FLAIR-LAC/model_info.json"
+  swi_echo: 1
   percentile: 99.0
   threshold: 0.5
   threshold_pvs: 0.5
