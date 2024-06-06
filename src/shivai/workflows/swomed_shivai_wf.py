@@ -25,7 +25,7 @@ def genWorkflow(**kwargs) -> Workflow:
         with open(kwargs['SHIVAI_CONFIG'], 'r') as file:
             config = yaml.safe_load(file)
     else:  # dummy args
-        config = {'model_path': kwargs['BASE_DIR'], 'apptainer_image': kwargs['SHIVAI_CONFIG']}
+        config = {'model_path': workflow.base_dir, 'apptainer_image': kwargs['SHIVAI_CONFIG']}
 
     subject_list = Node(IdentityInterface(
         fields=['subject_id'],
@@ -46,7 +46,7 @@ def genWorkflow(**kwargs) -> Workflow:
     config_dir = os.path.dirname(kwargs['SHIVAI_CONFIG'])
     bind_list = [
         (config['model_path'], '/mnt/model', 'ro'),
-        (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+        (workflow.base_dir, workflow.base_dir, 'rw'),
     ]
     # Pluging the descriptor files when given by swomed
     for descriptor in ['brainmask_descriptor',
@@ -56,19 +56,19 @@ def genWorkflow(**kwargs) -> Workflow:
                        'cmb_descriptor',
                        'lac_descriptor']:
         if descriptor.upper() in kwargs:
-            setattr(shivai_node.inputs, descriptor, kwargs[descriptor.upper()])
-    if os.path.abspath(config_dir) != os.path.abspath(kwargs['BASE_DIR']):
+            setattr(shivai_node.inputs, descriptor, kwargs['BIOMIST::' + descriptor.upper()])
+    if os.path.abspath(config_dir) != os.path.abspath(workflow.base_dir):
         bind_list.append((config_dir, config_dir, 'rw'))
     shivai_node.inputs.snglrt_bind = bind_list
     shivai_node.inputs.snglrt_image = config['apptainer_image']
     shivai_node.inputs.snglrt_enable_nvidia = True
     # Mandatory inputs:
-    shivai_node.inputs.in_dir = kwargs['BASE_DIR']
-    shivai_node.inputs.out_dir = kwargs['BASE_DIR']
+    shivai_node.inputs.in_dir = workflow.base_dir
+    shivai_node.inputs.out_dir = workflow.base_dir
     shivai_node.inputs.config = kwargs['SHIVAI_CONFIG']
     shivai_node.inputs.input_type = 'swomed'
-    shivai_node.inputs.file_type = 'dicom'
-    shivai_node.inputs.swi_file_num = 1  # second echo
+    # shivai_node.inputs.file_type = 'dicom'
+    # shivai_node.inputs.swi_file_num = 1  # second echo
     # shivai_node.inputs.prediction = 'PVS'
     # shivai_node.inputs.brain_seg = 'shiva'
 
