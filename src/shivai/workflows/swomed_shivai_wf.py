@@ -1,6 +1,5 @@
 """
-If the workflow is run with synthseg, it needs shivai_node.inputs.brain_seg = 'synthseg_precomp'
-and the synthseg workflow called beforehand needs the same base dir and synthseg.inputs.out_filename = '/mnt/data/synthseg_parc.nii.gz'
+Shivai workflow for swomed
 """
 
 from nipype import Node, Workflow, IdentityInterface, DataGrabber
