@@ -55,8 +55,8 @@ def genWorkflow(**kwargs) -> Workflow:
                        'pvs2_descriptor',
                        'cmb_descriptor',
                        'lac_descriptor']:
-        if descriptor.upper() in kwargs:
-            setattr(shivai_node.inputs, descriptor, kwargs['BIOMIST::' + descriptor.upper()])
+        if f'BIOMIST::{descriptor.upper()}' in kwargs:
+            setattr(shivai_node.inputs, descriptor, kwargs[f'BIOMIST::{descriptor.upper()}'])
     if os.path.abspath(config_dir) != os.path.abspath(workflow.base_dir):
         bind_list.append((config_dir, config_dir, 'rw'))
     shivai_node.inputs.snglrt_bind = bind_list
