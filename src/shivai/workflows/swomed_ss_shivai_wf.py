@@ -98,7 +98,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(subject_list, 'subject_id', shivai_node, 'sub_name')
     workflow.connect(dcm2nii_t1_node, 'converted_files', shivai_node, 't1_image_nii')
     workflow.connect(dcm2nii_flair_node, 'converted_files', shivai_node, 'flair_image_nii')
-    workflow.connect(dcm2nii_swi_node, ('converted_files', file_selector, config['swi_echo']), shivai_node, 'swi_image_nii')
+    workflow.connect(dcm2nii_swi_node, ('converted_files', file_selector, config['parameters']['swi_echo']), shivai_node, 'swi_image_nii')
     workflow.connect(synthseg_node, 'segmentation', shivai_node, 'synthseg_parc')
     workflow.connect(synthseg_node, 'volumes', shivai_node, 'synthseg_vol')
 
