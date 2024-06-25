@@ -29,7 +29,7 @@ def genWorkflow(**kwargs) -> Workflow:
         config = {'model_path': kwargs['BASE_DIR'],
                   'apptainer_image': kwargs['SHIVAI_CONFIG'],
                   'synthseg_image': kwargs['SHIVAI_CONFIG'],
-                  'swi_echo': 1}
+                  'parameters': {'swi_echo': 1}}
 
     subject_list = Node(IdentityInterface(
         fields=['subject_id'],
@@ -43,6 +43,9 @@ def genWorkflow(**kwargs) -> Workflow:
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
     datagrabber.inputs.template = '%s/%s/'
+    datagrabber.inputs.template_args = {'t1_image': [['subject_id', 't1']],
+                                        'flair_image': [['subject_id', 'flair']],
+                                        'swi_image': [['subject_id', 'swi']]}
 
     dcm2nii_t1_node = Node(Dcm2niix(), name='dcm2nii_t1_node')
     dcm2nii_t1_node.inputs.anon_bids = True
