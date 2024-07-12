@@ -171,8 +171,8 @@ def fill_hull(brain_regions):
     deln = Delaunay(points[hull.vertices])
     idx = np.stack(np.indices(brain_regions.shape), axis=-1)
     bg_idx = np.nonzero(deln.find_simplex(idx) + 1)
-    filled_vol = np.zeros(brain_regions.shape, dtype='int16')
-    filled_vol[bg_idx] = 1
+    filled_vol = np.zeros(brain_regions.shape, dtype=bool)
+    filled_vol[bg_idx] = True
     return filled_vol
 
 
@@ -191,33 +191,43 @@ def internal_caps(seg):
     bg_L = np.isin(seg, bg_labels_L)
     bg_R = np.isin(seg, bg_labels_R)
 
-    ic_L = binary_erosion(fill_hull(bg_L), iterations=2)*wm_L
-    ic_R = binary_erosion(fill_hull(bg_R), iterations=2)*wm_R
+    ic_L = binary_erosion(fill_hull(bg_L), iterations=2) & wm_L
+    ic_R = binary_erosion(fill_hull(bg_R), iterations=2) & wm_R
 
-    return ic_L.astype(bool), ic_R.astype(bool)
+    return ic_L, ic_R
 
 
-def ex_capsule(seg, jc_wm):
+def ex_capsule(seg, exclusion_wm):
     '''
     External and extreme capsule, roughly between insula and putamen
+    exclusion_wm should be the juxta-cortical WM and the internal capsule
     '''
     wm_L = (seg == 2)
     wm_R = (seg == 41)
 
-    hipp = np.isin(seg, [17, 53])
-    hipp_dil = binary_dilation(hipp, iterations=5)  # To prevent the ec from growing too low
-    exclusion_area = jc_wm | hipp_dil
+    hipp_vdc = np.isin(seg, [17, 53, 28, 60])  # hippocampus and ventral DC
+    hipp_vdc_dil = binary_dilation(hipp_vdc, iterations=5)  # To prevent the ec from growing too low
+
+    exclusion_area = exclusion_wm | hipp_vdc_dil
 
     putamen_L = (seg == 12)
     insula_L = (seg == 1035)
     putamen_R = (seg == 51)
     insula_R = (seg == 2035)
 
-    xcap_L_raw = (binary_dilation(putamen_L, iterations=6) & binary_dilation(insula_L, iterations=6))
-    xcap_R_raw = (binary_dilation(putamen_R, iterations=6) & binary_dilation(insula_R, iterations=6))
+    xcap_L_raw = (fill_hull(insula_L | putamen_L).astype(bool) &
+                  binary_dilation(putamen_L, iterations=10) &
+                  binary_dilation(insula_L, iterations=10))
+    xcap_R_raw = (fill_hull(insula_R | putamen_R).astype(bool) &
+                  binary_dilation(putamen_R, iterations=10) &
+                  binary_dilation(insula_R, iterations=10))
 
-    xcap_L = (xcap_L_raw*wm_L) & ~exclusion_area
-    xcap_R = (xcap_R_raw*wm_R) & ~exclusion_area
+    xcap_L = xcap_L_raw & wm_L & ~exclusion_area
+    xcap_R = xcap_R_raw & wm_R & ~exclusion_area
+
+    # final cleaning
+    xcap_L = binary_closing(xcap_L | insula_L | putamen_L, iterations=3) & ~(insula_L | putamen_L) & wm_L
+    xcap_R = binary_closing(xcap_R | insula_R | putamen_R, iterations=3) & ~(insula_R | putamen_R) & wm_R
 
     return xcap_L, xcap_R
 
@@ -372,7 +382,7 @@ def lobar_and_wm_segmentation(seg):
     jxtc_L, jxtc_R = juxtacortical_wm(seg, 3)
     prvc_L, prvc_R = periventricular_wm(seg, 2)
 
-    ec_L, ec_R = ex_capsule(seg, (jxtc_L | jxtc_R))
+    ec_L, ec_R = ex_capsule(seg, (jxtc_L | jxtc_R | ic_L | ic_R))
     cc_L, cc_R = corpus_cal(seg)
 
     wm_L = (seg == 2)
