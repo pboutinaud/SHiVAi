@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import os
 from scipy.spatial.transform import Rotation
 from scipy.io import loadmat
+from shivai.utils.misc import fisin
 
 
 def get_mode(hist: np.array,
@@ -149,7 +150,7 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
             max_count = reg_count.max()
             seg_attributed_label = np.random.choice(reg_in_clust[reg_count == max_count])  # takes equalities into account
             if prio_labels:  # Overriding the w-t-a approach for priority labels
-                prio_ind = np.isin(reg_in_clust, list(prio_dict.values()))
+                prio_ind = fisin(reg_in_clust, list(prio_dict.values()))
                 if prio_ind.any():
                     seg_attributed_label = np.random.choice(reg_in_clust[prio_ind])  # takes equalities into account
 
@@ -278,7 +279,7 @@ def get_mask_regions(img: nb.Nifti1Image,
     import numpy as np
 
     pred_img_array = img.get_fdata()
-    mask = np.isin(pred_img_array, list_labels_regions).astype(int)
+    mask = fisin(pred_img_array, list_labels_regions).astype(int)
     mask_regions = nb.Nifti1Image(mask, img.affine, img.header)
 
     return mask_regions

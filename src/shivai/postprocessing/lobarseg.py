@@ -41,8 +41,8 @@ from scipy.ndimage import (distance_transform_edt,
                            binary_closing,
                            binary_opening)
 from scipy.spatial import Delaunay, ConvexHull
-import nibabel as nib
 import numpy as np
+from shivai.utils.misc import fisin
 
 # %%
 lobar_vals_L = {
@@ -129,8 +129,8 @@ def lobar_seg(seg):
     wm_R = (seg == 41)
 
     # Also fill excluded cortical areas
-    wm_L = wm_L | np.isin(seg, to_excluded_L)
-    wm_R = wm_R | np.isin(seg, to_excluded_R)
+    wm_L = wm_L | fisin(seg, to_excluded_L)
+    wm_R = wm_R | fisin(seg, to_excluded_R)
 
     # Divide cortex in lobes
     vol_lobar_L = np.zeros(seg.shape, dtype='int16')
@@ -138,8 +138,8 @@ def lobar_seg(seg):
     for lob in lobar_vals_L.keys():
         vals_L = list(set(lobar_vals_L[lob]) - set(to_excluded_L))
         vals_R = list(set(lobar_vals_R[lob]) - set(to_excluded_R))
-        vol_lobar_L[np.isin(seg, vals_L)] = lobar_labels_L[lob]
-        vol_lobar_R[np.isin(seg, vals_R)] = lobar_labels_R[lob]
+        vol_lobar_L[fisin(seg, vals_L)] = lobar_labels_L[lob]
+        vol_lobar_R[fisin(seg, vals_R)] = lobar_labels_R[lob]
 
     # Associate WM to lobes (and add the cortical parts)
     vol_lobar_L_exp = expand_label_masked(vol_lobar_L, wm_L) + vol_lobar_L
@@ -147,10 +147,10 @@ def lobar_seg(seg):
 
     # Add the other labels
     for parc in other_vals_L:
-        parc_vox = np.isin(seg, other_vals_L[parc])
+        parc_vox = fisin(seg, other_vals_L[parc])
         vol_lobar_L_exp[parc_vox] = other_labels_L[parc]
     for parc in other_vals_R:
-        parc_vox = np.isin(seg, other_vals_R[parc])
+        parc_vox = fisin(seg, other_vals_R[parc])
         vol_lobar_R_exp[parc_vox] = other_labels_R[parc]
 
     vol_lobar_exp = vol_lobar_L_exp + vol_lobar_R_exp
@@ -188,8 +188,8 @@ def internal_caps(seg):
     wm_L = (seg == 2)
     wm_R = (seg == 41)
 
-    bg_L = np.isin(seg, bg_labels_L)
-    bg_R = np.isin(seg, bg_labels_R)
+    bg_L = fisin(seg, bg_labels_L)
+    bg_R = fisin(seg, bg_labels_R)
 
     ic_L = binary_erosion(fill_hull(bg_L), iterations=2) & wm_L
     ic_R = binary_erosion(fill_hull(bg_R), iterations=2) & wm_R
@@ -205,7 +205,7 @@ def ex_capsule(seg, exclusion_wm):
     wm_L = (seg == 2)
     wm_R = (seg == 41)
 
-    hipp_vdc = np.isin(seg, [17, 53, 28, 60])  # hippocampus and ventral DC
+    hipp_vdc = fisin(seg, [17, 53, 28, 60])  # hippocampus and ventral DC
     hipp_vdc_dil = binary_dilation(hipp_vdc, iterations=5)  # To prevent the ec from growing too low
 
     exclusion_area = exclusion_wm | hipp_vdc_dil
@@ -273,7 +273,7 @@ def juxtacortical_wm(seg, thickness=3):
     for _, vals in lobar_vals_R.items():
         cortex_vals_R += vals
     cortex_vals = cortex_vals_L + cortex_vals_R
-    cortex = np.isin(seg, cortex_vals)
+    cortex = fisin(seg, cortex_vals)
     cortex_dil = binary_dilation(cortex, iterations=thickness)
     jxtc_L = cortex_dil & wm_L
     jxtc_R = cortex_dil & wm_R
@@ -284,8 +284,8 @@ def periventricular_wm(seg, thickness=2):
     wm_L = (seg == 2)
     wm_R = (seg == 41)
 
-    vent_L = np.isin(seg, [4, 5])
-    vent_R = np.isin(seg, [43, 44])
+    vent_L = fisin(seg, [4, 5])
+    vent_R = fisin(seg, [43, 44])
 
     pvwm_L = binary_dilation(vent_L, iterations=thickness) * wm_L
     pvwm_R = binary_dilation(vent_R, iterations=thickness) * wm_R
@@ -303,13 +303,13 @@ def corpus_cal(seg):
 
     # Exclusion areas for wm
     #   Fornix
-    vent_1_2 = np.isin(seg, [4, 5, 43, 44])
+    vent_1_2 = fisin(seg, [4, 5, 43, 44])
     vent_3_dil6 = binary_dilation(seg == 14, iterations=6)
     vent_123_raw = vent_1_2 + vent_3_dil6
     vent_123 = binary_closing(vent_123_raw, iterations=6)
     #   Cingulum
-    cing_L = binary_closing(np.isin(seg, cingulate_vals_L), iterations=5)
-    cing_R = binary_closing(np.isin(seg, cingulate_vals_R), iterations=5)
+    cing_L = binary_closing(fisin(seg, cingulate_vals_L), iterations=5)
+    cing_R = binary_closing(fisin(seg, cingulate_vals_R), iterations=5)
     cing = cing_L + cing_R
     #   Total
     exclusion_area = vent_123 + cing

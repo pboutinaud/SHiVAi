@@ -6,6 +6,7 @@ from scipy.ndimage import _ni_support
 from scipy.ndimage.morphology import (distance_transform_edt, binary_erosion,
                                       generate_binary_structure
                                       )
+from shivai.utils.misc import fisin
 
 
 # --------------------------------------------------------------------------
@@ -204,9 +205,9 @@ def get_clusters_and_filter_image(image, cluster_filter=0):
         nums_left = [i for i in clusnum if i not in to_remove]
 
         image_f = image.copy()
-        image_f[np.isin(clusters, to_remove)] = 0
+        image_f[fisin(clusters, to_remove)] = 0
         clusters_f = clusters.copy()
-        clusters_f[np.isin(clusters, to_remove)] = 0
+        clusters_f[fisin(clusters, to_remove)] = 0
 
         num_clusters_f = num_clusters - len(to_remove)
         for new_i, old_i in enumerate(nums_left):
@@ -307,13 +308,13 @@ def image_metrics(
             c = cci_GT_f * y_pred_t_f
             uniq = [x for x in np.unique(c) if x > 0]
             TP_in_GT = cci_GT_f.copy()
-            TP_in_GT[np.isin(TP_in_GT, uniq)] = -1
+            TP_in_GT[fisin(TP_in_GT, uniq)] = -1
             TP_in_GT[TP_in_GT > 0] = 0
             TP_in_GT = -1 * TP_in_GT
             c = cci_DL_f * y_true_t_f
             uniq = [x for x in np.unique(c) if x > 0]
             TP_in_DL = cci_DL_f.copy()
-            TP_in_DL[np.isin(TP_in_DL, uniq)] = -1
+            TP_in_DL[fisin(TP_in_DL, uniq)] = -1
             TP_in_DL[TP_in_DL > 0] = 0
             TP_in_DL = -1 * TP_in_DL
             _hd95 = hd95(TP_in_DL, TP_in_GT)

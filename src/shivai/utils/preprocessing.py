@@ -11,7 +11,7 @@ import nibabel as nib
 from scipy import ndimage
 from nibabel.orientations import axcodes2ornt, io_orientation, ornt_transform
 
-from shivai.utils.misc import histogram
+from shivai.utils.misc import histogram, fisin
 
 
 def normalization(img: nib.Nifti1Image,
@@ -142,7 +142,7 @@ def threshold(img: nib.Nifti1Image,
                         'the top of the brain. Check the data for that participant.')
                 cluster_mask = (labeled_clusters == clst[0])
         else:  # only minVol filtering
-            cluster_mask = np.isin(labeled_clusters, clst)
+            cluster_mask = fisin(labeled_clusters, clst)
         array *= cluster_mask
 
     thresholded = nip.Nifti1Image(array.astype('f'), img.affine)

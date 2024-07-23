@@ -5,6 +5,7 @@ Each function requires our Synthseg-derived parcellation
 
 import numpy as np
 from typing import Tuple
+from shivai.utils.misc import fisin
 
 
 def seg_for_pvs(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
@@ -53,7 +54,7 @@ def seg_for_pvs(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
 
     pvs_seg = np.zeros(parc.shape, 'int16')
     for region, vals in seg_vals.items():
-        pvs_seg[np.isin(parc, vals)] = seg_labels[region]
+        pvs_seg[fisin(parc, vals)] = seg_labels[region]
 
     return pvs_seg, seg_labels
 
@@ -97,7 +98,7 @@ def seg_for_wmh(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
     }
     wmh_seg = np.zeros(parc.shape, 'int16')
     for region, vals in seg_vals.items():
-        wmh_seg[np.isin(parc, vals)] = seg_labels[region]
+        wmh_seg[fisin(parc, vals)] = seg_labels[region]
     return wmh_seg, seg_labels
 
 
@@ -192,5 +193,5 @@ def seg_from_mars(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
     }
     cmb_seg = np.zeros(parc.shape, 'int16')
     for region, vals in seg_vals.items():
-        cmb_seg[np.isin(parc, vals)] = seg_labels[region]
+        cmb_seg[fisin(parc, vals)] = seg_labels[region]
     return cmb_seg, seg_labels

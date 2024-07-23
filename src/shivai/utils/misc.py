@@ -16,6 +16,7 @@ from bokeh.embed import file_html
 from bokeh.plotting import figure
 from bokeh.resources import CDN
 from jinja2 import Template
+from functools import reduce
 
 
 def md5(fname):
@@ -204,3 +205,12 @@ def cluster_registration(input_im: nib.Nifti1Image, ref_im: nib.Nifti1Image, tra
 
     clust_reg_im = nib.Nifti1Image(clust_reg_vol, affine=ref_affine)
     return clust_reg_im
+
+
+def fisin(arr, vals):
+    '''
+    Fast np.isin function using reccursive bitwise_or function 
+    (here represented with the lambda function, because slightly faster(?))
+    '''
+    arrl = [arr == val for val in vals]
+    return reduce(lambda x, y: x | y, arrl)
