@@ -260,5 +260,8 @@ def fisin(arr, vals):
     Fast np.isin function using reccursive bitwise_or function 
     (here represented with the lambda function, because slightly faster(?))
     '''
-    arrl = [arr == val for val in vals]
+    try:
+        arrl = [arr == val for val in vals]
+    except TypeError:  # Typically if there is only 1 value
+        arrl = [arr == vals]
     return reduce(lambda x, y: x | y, arrl)
