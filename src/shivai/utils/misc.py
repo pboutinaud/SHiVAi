@@ -7,8 +7,6 @@ import os
 import pathlib
 import json
 
-from shivai.utils.stats import get_mode
-from shivai.utils.metrics import get_clusters_and_filter_image
 
 import numpy as np
 import nibabel as nib
@@ -17,6 +15,8 @@ from bokeh.plotting import figure
 from bokeh.resources import CDN
 from jinja2 import Template
 from functools import reduce
+
+from skimage import measure
 
 
 def md5(fname):
@@ -101,6 +101,28 @@ def file_selector(inArg, fileNum):
         return inArg
 
 
+def get_mode(hist: np.array,
+             edges: np.array,
+             bins: int):
+    """Get most frequent value in an numpy histogram composed by
+    frequence (hist) and values (edges)
+
+    Args:
+        hist (np.array): frequence of values
+        edges (np.array): different values possible in histogram
+        bins (int): number of batchs
+
+    Returns:
+        mode (int): most frequent value
+    """
+    inf = int(0.2 * bins)
+    sup = int(0.9 * bins)
+    index = np.where(hist[inf:sup] == hist[inf:sup].max())
+    mode = edges[inf+index[0]][0]
+
+    return mode
+
+
 def histogram(array, percentile, bins):
     """Create an histogram with a numpy array. Retrieves the largest value in
     the first axis of of the histogram and returns the corresponding value on
@@ -146,6 +168,32 @@ def histogram(array, percentile, bins):
     template_hist = tm.render(pa=html, percentile=percentile, mode=mode)
 
     return template_hist, mode
+
+
+def get_clusters_and_filter_image(image, cluster_filter=0):
+    """ 
+    Compute clusters and filter out those of size "cluster_filter" and smaller
+
+    """
+    clusters, num_clusters = measure.label(
+        image, return_num=True)
+    if cluster_filter:
+        clusnum, counts = np.unique(clusters[clusters > 0], return_counts=True)
+        to_remove = clusnum[counts <= cluster_filter]
+        nums_left = [i for i in clusnum if i not in to_remove]
+
+        image_f = image.copy()
+        image_f[fisin(clusters, to_remove)] = 0
+        clusters_f = clusters.copy()
+        clusters_f[fisin(clusters, to_remove)] = 0
+
+        num_clusters_f = num_clusters - len(to_remove)
+        for new_i, old_i in enumerate(nums_left):
+            new_i += 1  # because starts at 0
+            clusters_f[clusters == old_i] = new_i
+    else:  # filtered clusters are the same
+        image_f, clusters_f, num_clusters_f = image, clusters, num_clusters
+    return image_f, clusters, num_clusters, clusters_f, num_clusters_f
 
 
 def label_clusters(pred_vol, brain_seg_vol, threshold, cluster_filter):

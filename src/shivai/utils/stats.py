@@ -7,29 +7,7 @@ import matplotlib.pyplot as plt
 import os
 from scipy.spatial.transform import Rotation
 from scipy.io import loadmat
-from shivai.utils.misc import fisin
-
-
-def get_mode(hist: np.array,
-             edges: np.array,
-             bins: int):
-    """Get most frequent value in an numpy histogram composed by
-    frequence (hist) and values (edges)
-
-    Args:
-        hist (np.array): frequence of values
-        edges (np.array): different values possible in histogram
-        bins (int): number of batchs
-
-    Returns:
-        mode (int): most frequent value
-    """
-    inf = int(0.2 * bins)
-    sup = int(0.9 * bins)
-    index = np.where(hist[inf:sup] == hist[inf:sup].max())
-    mode = edges[inf+index[0]][0]
-
-    return mode
+from shivai.utils.misc import fisin, get_mode
 
 
 def set_percentile(list_node: list,
@@ -276,7 +254,6 @@ def get_mask_regions(img: nb.Nifti1Image,
     """
 
     import nibabel as nb
-    import numpy as np
 
     pred_img_array = img.get_fdata()
     mask = fisin(pred_img_array, list_labels_regions).astype(int)

@@ -1,12 +1,11 @@
 import gc
 import numpy as np
 # from joblib import Parallel, delayed
-from skimage import measure
 from scipy.ndimage import _ni_support
 from scipy.ndimage.morphology import (distance_transform_edt, binary_erosion,
                                       generate_binary_structure
                                       )
-from shivai.utils.misc import fisin
+from shivai.utils.misc import fisin, get_clusters_and_filter_image
 
 
 # --------------------------------------------------------------------------
@@ -189,33 +188,6 @@ def image_metrics_proxy(
     }
 
     return [v, c]
-
-
-# --------------------------------------------------------------------------
-def get_clusters_and_filter_image(image, cluster_filter=0):
-    """ 
-    Compute clusters and filter out those of size "cluster_filter" and smaller
-
-    """
-    clusters, num_clusters = measure.label(
-        image, return_num=True)
-    if cluster_filter:
-        clusnum, counts = np.unique(clusters[clusters > 0], return_counts=True)
-        to_remove = clusnum[counts <= cluster_filter]
-        nums_left = [i for i in clusnum if i not in to_remove]
-
-        image_f = image.copy()
-        image_f[fisin(clusters, to_remove)] = 0
-        clusters_f = clusters.copy()
-        clusters_f[fisin(clusters, to_remove)] = 0
-
-        num_clusters_f = num_clusters - len(to_remove)
-        for new_i, old_i in enumerate(nums_left):
-            new_i += 1  # because starts at 0
-            clusters_f[clusters == old_i] = new_i
-    else:  # filtered clusters are the same
-        image_f, clusters_f, num_clusters_f = image, clusters, num_clusters
-    return image_f, clusters, num_clusters, clusters_f, num_clusters_f
 
 
 # --------------------------------------------------------------------------

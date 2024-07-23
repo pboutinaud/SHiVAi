@@ -11,7 +11,7 @@ from scipy.ndimage import (
     gaussian_filter1d,
     distance_transform_edt
 )
-from shivai.utils.stats import get_mode
+from shivai.utils.misc import get_mode
 
 
 def overlay_brainmask(ref_vol, brainmask_vol, save_fig, nb_of_cols=6, orient='XYZ', alpha=0.5):
