@@ -60,9 +60,9 @@ def update_wf_grabber(wf, acquisitions, datatype, kwargs):
         if 'seg' in in_files_dict:
             datagrabber.inputs.seg = in_files_dict['seg']
         if 'synthseg_vol' in in_files_dict:
-            datagrabber.inputs.seg = in_files_dict['synthseg_vol']
+            datagrabber.inputs.synthseg_vol = in_files_dict['synthseg_vol']
         if 'synthseg_qc' in in_files_dict:
-            datagrabber.inputs.seg = in_files_dict['synthseg_qc']
+            datagrabber.inputs.synthseg_qc = in_files_dict['synthseg_qc']
 
     if datatype == 'dicom':
         graft_dcm2nii(wf, **kwargs)
