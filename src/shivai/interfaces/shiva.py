@@ -367,6 +367,13 @@ class Shivai_InputSpec(CommandLineInputSpec):
                           mandatory=True)
 
     prediction = traits.Enum("PVS", "PVS2", "WMH", "CMB", "LAC", "all",
+                             "all PVS",
+                             "PVS WMH", "PVS CMB", "PVS LAC",
+                             "PVS WMH CMB", "PVS WMH LAC",
+                             "WMH CMB", "WMH LAC",
+                             "CMB LAC",
+                             "PVS2 WMH", "PVS2 CMB", "PVS2 LAC",
+                             "PVS2 WMH CMB", "PVS2 WMH LAC",
                              argstr="--prediction %s",
                              desc='Prediction to run ("PVS", "PVS2", "WMH", "CMB", "LAC", "all")',
                              usedefault=True,

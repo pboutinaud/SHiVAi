@@ -92,6 +92,7 @@ def genWorkflow(**kwargs) -> Workflow:
     shivai_node.inputs.out_dir = workflow.base_dir
     shivai_node.inputs.config = kwargs['SHIVAI_CONFIG']
     shivai_node.inputs.input_type = 'swomed'
+    # shivai_node.inputs.brain_seg = 'synthseg'
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
     workflow.connect(datagrabber, 't1_image', dcm2nii_t1_node, 'source_dir')
