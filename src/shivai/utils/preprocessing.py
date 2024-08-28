@@ -16,7 +16,8 @@ from shivai.utils.misc import histogram, fisin
 
 def normalization(img: nib.Nifti1Image,
                   percentile: int,
-                  brain_mask: nib.Nifti1Image = None) -> nib.Nifti1Image:
+                  brain_mask: nib.Nifti1Image = None,
+                  inverse: bool = False) -> nib.Nifti1Image:
     """We remove values above the 99th percentile to avoid hot spots,
        set values below 0 to 0, set values above 1.3 to 1.3 and normalize
        the data between 0 and 1.
@@ -24,12 +25,17 @@ def normalization(img: nib.Nifti1Image,
        Args:
            img (nib.Nifti1Image): image to process
            percentile (int): value to threshold above this percentile
+           brain_mask (nib.Nifti1Image): Brain mask
+           inverse (bool): Wether to "inverse" the resulting image (1-val for all voxels in the brain). Requires a brain mask.
 
        Returns:
         nib.Nifti1Image: normalized image
     """
     if not isinstance(img, nib.nifti1.Nifti1Image):
         raise TypeError("Only Nifti images are supported")
+
+    if inverse and not brain_mask:
+        raise ValueError('No brain mask was provided while the "inverse" option was selected.')
 
     # We suppress values above the 99th percentile to avoid hot spots
     array = img.get_fdata()
@@ -50,6 +56,10 @@ def normalization(img: nib.Nifti1Image,
 
     # We normalize the data between 0 and 1
     array_normalized = array / 1.3
+
+    # Inversion (usually for T2w) if needed
+    if inverse:
+        array_normalized[brain_mask_array.astype(bool)] = 1 - array_normalized[brain_mask_array.astype(bool)]
 
     # Normalization information
     report, mode = histogram(array_normalized, percentile, bins=64)

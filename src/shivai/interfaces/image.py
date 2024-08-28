@@ -272,12 +272,19 @@ class IntensityNormalizationInputSpec(BaseInterfaceInputSpec):
     input_image = traits.File(exists=True, desc='NIfTI image input.',
                               mandatory=True)
 
-    percentile = traits.Float(exists=True, desc='value to threshold above this'
+    percentile = traits.Float(exists=True, desc='value to threshold above this '
                               'percentile',
                               mandatory=True)
 
-    brain_mask = traits.File(desc='brain_mask to adapt normalization to'
+    brain_mask = traits.File(desc='brain_mask to adapt normalization to '
                              'the greatest number', mandatory=False)
+
+    inverse = traits.Bool(False,
+                          desc='If set to True, the normalized value of the voxels in '
+                               'the brain will be "inversed" (1-val)',
+                          mandatory=False,
+                          usedefault=True
+                          )
 
 
 class IntensityNormalizationOutputSpec(TraitedSpec):
@@ -329,7 +336,8 @@ class Normalization(BaseInterface):
             brain_mask = self.inputs.brain_mask
         img_normalized, report, mode = normalization(img,
                                                      self.inputs.percentile,
-                                                     brain_mask)
+                                                     brain_mask,
+                                                     self.inputs.inverse)
 
         # Save it for later use in _list_outputs
         setattr(self, 'mode', mode)
@@ -338,7 +346,11 @@ class Normalization(BaseInterface):
 
         _, base, _ = split_filename(fname)
         setattr(self, 'report', os.path.abspath('report.html'))
-        nib.save(img_normalized, base + '_img_normalized.nii.gz')
+        if self.inputs.inverse:
+            self.outname = base + '_img_normalized_inv.nii.gz'
+        else:
+            self.outname = base + '_img_normalized.nii.gz'
+        nib.save(img_normalized, self.outname)
 
         return runtime
 
@@ -349,9 +361,7 @@ class Normalization(BaseInterface):
         fname = self.inputs.input_image
         _, base, _ = split_filename(fname)
         outputs['mode'] = getattr(self, 'mode')
-        outputs["intensity_normalized"] = os.path.abspath(base +
-                                                          '_img_normalized.nii.gz'
-                                                          )
+        outputs["intensity_normalized"] = os.path.abspath(self.outname)
         return outputs
 
 
