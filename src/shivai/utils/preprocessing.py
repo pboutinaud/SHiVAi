@@ -246,27 +246,28 @@ def crop(roi_mask: nib.Nifti1Image,
     print(f"span: {span}")
     print(f"offset: {offset_ijk}")
 
-    vec = np.sum(roi_mask.get_fdata().astype(bool), axis=(0, 1))
-    top_mask_slice_index = np.where(np.squeeze(vec != 0))[0].tolist()[-1]
+    if roi_mask:
+        vec = np.sum(roi_mask.get_fdata().astype(bool), axis=(0, 1))
+        top_mask_slice_index = np.where(np.squeeze(vec != 0))[0].tolist()[-1]
 
-    if bbox2[2] <= top_mask_slice_index:
+        if bbox2[2] <= top_mask_slice_index:
 
-        # we are too low, we nned to move the crop box up
-        # (because brain mask is wrong and includes stuff in the neck and shoulders)
+            # we are too low, we nned to move the crop box up
+            # (because brain mask is wrong and includes stuff in the neck and shoulders)
 
-        delta = top_mask_slice_index - bbox2[2] + safety_marger
-        bbox1[2] = bbox1[2] + delta
-        bbox2[2] = bbox2[2] + delta
-        cdg_ijk[2] = cdg_ijk[2] + delta
-        print(f"reworked bbox1: {bbox1}")
-        print(f"reworked bbox2: {bbox2}")
+            delta = top_mask_slice_index - bbox2[2] + safety_marger
+            bbox1[2] = bbox1[2] + delta
+            bbox2[2] = bbox2[2] + delta
+            cdg_ijk[2] = cdg_ijk[2] + delta
+            print(f"reworked bbox1: {bbox1}")
+            print(f"reworked bbox2: {bbox2}")
 
-    array_out[offset_ijk[0]:offset_ijk[0] + span[0],
-              offset_ijk[1]:offset_ijk[1] + span[1],
-              offset_ijk[2]:offset_ijk[2] + span[2]] = apply_to.get_fdata()[
-        bbox1[0]:bbox2[0],
-        bbox1[1]:bbox2[1],
-        bbox1[2]:bbox2[2]]
+        array_out[offset_ijk[0]:offset_ijk[0] + span[0],
+                  offset_ijk[1]:offset_ijk[1] + span[1],
+                  offset_ijk[2]:offset_ijk[2] + span[2]] = apply_to.get_fdata()[
+            bbox1[0]:bbox2[0],
+            bbox1[1]:bbox2[1],
+            bbox1[2]:bbox2[2]]
 
     # We correct the coordinates, so first we have to convert ijk to xyz for
     # half block size and centroid
