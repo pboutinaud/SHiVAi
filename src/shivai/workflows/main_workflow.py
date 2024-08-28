@@ -1,7 +1,6 @@
 """
 Main workflow generator, with conditional piping (wf shape depends on the prediction types)
 """
-from shivai.interfaces.shiva import Predict, PredictSingularity
 from shivai.utils.misc import set_wf_shapers  # , as_list
 from shivai.workflows.post_processing import genWorkflow as genWorkflowPost
 from shivai.workflows.preprocessing import genWorkflow as genWorkflowPreproc
@@ -72,6 +71,7 @@ def generate_main_wf(**kwargs) -> Workflow:
     """
     Generate a full processing workflow, with prepoc, pred, and postproc.
     """
+    # %% Initializing the general data
     # Set the booleans to shape the main workflow
     with_t1, with_flair, with_swi = set_wf_shapers(kwargs['PREDICTION'])
 
@@ -99,6 +99,7 @@ def generate_main_wf(**kwargs) -> Workflow:
     elif with_swi and not with_t1:
         wf_name = 'shiva_swi_preprocessing'
 
+    # %% Preprocessing
     # Initialise the proper preproc depending on the input images and the type of preproc, and update its datagrabber
     acquisitions = []
     file_type = kwargs['PREP_SETTINGS']['file_type']
@@ -118,9 +119,6 @@ def generate_main_wf(**kwargs) -> Workflow:
         elif 'synthseg' in kwargs['BRAIN_SEG']:
             if kwargs['PREP_SETTINGS']['input_type'] == 'swomed':
                 wf_preproc = genWorkflow_preproc_synthseg_swomed(**kwargs, wf_name=wf_name)
-                # seg_cleaning = wf_preproc.get_node('seg_cleaning')
-                # datagrabber = wf_preproc.get_node('datagrabber')
-                # wf_preproc.connect(datagrabber, 'seg', seg_cleaning, 'input_seg')
             else:
                 if kwargs['BRAIN_SEG'] == 'synthseg_precomp':
                     wf_preproc = genWorkflow_preproc_synthseg_precomp(**kwargs, wf_name=wf_name)
@@ -180,7 +178,7 @@ def generate_main_wf(**kwargs) -> Workflow:
     # Updating the datagrabber with all this info
     update_wf_grabber(wf_preproc, acquisitions, file_type, kwargs)
 
-    # Then initialise the post proc and add the nodes to the main wf
+    # %% Then initialise the post proc and add the nodes to the main wf
     wf_post = genWorkflowPost(**kwargs)
     main_wf.add_nodes([wf_preproc, wf_post])
 
@@ -210,7 +208,7 @@ def generate_main_wf(**kwargs) -> Workflow:
     if prev_qc is not None:
         qc_joiner.inputs.population_csv_file = prev_qc
 
-    # Then prediction workflow and all its connections, and other prediction-specific connections
+    # %% Then prediction workflow and all its connections, and other prediction-specific connections
     segmentation_wf = genWorkflow_prediction(**kwargs)
     for pred in kwargs['PREDICTION']:
         pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers([pred])
@@ -276,7 +274,7 @@ def generate_main_wf(**kwargs) -> Workflow:
     # The workflow graph
     wf_graph = main_wf.write_graph(graph2use='colored', dotfilename='graph.svg', format='svg')
 
-    # Finally the data sinks
+    # %% Finally the data sinks
     # Initializing the data sinks
     sink_node_subjects = Node(DataSink_CSV_and_PDF_safe(), name='sink_node_subjects')
     sink_node_subjects.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
@@ -304,8 +302,6 @@ def generate_main_wf(**kwargs) -> Workflow:
     if file_type == 'dicom':
         main_wf.connect(wf_preproc, 'dicom2nifti_img1.converted_files', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@converted')
         main_wf.connect(wf_preproc, 'dicom2nifti_img1.bids', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@converted_bids')
-    # if kwargs['BRAIN_SEG'] is None:
-    #     main_wf.connect(wf_preproc, 'mask_to_img1.resampled_image', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@brain_mask_raw_space')
     if 'synthseg' in kwargs['BRAIN_SEG']:
         main_wf.connect(wf_preproc, 'seg_cleaning.ouput_seg', sink_node_subjects, 'shiva_preproc.synthseg')
         main_wf.connect(wf_preproc, 'seg_cleaning.sunk_islands', sink_node_subjects, 'shiva_preproc.synthseg.@removed')
