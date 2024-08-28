@@ -285,8 +285,6 @@ def generate_main_wf(**kwargs) -> Workflow:
         ('_resampled_defaced_cropped_img_normalized', '_defaced_cropped_intensity_normed'),
         ('flair_to_t1__Warped_defaced_img_normalized', 'flair_to_t1_defaced_cropped_intensity_normed')
     ]
-    main_wf.connect(wf_post, 'summary_report.pdf_report', sink_node_subjects, 'report')
-
     sink_node_all = Node(DataSink_CSV_and_PDF_safe(infields=['wf_graph']), name='sink_node_all')
     sink_node_all.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
     sink_node_all.inputs.container = 'results_summary'
@@ -335,7 +333,20 @@ def generate_main_wf(**kwargs) -> Workflow:
             main_wf.connect(wf_preproc, 'dicom2nifti_img3.bids', sink_node_subjects, f'shiva_preproc.swi_preproc.@converted_bids')
     main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_metrics.csv_qc_metrics', sink_node_subjects, 'shiva_preproc.qc_metrics')
 
+    main_wf.connect(qc_joiner, 'qc_metrics_csv', sink_node_all, 'preproc_qc')
+    main_wf.connect(qc_joiner, 'bad_qc_subs', sink_node_all, 'preproc_qc.@bad_qc_subs')
+    main_wf.connect(qc_joiner, 'qc_plot_svg', sink_node_all, 'preproc_qc.@qc_plot_svg')
+    if prev_qc is not None:
+        main_wf.connect(qc_joiner, 'csv_pop_file', sink_node_all, 'preproc_qc.@preproc_qc_pop')
+        main_wf.connect(qc_joiner, 'pop_bad_subjects_file', sink_node_all, 'preproc_qc.@pop_bad_subjects')
+    sink_node_all.inputs.wf_graph = wf_graph
+
+    if kwargs['PREP_SETTINGS']['preproc_only']:
+        return main_wf  # ENDPOINT if just running the preprocessing
+
     # Pred and postproc
+    main_wf.connect(wf_post, 'summary_report.pdf_report', sink_node_subjects, 'report')
+
     for pred in kwargs['PREDICTION']:
         pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers([pred])
         if pred == 'PVS2':
@@ -362,15 +373,7 @@ def generate_main_wf(**kwargs) -> Workflow:
             # main_wf.connect(wf_post, 'swi_clust_to_t1.output_image', sink_node_subjects, f'segmentations.{lpred}_segmentation_t1-space')  # TODO at some point
             if 'synthseg' in kwargs['BRAIN_SEG']:
                 main_wf.connect(wf_post, 'seg_to_swi.output_image', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@custom_parc')
-
-    main_wf.connect(qc_joiner, 'qc_metrics_csv', sink_node_all, 'preproc_qc')
-    main_wf.connect(qc_joiner, 'bad_qc_subs', sink_node_all, 'preproc_qc.@bad_qc_subs')
-    main_wf.connect(qc_joiner, 'qc_plot_svg', sink_node_all, 'preproc_qc.@qc_plot_svg')
-    if prev_qc is not None:
-        main_wf.connect(qc_joiner, 'csv_pop_file', sink_node_all, 'preproc_qc.@preproc_qc_pop')
-        main_wf.connect(qc_joiner, 'pop_bad_subjects_file', sink_node_all, 'preproc_qc.@pop_bad_subjects')
-    sink_node_all.inputs.wf_graph = wf_graph
-    return main_wf
+    return main_wf  # ENDPOINT with everything
 
 
 def generate_main_wf_grab_preproc(**kwargs) -> Workflow:

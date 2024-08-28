@@ -145,6 +145,12 @@ def shivaParser():
                               '- FSL style .xml file\n'
                               '- FreeSurfer style .txt file'))
 
+    parser.add_argument('--preproc_only',
+                        action='store_true',
+                        help=('If used, only the preprocessing steps will be run (usefull for training new data for example).\n'
+                              'This option still needs the "--prediction" argument to know what type of input will be given\n'
+                              'for the preprocessing.'))
+
     parser.add_argument('--swomed_parc',  # Hidden option overriding 'brain_seg', used in SWOMed to give the path to the synthseg parcelation
                         required=False,
                         help=argparse.SUPPRESS)
