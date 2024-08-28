@@ -243,7 +243,7 @@ def crop(roi_mask: nib.Nifti1Image,
     # the highest ijk voxel of the bounding box
     bbox2 = halfs + cdg_ijk
 
-    array_out = np.empty(dimensions, dtype=apply_to.header.get_data_dtype())
+    array_out = np.zeros(dimensions, dtype=apply_to.header.get_data_dtype())
     print(f"bbox1: {bbox1}")
     print(f"bbox2: {bbox2}")
     print(f"cdg_ijk: {cdg_ijk}")
@@ -272,12 +272,12 @@ def crop(roi_mask: nib.Nifti1Image,
             print(f"reworked bbox1: {bbox1}")
             print(f"reworked bbox2: {bbox2}")
 
-        array_out[offset_ijk[0]:offset_ijk[0] + span[0],
-                  offset_ijk[1]:offset_ijk[1] + span[1],
-                  offset_ijk[2]:offset_ijk[2] + span[2]] = apply_to.get_fdata()[
-            bbox1[0]:bbox2[0],
-            bbox1[1]:bbox2[1],
-            bbox1[2]:bbox2[2]]
+    array_out[offset_ijk[0]:offset_ijk[0] + span[0],
+              offset_ijk[1]:offset_ijk[1] + span[1],
+              offset_ijk[2]:offset_ijk[2] + span[2]] = apply_to.get_fdata()[
+        bbox1[0]:bbox2[0],
+        bbox1[1]:bbox2[1],
+        bbox1[2]:bbox2[2]]
 
     # We correct the coordinates, so first we have to convert ijk to xyz for
     # half block size and centroid
