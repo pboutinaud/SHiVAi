@@ -33,14 +33,21 @@ def singParser():
     parser.add_argument("-db", "--db_name",
                         help='Name of the data-base the input scans originate from. It is only to add this detail in the report')
 
-    parser.add_argument("-pr", '--preproc_results',
-                        type=str,
-                        help=(
-                            'Path to the results folder of a previous shiva run, containing all the preprocessed data.\n'
-                            'Requires that all the subjects from the current subject list (as per the content of --in or --sub_list) '
-                            'are available in the results folder. If you have subjects with missing preprocessed data, you will '
-                            'need to run their processing separatly.'
-                        ))
+    preproc_args = parser.add_mutually_exclusive_group()
+    preproc_args.add_argument('--preproc_only',
+                              action='store_true',
+                              help=('If used, only the preprocessing steps will be run (usefull for training new data for example).\n'
+                                    'This option still needs the "--prediction" argument to know what type of input will be given\n'
+                                    'for the preprocessing.'))
+
+    preproc_args.add_argument("-pr", '--preproc_results',
+                              type=str,
+                              help=(
+                                  'Path to the results folder of a previous shiva run, containing all the preprocessed data.\n'
+                                  'Requires that all the subjects from the current subject list (as per the content of --in or --sub_list) '
+                                  'are available in the results folder. If you have subjects with missing preprocessed data, you will '
+                                  'need to run their processing separatly.'
+                              ))
 
     parser.add_argument("-c", "--config",
                         help='yaml file for configuration of workflow',
@@ -275,6 +282,9 @@ def main():
     opt_args2_names = ['db_name',
                        'replace_flair']
     opt_args2 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args2_names if getattr(args, arg_name)]
+    if args.preproc_only:
+        opt_args2.append('--preproc_only')
+
     preproc = None
     if args.preproc_results:
         if str(args.out_dir) in args.preproc_results:
