@@ -63,7 +63,6 @@ TF = ["tensorflow==2.13.*"]
 
 [project.scripts]
 shiva = "shivai.scripts.shiva:main"
-shiva_preproc = "shivai.scripts.preprocess:main"
 shiva_predict = "shivai.scripts.predict:main"
 shiva_contained = "shivai.scripts.run_shiva:main"
 shiva_prep_json = "shivai.scripts.prep_json:main"
