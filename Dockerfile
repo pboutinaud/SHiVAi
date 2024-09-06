@@ -33,7 +33,8 @@ RUN python -m pip install .
 RUN pip cache purge
 
 WORKDIR /root
+RUN apt clean
 RUN rm -rf /usr/local/src/shivai
 RUN mkdir -p /mnt/model
 
-CMD ["shiva", "--containerized_all"]
+ENTRYPOINT ["shiva", "--containerized_all"]
