@@ -119,13 +119,28 @@ def main():
     with open(path) as f:
         meta_data = json.load(f)
 
-    for i in meta_data['files']:
-        predictor_files.append(os.path.join(args.model, i['name']))
+    for mfile in meta_data['files']:
+        mdirname = os.path.basename(args.model)
+        mfilename = mfile['name']
+        if mfilename[:len(mdirname)] == mdirname:  # model dir is in both args.model and mfile['name']
+            mfilename = os.path.join(*mfilename.split(os.sep)[1:])
+        model_file = os.path.join(args.model, mfilename)
+        predictor_files.append(model_file)
 
     if len(predictor_files) == 0:
         raise FileNotFoundError('Found no model files, '
                                 'please supply or mount a folder '
                                 'containing h5 files with model weights.')
+    notfound = []
+    for model_file in predictor_files:
+        if not os.path.exists(model_file):
+            notfound.append(model_file)
+    if notfound:
+        raise FileNotFoundError('Some (or all) model files/folders were missing.\n'
+                                'Please supply or mount a folder '
+                                'containing the model files/folders with model weights.\n'
+                                'Current problematic paths:\n\t' +
+                                '\n\t'.join(notfound))
 
     modalities = []
     for modality in meta_data['modalities']:
@@ -136,7 +151,7 @@ def main():
         if args.swi and "swi" == modality:
             modalities.append(args.swi)
         if args.t2 and "t2" == modality:
-            modalities.append(args.swi)
+            modalities.append(args.t2)
     if args.t1 and "t1" not in meta_data['modalities']:
         raise ValueError("ERROR : the prediction task doesn't require t1 modality according to json descriptor file metadata")
     if args.flair and "flair" not in meta_data['modalities']:
@@ -207,6 +222,7 @@ def main():
             images,
             batch_size=1
         )
+        # prediction = model(images, training=False)  # slightly (?) faster alternative
         if brainmask is not None:
             prediction *= brainmask
         predictions.append(prediction)
