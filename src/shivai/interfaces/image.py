@@ -22,8 +22,6 @@ import nibabel as nib
 from nibabel.orientations import axcodes2ornt, io_orientation, ornt_transform
 import numpy as np
 import csv
-import matplotlib.pyplot as plt
-import pandas as pd
 import json
 from scipy import ndimage
 from scipy.io import loadmat
@@ -200,6 +198,10 @@ class Resample_from_to_InputSpec(BaseInterfaceInputSpec):
                           usedefault=True,
                           desc='Output filename')
 
+    out_suffix = traits.Str(mandatory=False,
+                            desc=('If set, uses the moving image name and add the given suffix to create the '
+                                  'output filename. This will override the "out_name" input of the node.'))
+
     corrected_affine = traits.Any(desc=('Affine matrix to use instead of the input affine, if defined, '
                                         'as it means that the original space had a bad affine (e.g. img1 '
                                         'needed a correction before its conformation)'))
@@ -252,17 +254,22 @@ class Resample_from_to(BaseInterface):
             in_img.set_qform(affine=simplified_affine_centered)
         in_img = nib.funcs.squeeze_image(in_img)
         ref_img = nib.funcs.squeeze_image(nib.load(self.inputs.fixed_image))
+        if isdefined(self.inputs.out_suffix):
+            basename = os.path.basename(self.inputs.moving_image).split('.nii')[0]
+            self.outname = basename + self.inputs.out_suffix + '.nii.gz'
+        else:
+            self.outname = self.inputs.out_name
         resampled = nip.resample_from_to(in_img,
                                          ref_img,
                                          self.inputs.spline_order)
 
-        nib.save(resampled, self.inputs.out_name)
+        nib.save(resampled, self.outname)
         return runtime
 
     def _list_outputs(self):
         """Just get the absolute path to the scheme file name."""
         outputs = self.output_spec().trait_get()
-        outputs['resampled_image'] = os.path.abspath(self.inputs.out_name)
+        outputs['resampled_image'] = os.path.abspath(self.outname)
         return outputs
 
 
