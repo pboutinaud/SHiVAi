@@ -23,7 +23,7 @@ RUN rm dcm2niix_lnx.zip
 # Installing shivai
 COPY src /usr/local/src/shivai/src
 COPY tests /usr/local/src/shivai/tests
-ADD pyproject.toml /usr/local/src/shivai/
+COPY pyproject.toml /usr/local/src/shivai/
 
 WORKDIR  /usr/local/src/shivai
 RUN find . -type f -print0 | xargs -0 dos2unix
