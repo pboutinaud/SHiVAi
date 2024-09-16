@@ -234,7 +234,7 @@ class Predict_Multi(BaseInterface):
             gc.collect()
             print(f"Loading model file: {mfile}")
             model = tf.keras.models.load_model(
-                model_files,
+                mfile,
                 compile=False,
                 custom_objects={"tf": tf})
             for i in range(step):
@@ -261,7 +261,7 @@ class Predict_Multi(BaseInterface):
         # Taking each fold's results and averaging them
         print('Averaging the results of each model (done for each subject)...')
         for sub in sub_list:
-            pred_list = [nib.load(f'tmp_{sub}_fold{fold}.nii.gz', dtype='float32').get_fdata() for fold in range(len(model_files))]
+            pred_list = [nib.load(f'tmp_{sub}_fold{fold}.nii.gz').get_fdata(dtype='float32') for fold in range(len(model_files))]
             mean_pred = np.mean(pred_list, axis=0)
             mean_pred_im = nib.Nifti1Image(mean_pred.astype('float32'),  affine=affine_dict[sub])
             nib.save(mean_pred_im, f'{sub}_segmentation.nii.gz')
