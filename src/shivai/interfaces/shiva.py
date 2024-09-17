@@ -112,7 +112,7 @@ class Predict(CommandLine):
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
-        outputs["segmentation"] = os.path.abspath(os.path.split(str(self.inputs.out_filename))[1])
+        outputs["segmentation"] = os.path.abspath(os.path.basename(str(self.inputs.out_filename)))
         return outputs
 
 
@@ -127,7 +127,7 @@ class PredictSingularity(SingularityCommandLine):
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
-        outputs["segmentation"] = os.path.abspath(os.path.split(str(self.inputs.out_filename))[1])
+        outputs["segmentation"] = os.path.abspath(os.path.basename(str(self.inputs.out_filename)))
         return outputs
 
 
@@ -135,15 +135,21 @@ class Predict_Multi_InputSpec(BaseInterfaceInputSpec):
     """ Input parameter for the Predict_Multi interface """
     primary_image_file = traits.Dict(key_trait=traits.String,
                                      value_trait=traits.File,
-                                     desc=('Dict conaining {sub_id: file_path} for all subjects, for the '
+                                     desc=('Dict containing {sub_id: file_path} for all subjects, for the '
                                            'main aquisition image file.'),
                                      mandatory=True)
 
     second_image_file = traits.Dict(key_trait=traits.String,
                                     value_trait=traits.File,
-                                    desc=('Dict conaining {sub_id: file_path} for all subjects, for the '
+                                    desc=('Dict containing {sub_id: file_path} for all subjects, for the '
                                           'secondary aquisition image file in case of multi-modal prediction.'),
                                     mandatory=False)
+
+    brainmask_files = traits.Dict(key_trait=traits.String,
+                                  value_trait=traits.File,
+                                  desc=('Dict containing {sub_id: file_path} for all subjects, for the '
+                                        'brain mask used to filter-out out-of-brain segmentations.'),
+                                  mandatory=False)
 
     model_dir = traits.Directory(exists=True,
                                  desc='Folder containing the AI models',
@@ -157,14 +163,25 @@ class Predict_Multi_InputSpec(BaseInterfaceInputSpec):
                             desc=('List if the type of aquisition (lower case) for primary_image_file'
                                   'and second_image_file, in order.'))
 
-    batch_size = traits.Int(10,
+    batch_size = traits.Int(20,
                             desc='Number of images to load at the same time in memmory with nib.load',
                             usedefault=True)
 
     input_size = traits.Tuple(traits.Int, traits.Int, traits.Int,
                               default=(160, 214, 176),
-                              usedefault=True,
+                              usedefault=True,  # "default" and "usedefault" arguments do nothing. To be set in the wf
                               desc='Expected image size input for the models')
+
+    foutname = traits.Str('{sub}_segmentation.nii.gz',
+                          desc='Output name to be formatted with the subject name "sub"',
+                          usedefault=True)
+
+
+class Predict_Multi_SingularityInputSpec(SingularityInputSpec, Predict_Multi_InputSpec):
+    """PredictVRS input specification (singularity mixin).
+
+    Inherits from Singularity command line fields.
+    """
 
 
 class Predict_Multi_OutputSpec(TraitedSpec):
@@ -263,17 +280,36 @@ class Predict_Multi(BaseInterface):
         for sub in sub_list:
             pred_list = [nib.load(f'tmp_{sub}_fold{fold}.nii.gz').get_fdata(dtype='float32') for fold in range(len(model_files))]
             mean_pred = np.mean(pred_list, axis=0)
+            if isdefined(self.inputs.brainmask_files):
+                brainmask = nib.load(self.inputs.brainmask_files[sub]).get_fdata().astype(bool)
+                mean_pred *= brainmask
             mean_pred_im = nib.Nifti1Image(mean_pred.astype('float32'),  affine=affine_dict[sub])
-            nib.save(mean_pred_im, f'{sub}_segmentation.nii.gz')
+            outname = self.inputs.foutname.format(sub=sub)
+            nib.save(mean_pred_im, outname)
             for fold in range(len(model_files)):
                 os.remove(f'tmp_{sub}_fold{fold}.nii.gz')
-            self.output_dict[sub] = os.path.abspath(f'{sub}_segmentation.nii.gz')
+            self.output_dict[sub] = os.path.abspath(outname)
         return runtime
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs['segmentations'] = self.output_dict
 
+        return outputs
+
+
+class Predict_Multi_Singularity(SingularityCommandLine):
+    """Run predict to segment from reformated structural images.
+
+    Uses a 3D U-Net with tensorflow-gpu in a container (apptainer/singularity).
+    """
+    input_spec = Predict_Multi_SingularityInputSpec
+    output_spec = Predict_Multi_OutputSpec
+    _cmd = 'shiva_predict'
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs["segmentations"] = {sub: os.path.abspath(os.path.basename(filename)) for sub, filename in self.output_dict.items()}
         return outputs
 
 
@@ -332,9 +368,9 @@ class SynthSeg(CommandLine):
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
-        outputs["segmentation"] = os.path.abspath(os.path.split(str(self.inputs.out_filename))[1])
-        outputs["qc"] = os.path.abspath(os.path.split(str(self.inputs.qc))[1])
-        outputs["volumes"] = os.path.abspath(os.path.split(str(self.inputs.vol))[1])
+        outputs["segmentation"] = os.path.abspath(os.path.basename(str(self.inputs.out_filename)))
+        outputs["qc"] = os.path.abspath(os.path.basename(str(self.inputs.qc)))
+        outputs["volumes"] = os.path.abspath(os.path.basename(str(self.inputs.vol)))
         return outputs
 
 
@@ -356,9 +392,9 @@ class SynthsegSingularity(SingularityCommandLine):
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
-        outputs["segmentation"] = os.path.abspath(os.path.split(str(self.inputs.out_filename))[1])
-        outputs["qc"] = os.path.abspath(os.path.split(str(self.inputs.qc))[1])
-        outputs["volumes"] = os.path.abspath(os.path.split(str(self.inputs.vol))[1])
+        outputs["segmentation"] = os.path.abspath(os.path.basename(str(self.inputs.out_filename)))
+        outputs["qc"] = os.path.abspath(os.path.basename(str(self.inputs.qc)))
+        outputs["volumes"] = os.path.abspath(os.path.basename(str(self.inputs.vol)))
         return outputs
 
 
