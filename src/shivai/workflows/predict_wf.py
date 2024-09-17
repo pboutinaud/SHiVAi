@@ -3,7 +3,7 @@ import os
 
 from nipype.pipeline.engine import Node, Workflow
 
-from shivai.interfaces.shiva import Predict, PredictSingularity
+from shivai.interfaces.shiva import Predict_Multi, Predict_Multi_Singularity
 
 
 dummy_args = {'SUBJECT_LIST': ['BIOMIST::SUBJECT_LIST'],
@@ -26,8 +26,8 @@ def genWorkflow(**kwargs) -> Workflow:
         lpred = pred.lower()
         # Prediction Node set-up
         if kwargs['CONTAINERIZE_NODES']:
-            predict_node = Node(PredictSingularity(), name=f'predict_{lpred}')
-            predict_node.inputs.out_filename = f'/mnt/data/{lpred}_map.nii.gz'
+            predict_node = Node(Predict_Multi_Singularity(), name=f'predict_{lpred}')
+            predict_node.inputs.foutname = f'/mnt/data/{{sub}}_{lpred}_map.nii.gz'
             predict_node.inputs.snglrt_enable_nvidia = True
             predict_node.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
             predict_node.inputs.snglrt_bind = [
@@ -43,11 +43,12 @@ def genWorkflow(**kwargs) -> Workflow:
                     (preproc_dir, preproc_dir, 'ro')
                 )
         else:
-            predict_node = Node(Predict(), name=f'predict_{lpred}')
-            predict_node.inputs.out_filename = f'{lpred}_map.nii.gz'
-        predict_node.inputs.model = kwargs['MODELS_PATH']
+            predict_node = Node(Predict_Multi(), name=f'predict_{lpred}')
+        predict_node.inputs.foutname = f'{{sub}}_{lpred}_map.nii.gz'
+        predict_node.inputs.model_dir = kwargs['MODELS_PATH']
         predict_node.plugin_args = kwargs['PRED_PLUGIN_ARGS']
         predict_node.inputs.descriptor = descriptor
+        predict_node.inputs.input_size = kwargs['IMAGE_SIZE']
 
         segmentation_wf.add_nodes([predict_node])
 
