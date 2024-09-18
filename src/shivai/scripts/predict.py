@@ -105,13 +105,15 @@ def main():
     # Set GPU
     if args.gpu is not None:
         os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+        if args.gpu < 0:
+            tf.config.set_visible_devices([], 'GPU')
         if _VERBOSE:
             if args.gpu >= 0:
                 print(f"Trying to run inference on GPU {args.gpu}")
             else:
                 print("Trying to run inference on CPU")
     else:
-        print(f"Trying to run inference on GPU {os.getenv('CUDA_VISIBLE_DEVICES')}")
+        print(f"Trying to run inference on GPU {tf.config.get_visible_devices('GPU')}")
 
     # The tf model files for the predictors, the prediction will be averaged
     predictor_files = []

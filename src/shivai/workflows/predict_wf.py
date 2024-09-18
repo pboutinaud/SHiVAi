@@ -49,6 +49,8 @@ def genWorkflow(**kwargs) -> Workflow:
         predict_node.plugin_args = kwargs['PRED_PLUGIN_ARGS']
         predict_node.inputs.descriptor = descriptor
         predict_node.inputs.input_size = kwargs['IMAGE_SIZE']
+        if kwargs['GPU'] is not None and kwargs['GPU'] < 0:
+            predict_node.inputs.use_cpu = True
 
         segmentation_wf.add_nodes([predict_node])
 

@@ -51,7 +51,7 @@ def genWorkflow(**kwargs) -> Workflow:
     pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
 
     if kwargs['BRAIN_SEG'] == 'shiva_gpu':
-        if kwargs['GPU'] is not None:
+        if kwargs['GPU'] is not None and kwargs['GPU'] >= 0:
             pre_brain_mask.inputs.gpu_number = kwargs['GPU']
     else:
         pre_brain_mask.inputs.gpu_number = -1
@@ -120,7 +120,7 @@ def genWorkflow(**kwargs) -> Workflow:
     proper_brain_mask.inputs.model = kwargs['MODELS_PATH']
 
     if kwargs['BRAIN_SEG'] == 'shiva_gpu':
-        if kwargs['GPU'] is not None:
+        if kwargs['GPU'] is not None and kwargs['GPU'] >= 0:  # else keep the default (None)
             proper_brain_mask.inputs.gpu_number = kwargs['GPU']
     else:
         proper_brain_mask.inputs.gpu_number = -1

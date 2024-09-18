@@ -176,6 +176,10 @@ class Predict_Multi_InputSpec(BaseInterfaceInputSpec):
                           desc='Output name to be formatted with the subject name "sub"',
                           usedefault=True)
 
+    use_cpu = traits.Bool(False,
+                          usedefault=True,
+                          desc='Set to True to ignore GPUs and use CPUs instead')
+
 
 class Predict_Multi_SingularityInputSpec(SingularityInputSpec, Predict_Multi_InputSpec):
     """PredictVRS input specification (singularity mixin).
@@ -196,7 +200,8 @@ class Predict_Multi(BaseInterface):
     output_spec = Predict_Multi_OutputSpec
 
     def _run_interface(self, runtime):
-
+        if self.inputs.use_cpu:
+            tf.config.set_visible_devices([], 'GPU')
         # Obtaining the absolute path to all the model files
         model_files = []
         with open(self.inputs.descriptor) as f:

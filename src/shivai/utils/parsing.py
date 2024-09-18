@@ -151,6 +151,10 @@ def shivaParser():
                               'This option still needs the "--prediction" argument to know what type of input will be given\n'
                               'for the preprocessing.'))
 
+    parser.add_argument('--use_cpu',
+                        action='store_true',
+                        help='If selected, will ignore available GPU(s) and run the segmentations on CPUs')
+
     parser.add_argument('--swomed_parc',  # Hidden option overriding 'brain_seg', used in SWOMed to give the path to the synthseg parcelation
                         required=False,
                         help=argparse.SUPPRESS)
@@ -174,10 +178,6 @@ def shivaParser():
     parser.add_argument('--swomed_swi',  # Hidden option overriding 'brain_seg', used in SWOMed to give the path to the swi (or equivalent)
                         required=False,
                         help=argparse.SUPPRESS)
-
-    # parser.add_argument('--gpu',
-    #                     type=int,
-    #                     help='ID of the GPU to use (default is taken from "CUDA_VISIBLE_DEVICES").')
 
     container_args = parser.add_mutually_exclusive_group()
 

@@ -9,8 +9,8 @@ import os.path as op
 
 
 def singParser():
-    DESCRIPTION = """SHIVA preprocessing for deep learning predictors. Perform resampling of a structural NIfTI head image, 
-                    followed by intensity normalization, and cropping centered on the brain. A nipype workflow is used to 
+    DESCRIPTION = """SHIVA preprocessing for deep learning predictors. Perform resampling of a structural NIfTI head image,
+                    followed by intensity normalization, and cropping centered on the brain. A nipype workflow is used to
                     preprocess a lot of images at the same time."""
 
     parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -157,6 +157,10 @@ def singParser():
                               '- FSL style .xml file\n'
                               '- FreeSurfer style .txt file'))
 
+    parser.add_argument('--use_cpu',
+                        action='store_true',
+                        help='If selected, will ignore available GPU(s) and run the segmentations on CPUs')
+
     parser.add_argument('--run_plugin',
                         default='Linear',
                         help=('Type of plugin used by Nipype to run the workflow.\n'
@@ -284,6 +288,8 @@ def main():
     opt_args2 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args2_names if getattr(args, arg_name)]
     if args.preproc_only:
         opt_args2.append('--preproc_only')
+    if args.use_cpu:
+        opt_args2.append('--use_cpu')
 
     preproc = None
     if args.preproc_results:
