@@ -27,7 +27,7 @@ def genWorkflow(**kwargs) -> Workflow:
         # Prediction Node set-up
         if kwargs['CONTAINERIZE_NODES']:
             predict_node = Node(Predict_Multi_Singularity(), name=f'predict_{lpred}')
-            predict_node.inputs.foutname = f'/mnt/data/{{sub}}_{lpred}_map.nii.gz'
+            predict_node.inputs.out_dir = '/mnt/data'
             predict_node.inputs.snglrt_enable_nvidia = True
             predict_node.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
             predict_node.inputs.snglrt_bind = [

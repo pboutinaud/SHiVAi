@@ -1,11 +1,6 @@
 """Interfaces for SHIVA project deep learning segmentation and prediction tools."""
 import os
 import glob
-import json
-import gc
-import tensorflow as tf
-import numpy as np
-import nibabel as nib
 
 from shivai.utils.misc import md5
 
@@ -135,49 +130,57 @@ class Predict_Multi_InputSpec(BaseInterfaceInputSpec):
     """ Input parameter for the Predict_Multi interface """
     primary_image_file = traits.Dict(key_trait=traits.String,
                                      value_trait=traits.File,
+                                     argstr='--subjects %s --img1_files %s',
                                      desc=('Dict containing {sub_id: file_path} for all subjects, for the '
                                            'main aquisition image file.'),
                                      mandatory=True)
 
     second_image_file = traits.Dict(key_trait=traits.String,
                                     value_trait=traits.File,
+                                    argstr='--img2_files %s',
                                     desc=('Dict containing {sub_id: file_path} for all subjects, for the '
                                           'secondary aquisition image file in case of multi-modal prediction.'),
                                     mandatory=False)
 
     brainmask_files = traits.Dict(key_trait=traits.String,
                                   value_trait=traits.File,
+                                  argstr='--mask_files %s',
                                   desc=('Dict containing {sub_id: file_path} for all subjects, for the '
                                         'brain mask used to filter-out out-of-brain segmentations.'),
                                   mandatory=False)
 
     model_dir = traits.Directory(exists=True,
                                  desc='Folder containing the AI models',
+                                 argstr='--model_dir %s',
                                  mandatory=True)
 
     descriptor = traits.File(exists=True,
                              desc='File information about models and models location within model_dir',
+                             argstr='--descriptor %s',
                              mandatory=True)
 
     acq_types = traits.List(traits.String,
+                            argstr='--acq_types %s',
                             desc=('List if the type of aquisition (lower case) for primary_image_file'
                                   'and second_image_file, in order.'))
 
     batch_size = traits.Int(20,
                             desc='Number of images to load at the same time in memmory with nib.load',
+                            argstr='--batch_size %d',
                             usedefault=True)
 
-    input_size = traits.Tuple(traits.Int, traits.Int, traits.Int,
-                              default=(160, 214, 176),
-                              usedefault=True,  # "default" and "usedefault" arguments do nothing. To be set in the wf
+    input_size = traits.Tuple(traits.Int, traits.Int, traits.Int,  # default=(160, 214, 176)
+                              argstr='--input_size %dx%dx%d',
                               desc='Expected image size input for the models')
 
     foutname = traits.Str('{sub}_segmentation.nii.gz',
                           desc='Output name to be formatted with the subject name "sub"',
+                          argstr='--foutname %s',
                           usedefault=True)
 
     use_cpu = traits.Bool(False,
                           usedefault=True,
+                          argstr='--use_cpu',
                           desc='Set to True to ignore GPUs and use CPUs instead')
 
 
@@ -195,110 +198,27 @@ class Predict_Multi_OutputSpec(TraitedSpec):
                                 desc='The segmentation images')
 
 
-class Predict_Multi(BaseInterface):
+class Predict_Multi(CommandLine):
     input_spec = Predict_Multi_InputSpec
     output_spec = Predict_Multi_OutputSpec
+    _cmd = 'shiva_predict_multi'
 
-    def _run_interface(self, runtime):
-        if self.inputs.use_cpu:
-            tf.config.set_visible_devices([], 'GPU')
-        # Obtaining the absolute path to all the model files
-        model_files = []
-        with open(self.inputs.descriptor) as f:
-            meta_data = json.load(f)
-        for mfile in meta_data['files']:
-            mdirname = os.path.basename(self.inputs.model_dir)
-            mfilename = mfile['name']
-            if mfilename[:len(mdirname)] == mdirname:  # model dir is in both args.model and mfile['name']
-                mfilename = os.path.join(*mfilename.split(os.sep)[1:])
-            model_file = os.path.join(self.inputs.model_dir, mfilename)
-            model_files.append(model_file)
-
-        notfound = []  # Doing it this way to found all the missing files in one pass
-        badmd5 = []
-        for model_file, file_data in zip(model_files, meta_data['files']):
-            if not os.path.exists(model_file):
-                notfound.append(model_file)
+    def _format_arg(self, name, spec, value):
+        if spec.is_trait_type(traits.Dict):
+            argstr = spec.argstr
+            sub_list = list(self.inputs.primary_image_file.keys())
+            file_list = [value[sub] for sub in sub_list]  # Making sure all file lists have the same order
+            if argstr.count('%s') == 2:
+                return spec.argstr % (' '.join(sub_list), ' '.join(file_list))
             else:
-                hashmd5 = md5(model_file)
-                if file_data["md5"] != hashmd5:
-                    badmd5.append(model_file)
-        if notfound:
-            raise FileNotFoundError('Some (or all) model files/folders were missing.\n'
-                                    'Please supply or mount a folder '
-                                    'containing the model files/folders with model weights.\n'
-                                    'Current problematic paths:\n\t' +
-                                    '\n\t'.join(notfound))
-        if badmd5:
-            raise ValueError("Mismatch between expected file from the model descriptor and the actual model file.\n"
-                             "Files in question:\n\t" +
-                             "\n\t".join(badmd5))
-
-        for modality in self.inputs.acq_types:
-            if modality not in meta_data['modalities']:
-                raise ValueError(f"ERROR : the prediction model does not use {modality} modality according to json descriptor file")
-
-        # iterating over the model files and the input image files
-        files_dict1 = self.inputs.primary_image_file
-        if isdefined(self.inputs.second_image_file):
-            files_dict2 = self.inputs.second_image_file
-            if not set(files_dict1) == set(files_dict2):
-                raise ValueError('The subjects from primary and seconday images do not match')
-        else:
-            files_dict2 = None
-        sub_list = list(files_dict1.keys())
-        step = len(sub_list)//self.inputs.batch_size + int(bool(len(sub_list) % self.inputs.batch_size))
-        affine_dict = {}
-        self.output_dict = {}
-        for fold, mfile in enumerate(model_files):
-            # Load the model
-            tf.keras.backend.clear_session()
-            gc.collect()
-            print(f"Loading model file: {mfile}")
-            model = tf.keras.models.load_model(
-                mfile,
-                compile=False,
-                custom_objects={"tf": tf})
-            for i in range(step):
-                sub_sublist = sub_list[i*self.inputs.batch_size:(i+1)*self.inputs.batch_size]
-                input_images = np.zeros((len(sub_sublist), *self.inputs.input_size, len(self.inputs.acq_types)))
-                for j, sub in enumerate(sub_sublist):
-                    inIm = nib.load(files_dict1[sub])
-                    affine_dict[sub] = inIm.affine
-                    input_images[j, ..., 0] = inIm.get_fdata(dtype=np.float32)
-                    if files_dict2 is not None:
-                        inIm = nib.load(files_dict2[sub])
-                        input_images[j, ..., 1] = inIm.get_fdata(dtype=np.float32)
-                predictions = model.predict(
-                    input_images,
-                    batch_size=1
-                )
-                # Save temp results for the current fold model
-                for j, sub in enumerate(sub_sublist):
-                    sub_pred = predictions[j].squeeze()
-                    sub_pred[sub_pred < 0.001] = 0  # Threshold to remove near-zero voxels
-                    subpred_im = nib.Nifti1Image(sub_pred.astype('float32'), affine=affine_dict[sub])
-                    nib.save(subpred_im, f'tmp_{sub}_fold{fold}.nii.gz')
-
-        # Taking each fold's results and averaging them
-        print('Averaging the results of each model (done for each subject)...')
-        for sub in sub_list:
-            pred_list = [nib.load(f'tmp_{sub}_fold{fold}.nii.gz').get_fdata(dtype='float32') for fold in range(len(model_files))]
-            mean_pred = np.mean(pred_list, axis=0)
-            if isdefined(self.inputs.brainmask_files):
-                brainmask = nib.load(self.inputs.brainmask_files[sub]).get_fdata().astype(bool)
-                mean_pred *= brainmask
-            mean_pred_im = nib.Nifti1Image(mean_pred.astype('float32'),  affine=affine_dict[sub])
-            outname = self.inputs.foutname.format(sub=sub)
-            nib.save(mean_pred_im, outname)
-            for fold in range(len(model_files)):
-                os.remove(f'tmp_{sub}_fold{fold}.nii.gz')
-            self.output_dict[sub] = os.path.abspath(outname)
-        return runtime
+                return spec.argstr % (' '.join(file_list))
+        return super(Predict_Multi, self)._format_arg(name, spec, value)
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
-        outputs['segmentations'] = self.output_dict
+        sub_list = list(self.inputs.primary_image_file.keys())
+        outnames = [self.inputs.foutname.format(sub=sub) for sub in sub_list]
+        outputs['segmentations'] = {sub: os.path.abspath(file) for sub, file in zip(sub_list, outnames)}
 
         return outputs
 
@@ -310,11 +230,13 @@ class Predict_Multi_Singularity(SingularityCommandLine):
     """
     input_spec = Predict_Multi_SingularityInputSpec
     output_spec = Predict_Multi_OutputSpec
-    _cmd = 'shiva_predict'
+    _cmd = 'shiva_predict_multi'
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
-        outputs["segmentations"] = {sub: os.path.abspath(os.path.basename(filename)) for sub, filename in self.output_dict.items()}
+        sub_list = list(self.inputs.primary_image_file.keys())
+        outnames = [self.inputs.foutname.format(sub=sub) for sub in sub_list]
+        outputs['segmentations'] = {sub: os.path.abspath(file) for sub, file in zip(sub_list, outnames)}
         return outputs
 
 
