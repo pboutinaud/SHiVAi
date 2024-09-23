@@ -159,10 +159,10 @@ class Predict_Multi_InputSpec(BaseInterfaceInputSpec):
                              argstr='--descriptor %s',
                              mandatory=True)
 
-    acq_types = traits.List(traits.String,
-                            argstr='--acq_types %s',
-                            desc=('List if the type of aquisition (lower case) for primary_image_file'
-                                  'and second_image_file, in order.'))
+    # acq_types = traits.List(traits.String,
+    #                         argstr='--acq_types %s',
+    #                         desc=('List if the type of aquisition (lower case) for primary_image_file'
+    #                               'and second_image_file, in order.'))
 
     batch_size = traits.Int(20,
                             desc='Number of images to load at the same time in memmory with nib.load',
@@ -189,6 +189,10 @@ class Predict_Multi_SingularityInputSpec(SingularityInputSpec, Predict_Multi_Inp
 
     Inherits from Singularity command line fields.
     """
+    out_dir = traits.Directory(exists=False,
+                               desc='Folder where the results will be saved',  # Only for Singularity
+                               argstr='--out_dir %s',
+                               mandatory=True)
 
 
 class Predict_Multi_OutputSpec(TraitedSpec):
@@ -231,6 +235,17 @@ class Predict_Multi_Singularity(SingularityCommandLine):
     input_spec = Predict_Multi_SingularityInputSpec
     output_spec = Predict_Multi_OutputSpec
     _cmd = 'shiva_predict_multi'
+
+    def _format_arg(self, name, spec, value):
+        if spec.is_trait_type(traits.Dict):
+            argstr = spec.argstr
+            sub_list = list(self.inputs.primary_image_file.keys())
+            file_list = [value[sub] for sub in sub_list]  # Making sure all file lists have the same order
+            if argstr.count('%s') == 2:
+                return spec.argstr % (' '.join(sub_list), ' '.join(file_list))
+            else:
+                return spec.argstr % (' '.join(file_list))
+        return super(Predict_Multi_Singularity, self)._singularity_format_arg(name, spec, value)
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
@@ -405,10 +420,10 @@ class Shivai_InputSpec(CommandLineInputSpec):
                               exists=True,
                               mandatory=True)
 
-    out_dir = traits.File(argstr='--out %s',
-                          desc='Directory where the results will be saved (in and "results" sub-directory).',
-                          exists=False,
-                          mandatory=True)
+    out_dir = traits.Directory(argstr='--out %s',
+                               desc='Directory where the results will be saved (in and "results" sub-directory).',
+                               exists=False,
+                               mandatory=True)
 
     input_type = traits.Enum('swomed', 'standard', 'BIDS',
                              argstr='--input_type %s',

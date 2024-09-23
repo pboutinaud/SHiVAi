@@ -76,11 +76,11 @@ def predict_parser():
         required=True,
         help="JSON file describing info about the models")
 
-    parser.add_argument(
-        "--acq_types",
-        choices=['t1', 't2', 'flair', 'swi', 't2gre'],
-        nargs='+',
-        help='List of the acquisition modalities used for the prediction (in lower case)')
+    # parser.add_argument(
+    #     "--acq_types",
+    #     choices=['t1', 't2', 'flair', 'swi', 't2gre'],
+    #     nargs='+',
+    #     help='List of the acquisition modalities used for the prediction (in lower case)')
 
     parser.add_argument(
         '--batch_size',
@@ -145,14 +145,15 @@ def main():
                          "Files in question:\n\t" +
                          "\n\t".join(badmd5))
 
-    for modality in args.acq_types:
-        if modality not in meta_data['modalities']:
-            raise ValueError(f"ERROR : the prediction model does not use {modality} modality according to json descriptor file")
+    # for modality in args.acq_types:
+    #     if modality not in meta_data['modalities']:
+    #         raise ValueError(f"ERROR : the prediction model does not use {modality} modality according to json descriptor file")
 
     # iterating over the model files and the input image files
     img1_files = args.img1_files
     img2_files = args.img2_files
     sub_list = args.subjects
+    modality_num = 2 if img2_files is not None else 1
     if len(img1_files) != len(sub_list):
         raise ValueError(f'Missmatch between the list of subects and of main image')
     if img2_files is not None and len(img1_files) != len(img2_files):
@@ -170,7 +171,7 @@ def main():
             custom_objects={"tf": tf})
         for i in range(step):
             curr_slice = slice(i*args.batch_size, (i+1)*args.batch_size)
-            input_images = np.zeros((len(sub_list[curr_slice]), *args.input_size, len(args.acq_types)))
+            input_images = np.zeros((len(sub_list[curr_slice]), *args.input_size, modality_num))
             for j, (sub, in_file1) in enumerate(zip(sub_list[curr_slice], img1_files[curr_slice])):
                 inIm = nib.load(in_file1)
                 affine_dict[sub] = inIm.affine

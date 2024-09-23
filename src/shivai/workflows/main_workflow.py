@@ -276,11 +276,11 @@ def generate_main_wf(**kwargs) -> Workflow:
                 main_wf.connect(preproc_joiner_t1, 'files_dict', segmentation_wf, f'predict_{lpred}.primary_image_file')
                 if pred_with_flair:
                     main_wf.connect(preproc_joiner_flair, 'files_dict', segmentation_wf, f'predict_{lpred}.second_image_file')
-                    main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__('predict_pvs').acq_types = ['t1', 'flair']
-                else:
-                    main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__('predict_pvs').acq_types = ['t1']
+                #     main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__('predict_pvs').acq_types = ['t1', 'flair']
+                # else:
+                #     main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__('predict_pvs').acq_types = ['t1']
             if pred_with_swi:
-                main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__(f'predict_{lpred}').acq_types = ['swi']
+                # main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__(f'predict_{lpred}').acq_types = ['swi']
                 main_wf.connect(preproc_joiner_swi, 'files_dict', segmentation_wf, f'predict_{lpred}.primary_image_file')
                 if with_t1:  # t1 used in the wf, not necessarily in the pred
                     main_wf.connect(wf_preproc, 'cmb_preprocessing.swi_intensity_normalisation.intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
@@ -611,15 +611,15 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
             main_wf.connect(preproc_joiner_t1, 'files_dict', segmentation_wf, f'predict_{lpred}.primary_image_file')
             if pred_with_flair:
                 main_wf.connect(preproc_joiner_flair, 'files_dict', segmentation_wf, f'predict_{lpred}.second_image_file')
-                main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__('predict_pvs').acq_types = ['t1', 'flair']
-            else:
-                main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__('predict_pvs').acq_types = ['t1']
+            #     main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__('predict_pvs').acq_types = ['t1', 'flair']
+            # else:
+            #     main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__('predict_pvs').acq_types = ['t1']
             if pred in ['WMH', 'LAC']:  # Using FLAIR as background for WMH and LAC for the pred overlay node
                 main_wf.connect(preproc_grabber, 'flair_intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
             else:
                 main_wf.connect(preproc_grabber, 't1_intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
         if pred_with_swi:
-            main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__(f'predict_{lpred}').acq_types = ['swi']
+            # main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__(f'predict_{lpred}').acq_types = ['swi']
             main_wf.connect(preproc_joiner_swi, 'files_dict', segmentation_wf, f'predict_{lpred}.primary_image_file')
             main_wf.connect(preproc_grabber, 'swi_intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
 
