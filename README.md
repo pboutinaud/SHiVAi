@@ -209,9 +209,9 @@ To see the detailed help for this command, you can call:
 shiva -h
 ```
 
-Here is an example of a shiva call, using a config .yml file, processing linearly on GPU "0":
+Here is an example of a shiva call, using a config .yml file, processing linearly on available GPUs:
 ```bash
-shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --brain_seg synthseg --config /myHome/myProject/myConfig.yml --gpu 0
+shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --brain_seg synthseg --config /myHome/myProject/myConfig.yml
 ```
 
 Using SLURM to parallelize the processes (use `--run_plugin SLURM` in the arguments):
