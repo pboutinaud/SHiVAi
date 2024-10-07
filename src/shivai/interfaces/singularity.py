@@ -114,7 +114,8 @@ class SingularityCommandLine(CommandLine):
     def _singularity_format_arg(self, name, spec, value):
         """Custom argument formatting for singularity."""
         if name == 'snglrt_bind':
-            return spec.argstr % (','.join([':'.join(b) for b in value]))
+            def realpath_binding(path_list): return [os.path.realpath(path_list[0]), os.path.realpath(path_list[1]), path_list[2]]
+            return spec.argstr % (','.join([':'.join(realpath_binding(b)) for b in value]))
         return super(SingularityCommandLine, self)._format_arg(name,
                                                                spec,
                                                                value)
@@ -169,6 +170,8 @@ class SingularityCommandLine(CommandLine):
         Any inputs that are assigned (not the default_value) are formatted
         to be added to the command line.
 
+        Any file path is converted to their "real path" to avoid mounting problems
+
         Returns
         -------
         all_args : list
@@ -193,6 +196,8 @@ class SingularityCommandLine(CommandLine):
 
             if not isdefined(value):
                 continue
+            if spec.is_trait_type(traits.File):
+                value = os.path.realpath(value)
             arg = self._format_arg(name, spec, value)
             if arg is None:
                 continue
