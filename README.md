@@ -74,6 +74,8 @@ Next, see [Running a contained SHiVAi](#running-a-contained-shivai)
 
 ### Traditional python install
 
+This type of install is mostly aimed for development and require some know-how to find the proper Drivers for GPU usage. For a simpler install, see [the Mixed approach section](#mixed-approach-recommended).
+
 To deploy the python package, create a Python 3.9 virtual environment, clone or download the shivai project and use the following command line from the project's directory (containing the 'pyproject.toml' file): 
 
 ```bash
@@ -409,19 +411,21 @@ shiva_prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 - **PVS_descriptor** (path): path of Peri-Vascular Spaces tensorflow model descriptor
 - **PVS2_descriptor**  (path): path of Peri-Vascular Spaces tensorflow model descriptor using t1 and flair together
 - **WMH_descriptor** (path): path of White Matter HyperIntensities tensorflow model descriptor
-- **CMB_descriptor** (path) path of Cerebral MicroBleeds tensorflow model descriptor
+- **CMB_descriptor** (path): path of Cerebral MicroBleeds tensorflow model descriptor
+- **LAC_descriptor** (path): path of Lacuna tensorflow model descriptor
+- **swi_echo** (int): Echo number used in SWI volumes extracted from DICOM files, 0 (first echo) or 1 (second echo)
 - **percentile** (float) : Threshold value for the intensity normalization, expressed as percentile
-- **threshold** (float) : Value of the threshold used to binarize brain masks, default value : 0.5
-- **threshold_pvs** (float) : Threshold to binarize PVS clusters after the segmentation, default value : 0.2
-- **threshold_wmh** (float) : Threshold to binarize WMH clusters after the segmentation, default value : 0.2
-- **threshold_cmb** (float) : Threshold to binarize CMB clusters after the segmentation, default value : 0.2
-- **threshold_lac** (float) : Threshold to binarize Lacuna clusters after the segmentation, default value : 0.2
+- **threshold** (float) : Value of the threshold used to binarize brain masks
+- **threshold_pvs** (float) : Threshold to binarize PVS clusters after the segmentation
+- **threshold_wmh** (float) : Threshold to binarize WMH clusters after the segmentation
+- **threshold_cmb** (float) : Threshold to binarize CMB clusters after the segmentation
+- **threshold_lac** (float) : Threshold to binarize Lacuna clusters after the segmentation
 - **min_pvs_size** (int): Filter size (in voxels) for detected PVS under which the cluster is discarded
 - **min_wmh_size** (int): Filter size (in voxels) for detected WMH under which the cluster is discarded
 - **min_cmb_size** (int): Filter size (in voxels) for detected CMB under which the cluster is discarded
 - **min_lac_size** (int): Filter size (in voxels) for detected Lacuna under which the cluster is discarded
-- **final_dimensions** (list) : Final image array size in i, j, k. Example : [160, 214, 176].
-- **voxels_size** (list) : Voxel size of the final image, example : [1.0, 1.0, 1.0]
+- **final_dimensions** (list) : Image array size in i, j, k input to the model. Should be [160, 214, 176].
+- **voxels_size** (list) : Voxel size used for the resampling before entering the model
 - **interpolation** (str): image resampling method, default interpolation : 'WelchWindowedSinc', others ANTS interpolation possibilities : 'Linear', 'NearestNeighbor', 'CosineWindowedSinc', 'HammingWindowedSinc', 'LanczosWindowedSinc', 'BSpline', 'MultiLabel', 'Gaussian', 'GenericLabel'
 
 
