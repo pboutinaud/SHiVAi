@@ -189,6 +189,10 @@ def shivaParser():
                                 help='Used when the process uses the container to run specific nodes (prediction and registration)',
                                 action='store_true')
 
+    parser.add_argument('--local_synthseg',
+                        action='store_true',
+                        help='If selected, overrides the --containerized_nodes option for synthseg, using the local installation instead')
+
     parser.add_argument('--anonymize',
                         action='store_true',
                         help='Anonymize the report')

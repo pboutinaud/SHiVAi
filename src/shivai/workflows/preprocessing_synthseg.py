@@ -45,7 +45,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # Creating the specific Synthseg nodes
     # First he synthseg node
-    if kwargs['CONTAINERIZE_NODES']:
+    if kwargs['CONTAINERIZE_NODES'] and not kwargs['PREP_SETTINGS']['local_synthseg']:
         synthseg = Node(SynthsegSingularity(),
                         name='synthseg')
         synthseg.inputs.snglrt_bind = [

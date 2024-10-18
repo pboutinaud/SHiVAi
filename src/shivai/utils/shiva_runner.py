@@ -23,7 +23,8 @@ def check_input_for_pred(wfargs):
 
 def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, brain_seg, synthseg_threads,
           node_plugin_args, prev_qc, preproc_results, replace_t1, replace_flair, replace_swi, swi_file_num,
-          db_name, custom_LUT, preproc_only, use_cpu, swomed_parc, swomed_ssvol, swomed_ssqc, swomed_t1, swomed_flair, swomed_swi, use_t1, container_image, synthseg_image, containerized_nodes,
+          db_name, custom_LUT, preproc_only, use_cpu, swomed_parc, swomed_ssvol, swomed_ssqc, swomed_t1, swomed_flair,
+          swomed_swi, use_t1, container_image, synthseg_image, containerized_nodes, local_synthseg,
           anonymize, interpolation, percentile, threshold, threshold_pvs, threshold_wmh, threshold_cmb,
           threshold_lac, min_pvs_size, min_wmh_size, min_cmb_size, min_lac_size, final_dimensions,
           voxels_size, keep_all, debug, remove_intermediates, run_plugin, run_plugin_args,
@@ -103,7 +104,8 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
         'prev_qc': prev_qc,
         'preproc_res': preproc_results,
         'swomed_input': in_path_dict,
-        'preproc_only': preproc_only
+        'preproc_only': preproc_only,
+        'local_synthseg': local_synthseg
     }
 
     # Acquisitions per prediction:
