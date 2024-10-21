@@ -5,7 +5,7 @@ The shivai package includes a set of image analysis tools for the study of cover
 
 The SHiVAi segmentation tools currently include Cerebral MicroBleeds (CMB),  PeriVascular Spaces (PVS) (also known as Virchow Robin Spaces - VRS), White Matter Hyperintensities (WMH), and Lacunas. The 3D-Unet model weights are available separately at https://github.com/pboutinaud.
 
-The tools cover preprocessing (image resampling and cropping to match the required size for the deep learning models, coregistration for multimodal segmentation tools), automatic segmentation, and reporting (QC and results).
+The tools cover preprocessing (image resampling and cropping to match the required size for the deep learning models, coregistration for multimodal segmentation tools), automatic segmentation, and reporting (QC and results). It accepts both Nifti and DICOM images as input (see the possible [input structures](#data-structures-accepted-by-shivai) for more details).
 
 <br clear="right"/>
 
@@ -24,6 +24,7 @@ The Shivai pipeline and all the repository content is provided under the GNU Aff
 - [Dependencies and hardware requirements](#dependencies-and-hardware-requirements)
 - [Package Installation](#package-installation)
     - [Trained AI model](#trained-AI-model)
+    - [Brain masking](#brain-masking)
     - [Fully contained process](#fully-contained-process)
     - [Traditional python install](#traditional-python-install)
     - [Mixed approach (recommended)](#mixed-approach-recommended)
@@ -61,14 +62,15 @@ Let's consider that you stored them in `/myHome/myProject/Shiva_AI_models` for t
 Each model must also be paired with a `model_info.json` file. These json files should be available on the same repository as their corresponding model.
 Note that json these files are where the pipeline will look for the models path, so you may have to manually edit the path to the models. By default, the paths to the models are the relative path starting from the folder storing the specific model it is paired with (e.g. `brainmask/modelfile.h5` for the brain mask models used [below](#brain-masking), stored in a `brainmask` folder).
 
-This way, if you simply unzip the downloaded models in the common model folder, the `model_info.json` file *should* already be good (e.g., the brainmask model should end up with a full path like `/myHome/myProject/Shiva_AI_models/brainmask/modelfile.h5`).
+This way, if you simply extract the downloaded models in the common model folder, the `model_info.json` file *should* already be good (e.g., the brainmask model should end up with a full path like `/myHome/myProject/Shiva_AI_models/brainmask/modelfile.h5`).
 
+Once you have your models and json files properly stored and setup, update the config file with the correct path for each "descriptor" file (i.e. the json files).
 
 > ⚠️If the `model_info.json` is not available for some reason, refer to the [Create missing json file](#create-missing-json-file) section, and don't forget to update the config file  if you use one.
 
 ### Brain masking
 
-SHiVAi relies on the access to brain masks in order to crop the input volumes to the proper dimension for the aI models. More details are available [below](#brain-parcellation-and-region-wise-statistics), but if you do not have such masks on hand, SHiVAi can create them automatically using a dedicated AI model. To use this option, you will have to download it and store (after unzipping) in the same folder as the other AI models. The brain masking model can be found following the link: [https://cloud.efixia.com/sharing/Mn9LB5mIR](https://cloud.efixia.com/sharing/Mn9LB5mIR)
+SHiVAi relies on the access to brain masks in order to crop the input volumes to the proper dimension for the aI models. More details are available [below](#brain-parcellation-and-region-wise-statistics), but if you do not have such masks on hand, SHiVAi can create them automatically using a dedicated AI model. To use this option, you will have to download it and store (after extracting/unzipping) in the same folder as the other AI models. The brain masking model can be found following the link: [https://cloud.efixia.com/sharing/Mn9LB5mIR](https://cloud.efixia.com/sharing/Mn9LB5mIR)
 
 ### Fully contained process
 
@@ -80,15 +82,15 @@ https://apptainer.org/docs/user/main/quick_start.html
 
 3. From the shivai repository (where you are reading this), navigate to the [apptainer folder](apptainer/) and download [run_shiva.py](apptainer/run_shiva.py) and [config_example.yml](apptainer/config_example.yml)
 
-4. You now need to prepare this `config_example.yml`, it will hold diverse parameters as well as the path to the AI model and to the apptainer image. There, you should change the placeholder paths for `model_path` and `apptainer_image` with your own paths (e.g. `/myHome/myProject/Shiva_AI_models` and `/myHome/myProject/shiva.sif`). You may also have to set the model descriptors (like `PVS_descriptor` or `WMH_descriptor` with the path to the `model_info.json` file mentioned above and in [Create missing json file](#create-missing-json-file))
+4. You now need to prepare this `config_example.yml`, it will hold diverse parameters as well as the path to the AI model and to the apptainer image. There, you should change the placeholder paths for `model_path` and `apptainer_image` with your own paths (e.g. `/myHome/myProject/Shiva_AI_models` and `/myHome/myProject/shiva.sif`). You will also have to set the model descriptors (like `PVS_descriptor` or `WMH_descriptor`) with the path to the `model_info_*.json` file [mentioned above](#trained-ai-model).
 
-    Other than the "descriptor" paths, you shouldn't have to modify any other setting in the `parameters` part.
+> Other than the "descriptor" paths, you shouldn't have to modify any other setting in the `parameters` part.
 
-    For the rest of this readme, let's assume that you now have the config file prepared and saved as `/myHome/myProject/myConfig.yml`.
+For the rest of this readme, let's assume that you now have the config file prepared and saved as `/myHome/myProject/myConfig.yml`.
 
 5. Finally, set-up a minimal Python virtual environment with the `pyyaml` package installed.
 
-Next, see [Running a contained SHiVAi](#running-a-contained-shivai)
+Next, see [Running a contained SHiVAi](#running-shivai-from-a-container)
 
 ### Traditional python install
 
@@ -183,10 +185,10 @@ Synthseg is a project completly independent from Shiva and it was used here as a
 
 ### Running SHiVAi from a container
 
-When running SHiVAi from an Apptainer image, you can do it linearly (no parallelisation of the steps, default behavior), or in parallel using the Python multiprocessing library, [as implemented by Nypipe](https://nipype.readthedocs.io/en/0.11.0/users/plugins.html#multiproc).
+When running SHiVAi from an Apptainer image, you can do it linearly (no parallelisation of the steps, default behavior), or in parallel using the Python multiprocessing library, [as implemented by Nypipe](https://nipype.readthedocs.io/en/0.11.0/users/plugins.html#multiproc). However, we have seen problems with the multiprocessing option on some systems, so it may not work.
 
 To run the shiva process, you will need:
-- The `run_shiva.py`
+- The [run_shiva.py](apptainer/run_shiva.py) scirpt
 - The input dataset (see [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai))
 - The Apptainer image (`shiva.sif`)
 - The trained AI model (that we provide and you should have downloaded)
@@ -194,14 +196,14 @@ To run the shiva process, you will need:
 
 **Command line arguments (with `run_shiva.py`):**
 
-> --in: Path of the input dataset\
-> --out: Path to where the generated files will be saved\
-> --input_type: Type of structure file, way to capture and manage nifti files : standard or BIDS\
-> --prediction: Choice of the type of prediction (i.e. segmentation) you want to compute (PVS, PVS2, WMH, CMB, all). Give a combination of these labels separated by blanc spaces.\
-> --brain_seg: Type of brain segmentation (or parcellation) to use in the pipeline (shiva, premasked, synthseg, or custom)\
-> --config: File with configuration options for the workflow
+    --in: Path of the input dataset\
+    --out: Path to where the generated files will be saved\
+    --input_type: Type of structure file, way to capture and manage nifti files : standard or BIDS\
+    --prediction: Choice of the type of prediction (i.e. segmentation) you want to compute (PVS, PVS2, WMH, CMB, all). Give a combination of these labels separated by blanc spaces.\
+    --brain_seg: Type of brain segmentation (or parcellation) to use in the pipeline (shiva, premasked, synthseg, or custom)\
+    --config: File with configuration options for the workflow
 
-These are the most useful argument you will want to set. However, there are more arguments available to further control the pipeline. To see them and their description, run `run_shiva.py --help`.
+These are the most useful argument you will want to set. However, there are more arguments available to further control the pipeline. To see them and their description, run `python run_shiva.py --help`.
 
 **Command line example**
 
@@ -210,16 +212,7 @@ Running the processing (from the directory where you stored `run_shiva.py`):
 ```bash
 python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --brain_seg synthseg --config /myHome/myProject/myConfig.yml
 ```
-
-<!-- Using SLURM to run on a grid (not the best way to interface SHiVAi with SLURM though): 
-
-```bash
-srun –gpus 1 -c 8 python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --brain_seg synthseg --config  /myHome/myProject/myConfig.yml --run_plugin MultiProc --run_plugin_args /myHome/myProject/nipype_plugin_args.yml
-```
-with `/myHome/myProject/nipype_plugin_args.yml` filled with:
-```yaml
-n_procs: 8
-``` -->
+> If you have installed the shivai package locally, you can replace `python run_shiva.py` by `shiva_contained` in the command line.
 
 ### Running SHiVAi from direct package commands (recommended)
 
@@ -332,6 +325,9 @@ You will also find a PDF report for each participant detailing statics about the
 
 
 ## Data structures accepted by SHiVAi
+The pipeline can accept two types of structure for **Nifti** input: *BIDS* and "*standard*".
+
+It is also possible to give images stored as **DICOM** (using the `--file_type dicom` option in the command line), but this in only compatible with the *standard* input structure
 
 Example of `BIDS` structure folders:
 
@@ -367,6 +363,22 @@ Example of `standard` structure folders (the important parts are the name of the
     │   │   └── sub-51_T1_raw.nii.gz
     │   └── seg
     ·       └── sub-51_brainparc.nii.gz
+
+In the case of DICOM files (the individual names of each files do not matter here):
+    .
+    ├── sub-21
+    │   ├── flair
+    │   │   ├── xxxxx.dcm
+    │   │   ├── xxxxx.dcm
+    │   │   ├── xxxxx.dcm
+    │   │   :
+    │   │
+    │   └── t1
+    │       ├── xxxxx.dcm
+    │       ├── xxxxx.dcm
+    │       ├── xxxxx.dcm
+    :       :
+
 
 <!-- 
 Example of `json` structure input:
