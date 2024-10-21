@@ -11,7 +11,7 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 **cCSVD biomarkers detected with SHiVAi**
 
-![Biomarker video](src/shivai/ressources/shiva_biomarkers.mp4){width=500}
+![Gif Image](https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/Images/SHIVA_BrainTools_small2.gif)
 
 ## Intellectual property & Licencing
 
@@ -350,33 +350,34 @@ Example of `standard` structure folders (the important parts are the name of the
 
     .
     ├── sub-21
-    │   ├── flair
-    │   │   └── sub-21_FLAIR_raw.nii.gz
-    │   ├── t1
-    │   │   └── sub-21_T1_raw.nii.gz
-    │   └── seg
-    │       └── sub-21_brainparc.nii.gz
+    │   ├── flair
+    │   │   └── sub-21_FLAIR_raw.nii.gz
+    │   ├── t1
+    │   │   └── sub-21_T1_raw.nii.gz
+    │   └── seg
+    │       └── sub-21_brainparc.nii.gz
     ├── sub-51
     │   ├── flair
-    │   │   └── sub-51_FLAIR_raw.nii.gz
+    │   │   └── sub-51_FLAIR_raw.nii.gz
     │   ├── t1
     │   │   └── sub-51_T1_raw.nii.gz
-    │   └── seg
-    ·       └── sub-51_brainparc.nii.gz
+    │   └── seg
+    ·       └── sub-51_brainparc.nii.gz
 
 In the case of DICOM files (the individual names of each files do not matter here):
+
     .
     ├── sub-21
-    │   ├── flair
-    │   │   ├── xxxxx.dcm
-    │   │   ├── xxxxx.dcm
-    │   │   ├── xxxxx.dcm
+    │   ├── flair
+    │   │   ├── xxxxx.dcm
+    │   │   ├── xxxxx.dcm
+    │   │   ├── xxxxx.dcm
     │   │   :
     │   │
-    │   └── t1
-    │       ├── xxxxx.dcm
-    │       ├── xxxxx.dcm
-    │       ├── xxxxx.dcm
+    │   └── t1
+    │       ├── xxxxx.dcm
+    │       ├── xxxxx.dcm
+    │       ├── xxxxx.dcm
     :       :
 
 
