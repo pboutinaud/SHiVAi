@@ -52,11 +52,23 @@ Depending on your situation you may want to deploy SHiVAi in different ways:
 
 ### Trained AI model
 
-In all the mentioned situations, **you will also need** to obtain the trained deep-learning models you want to use (for PVS, WMH, CMB, and Lacuna segmentation). They are available at https://github.com/pboutinaud
+In all the mentioned situations, **you will also need** to obtain the trained deep-learning models you want to use (for PVS, WMH, CMB, and Lacuna segmentation).
+They are available at [https://github.com/pboutinaud](https://github.com/pboutinaud)
 
+All the models must be stored in a common folder whose path must also be filled in the `model_path` variable of the config file (see point 4 of [Fully contained process](#fully-contained-process)).
 Let's consider that you stored them in `/myHome/myProject/Shiva_AI_models` for the following parts.
 
-> ⚠️For the pipeline too work, a `model_info.json` file must be present in the folder containing the AI model files (e.g. the .h5 files). If it's not the case, see the [Create missing json file](#create-missing-json-file) section, and don't forget to update the config file (see [Fully contained process](#fully-contained-process)) if you use one.
+Each model must also be paired with a `model_info.json` file. These json files should be available on the same repository as their corresponding model.
+Note that json these files are where the pipeline will look for the models path, so you may have to manually edit the path to the models. By default, the paths to the models are the relative path starting from the folder storing the specific model it is paired with (e.g. `brainmask/modelfile.h5` for the brain mask models used [below](#brain-masking), stored in a `brainmask` folder).
+
+This way, if you simply unzip the downloaded models in the common model folder, the `model_info.json` file *should* already be good (e.g., the brainmask model should end up with a full path like `/myHome/myProject/Shiva_AI_models/brainmask/modelfile.h5`).
+
+
+> ⚠️If the `model_info.json` is not available for some reason, refer to the [Create missing json file](#create-missing-json-file) section, and don't forget to update the config file  if you use one.
+
+### Brain masking
+
+SHiVAi relies on the access to brain masks in order to crop the input volumes to the proper dimension for the aI models. More details are available [below](#brain-parcellation-and-region-wise-statistics), but if you do not have such masks on hand, SHiVAi can create them automatically using a dedicated AI model. To use this option, you will have to download it and store (after unzipping) in the same folder as the other AI models. The brain masking model can be found following the link: [https://cloud.efixia.com/sharing/Mn9LB5mIR](https://cloud.efixia.com/sharing/Mn9LB5mIR)
 
 ### Fully contained process
 
@@ -155,18 +167,19 @@ Examples of segmentations, detected biomarkers overlaid on original image:
 
 ### Brain parcellation and region-wise statistics
 
-The SHiVAi pipeline relies on the extraction of the brain, at minima, and offers the possibility to count cCSVD biomarkers by brain region if a brain parcellation is available. These options are set with the `brain_seg` argument of the shiva command lines (as is presented below). This argument can be set to `shiva`, `premasked`, `synthseg`, or `custom`.
+The SHiVAi pipeline relies on the extraction of the brain, at minima to crop the volume to the proper dimensions, and offers the possibility to count cCSVD biomarkers by brain region if a brain parcellation is available. These options are set with the `brain_seg` argument of the shiva command lines (as is presented below). This argument can be set to `shiva`, `premasked`, `synthseg`, or `custom`.
 
 By default, SHiVAi uses `shiva`, which computes a brain mask using an AI model. Using `premasked` tells the pipeline that the input images are already brain-extracted, and using `custom` (without specifying a lookup-table with the `custom_LUT` argument) tells the pipeline to look for a brain mask among the input data (see [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai) for more details). In these three cases, the biomarker metrics are computed over the whole brain.
 
-However, SHiVAi also accepts brain parcellations and will then associate each biomarker with a region and provide more details about their distribution across the brain. This can be done with the `custom` argument by filling the `custom_LUT` argument with the path to a look-up table stored in a file (see the accepted format in the command line help). But the way we recommand is to use the `synthseg` argument:
+However, SHiVAi also accepts brain parcellations and will then associate each biomarker with a region and provide more details about their distribution across the brain.
+To do this we recommend using the `synthseg` argument (see next paragraph). This can be achieved with the `custom` argument by filling the `custom_LUT` argument with the path to a look-up table stored in a file (see the accepted format in the command line help).
 
 In our implementation, we mainly worked with the [Synthseg parcellation](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg) to generate custom parcellation for each type of biomarker (hemispheres are always differenciated in the labels):
 - For PVS, we distinguish the basal ganglia territory, the cerebral white matter (away from the BG), the hippocampus, the cerebellum, the ventral diencephalon, the brainstem.
 - For WMH, we segregate biomarkers between shallow, deep, periventricular, and cerebellar white matter, as well as the brain stem.
 - For CMB and Lacuna, we used the [The Microbleed Anatomical Rating Scale (MARS)](https://doi.org/10.1212/wnl.0b013e3181c34a7d).
 
-Synthseg is a project completly independent from Shiva and it was used here as a very convenient and powerful tool. As such, we do not directly provide the Synthseg software. However, it can be installed through the steps mentioned in [Traditional python install](#traditional-python-install) or, if you are using Apptainer to run SHiVAi (with the "Fully contained process" or the "mixed approach"), we provide a [recipe](src/shivai/scripts/slicer_run_preprocessing.py) to build an Apptainer image that will contain Synthseg and is designed to properly interface with SHiVAi. More details can be found in the [corresponding section of our Apptainer readme](apptainer/README.md#synthseg-apptainer-image). 
+Synthseg is a project completly independent from Shiva and it was used here as a very convenient and powerful tool. As such, we do not directly provide the Synthseg software. However, it can be installed through the steps mentioned in [Traditional python install](#traditional-python-install) or, if you are using Apptainer to run SHiVAi (with the "Fully contained process" or the "mixed approach"), we provide a [recipe](apptainer/apptainer_synthseg_tf.recipe) to build an Apptainer image that will contain Synthseg and is designed to properly interface with SHiVAi. More details can be found in the [corresponding section of our Apptainer readme](apptainer/README.md#synthseg-apptainer-image). 
 
 ### Running SHiVAi from a container
 
@@ -400,7 +413,7 @@ Let's assume you downloaded the T1-PVS model (for PVS detection using only T1 im
 
 If you directly download `prep_json.py` it, you can run it with:
 ```bash
-python prep_json.py --folder /myHome/myProject/Shiva_AI_models/T1-PVS
+python shiva_prep_json.py --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 ```
 
 If you installed the shivai package, you can directly run the command line:
