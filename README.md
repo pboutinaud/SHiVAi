@@ -462,3 +462,9 @@ shiva_prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 
 
 
+## Acknowledgements
+This work has been done in collaboration between the [Fealinx](http://www.fealinx-biomedical.com/en/) company and the [GIN](https://www.gin.cnrs.fr/en/) laboratory (Groupe d'Imagerie Neurofonctionelle, UMR5293, IMN, Univ. Bordeaux, CEA , CNRS) with grants from the Agence Nationale de la Recherche (ANR) with the projects [GinesisLab](http://www.ginesislab.fr/) (ANR 16-LCV2-0006-01) and [SHIVA](https://rhu-shiva.com/en/) (ANR-18-RHUS-0002)
+
+|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/shiva_blue.png" width="100" height="100" />|<img src="./docs/logos/fealinx.jpg" height="200" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/Logo-Gin.png" height="200" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/logo_ginesis-1.jpeg" height="100" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/logo_anr.png" height="50" />|
+|---|---|---|---|---|
+
