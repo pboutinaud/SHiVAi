@@ -18,6 +18,8 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 All the content, code, and ressources of this repository, has been registered at the french 'Association de Protection des Programmes' under the number:  [IDDN.FR.001.410014.000.S.P.2024.000.21000](https://secure2.iddn.org/app.server/certificate/?sn=2024410014000&key=25dae5f5f3fc7b77d5018285173dc2b184d9358e091bbd1fe3e0be955306d7ee&lang=fr)
 
 The Shivai pipeline and all the repository content is provided under the GNU Affero General Public License version 3 (Affero GPLv3) or more recent.
+<img src="https://www.gnu.org/graphics/agplv3-155x51.png" align="right" width="100px"/>
+
 
 ## Index
 
@@ -468,3 +470,4 @@ This work has been done in collaboration between the [Fealinx](http://www.fealin
 |<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/shiva_blue.png" width="100" height="100" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/fealinx.jpg" height="200" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/Logo-Gin.png" height="200" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/logo_ginesis-1.jpeg" height="100" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/logo_anr.png" height="50" />|
 |---|---|---|---|---|
 
+https://www.gnu.org/graphics/agplv3-155x51.png
