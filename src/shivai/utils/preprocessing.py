@@ -38,7 +38,7 @@ def normalization(img: nib.Nifti1Image,
         raise ValueError('No brain mask was provided while the "inverse" option was selected.')
 
     # We suppress values above the 99th percentile to avoid hot spots
-    array = img.get_fdata()
+    array = np.nan_to_num(img.get_fdata())
     print(np.max(array))
     array[array < 0] = 0
     # calculate percentile
