@@ -11,13 +11,15 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 **cCSVD biomarkers detected with SHiVAi**
 
-![Biomarker video](src/shivai/ressources/shiva_biomarkers.mp4){width=500}
+![Gif Image](https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/Images/SHIVA_BrainTools_small2.gif)
 
 ## Intellectual property & Licencing
 
 All the content, code, and ressources of this repository, has been registered at the french 'Association de Protection des Programmes' under the number:  [IDDN.FR.001.410014.000.S.P.2024.000.21000](https://secure2.iddn.org/app.server/certificate/?sn=2024410014000&key=25dae5f5f3fc7b77d5018285173dc2b184d9358e091bbd1fe3e0be955306d7ee&lang=fr)
 
 The Shivai pipeline and all the repository content is provided under the GNU Affero General Public License version 3 (Affero GPLv3) or more recent.
+<img src="https://www.gnu.org/graphics/agplv3-155x51.png" align="right" width="100px"/>
+
 
 ## Index
 
@@ -350,33 +352,34 @@ Example of `standard` structure folders (the important parts are the name of the
 
     .
     ├── sub-21
-    │   ├── flair
-    │   │   └── sub-21_FLAIR_raw.nii.gz
-    │   ├── t1
-    │   │   └── sub-21_T1_raw.nii.gz
-    │   └── seg
-    │       └── sub-21_brainparc.nii.gz
+    │   ├── flair
+    │   │   └── sub-21_FLAIR_raw.nii.gz
+    │   ├── t1
+    │   │   └── sub-21_T1_raw.nii.gz
+    │   └── seg
+    │       └── sub-21_brainparc.nii.gz
     ├── sub-51
     │   ├── flair
-    │   │   └── sub-51_FLAIR_raw.nii.gz
+    │   │   └── sub-51_FLAIR_raw.nii.gz
     │   ├── t1
     │   │   └── sub-51_T1_raw.nii.gz
-    │   └── seg
-    ·       └── sub-51_brainparc.nii.gz
+    │   └── seg
+    ·       └── sub-51_brainparc.nii.gz
 
 In the case of DICOM files (the individual names of each files do not matter here):
+
     .
     ├── sub-21
-    │   ├── flair
-    │   │   ├── xxxxx.dcm
-    │   │   ├── xxxxx.dcm
-    │   │   ├── xxxxx.dcm
+    │   ├── flair
+    │   │   ├── xxxxx.dcm
+    │   │   ├── xxxxx.dcm
+    │   │   ├── xxxxx.dcm
     │   │   :
     │   │
-    │   └── t1
-    │       ├── xxxxx.dcm
-    │       ├── xxxxx.dcm
-    │       ├── xxxxx.dcm
+    │   └── t1
+    │       ├── xxxxx.dcm
+    │       ├── xxxxx.dcm
+    │       ├── xxxxx.dcm
     :       :
 
 
@@ -461,3 +464,8 @@ shiva_prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 
 
 
+## Acknowledgements
+This work has been done in collaboration between the [Fealinx](http://www.fealinx-biomedical.com/en/) company and the [GIN](https://www.gin.cnrs.fr/en/) laboratory (Groupe d'Imagerie Neurofonctionelle, UMR5293, IMN, Univ. Bordeaux, CEA , CNRS) with grants from the Agence Nationale de la Recherche (ANR) with the projects [GinesisLab](http://www.ginesislab.fr/) (ANR 16-LCV2-0006-01) and [SHIVA](https://rhu-shiva.com/en/) (ANR-18-RHUS-0002)
+
+|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/shiva_blue.png" width="100" height="100" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/fealinx.jpg" height="200" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/Logo-Gin.png" height="200" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/logo_ginesis-1.jpeg" height="100" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/logo_anr.png" height="50" />|
+|---|---|---|---|---|
