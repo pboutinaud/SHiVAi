@@ -22,6 +22,11 @@ from shivai import __file__ as SHIVAINIT
 SHIVALOC = os.path.dirname(os.path.abspath(SHIVAINIT))
 
 
+def realpath_binding(path_list):
+    path_list_bis = [os.getcwd() if path == '`pwd`' else path for path in path_list]
+    return [os.path.realpath(path_list_bis[0]), os.path.realpath(path_list_bis[1]), path_list_bis[2]]
+
+
 class SingularityInputSpec(CommandLineInputSpec):
     """Singularity attributes and options.
 
@@ -114,7 +119,7 @@ class SingularityCommandLine(CommandLine):
     def _singularity_format_arg(self, name, spec, value):
         """Custom argument formatting for singularity."""
         if name == 'snglrt_bind':
-            def realpath_binding(path_list): return [os.path.realpath(path_list[0]), os.path.realpath(path_list[1]), path_list[2]]
+
             return spec.argstr % (','.join([':'.join(realpath_binding(b)) for b in value]))
         return super(SingularityCommandLine, self)._format_arg(name,
                                                                spec,
@@ -197,7 +202,7 @@ class SingularityCommandLine(CommandLine):
             if not isdefined(value):
                 continue
             if spec.is_trait_type(traits.File):
-                value = os.path.realpath(value)
+                value = os.path.realpath(os.getcwd() if value == '`pwd`' else value)
             arg = self._format_arg(name, spec, value)
             if arg is None:
                 continue
