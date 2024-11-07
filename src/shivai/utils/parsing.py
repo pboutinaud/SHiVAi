@@ -286,32 +286,32 @@ def shivaParser():
 
     parser.add_argument('--percentile',
                         type=float,
-                        default=99,
+                        # default=99,
                         help='Percentile of the data to keep when doing image normalisation (to remove hotspots)')
 
     parser.add_argument('--threshold',
                         type=float,
-                        default=0.5,
+                        # default=0.5,
                         help='Threshold to binarise estimated brain mask')
 
     parser.add_argument('--threshold_pvs',
                         type=float,
-                        default=0.5,
+                        # default=0.5,
                         help='Threshold to compute PVS clusters metrics')
 
     parser.add_argument('--threshold_wmh',
                         type=float,
-                        default=0.2,
+                        # default=0.2,
                         help='Threshold to compute WMH clusters metrics')
 
     parser.add_argument('--threshold_cmb',
                         type=float,
-                        default=0.5,
+                        # default=0.5,
                         help='Threshold to compute CMB clusters metrics')
 
     parser.add_argument('--threshold_lac',
                         type=float,
-                        default=0.2,
+                        # default=0.2,
                         help='Threshold to compute lacuna clusters metrics')
 
     parser.add_argument('--threshold_clusters',
@@ -322,37 +322,37 @@ def shivaParser():
 
     parser.add_argument('--min_pvs_size',
                         type=int,
-                        default=5,
+                        # default=5,
                         help='Size (in voxels at "voxels_size") below which segmented PVSs are discarded')
 
     parser.add_argument('--min_wmh_size',
                         type=int,
-                        default=1,
+                        # default=1,
                         help='Size (in voxels at "voxels_size") below which segmented WMHs are discarded')
 
     parser.add_argument('--min_cmb_size',
                         type=int,
-                        default=1,
+                        # default=1,
                         help='Size (in voxels at "voxels_size") below which segmented CMBs are discarded')
 
     parser.add_argument('--min_lac_size',
                         type=int,
-                        default=3,
+                        # default=3,
                         help='Size (in voxels at "voxels_size") below which segmented lacunas are discarded')
 
     parser.add_argument('--final_dimensions',
                         nargs=3, type=int,
-                        default=(160, 214, 176),
+                        # default=(160, 214, 176),
                         help='Final image array size in i, j, k.')
 
     parser.add_argument('--voxels_size', nargs=3,
                         type=float,
-                        default=(1.0, 1.0, 1.0),
+                        # default=(1.0, 1.0, 1.0),
                         help='Voxel size of final image')
 
     parser.add_argument('--interpolation',
                         type=str,
-                        default='WelchWindowedSinc',
+                        # default='WelchWindowedSinc',
                         help='final interpolation apply to the t1 image')
 
     parser.add_argument('--brainmask_descriptor',
@@ -540,6 +540,9 @@ def set_args_and_check(inParser):
 
     # Parse the config file
     if args.config:
+        config_params = ['percentile', 'threshold', 'threshold_pvs', 'threshold_wmh',
+                         'threshold_cmb', 'threshold_lac', 'min_pvs_size', 'min_wmh_size',
+                         'min_cmb_size', 'min_lac_size', 'interpolation']
         args.config = os.path.abspath(args.config)
         with open(args.config, 'r') as file:
             yaml_content = yaml.safe_load(file)
@@ -548,24 +551,16 @@ def set_args_and_check(inParser):
             if 'synthseg' in args.brain_seg and not args.brain_seg == 'synthseg_precomp':
                 args.synthseg_image = yaml_content['synthseg_image']
         parameters = yaml_content['parameters']
-        args.model = yaml_content['model_path']  # only used when not with container
-        args.percentile = parameters['percentile']
-        args.threshold = parameters['threshold']
-        args.threshold_pvs = parameters['threshold_pvs']
-        args.threshold_wmh = parameters['threshold_wmh']
-        args.threshold_cmb = parameters['threshold_cmb']
-        args.threshold_lac = parameters['threshold_lac']
-        if 'min_pvs_size' in parameters.keys():
-            args.min_pvs_size = parameters['min_pvs_size']
-        if 'min_wmh_size' in parameters.keys():
-            args.min_wmh_size = parameters['min_wmh_size']
-        if 'min_cmb_size' in parameters.keys():
-            args.min_cmb_size = parameters['min_cmb_size']
-        if 'min_lac_size' in parameters.keys():
-            args.min_lac_size = parameters['min_lac_size']
-        args.final_dimensions = tuple(parameters['final_dimensions'])
-        args.voxels_size = tuple(parameters['voxels_size'])
-        args.interpolation = parameters['interpolation']
+        for param in config_params:
+            if getattr(args, param) is None:  # Giving param as argument to the command line overrides the config.yml params
+                setattr(args, param, parameters[param])
+        if args.model is None and 'model_path' in yaml_content.keys():
+            args.model = yaml_content['model_path']  # only used when not with container, otherwise set to '/mnt/model' (see below)
+
+        if args.final_dimensions is None:
+            args.final_dimensions = tuple(parameters['final_dimensions'])
+        if args.voxels_size is None:
+            args.voxels_size = tuple(parameters['voxels_size'])
 
         # Checking and setting the model descriptors (not checking md5 yet though)
         if args.brainmask_descriptor is None:  # otherwise override the config file when manually inputing the descriptor file
