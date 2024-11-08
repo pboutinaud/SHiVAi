@@ -17,6 +17,12 @@ dummy_args = {
 # args = {'BASE_DIR': '/scratch/nozais/test_shiva/MRI_anat', 'SUBJECT_LIST':['1C016BE'], 'SHIVAI_CONFIG': '/scratch/nozais/test_shiva/config_debug.yml', 'SHIVAI_IMAGE': '/scratch/nozais/test_shiva/shiva_0.3.11bis.sif'}
 
 
+def join_folder(tail, base):
+    import os
+
+    return os.path.join(base, 'shivai', tail)
+
+
 def genWorkflow(**kwargs) -> Workflow:
     workflow = Workflow("synthseg_shivai_singularity_wf")
     workflow.base_dir = kwargs['BASE_DIR']
@@ -89,12 +95,14 @@ def genWorkflow(**kwargs) -> Workflow:
     shivai_node.inputs.snglrt_enable_nvidia = True
     # Mandatory inputs:
     shivai_node.inputs.in_dir = workflow.base_dir
-    shivai_node.inputs.out_dir = workflow.base_dir
+    # shivai_node.inputs.out_dir = workflow.base_dir
     shivai_node.inputs.config = kwargs['SHIVAI_CONFIG']
     shivai_node.inputs.input_type = 'swomed'
-    # shivai_node.inputs.brain_seg = 'synthseg'
+    shivai_node.inputs.brain_seg = 'synthseg'
 
     workflow.connect(subject_list, 'subject_id', datagrabber, 'subject_id')
+    workflow.connect(subject_list, ('subject_id', join_folder, workflow.base_dir), shivai_node, 'out_dir')
+
     workflow.connect(datagrabber, 't1_image', dcm2nii_t1_node, 'source_dir')
     workflow.connect(datagrabber, 'flair_image', dcm2nii_flair_node, 'source_dir')
     workflow.connect(datagrabber, 'swi_image', dcm2nii_swi_node, 'source_dir')
