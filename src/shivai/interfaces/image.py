@@ -117,8 +117,9 @@ class Conform(BaseInterface):
         if not self.inputs.ignore_bad_affine:
             # Create new affine (no rotation, centered on center of mass) if the affine is corrupted
             rot, trans = nib.affines.to_matvec(img.affine)
-            test1 = np.isclose(rot.dot(rot.T), np.eye(3), atol=0.0001).all()  # rot x rot.T must give an indentity matrix
-            test2 = np.isclose(np.abs(np.linalg.det(rot)), 1, atol=0.0001)  # Determinant for the rotation must be 1
+            rot_norm = rot.dot(np.diag(1/img.header['pixdim'][1:4]))  # putting the rotation in isotropic space
+            test1 = np.isclose(rot_norm.dot(rot_norm.T), np.eye(3), atol=0.0001).all()  # rot x rot.T must give an indentity matrix
+            test2 = np.isclose(np.abs(np.linalg.det(rot_norm)), 1, atol=0.0001)  # Determinant for the rotation must be 1
             if not all([test1, test2]):
                 warn_msg = (
                     f"BAD AFFINE: in {fname}\n"
