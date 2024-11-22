@@ -130,7 +130,7 @@ def singParser():
                               'parcellation of the brain and adapted region-wise metrics of the segmented biomarkers. It uses '
                               'a GPU by default.\n'
                               '- "synthseg_cpu" is the same as "synthseg" but running on CPUs (which number can be controlled '
-                              'with "--synthseg_threads"), and is thus much slower\n'
+                              'with "--ai_threads"), and is thus much slower\n'
                               '- "synthseg_precomp" is used when the synthseg parcellisation was precomputed and is already '
                               'stored in the results (typically used by the run_shiva.py script)\n'
                               '- "premasked" is to be used if the input images are already masked/brain-extracted\n'
@@ -139,10 +139,12 @@ def singParser():
                               'argument. Otherwise, the segmentation is considered simply as a brain mask.'),
                         default='shiva')
 
-    parser.add_argument('--synthseg_threads',
+    parser.add_argument('--ai_threads',
                         default=8,
                         type=int,
-                        help='Number of threads to create for parallel computation when using --synthseg_cpu (default is 8).')
+                        help=('Number of threads (default is 8) to create for parallel computation when using cpu to compute AI-based parcellation. '
+                              'This involve the following options "--brain_seg shiva", "--brain_seg synthseg_cpu", and "--use_cpu".')
+                        )
 
     parser.add_argument('--custom_LUT',
                         type=str,
@@ -251,7 +253,7 @@ def main():
         args_ss = []
         if args.brain_seg == 'synthseg_cpu':
             args_ss.append("--synthseg_cpu")
-            args_ss.append(f"--threads {args.synthseg_threads}")
+            args_ss.append(f"--threads {args.ai_threads}")
             nv = ''  # nvidia support for GPU usage with Singularity
         else:
             nv = '--nv'
@@ -284,7 +286,8 @@ def main():
 
     # Optional input only for Shiva
     opt_args2_names = ['db_name',
-                       'replace_flair']
+                       'replace_flair',
+                       'ai_threads']
     opt_args2 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args2_names if getattr(args, arg_name)]
     if args.preproc_only:
         opt_args2.append('--preproc_only')

@@ -8,11 +8,11 @@ import pandas as pd
 
 
 def shivaParser():
-    DESCRIPTION = """SHIVA pipeline for deep-learning imaging biomarkers computation. Performs resampling and coregistration 
+    DESCRIPTION = """SHIVA pipeline for deep-learning imaging biomarkers computation. Performs resampling and coregistration
                 of a set of structural NIfTI head image, followed by intensity normalization, and cropping centered on the brain.
                 A nipype workflow is used to preprocess a lot of images at the same time.
                 The segmentation from the wmh, cmb and pvs models are generated depending on the inputs. A Report is generated.
-                
+
                 Input data can be staged in BIDS or a simplified file arborescence, or described with a JSON file (for the 3D Slicer extension)."""
 
     parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -118,7 +118,7 @@ def shivaParser():
                               'parcellation of the brain and adapted region-wise metrics of the segmented biomarkers. It uses '
                               'a GPU by default.\n'
                               '- "synthseg_cpu" is the same as "synthseg" but running on CPUs (which number can be controlled '
-                              'with "--synthseg_threads"), and is thus much slower\n'
+                              'with "--ai_threads"), and is thus much slower\n'
                               '- "synthseg_precomp" is used when the synthseg parcellisation was precomputed and is already '
                               'stored in the results (typically used by the run_shiva.py script)\n'
                               '- "premasked" is to be used if the input images are already masked/brain-extracted\n'
@@ -127,10 +127,12 @@ def shivaParser():
                               'argument. Otherwise, the segmentation is considered simply as a brain mask.'),
                         default='shiva')
 
-    parser.add_argument('--synthseg_threads',
+    parser.add_argument('--ai_threads',
                         default=8,
                         type=int,
-                        help='Number of threads to create for parallel computation when using "--brain_seg synthseg_cpu" (default is 8).')
+                        help=('Number of threads (default is 8) to create for parallel computation when using cpu to compute AI-based parcellation. '
+                              'This involve the following options "--brain_seg shiva", "--brain_seg synthseg_cpu", and "--use_cpu".')
+                        )
 
     parser.add_argument('--custom_LUT',
                         type=str,
@@ -153,7 +155,7 @@ def shivaParser():
 
     parser.add_argument('--use_cpu',
                         action='store_true',
-                        help='If selected, will ignore available GPU(s) and run the segmentations on CPUs')
+                        help='If selected, will ignore available GPU(s) and run the segmentations on CPUs. Be aware that some models may not be compatible with this option.')
 
     parser.add_argument('--swomed_parc',  # Hidden option overriding 'brain_seg', used in SWOMed to give the path to the synthseg parcelation
                         required=False,

@@ -99,10 +99,11 @@ def predict_parser():
 
     parser.add_argument(
         '--use_cpu',
-        action='store_true',
+        default=0,
+        type=int,
         required=False,
-        help=('If selected, will run the model on CPUs. Note however that some model may '
-              'not be compatible with CPUs, which will lead to a crash.')
+        help=('If other than 0, will run the model on CPUs (limiting usage by the given number). '
+              'Note however that some model may not be compatible with CPUs, which will lead to a crash.')
     )
 
     return parser
@@ -113,6 +114,8 @@ def main():
     args = pred_parser.parse_args()
     if args.use_cpu:
         tf.config.set_visible_devices([], 'GPU')
+        tf.config.threading.set_intra_op_parallelism_threads(args.use_cpu)
+        tf.config.threading.set_inter_op_parallelism_threads(args.use_cpu)
     # Obtaining the absolute path to all the model files
     model_files = []
     with open(args.descriptor) as f:

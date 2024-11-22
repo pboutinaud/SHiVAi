@@ -83,6 +83,11 @@ class PredictInputSpec(BaseInterfaceInputSpec):
                               desc='Output filename.',
                               usedefault=True)
 
+    use_cpu = traits.Int(0,
+                         usedefault=True,
+                         argstr='--use_cpu',
+                         desc='Set to a positive integer to ignore GPUs and use CPUs instead. Limit the CPU usage by the given number')
+
 
 class PredictSingularityInputSpec(SingularityInputSpec, PredictInputSpec):
     """PredictVRS input specification (singularity mixin).
@@ -178,10 +183,10 @@ class Predict_Multi_InputSpec(BaseInterfaceInputSpec):
                           argstr='--foutname %s',
                           usedefault=True)
 
-    use_cpu = traits.Bool(False,
-                          usedefault=True,
-                          argstr='--use_cpu',
-                          desc='Set to True to ignore GPUs and use CPUs instead')
+    use_cpu = traits.Int(0,
+                         usedefault=True,
+                         argstr='--use_cpu',
+                         desc='Set to a positive integer to ignore GPUs and use CPUs instead. Limit the CPU usage by the given number')
 
 
 class Predict_Multi_SingularityInputSpec(SingularityInputSpec, Predict_Multi_InputSpec):
@@ -533,7 +538,7 @@ class Shivai_InputSpec(CommandLineInputSpec):
                               exists=True,
                               mandatory=False)
 
-    # synthseg_threads = traits.Int(argstr='--synthseg_threads %d',
+    # ai_threads = traits.Int(argstr='--ai_threads %d',
     #                               desc='Number of thread to run with "synthseg_cpu".',
     #                               mandatory=False)
 

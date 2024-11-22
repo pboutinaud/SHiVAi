@@ -49,21 +49,19 @@ def genWorkflow(**kwargs) -> Workflow:
         pre_brain_mask = Node(Predict(), "pre_brain_mask")
         pre_brain_mask.inputs.out_filename = 'pre_brain_mask.nii.gz'
     pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
+    pre_brain_mask.inputs.gpu_number = kwargs['GPU']
 
-    if kwargs['BRAIN_SEG'] == 'shiva_gpu':
-        if kwargs['GPU'] is not None and kwargs['GPU'] >= 0:
-            pre_brain_mask.inputs.gpu_number = kwargs['GPU']
-    else:
-        pre_brain_mask.inputs.gpu_number = -1
-
-    # Remove the '--gpus' from the plugin args if necessary
     plugin_args = kwargs['PRED_PLUGIN_ARGS']['sbatch_args']
-    if '--gpus' in plugin_args and not kwargs['BRAIN_SEG'] == 'shiva_gpu':
-        list_args = plugin_args.split(' ')
-        gpu_arg_ind1 = list_args.index('--gpus')
-        gpu_arg_ind2 = gpu_arg_ind1 + 1
-        list_args_noGPU = [arg for i, arg in enumerate(list_args) if i not in [gpu_arg_ind1, gpu_arg_ind2]]
-        plugin_args = ' '.join(list_args_noGPU)
+
+    if not kwargs['BRAIN_SEG'] == 'shiva_gpu':
+        pre_brain_mask.inputs.use_cpu = kwargs['AI_THREADS']
+        if '--gpus' in plugin_args:
+            # Remove the '--gpus' from the plugin args if necessary
+            list_args = plugin_args.split(' ')
+            gpu_arg_ind1 = list_args.index('--gpus')
+            gpu_arg_ind2 = gpu_arg_ind1 + 1
+            list_args_noGPU = [arg for i, arg in enumerate(list_args) if i not in [gpu_arg_ind1, gpu_arg_ind2]]
+            plugin_args = ' '.join(list_args_noGPU)
 
     pre_brain_mask.plugin_args = plugin_args
     pre_brain_mask.inputs.descriptor = descriptor

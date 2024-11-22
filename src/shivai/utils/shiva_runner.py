@@ -21,7 +21,7 @@ def check_input_for_pred(wfargs):
             raise FileNotFoundError(errormsg)
 
 
-def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, brain_seg, synthseg_threads,
+def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, brain_seg, ai_threads,
           node_plugin_args, prev_qc, preproc_results, replace_t1, replace_flair, replace_swi, swi_file_num,
           db_name, custom_LUT, preproc_only, use_cpu, swomed_parc, swomed_ssvol, swomed_ssqc, swomed_t1, swomed_flair,
           swomed_swi, use_t1, container_image, synthseg_image, containerized_nodes, local_synthseg,
@@ -76,12 +76,8 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
                 # When it's a relative path from the "model" path (default behaviour)
                 descriptor_paths[desc_k] = os.path.join(model, desc_path)
 
-    ss_threads = 0
-    if brain_seg == 'synthseg_cpu':
-        ss_threads = synthseg_threads
-
     # Plugin arguments for predictions (shiva pred and synthseg)
-    pred_plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 4 --gpus 1'}
+    pred_plugin_args = {'sbatch_args': f'--nodes 1 --cpus-per-task {ai_threads} --gpus 1'}
     reg_plugin_args = {'sbatch_args': '--nodes 1 --cpus-per-task 8'}
     if 'pred' in node_plugin_args.keys():
         pred_plugin_args = node_plugin_args['pred']
@@ -125,7 +121,7 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
         'BASE_DIR': out_dir,  # Default base_dir for each workflow
         'PREDICTION': prediction,  # Needed by the postproc for now
         'BRAIN_SEG': brain_seg,
-        'SYNTHSEG_ON_CPU': ss_threads,  # Number of threads to use for Synthseg on CPUs
+        'AI_THREADS': ai_threads,  # Number of threads to use for AI inference on CPUs
         'CUSTOM_LUT': custom_LUT,
         **descriptor_paths,
         'ACQUISITIONS': pred_acqui,
@@ -136,7 +132,7 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
         'CONTAINERIZE_NODES': containerized_nodes,
         # 'CONTAINER': True #  legacy variable. Only when used by SMOmed usually
         'MODELS_PATH': model,
-        'GPU': -1 if use_cpu else None,  # gpu,
+        'GPU': -1 if use_cpu else None,
         'REG_PLUGIN_ARGS': reg_plugin_args,
         'PRED_PLUGIN_ARGS': pred_plugin_args,
         'ANONYMIZED': anonymize,

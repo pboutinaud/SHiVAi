@@ -46,11 +46,21 @@ def genWorkflow(**kwargs) -> Workflow:
             predict_node = Node(Predict_Multi(), name=f'predict_{lpred}')
         predict_node.inputs.foutname = f'{{sub}}_{lpred}_map.nii.gz'
         predict_node.inputs.model_dir = kwargs['MODELS_PATH']
-        predict_node.plugin_args = kwargs['PRED_PLUGIN_ARGS']
         predict_node.inputs.descriptor = descriptor
         predict_node.inputs.input_size = kwargs['IMAGE_SIZE']
+
+        plugin_args = kwargs['PRED_PLUGIN_ARGS']['sbatch_args']
+
         if kwargs['GPU'] is not None and kwargs['GPU'] < 0:
-            predict_node.inputs.use_cpu = True
+            predict_node.inputs.use_cpu = kwargs['AI_THREADS']
+            if '--gpus' in plugin_args:
+                list_args = plugin_args.split(' ')
+                gpu_arg_ind1 = list_args.index('--gpus')
+                gpu_arg_ind2 = gpu_arg_ind1 + 1
+                list_args_noGPU = [arg for i, arg in enumerate(list_args) if i not in [gpu_arg_ind1, gpu_arg_ind2]]
+                plugin_args = ' '.join(list_args_noGPU)
+
+        predict_node.plugin_args = plugin_args
 
         segmentation_wf.add_nodes([predict_node])
 

@@ -89,6 +89,15 @@ def predict_parser():
         help="GPU card ID; for CPU use -1")
 
     parser.add_argument(
+        '--use_cpu',
+        default=0,
+        type=int,
+        required=False,
+        help=('If other than 0, will run the model on CPUs (limiting usage by the given number). '
+              'Note however that some model may not be compatible with CPUs, which will lead to a crash.')
+    )
+
+    parser.add_argument(
         "--verbose",
         help="increase output verbosity",
         action="store_true")
@@ -103,17 +112,19 @@ def main():
     _VERBOSE = args.verbose
 
     # Set GPU
-    if args.gpu is not None:
+    if args.gpu is not None and args.gpu >= 0:
         os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
-        if args.gpu < 0:
-            tf.config.set_visible_devices([], 'GPU')
         if _VERBOSE:
-            if args.gpu >= 0:
-                print(f"Trying to run inference on GPU {args.gpu}")
-            else:
-                print("Trying to run inference on CPU")
+            print(f"Trying to run inference on GPU {args.gpu}")
+    elif args.gpu < 0 and args.use_cpu:
+        tf.config.set_visible_devices([], 'GPU')
+        tf.config.threading.set_intra_op_parallelism_threads(args.use_cpu)
+        tf.config.threading.set_inter_op_parallelism_threads(args.use_cpu)
+        if _VERBOSE:
+            print("Trying to run inference on CPU")
     else:
-        print(f"Trying to run inference on GPU {tf.config.get_visible_devices('GPU')}")
+        if _VERBOSE:
+            print(f"Trying to run inference on available GPU(s)")
 
     # The tf model files for the predictors, the prediction will be averaged
     predictor_files = []
