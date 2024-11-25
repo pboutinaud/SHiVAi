@@ -185,7 +185,7 @@ class Predict_Multi_InputSpec(BaseInterfaceInputSpec):
 
     use_cpu = traits.Int(0,
                          usedefault=True,
-                         argstr='--use_cpu',
+                         argstr='--use_cpu %d',
                          desc='Set to a positive integer to ignore GPUs and use CPUs instead. Limit the CPU usage by the given number')
 
 
