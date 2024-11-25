@@ -49,7 +49,8 @@ def genWorkflow(**kwargs) -> Workflow:
         pre_brain_mask = Node(Predict(), "pre_brain_mask")
         pre_brain_mask.inputs.out_filename = 'pre_brain_mask.nii.gz'
     pre_brain_mask.inputs.model = kwargs['MODELS_PATH']
-    pre_brain_mask.inputs.gpu_number = kwargs['GPU']
+    if isinstance(kwargs['GPU'], int):
+        pre_brain_mask.inputs.gpu_number = kwargs['GPU']
 
     plugin_args = kwargs['PRED_PLUGIN_ARGS']['sbatch_args']
 
@@ -118,10 +119,10 @@ def genWorkflow(**kwargs) -> Workflow:
     proper_brain_mask.inputs.model = kwargs['MODELS_PATH']
 
     if kwargs['BRAIN_SEG'] == 'shiva_gpu':
-        if kwargs['GPU'] is not None and kwargs['GPU'] >= 0:  # else keep the default (None)
-            proper_brain_mask.inputs.gpu_number = kwargs['GPU']
-    else:
-        proper_brain_mask.inputs.gpu_number = -1
+        pre_brain_mask.inputs.use_cpu = kwargs['AI_THREADS']
+
+    if isinstance(kwargs['GPU'], int):
+        proper_brain_mask.inputs.gpu_number = kwargs['GPU']
 
     proper_brain_mask.plugin_args = plugin_args
     proper_brain_mask.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']

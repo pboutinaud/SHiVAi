@@ -112,19 +112,23 @@ def main():
     _VERBOSE = args.verbose
 
     # Set GPU
-    if args.gpu is not None and args.gpu >= 0:
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
-        if _VERBOSE:
-            print(f"Trying to run inference on GPU {args.gpu}")
-    elif args.gpu < 0 and args.use_cpu:
+    if args.use_cpu:
         tf.config.set_visible_devices([], 'GPU')
         tf.config.threading.set_intra_op_parallelism_threads(args.use_cpu)
         tf.config.threading.set_inter_op_parallelism_threads(args.use_cpu)
         if _VERBOSE:
             print("Trying to run inference on CPU")
     else:
-        if _VERBOSE:
-            print(f"Trying to run inference on available GPU(s)")
+        if args.gpu is not None:
+            if args.gpu >= 0:
+                os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+                if _VERBOSE:
+                    print(f"Trying to run inference on GPU {args.gpu}")
+            else:
+                raise ValueError("Trying to run the inference on CPU (--gpu is negative) but --use_cpu is 0 or not set")
+        else:
+            if _VERBOSE:
+                print(f"Trying to run inference on available GPU(s)")
 
     # The tf model files for the predictors, the prediction will be averaged
     predictor_files = []
