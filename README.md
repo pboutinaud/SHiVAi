@@ -79,7 +79,7 @@ SHiVAi relies on the access to brain masks in order to crop the input volumes to
 1. You will need to have **Apptainer** installed (previously known as **Singularity**):
 https://apptainer.org/docs/user/main/quick_start.html
 
-2. Download the Apptainer image (.sif file) from https://cloud.efixia.com/sharing/LBpEj8Jpr.
+2. Download the Apptainer image (.sif file) from [https://cloud.efixia.com/sharing/HKbnJ44zG](https://cloud.efixia.com/sharing/HKbnJ44zG) (it may take a while, the image weighs about 4GB).
     Let's assume you saved it in `/myHome/myProject/shiva.sif`
 
 3. From the shivai repository (where you are reading this), navigate to the [apptainer folder](apptainer/) and download [run_shiva.py](apptainer/run_shiva.py) and [config_example.yml](apptainer/config_example.yml)
