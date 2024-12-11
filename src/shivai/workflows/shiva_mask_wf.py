@@ -118,8 +118,8 @@ def genWorkflow(**kwargs) -> Workflow:
         proper_brain_mask.inputs.out_filename = 'brain_mask.nii.gz'
     proper_brain_mask.inputs.model = kwargs['MODELS_PATH']
 
-    if kwargs['BRAIN_SEG'] == 'shiva_gpu':
-        pre_brain_mask.inputs.use_cpu = kwargs['AI_THREADS']
+    if not kwargs['BRAIN_SEG'] == 'shiva_gpu':
+        proper_brain_mask.inputs.use_cpu = kwargs['AI_THREADS']
 
     if isinstance(kwargs['GPU'], int):
         proper_brain_mask.inputs.gpu_number = kwargs['GPU']
