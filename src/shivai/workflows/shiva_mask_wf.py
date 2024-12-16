@@ -52,7 +52,7 @@ def genWorkflow(**kwargs) -> Workflow:
     if isinstance(kwargs['GPU'], int):
         pre_brain_mask.inputs.gpu_number = kwargs['GPU']
 
-    plugin_args = kwargs['PRED_PLUGIN_ARGS']['sbatch_args']
+    plugin_args = kwargs['PRED_PLUGIN_ARGS']
 
     if not kwargs['BRAIN_SEG'] == 'shiva_gpu':
         pre_brain_mask.inputs.use_cpu = kwargs['AI_THREADS']
