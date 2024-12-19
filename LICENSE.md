@@ -1,3 +1,5 @@
+License: AGPL-3.0
+
 Copyright (C) 2024 Fealinx
 
 The Shivai pipeline should not be used for clinical purposes.
