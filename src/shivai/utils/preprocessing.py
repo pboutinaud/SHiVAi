@@ -2,9 +2,10 @@
 from typing import Tuple
 import numpy as np
 import random
+# import typing
 from copy import deepcopy
 from skimage.measure import label
-from skimage.morphology import opening, binary_opening, ball
+from skimage.morphology import opening, binary_erosion, binary_dilation, ball, cube
 
 import nibabel.processing as nip
 import nibabel as nib
@@ -12,6 +13,73 @@ from scipy import ndimage
 from nibabel.orientations import axcodes2ornt, io_orientation, ornt_transform
 
 from shivai.utils.misc import histogram, fisin
+
+
+# def roll_binary_dilation(vol: np.ndarray[typing.Any, bool], kernel: np.ndarray[typing.Any, bool] = None, outtype=None):
+#     """Binary dilation using the np.roll function to go super fast.
+#     However, there is no checks for if the dilation goes over the edge (it will loop around the axis).
+
+#     Args:
+#         vol (np.ndarray[typing.Any, bool]): Input array to be dilated
+#         kernel (np.ndarray[typing.Any, bool]): Pseudo-morphology kernel. Must have the same number of dim than vol.
+#             By default, will use a fully connected kernel (square for 2D, cube for 3D) of width 3.
+#         outtype : casting type for the output array. By default, will be the same as the input vol.
+
+#     Returns:
+
+#     """
+#     outtype = vol.dtype if outtype is None else outtype
+#     kernel = np.ones(tuple(3 for i in range(len(vol.shape)))) if kernel is None else kernel
+#     if any([dim % 2 == 0 for dim in kernel.shape]):
+#         raise ValueError('Kernel must have an odd number of voxels in each dim (to have a center voxel)')
+#     if len(vol.shape) != len(kernel.shape):
+#         raise ValueError('input volume and kernel must have the same number of dimensions')
+#     if not vol.dtype == bool:
+#         vol = vol.astype(bool)
+#     res = vol.copy()
+#     center_vox = tuple(i//2 for i in kernel.shape)
+#     shifts = [tuple(s) for s in np.argwhere(kernel) - center_vox]
+#     for shift in shifts:
+#         res += np.roll(vol, shift, tuple(range(len(vol.shape))))
+#     return res.astype(outtype)
+
+
+# def roll_binary_erosion(vol: np.ndarray[typing.Any, bool], kernel: np.ndarray[typing.Any, bool] = None, outtype=None):
+#     """See roll_binary_dilation
+#     """
+#     outtype = vol.dtype if outtype is None else outtype
+#     vol = vol.astype(bool)
+#     inv_res = roll_binary_dilation(~vol, kernel)
+#     res = ~inv_res
+#     return res.astype(outtype)
+
+
+# def roll_binary_opening(vol: np.ndarray[typing.Any, bool], kernel: np.ndarray[typing.Any, bool] = None, outtype=None, iterations=1, rep=1):
+#     """
+#     iter : number of time running the operation
+#     rep : number of erosions to perform before dilations
+#     """
+#     res = vol.copy()
+#     for i in range(iterations):
+#         for r in range(rep):
+#             res = roll_binary_erosion(res, kernel)
+#         for r in range(rep):
+#             res = roll_binary_dilation(res, kernel, outtype)
+#     return res
+
+
+# def roll_binary_closing(vol: np.ndarray[typing.Any, bool], kernel: np.ndarray[typing.Any, bool] = None, outtype=None, iterations=1, rep=1):
+#     """
+#     iter : number of time running the operation
+#     rep : number of dilations to perform before erosions
+#     """
+#     res = vol.copy()
+#     for i in range(iterations):
+#         for r in range(rep):
+#             res = roll_binary_erosion(res, kernel)
+#         for r in range(rep):
+#             res = roll_binary_dilation(res, kernel, outtype)
+#     return res
 
 
 def normalization(img: nib.Nifti1Image,
@@ -73,7 +141,7 @@ def threshold(img: nib.Nifti1Image,
               thr: float = 0.4,
               sign: str = '+',
               binarize: bool = False,
-              open: int = 0,
+              rad: int = 0,
               clusterCheck: str = 'size',
               minVol: int = 0) -> nib.Nifti1Image:
     """Create a brain_mask by putting all the values below the threshold.
@@ -85,7 +153,7 @@ def threshold(img: nib.Nifti1Image,
                 (white matter) and remove background
             sign (str): '+' zero anything below, '-' zero anythin above threshold
             binarize (bool): make a binary mask
-            open (int): do a morphological opening using the given int for the radius
+            rad (int): do a morphological opening using the given int for the radius
                 of the ball used as footprint. If 0 is given, skip this step.
             clusterCheck (str): Can be 'top', 'size', or 'all'. Labels the clusters in the mask,
                 then keep the one highest in the brain if 'top' was selected, or keep
@@ -122,11 +190,15 @@ def threshold(img: nib.Nifti1Image,
     else:
         raise ValueError(f'Unsupported sign argument value {sign} (+ or -)...')
 
-    if open:
+    if rad:
         if binarize:
-            array = binary_opening(array, footprint=ball(open)).astype(np.uint8)
+            for i in range(rad):
+                array = binary_erosion(array)
+            for i in range(rad):
+                array = binary_dilation(array)
+            # array = roll_binary_opening(array, outtype=np.uint8, rep=rad)
         else:
-            array = opening(array, footprint=ball(open))
+            array = opening(array, footprint=ball(rad))
     if clusterCheck in ('top', 'size') or minVol:
         labeled_clusters = label(array)
         clst,  clst_cnt = np.unique(
