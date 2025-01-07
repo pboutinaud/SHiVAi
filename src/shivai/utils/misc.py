@@ -183,11 +183,12 @@ def get_clusters_and_filter_image(image, cluster_filter=0):
         nums_left = [i for i in clusnum if i not in to_remove]
 
         image_f = image.copy()
-        image_f[fisin(clusters, to_remove)] = 0
         clusters_f = clusters.copy()
-        clusters_f[fisin(clusters, to_remove)] = 0
-
+        if to_remove.size:
+            image_f[fisin(clusters, to_remove)] = 0
+            clusters_f[fisin(clusters, to_remove)] = 0
         num_clusters_f = num_clusters - len(to_remove)
+
         for new_i, old_i in enumerate(nums_left):
             new_i += 1  # because starts at 0
             clusters_f[clusters == old_i] = new_i
