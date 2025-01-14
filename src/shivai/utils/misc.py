@@ -4,7 +4,7 @@ Miscellaneous functions usefull in multiple scripts
 
 import hashlib
 import os
-import pathlib
+from pathlib import Path
 import json
 
 
@@ -19,7 +19,7 @@ from functools import reduce
 from skimage import measure
 
 
-def md5(fname):
+def md5(fname: Path):
     """
     Create a md5 hash for a file or a folder
 
@@ -29,14 +29,15 @@ def md5(fname):
     Returns:
         str: hexadecimal hash for the file/folder
     """
+    if isinstance(fname, str):
+        fname = Path(fname)
     hash_md5 = hashlib.md5()
-    if os.path.isfile(fname):
+    if fname.is_file():
         with open(fname, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_md5.update(chunk)
-    elif os.path.isdir(fname):
-        fpath = pathlib.Path(fname)
-        file_list = [f for f in fpath.rglob('*') if os.path.isfile(f)]
+    elif fname.is_dir():
+        file_list = [f for f in fname.rglob('*') if f.is_file()]
         file_list.sort()
         for sub_file in file_list:
             with open(sub_file, "rb") as f:
