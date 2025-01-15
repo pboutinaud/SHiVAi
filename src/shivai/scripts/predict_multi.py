@@ -6,16 +6,15 @@
 
 import gc
 import json
+import importlib.util
 import sys
+import inspect
 
 import argparse
 from pathlib import Path
-import importlib.util as importu
-import tensorflow as tf
 
 import numpy as np
 import nibabel as nib
-import keras
 from shivai.utils.misc import md5
 
 
@@ -111,12 +110,15 @@ def predict_parser():
 
 
 def main():
+    import keras
+    import tensorflow as tf
     pred_parser = predict_parser()
     args = pred_parser.parse_args()
     model_dir = args.model_dir  # type: Path
+    descriptor = args.descriptor  # type: Path
     # Obtaining the absolute path to all the model files
     model_files = []  # type: list[Path]
-    with open(args.descriptor) as f:
+    with open(descriptor) as f:
         meta_data = json.load(f)
     for mfile in meta_data['files']:
         mfilename = Path(mfile['name'])
@@ -161,7 +163,16 @@ def main():
 
     if keras_model:
         # Execute keras_model to have access to its classes
-        exec(open(keras_model).read())
+        # with open(keras_model) as kf:
+        #     exec(kf.read())  # doesn't work when calling the script...
+        spec = importlib.util.spec_from_file_location('kmodel', keras_model)
+        kmodel = importlib.util.module_from_spec(spec)
+        sys.modules['kmodel'] = kmodel
+        globals()['kmodel'] = kmodel
+        spec.loader.exec_module(kmodel)
+        detected_classes = [c for c in dir(kmodel) if inspect.isclass(eval(f'kmodel.{c}'))]
+        for modl_class in detected_classes:
+            exec(f'{modl_class} = kmodel.{modl_class}')
 
     # iterating over the model files and the input image files
     img1_files = args.img1_files
@@ -175,23 +186,17 @@ def main():
     step = len(sub_list)//args.batch_size + int(bool(len(sub_list) % args.batch_size))
 
     if args.use_cpu:
-        # if v:
-        # os.environ['CUDA_VISIBLE_DEVICES'] = ''
-        # from keras import backend as K
-        # K.set_session(K.tf.Session(config=K.tf.ConfigProto(intra_op_parallelism_threads=args.use_cpu,
-        #                                         inter_op_parallelism_threads=args.use_cpu)))
-        # else:
         tf.config.set_visible_devices([], 'GPU')
         tf.config.threading.set_intra_op_parallelism_threads(args.use_cpu)
         tf.config.threading.set_inter_op_parallelism_threads(args.use_cpu)
 
     affine_dict = {}
+    tmp_files = {}  # type: dict[str, Path]
     for fold, mfile in enumerate(model_files):
         # Load the model
         keras.backend.clear_session()
         gc.collect()
         print(f"Loading model file: {mfile}")
-        tmp_files = {}  # type: dict[str, Path]
         if keras_model:
             model = keras.saving.load_model(mfile, custom_objects=None, compile=False)
         else:
@@ -221,7 +226,6 @@ def main():
                 tmp_file = Path(f'tmp_{sub}_fold{fold}.nii.gz')
                 nib.save(subpred_im, tmp_file)
                 tmp_files[f'{sub}_{fold}'] = tmp_file
-
     # Taking each fold's results and averaging them
     print('Averaging the results of each model (done for each subject)...')
     for i, sub in enumerate(sub_list):
