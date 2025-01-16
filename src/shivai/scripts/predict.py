@@ -256,7 +256,7 @@ def main():
         gc.collect()
         try:
             if keras_model:
-                model = keras.saving.load_model(mfile, custom_objects=None, compile=False)
+                model = keras.saving.load_model(model_file, custom_objects=None, compile=False)
             else:
                 model = tf.keras.models.load_model(
                     model_file,
