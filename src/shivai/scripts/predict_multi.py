@@ -192,16 +192,16 @@ def main():
 
     affine_dict = {}
     tmp_files = {}  # type: dict[str, Path]
-    for fold, mfile in enumerate(model_files):
+    for fold, model_file in enumerate(model_files):
         # Load the model
         keras.backend.clear_session()
         gc.collect()
-        print(f"Loading model file: {mfile}")
+        print(f"Loading model file: {model_file}")
         if keras_model:
-            model = keras.saving.load_model(mfile, custom_objects=None, compile=False)
+            model = keras.saving.load_model(model_file, custom_objects=None, compile=False)
         else:
             model = keras.models.load_model(
-                mfile,
+                model_file,
                 compile=False,
                 custom_objects={"tf": tf})
         for i in range(step):
