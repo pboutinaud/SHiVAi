@@ -136,20 +136,20 @@ def main():
     if 'script' in meta_data:
         keras_model = model_dir / meta_data['script']['name']
         if not keras_model.exists():
-            notfound.append(keras_model)
+            notfound.append(str(keras_model))
         else:
             k_md5 = meta_data['script']['md5']
             k_hashmd5 = md5(keras_model)
             if k_hashmd5 != k_md5:
-                badmd5.append(keras_model)
+                badmd5.append(str(keras_model))
 
     for model_file, file_data in zip(model_files, meta_data['files']):
         if not model_file.exists():
-            notfound.append(model_file)
+            notfound.append(str(model_file))
         else:
             hashmd5 = md5(model_file)
             if file_data["md5"] != hashmd5:
-                badmd5.append(model_file)
+                badmd5.append(str(model_file))
     if notfound:
         raise ValueError('Some (or all) model files/folders were missing.\n'
                          'Please supply or mount a folder '
