@@ -44,7 +44,7 @@ def md5(fname: Path):
                 for chunk in iter(lambda: f.read(4096), b""):
                     hash_md5.update(chunk)
     else:
-        raise FileNotFoundError(f'The input is neither a file nor a folder: {fname}')
+        raise ValueError(f'The input is neither a file nor a folder: {fname}')
     return hash_md5.hexdigest()
 
 

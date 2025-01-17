@@ -162,25 +162,25 @@ def main():
                 model_dir = model_dir.parent
         model_file = model_dir / mfilename
         if not model_file.exists():
-            raise FileNotFoundError(f'Model file {model_file} was not found.')
+            raise ValueError(f'Model file {model_file} was not found.')
         hashmd5 = md5(model_file)
         if mfile["md5"] != hashmd5:
             raise ValueError("Mismatch between expected file from the model descriptor and the actual model file")
         model_files.append(model_file)
 
     if len(model_files) == 0:
-        raise FileNotFoundError('Found no model files, '
-                                'please supply or mount a folder '
-                                'containing h5 files with model weights.')
+        raise ValueError('Found no model files, '
+                         'please supply or mount a folder '
+                         'containing h5 files with model weights.')
     for model_file in model_files:
         if not os.path.exists(model_file):
             notfound.append(model_file)
     if notfound:
-        raise FileNotFoundError('Some (or all) model files/folders were missing.\n'
-                                'Please supply or mount a folder '
-                                'containing the model files/folders with model weights.\n'
-                                'Current problematic paths:\n\t' +
-                                '\n\t'.join(notfound))
+        raise ValueError('Some (or all) model files/folders were missing.\n'
+                         'Please supply or mount a folder '
+                         'containing the model files/folders with model weights.\n'
+                         'Current problematic paths:\n\t' +
+                         '\n\t'.join(notfound))
 
     if keras_model:
         # Execute keras_model to have access to its classes

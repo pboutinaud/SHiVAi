@@ -472,7 +472,7 @@ def set_args_and_check(inParser):
         sub_list = []
         sep_chars = [' ', ';', '|']
         if not os.path.exists(list_path):
-            raise FileNotFoundError(f'The participant list file was not found at the given location: {list_path}')
+            raise ValueError(f'The participant list file was not found at the given location: {list_path}')
         with open(list_path) as f:
             lines = f.readlines()
         for line in lines:
@@ -661,7 +661,7 @@ def set_args_and_check(inParser):
     if args.preproc_results is not None:
         args.preproc_results = os.path.abspath(args.preproc_results)
         if not os.path.exists(args.preproc_results):
-            raise FileNotFoundError(
+            raise ValueError(
                 f'The folder containing the results from the previous processing was not found: {args.preproc_results}'
             )
         dir_list = os.listdir(args.preproc_results)
@@ -679,7 +679,7 @@ def set_args_and_check(inParser):
                 if 'shiva_preproc' in dir_list2:
                     args.preproc_results = os.path.join(args.preproc_results, 'shiva_preproc')
                 else:
-                    raise FileNotFoundError(err_msg)
+                    raise ValueError(err_msg)
             else:
-                raise FileNotFoundError(err_msg)
+                raise ValueError(err_msg)
     return args

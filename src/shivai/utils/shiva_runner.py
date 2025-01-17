@@ -18,7 +18,7 @@ def check_input_for_pred(wfargs):
             errormsg = (f'The AI model descriptor for the segmentation of {pred} was not found. '
                         'Check if the model paths were properly setup in the configuration file (.yml).\n'
                         f'The path given for the model descriptor was: {wfargs[f"{pred}_DESCRIPTOR"]}')
-            raise FileNotFoundError(errormsg)
+            raise ValueError(errormsg)
 
 
 def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, brain_seg, ss_qc, ai_threads,

@@ -161,7 +161,7 @@ def main():
         model_files = list((root_dir / model_dir).iterdir())
         model_files = [f.relative_to(root_dir) for f in model_files if f.is_dir()]  # keeping only the folders
     if not model_files:
-        raise FileNotFoundError('No file/folder detected')
+        raise ValueError('No file/folder detected')
 
     json_maker(target, modals, root_dir, model_files, args.version, args.date, args.author)
 

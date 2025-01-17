@@ -151,11 +151,11 @@ def main():
             if file_data["md5"] != hashmd5:
                 badmd5.append(model_file)
     if notfound:
-        raise FileNotFoundError('Some (or all) model files/folders were missing.\n'
-                                'Please supply or mount a folder '
-                                'containing the model files/folders with model weights.\n'
-                                'Current problematic paths:\n\t' +
-                                '\n\t'.join(notfound))
+        raise ValueError('Some (or all) model files/folders were missing.\n'
+                         'Please supply or mount a folder '
+                         'containing the model files/folders with model weights.\n'
+                         'Current problematic paths:\n\t' +
+                         '\n\t'.join(notfound))
     if badmd5:
         raise ValueError("Mismatch between expected file from the model descriptor and the actual model file.\n"
                          "Files in question:\n\t" +
