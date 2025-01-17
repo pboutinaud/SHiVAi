@@ -127,6 +127,10 @@ def shivaParser():
                               'argument. Otherwise, the segmentation is considered simply as a brain mask.'),
                         default='shiva')
 
+    parser.add_argument('--ss_qc',
+                        action='store_true',
+                        help='Runs the SynthSeg QC if --brain_seg synthseg* is selected too.')
+
     parser.add_argument('--ai_threads',
                         default=8,
                         type=int,

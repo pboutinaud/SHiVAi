@@ -376,8 +376,12 @@ def generate_main_wf(**kwargs) -> Workflow:
         else:
             if kwargs['BRAIN_SEG'] == 'synthseg_precomp':
                 main_wf.connect(wf_preproc, 'synthseg_grabber.volumes', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
+                if kwargs['PREP_SETTINGS']['ss_qc']:
+                    main_wf.connect(wf_preproc, 'synthseg_grabber.qc', sink_node_subjects, 'shiva_preproc.synthseg.@qc')
             else:
                 main_wf.connect(wf_preproc, 'synthseg.volumes', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
+                if kwargs['PREP_SETTINGS']['ss_qc']:
+                    main_wf.connect(wf_preproc, 'synthseg.qc', sink_node_subjects, 'shiva_preproc.synthseg.@qc')
     elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
         main_wf.connect(wf_preproc, 'seg_to_crop.resampled_image', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@seg')
     main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@bb1')

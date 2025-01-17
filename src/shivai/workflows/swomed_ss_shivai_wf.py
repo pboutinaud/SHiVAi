@@ -113,6 +113,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(dcm2nii_swi_node, ('converted_files', file_selector, config['parameters']['swi_echo']), shivai_node, 'swi_image_nii')
     workflow.connect(synthseg_node, 'segmentation', shivai_node, 'synthseg_parc')
     workflow.connect(synthseg_node, 'volumes', shivai_node, 'synthseg_vol')
+    workflow.connect(synthseg_node, 'qc', shivai_node, 'synthseg_qc')
 
     return workflow
 

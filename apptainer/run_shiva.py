@@ -139,6 +139,10 @@ def singParser():
                               'argument. Otherwise, the segmentation is considered simply as a brain mask.'),
                         default='shiva')
 
+    parser.add_argument('--ss_qc',
+                        action='store_true',
+                        help='Runs the SynthSeg QC if --brain_seg synthseg* is selected too.')
+
     parser.add_argument('--ai_threads',
                         default=8,
                         type=int,
@@ -233,7 +237,8 @@ def main():
     opt_args1_bool_names = ['use_t1',
                             'keep_all',
                             'debug',
-                            'remove_intermediates']
+                            'remove_intermediates',
+                            'ss_qc']
 
     opt_args1 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args1_names if getattr(args, arg_name)]
     opt_args1 += [f'--{arg_name}' for arg_name in opt_args1_bool_names if getattr(args, arg_name)]
