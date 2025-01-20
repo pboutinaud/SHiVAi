@@ -236,7 +236,7 @@ def parse_sub_list_file(filename):
     sub_list = []
     sep_chars = [' ', ';', '|']
     if not os.path.exists(list_path):
-        raise FileNotFoundError(f'The participant list file was not found at the given location: {list_path}')
+        raise ValueError(f'The participant list file was not found at the given location: {list_path}')
     with open(list_path) as f:
         lines = f.readlines()
     for line in lines:
