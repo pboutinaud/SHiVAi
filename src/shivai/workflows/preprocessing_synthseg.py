@@ -55,11 +55,16 @@ def genWorkflow(**kwargs) -> Workflow:
         synthseg.inputs.snglrt_image = kwargs['SYNTHSEG_IMAGE']
         synthseg.inputs.out_filename = '/mnt/data/synthseg_parc.nii.gz'
         synthseg.inputs.vol = '/mnt/data/volumes.csv'
+        if kwargs['PREP_SETTINGS']['ss_qc']:
+            synthseg.inputs.qc = '/mnt/data/qc.csv'
         if not kwargs['BRAIN_SEG'] == 'synthseg_cpu':
             synthseg.inputs.snglrt_enable_nvidia = True
     else:
         synthseg = Node(SynthSeg(),
                         name='synthseg')
+        synthseg.inputs.vol = 'volumes.csv'
+        if kwargs['PREP_SETTINGS']['ss_qc']:
+            synthseg.inputs.qc = 'qc.csv'
     if kwargs['BRAIN_SEG'] == 'synthseg_cpu':
         synthseg.inputs.cpu = True
         synthseg.inputs.threads = kwargs['AI_THREADS']

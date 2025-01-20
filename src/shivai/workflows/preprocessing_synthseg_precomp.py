@@ -40,6 +40,9 @@ def genWorkflow(**kwargs) -> Workflow:
                                               'volumes': '%s/volumes.csv'}  # add 'qc' here if needed
     synthseg_grabber.inputs.template_args = {'segmentation': [['subject_id']],
                                              'volumes': [['subject_id']]}
+    if kwargs['PREP_SETTINGS']['ss_qc']:
+        synthseg_grabber.inputs.field_template.update({'qc': '%s/qc.csv'})
+        synthseg_grabber.inputs.template_args.update({'qc': [['subject_id']]})
 
     # Rewiring the workflow with the new nodes
     synthseg = workflow.get_node('synthseg')

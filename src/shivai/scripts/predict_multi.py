@@ -5,16 +5,16 @@
 # @author : Philippe Boutinaud - Fealinx
 
 import gc
-import os
 import json
+import importlib.util
+import sys
+import inspect
 
 import argparse
 from pathlib import Path
 
-
 import numpy as np
 import nibabel as nib
-import tensorflow as tf
 from shivai.utils.misc import md5
 
 
@@ -110,47 +110,69 @@ def predict_parser():
 
 
 def main():
+    import keras
+    import tensorflow as tf
     pred_parser = predict_parser()
     args = pred_parser.parse_args()
-    if args.use_cpu:
-        tf.config.set_visible_devices([], 'GPU')
-        tf.config.threading.set_intra_op_parallelism_threads(args.use_cpu)
-        tf.config.threading.set_inter_op_parallelism_threads(args.use_cpu)
+    model_dir = args.model_dir  # type: Path
+    descriptor = args.descriptor  # type: Path
     # Obtaining the absolute path to all the model files
-    model_files = []
-    with open(args.descriptor) as f:
+    model_files = []  # type: list[Path]
+    with open(descriptor) as f:
         meta_data = json.load(f)
     for mfile in meta_data['files']:
-        mdirname = os.path.basename(args.model_dir)
-        mfilename = mfile['name']
-        if mfilename[:len(mdirname)] == mdirname:  # model dir is in both args.model and mfile['name']
-            mfilename = os.path.join(*mfilename.split(os.sep)[1:])
-        model_file = os.path.join(args.model_dir, mfilename)
+        mfilename = Path(mfile['name'])
+        if not (model_dir / mfilename).exists():
+            if mfilename.parts[0] == model_dir.parts[-1]:
+                # model dir is in both model_dir and mfilename
+                model_dir = model_dir.parent
+        model_file = model_dir / mfilename
         model_files.append(model_file)
 
     notfound = []  # Doing it this way to found all the missing files in one pass
     badmd5 = []
+
+    keras_model = None
+    if 'script' in meta_data:
+        keras_model = model_dir / meta_data['script']['name']
+        if not keras_model.exists():
+            notfound.append(str(keras_model))
+        else:
+            k_md5 = meta_data['script']['md5']
+            k_hashmd5 = md5(keras_model)
+            if k_hashmd5 != k_md5:
+                badmd5.append(str(keras_model))
+
     for model_file, file_data in zip(model_files, meta_data['files']):
-        if not os.path.exists(model_file):
-            notfound.append(model_file)
+        if not model_file.exists():
+            notfound.append(str(model_file))
         else:
             hashmd5 = md5(model_file)
             if file_data["md5"] != hashmd5:
-                badmd5.append(model_file)
+                badmd5.append(str(model_file))
     if notfound:
-        raise FileNotFoundError('Some (or all) model files/folders were missing.\n'
-                                'Please supply or mount a folder '
-                                'containing the model files/folders with model weights.\n'
-                                'Current problematic paths:\n\t' +
-                                '\n\t'.join(notfound))
+        raise ValueError('Some (or all) model files/folders were missing.\n'
+                         'Please supply or mount a folder '
+                         'containing the model files/folders with model weights.\n'
+                         'Current problematic paths:\n\t' +
+                         '\n\t'.join(notfound))
     if badmd5:
         raise ValueError("Mismatch between expected file from the model descriptor and the actual model file.\n"
                          "Files in question:\n\t" +
                          "\n\t".join(badmd5))
 
-    # for modality in args.acq_types:
-    #     if modality not in meta_data['modalities']:
-    #         raise ValueError(f"ERROR : the prediction model does not use {modality} modality according to json descriptor file")
+    if keras_model:
+        # Execute keras_model to have access to its classes
+        # with open(keras_model) as kf:
+        #     exec(kf.read())  # doesn't work when calling the script...
+        spec = importlib.util.spec_from_file_location('kmodel', keras_model)
+        kmodel = importlib.util.module_from_spec(spec)
+        sys.modules['kmodel'] = kmodel
+        globals()['kmodel'] = kmodel
+        spec.loader.exec_module(kmodel)
+        detected_classes = [c for c in dir(kmodel) if inspect.isclass(eval(f'kmodel.{c}'))]
+        for modl_class in detected_classes:
+            exec(f'{modl_class} = kmodel.{modl_class}')
 
     # iterating over the model files and the input image files
     img1_files = args.img1_files
@@ -162,16 +184,26 @@ def main():
     if img2_files is not None and len(img1_files) != len(img2_files):
         raise ValueError('Missmatch between the number of main and secondary files')
     step = len(sub_list)//args.batch_size + int(bool(len(sub_list) % args.batch_size))
+
+    if args.use_cpu:
+        tf.config.set_visible_devices([], 'GPU')
+        tf.config.threading.set_intra_op_parallelism_threads(args.use_cpu)
+        tf.config.threading.set_inter_op_parallelism_threads(args.use_cpu)
+
     affine_dict = {}
-    for fold, mfile in enumerate(model_files):
+    tmp_files = {}  # type: dict[str, Path]
+    for fold, model_file in enumerate(model_files):
         # Load the model
-        tf.keras.backend.clear_session()
+        keras.backend.clear_session()
         gc.collect()
-        print(f"Loading model file: {mfile}")
-        model = tf.keras.models.load_model(
-            mfile,
-            compile=False,
-            custom_objects={"tf": tf})
+        print(f"Loading model file: {model_file}")
+        if keras_model:
+            model = keras.saving.load_model(model_file, custom_objects=None, compile=False)
+        else:
+            model = keras.models.load_model(
+                model_file,
+                compile=False,
+                custom_objects={"tf": tf})
         for i in range(step):
             curr_slice = slice(i*args.batch_size, (i+1)*args.batch_size)
             input_images = np.zeros((len(sub_list[curr_slice]), *args.input_size, modality_num))
@@ -191,12 +223,13 @@ def main():
                 sub_pred = predictions[j].squeeze()
                 sub_pred[sub_pred < 0.001] = 0  # Threshold to remove near-zero voxels
                 subpred_im = nib.Nifti1Image(sub_pred.astype('float32'), affine=affine_dict[sub])
-                nib.save(subpred_im, f'tmp_{sub}_fold{fold}.nii.gz')
-
+                tmp_file = Path(f'tmp_{sub}_fold{fold}.nii.gz')
+                nib.save(subpred_im, tmp_file)
+                tmp_files[f'{sub}_{fold}'] = tmp_file
     # Taking each fold's results and averaging them
     print('Averaging the results of each model (done for each subject)...')
     for i, sub in enumerate(sub_list):
-        pred_list = [nib.load(f'tmp_{sub}_fold{fold}.nii.gz').get_fdata(dtype='float32') for fold in range(len(model_files))]
+        pred_list = [nib.load(tmp_files[f'{sub}_{fold}']).get_fdata(dtype='float32') for fold in range(len(model_files))]
         mean_pred = np.mean(pred_list, axis=0)
         if args.mask_files is not None:
             brainmask = nib.load(args.mask_files[sub_list.index(sub)]).get_fdata().astype(bool)
@@ -204,10 +237,10 @@ def main():
         mean_pred_im = nib.Nifti1Image(mean_pred.astype('float32'),  affine=affine_dict[sub])
         outname = args.foutname.format(sub=sub)
         if args.out_dir:
-            outname = os.path.join(args.out_dir, outname)
+            outname = args.out_dir / outname
         nib.save(mean_pred_im, outname)
         for fold in range(len(model_files)):
-            os.remove(f'tmp_{sub}_fold{fold}.nii.gz')
+            tmp_files[f'{sub}_{fold}'].unlink()
 
 
 if __name__ == "__main__":

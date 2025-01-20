@@ -188,6 +188,10 @@ def synthsegParser():
                               'are available. This enable the CMB preprocessing steps using t1 for the brain parcelization. '
                               'This option can also be used with "replace_t1" to use another type of acquisition.'))
 
+    parser.add_argument('--ss_qc',
+                        action='store_true',
+                        help='If selected, runs the Synthseg QC.')
+
     parser.add_argument('--synthseg_cpu',
                         action='store_true',
                         help='If selected, will run Synthseg using CPUs instead of GPUs')
@@ -232,7 +236,7 @@ def parse_sub_list_file(filename):
     sub_list = []
     sep_chars = [' ', ';', '|']
     if not os.path.exists(list_path):
-        raise FileNotFoundError(f'The participant list file was not found at the given location: {list_path}')
+        raise ValueError(f'The participant list file was not found at the given location: {list_path}')
     with open(list_path) as f:
         lines = f.readlines()
     for line in lines:
@@ -355,6 +359,8 @@ def main():
     pred_plugin_args.update(args.run_plugin_args)
     synthseg = Node(SynthSeg(),
                     name='synthseg')
+    if args.qc:
+        synthseg.inputs.qc = 'qc.csv'
     synthseg.inputs.cpu = args.synthseg_cpu
     synthseg.inputs.threads = args.threads
     synthseg.plugin_args = pred_plugin_args
@@ -370,6 +376,8 @@ def main():
     synthseg_wf.connect(datagrabber, 'img1', synthseg, 'input')
     synthseg_wf.connect(synthseg, 'segmentation', sink_node_subjects, 'shiva_preproc.synthseg')
     synthseg_wf.connect(synthseg, 'volumes', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
+    if args.qc:
+        synthseg_wf.connect(synthseg, 'qc', sink_node_subjects, 'shiva_preproc.synthseg.@qc')
 
     if args.keep_all or args.debug:
         config.enable_provenance()

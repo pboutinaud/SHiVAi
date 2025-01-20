@@ -8,15 +8,18 @@ import gc
 import os
 import time
 import json
+import importlib
+import sys
+import inspect
 
 import argparse
 from pathlib import Path
-import hashlib
 
 
 import numpy as np
 import nibabel
 import tensorflow as tf
+import keras
 from shivai.utils.misc import md5
 
 
@@ -131,33 +134,66 @@ def main():
                 print(f"Trying to run inference on available GPU(s)")
 
     # The tf model files for the predictors, the prediction will be averaged
-    predictor_files = []
+    model_files = []  # type: list[Path]
     path = args.descriptor
     with open(path) as f:
         meta_data = json.load(f)
 
-    for mfile in meta_data['files']:
-        mdirname = os.path.basename(args.model)
-        mfilename = mfile['name']
-        if mfilename[:len(mdirname)] == mdirname:  # model dir is in both args.model and mfile['name']
-            mfilename = os.path.join(*mfilename.split(os.sep)[1:])
-        model_file = os.path.join(args.model, mfilename)
-        predictor_files.append(model_file)
+    model_dir = Path(args.model)
 
-    if len(predictor_files) == 0:
-        raise FileNotFoundError('Found no model files, '
-                                'please supply or mount a folder '
-                                'containing h5 files with model weights.')
     notfound = []
-    for model_file in predictor_files:
+
+    keras_model = None
+    if 'script' in meta_data:
+        keras_model = model_dir / meta_data['script']['name']
+        if not keras_model.exists():
+            notfound.append(keras_model)
+        else:
+            k_md5 = meta_data['script']['md5']
+            k_hashmd5 = md5(keras_model)
+            if k_hashmd5 != k_md5:
+                raise ValueError("Mismatch between expected file from the model descriptor and the actual model script")
+
+    for mfile in meta_data['files']:
+        mfilename = Path(mfile['name'])
+        if not (model_dir / mfilename).exists():
+            if mfilename.parts[0] == model_dir.parts[-1]:
+                # model dir is in both model_dir and mfilename
+                model_dir = model_dir.parent
+        model_file = model_dir / mfilename
+        if not model_file.exists():
+            raise ValueError(f'Model file {model_file} was not found.')
+        hashmd5 = md5(model_file)
+        if mfile["md5"] != hashmd5:
+            raise ValueError("Mismatch between expected file from the model descriptor and the actual model file")
+        model_files.append(model_file)
+
+    if len(model_files) == 0:
+        raise ValueError('Found no model files, '
+                         'please supply or mount a folder '
+                         'containing h5 files with model weights.')
+    for model_file in model_files:
         if not os.path.exists(model_file):
             notfound.append(model_file)
     if notfound:
-        raise FileNotFoundError('Some (or all) model files/folders were missing.\n'
-                                'Please supply or mount a folder '
-                                'containing the model files/folders with model weights.\n'
-                                'Current problematic paths:\n\t' +
-                                '\n\t'.join(notfound))
+        raise ValueError('Some (or all) model files/folders were missing.\n'
+                         'Please supply or mount a folder '
+                         'containing the model files/folders with model weights.\n'
+                         'Current problematic paths:\n\t' +
+                         '\n\t'.join(notfound))
+
+    if keras_model:
+        # Execute keras_model to have access to its classes
+        # with open(keras_model) as kf:
+        #     exec(kf.read())  # doesn't work when calling the script...
+        spec = importlib.util.spec_from_file_location('kmodel', keras_model)
+        kmodel = importlib.util.module_from_spec(spec)
+        sys.modules['kmodel'] = kmodel
+        globals()['kmodel'] = kmodel
+        spec.loader.exec_module(kmodel)
+        detected_classes = [c for c in dir(kmodel) if inspect.isclass(eval(f'kmodel.{c}'))]
+        for modl_class in detected_classes:
+            exec(f'{modl_class} = kmodel.{modl_class}')
 
     modalities = []
     for modality in meta_data['modalities']:
@@ -177,13 +213,6 @@ def main():
         raise ValueError("ERROR : the prediction task doesn't require swi modality according to json descriptor file metadata")
     if args.t2 and "t2" not in meta_data['modalities']:
         raise ValueError("ERROR : the prediction task doesn't require t2 modality according to json descriptor file metadata")
-
-    for file in meta_data["files"]:
-        print(args.model)
-        path_file = os.path.join(args.model, file["name"])
-        hashmd5 = md5(path_file)
-        if file["md5"] != hashmd5:
-            raise ValueError("Mismatch between expected file from the model descriptor and the actual model file")
 
     brainmask = args.braimask
     output_path = args.out_dir
@@ -221,20 +250,23 @@ def main():
     chrono0 = time.time()
     # Load models & predict
     predictions = []
-    for predictor_file in predictor_files:
-        print(f"Loading predictor file: {predictor_file}")
+    for model_file in model_files:
+        print(f"Loading predictor file: {model_file}")
         tf.keras.backend.clear_session()
         gc.collect()
         try:
-            model = tf.keras.models.load_model(
-                predictor_file,
-                compile=False,
-                custom_objects={"tf": tf})
+            if keras_model:
+                model = keras.saving.load_model(model_file, custom_objects=None, compile=False)
+            else:
+                model = tf.keras.models.load_model(
+                    model_file,
+                    compile=False,
+                    custom_objects={"tf": tf})
         except Exception as err:
-            print(f'\n\tWARNING : Exception loading model : {predictor_file}\n{err}')
+            print(f'\n\tWARNING : Exception loading model : {model_file}\n{err}')
             continue
-        if hasattr(predictor_file, 'stem'):
-            print('INFO : Predicting fold :', predictor_file.stem)
+        if hasattr(model_file, 'stem'):
+            print('INFO : Predicting fold :', model_file.stem)
         prediction = model.predict(
             images,
             batch_size=1

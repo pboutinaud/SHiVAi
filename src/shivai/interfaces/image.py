@@ -437,7 +437,7 @@ class Threshold(BaseInterface):
                                 self.inputs.threshold,
                                 sign=self.inputs.sign,
                                 binarize=self.inputs.binarize,
-                                open=self.inputs.open,
+                                rad=self.inputs.open,
                                 clusterCheck=self.inputs.clusterCheck,
                                 minVol=self.inputs.minVol)
 
