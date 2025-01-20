@@ -16,7 +16,7 @@ maintainers = [
 ]
 description = "Package for preprocessing and automatic, AI-based segmentation of perivascular scpaces (PVS), white-matter hyperintensities (WMH), and cerebral microbleeds (CMB)."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 keywords = [
     "MRI",
     "AI",
@@ -33,7 +33,7 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: POSIX :: Linux",
-    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.11",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
@@ -44,7 +44,7 @@ dependencies = [
     "networkx>=2.8.7",
     "nibabel>=4.0.2",
     "nipype>=1.7.0",
-    "numpy>=1.21.5, <2.0.0",
+    "numpy",
     "pandas",
     "pybids",
     "pydot",
@@ -53,13 +53,13 @@ dependencies = [
     "quickshear",
     "scikit-image",
     "scipy>=1.7.3",
-    "typing-extensions<4.6.0",
+    "typing-extensions",
     "weasyprint",
 ]
 
 [project.optional-dependencies]
-TF_CUDA = ["tensorflow[and-cuda]==2.13.*"]
-TF = ["tensorflow==2.13.*"]
+TF_CUDA = ["tensorflow[and-cuda]==2.17.0", "keras==3.6.0"]
+TF = ["tensorflow==2.17.0", "keras==3.6.0"]
 
 [project.scripts]
 shiva = "shivai.scripts.shiva:main"
