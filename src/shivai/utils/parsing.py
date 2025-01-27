@@ -199,6 +199,10 @@ def shivaParser():
                         action='store_true',
                         help='If selected, overrides the --containerized_nodes option for synthseg, using the local installation instead')
 
+    parser.add_argument('--prereg_flair',
+                        action='store_true',
+                        help='If selected, the FLAIR images are concidered pre-registered to the the T1 images (no additional registration will be done).')
+
     parser.add_argument('--anonymize',
                         action='store_true',
                         help='Anonymize the report')

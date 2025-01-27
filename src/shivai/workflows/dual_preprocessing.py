@@ -30,36 +30,6 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
     # file selection
     datagrabber = workflow.get_node('datagrabber')
 
-    # compute 6-dof coregistration parameters of accessory scan
-    # to cropped t1 image
-    if kwargs['CONTAINERIZE_NODES']:
-        flair_to_t1 = Node(AntsRegistration_Singularity(), name="flair_to_t1")
-        flair_to_t1.inputs.snglrt_bind = [
-            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
-            ('`pwd`', '`pwd`', 'rw'),]
-        flair_to_t1.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
-    else:
-        flair_to_t1 = Node(ants.Registration(),
-                           name='flair_to_t1')
-    flair_to_t1.inputs.float = True
-    flair_to_t1.inputs.output_transform_prefix = "flair_to_t1_"
-    flair_to_t1.plugin_args = kwargs['REG_PLUGIN_ARGS']
-    flair_to_t1.inputs.transforms = ['Rigid']
-    flair_to_t1.inputs.transform_parameters = [(0.1,)]
-    flair_to_t1.inputs.metric = ['MI']
-    flair_to_t1.inputs.radius_or_number_of_bins = [64]
-    flair_to_t1.inputs.interpolation = kwargs['INTERPOLATION']
-    flair_to_t1.inputs.shrink_factors = [[8, 4, 2, 1]]
-    flair_to_t1.inputs.output_warped_image = True
-    flair_to_t1.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
-    flair_to_t1.inputs.num_threads = 8
-    flair_to_t1.inputs.number_of_iterations = [[1000, 500, 250, 125]]
-    flair_to_t1.inputs.sampling_strategy = ['Regular']
-    flair_to_t1.inputs.sampling_percentage = [0.25]
-    flair_to_t1.inputs.verbose = True
-    flair_to_t1.inputs.winsorize_lower_quantile = 0.005
-    flair_to_t1.inputs.winsorize_upper_quantile = 0.995
-
     # Conform img2, should not be necessary but allows for the centering
     # of the origin of the nifti image (if far out of the brain)
     conform_flair = Node(Conform(),
@@ -74,12 +44,6 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
 
     workflow.connect(datagrabber, 'img2',
                      conform_flair, 'img')
-    workflow.connect(conform_flair, 'resampled',
-                     flair_to_t1, 'moving_image')
-    workflow.connect(crop, 'cropped',
-                     flair_to_t1, 'fixed_image')
-    workflow.connect(mask_to_crop, ('resampled_image', as_list),
-                     flair_to_t1, 'fixed_image_masks')
 
     # # write mask to flair in conformed space  # TODO: add it back maybe
     # if kwargs['CONTAINERIZE_NODES']:
@@ -114,7 +78,50 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
         defacing_flair = Node(Quickshear(),
                               name='defacing_flair')
 
-    workflow.connect(flair_to_t1, 'warped_image', defacing_flair, 'in_file')
+    if kwargs['PREP_SETTINGS']['prereg_flair']:  # FLAIR already registered
+        workflow.connect(conform_flair, 'resampled', defacing_flair, 'in_file')
+    else:
+        # compute 6-dof coregistration parameters of accessory scan
+        # to cropped t1 image
+        if kwargs['CONTAINERIZE_NODES']:
+            flair_to_t1 = Node(AntsRegistration_Singularity(), name="flair_to_t1")
+            flair_to_t1.inputs.snglrt_bind = [
+                (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+                ('`pwd`', '`pwd`', 'rw'),]
+            flair_to_t1.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+        else:
+            flair_to_t1 = Node(ants.Registration(),
+                               name='flair_to_t1')
+        flair_to_t1.inputs.float = True
+        flair_to_t1.inputs.output_transform_prefix = "flair_to_t1_"
+        flair_to_t1.plugin_args = kwargs['REG_PLUGIN_ARGS']
+        flair_to_t1.inputs.transforms = ['Rigid']
+        flair_to_t1.inputs.transform_parameters = [(0.1,)]
+        flair_to_t1.inputs.metric = ['MI']
+        flair_to_t1.inputs.radius_or_number_of_bins = [64]
+        flair_to_t1.inputs.interpolation = kwargs['INTERPOLATION']
+        flair_to_t1.inputs.shrink_factors = [[8, 4, 2, 1]]
+        flair_to_t1.inputs.output_warped_image = True
+        flair_to_t1.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
+        flair_to_t1.inputs.num_threads = 8
+        flair_to_t1.inputs.number_of_iterations = [[1000, 500, 250, 125]]
+        flair_to_t1.inputs.sampling_strategy = ['Regular']
+        flair_to_t1.inputs.sampling_percentage = [0.25]
+        flair_to_t1.inputs.verbose = True
+        flair_to_t1.inputs.winsorize_lower_quantile = 0.005
+        flair_to_t1.inputs.winsorize_upper_quantile = 0.995
+
+        workflow.connect(conform_flair, 'resampled',
+                         flair_to_t1, 'moving_image')
+
+        workflow.connect(crop, 'cropped',
+                         flair_to_t1, 'fixed_image')
+
+        workflow.connect(mask_to_crop, ('resampled_image', as_list),
+                         flair_to_t1, 'fixed_image_masks')
+
+        workflow.connect(flair_to_t1, 'warped_image', defacing_flair, 'in_file')
+
     workflow.connect(mask_to_crop, 'resampled_image', defacing_flair, 'mask_file')
 
     # Intensity normalize co-registered image for tensorflow (ENDPOINT 2)
@@ -126,9 +133,10 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
 
     # QC
     qc_wf = workflow.get_node('preproc_qc_workflow')
-    qc_wf = qc_wf_add_flair(qc_wf)
-    workflow.connect(img2_norm, 'intensity_normalized', qc_wf, 'qc_coreg_FLAIR_T1.path_image')
-    workflow.connect(img1_norm, 'intensity_normalized', qc_wf, 'qc_coreg_FLAIR_T1.path_ref_image')
-    workflow.connect(mask_to_crop, 'resampled_image', qc_wf, 'qc_coreg_FLAIR_T1.path_brainmask')
     workflow.connect(img2_norm, 'mode', qc_wf, 'qc_metrics.flair_norm_peak')
-    workflow.connect(flair_to_t1, 'forward_transforms', qc_wf, 'qc_metrics.flair_reg_mat')
+    if not kwargs['PREP_SETTINGS']['prereg_flair']:
+        qc_wf = qc_wf_add_flair(qc_wf)
+        workflow.connect(img2_norm, 'intensity_normalized', qc_wf, 'qc_coreg_FLAIR_T1.path_image')
+        workflow.connect(img1_norm, 'intensity_normalized', qc_wf, 'qc_coreg_FLAIR_T1.path_ref_image')
+        workflow.connect(mask_to_crop, 'resampled_image', qc_wf, 'qc_coreg_FLAIR_T1.path_brainmask')
+        workflow.connect(flair_to_t1, 'forward_transforms', qc_wf, 'qc_metrics.flair_reg_mat')
