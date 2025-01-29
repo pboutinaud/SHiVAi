@@ -1,6 +1,6 @@
-FROM tensorflow/tensorflow:2.13.0-gpu
+FROM tensorflow/tensorflow:2.17.0-gpu
 
-ENV  PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/ants-2.4.3/bin
+ENV PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/ants-2.4.3/bin
 RUN apt update && apt-get install -y build-essential weasyprint libpangocairo-1.0-0 graphviz wget unzip dos2unix
 
 # Installing ANTs
@@ -38,3 +38,4 @@ RUN rm -rf /usr/local/src/shivai
 RUN mkdir -p /mnt/model
 
 ENTRYPOINT ["shiva", "--containerized_all"]
+CMD ["--help"]
