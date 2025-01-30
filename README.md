@@ -32,7 +32,8 @@ The Shivai pipeline and all the repository content is provided under the GNU Aff
     - [Mixed approach (recommended)](#mixed-approach-recommended)
 - [Running the process](#running-the-process)
     - [Segmentation choice](#segmentation-choice)
-    - [Running SHiVAi from a container](#running-shivai-from-a-container)
+    - [Running SHiVAi from an Apptainer container](#running-shivai-from-an-apptainer-container)
+    - [Running SHiVAi from an Docker container](#running-shivai-from-an-docker-container)
     - [Running SHIVAI from direct package commands (recommended)](#running-shivai-from-direct-package-commands-recommended)
 - [Results](#results)
 - [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai)
@@ -185,7 +186,7 @@ In our implementation, we mainly worked with the [Synthseg parcellation](https:/
 
 Synthseg is a project completly independent from Shiva and it was used here as a very convenient and powerful tool. As such, we do not directly provide the Synthseg software. However, it can be installed through the steps mentioned in [Traditional python install](#traditional-python-install) or, if you are using Apptainer to run SHiVAi (with the "Fully contained process" or the "mixed approach"), we provide a [recipe](apptainer/apptainer_synthseg_tf.recipe) to build an Apptainer image that will contain Synthseg and is designed to properly interface with SHiVAi. More details can be found in the [corresponding section of our Apptainer readme](apptainer/README.md#synthseg-apptainer-image). 
 
-### Running SHiVAi from a container
+### Running SHiVAi from an Apptainer container
 
 When running SHiVAi from an Apptainer image, you can do it linearly (no parallelisation of the steps, default behavior), or in parallel using the Python multiprocessing library, [as implemented by Nypipe](https://nipype.readthedocs.io/en/0.11.0/users/plugins.html#multiproc). However, we have seen problems with the multiprocessing option on some systems, so it may not work.
 
@@ -215,6 +216,29 @@ Running the processing (from the directory where you stored `run_shiva.py`):
 python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --brain_seg synthseg --config /myHome/myProject/myConfig.yml
 ```
 > If you have installed the shivai package locally, you can replace `python run_shiva.py` by `shiva_contained` in the command line.
+
+### Running SHiVAi from an Docker container
+
+As we mostly worked on a seemless Apptainer integration, running Shivai with a Docker container will require a little more work from the user, especially concerning the mounting of host volumes to the container.
+
+Required mounts:
+- Input data folder (that you would have given to --in)
+- Output folder (that you would have given to --out)
+- Folder containing the config file (given to --config)
+- Folder containg the models (that is normally given in the config file at the `model_path` keyword). This one must me **specifically mounted** to `/mnt/model`
+
+To build (and run) the docker image, you need root priviledges. Go to the folder containing the Dockerfil (the root folder of the project) and run:
+```
+docker build --rm -t myId/shivai .
+```
+
+To run the image, here is an example:
+```
+docker run --gpus all --rm --name shivai --volume /my_home/my_data/MRI_anat:/mnt/input_data:ro --volume /my_home/my_project/test_docker:/mnt/out --volume /scratch/nozais/test_shiva/modele_pred/ReferenceModels_K3:/mnt/model:ro --volume /scratch/nozais/test_shiva:/mnt/config_dir myId/shivai shiva --containerized_all --in /mnt/input_data --out /mnt/out --config /mnt/config_dir/config_debug.yml --prediction PVS
+```
+Change the local paths (like `/my_home/my_data/MRI_anat` to your own), change the `shiva` arguments if needed (e.g. the prediction), and run it.
+
+> For now, this does not run with the Synthseg parcelation scheme. Stay tuned for more info on that soon.
 
 ### Running SHiVAi from direct package commands (recommended)
 
