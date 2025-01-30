@@ -233,12 +233,13 @@ docker build --rm -t myId/shivai .
 ```
 
 To run the image, here is an example:
+
 ```
 docker run --gpus all --rm --name shivai \
     --volume /my_home/my_data/MRI_anat:/mnt/input_data:ro \
-    --volume /my_home/my_project/test_docker:/mnt/out \
-    --volume /scratch/nozais/test_shiva/modele_pred/ReferenceModels_K3:/mnt/model:ro \
-    --volume /scratch/nozais/test_shiva:/mnt/config_dir \
+    --volume /my_home/my_project/shivai_ouput:/mnt/out \
+    --volume /my_home/my_project/ReferenceModels:/mnt/model:ro \
+    --volume /my_home/my_project:/mnt/config_dir \
     myId/shivai \
     shiva --containerized_all --in /mnt/input_data --out /mnt/out --config /mnt/config_dir/config_debug.yml --prediction PVS
 ```
