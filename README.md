@@ -236,14 +236,14 @@ To run the image, here is an example:
 
 ```
 docker run --gpus all --rm --name shivai \
-    --volume /my_home/my_data/MRI_anat:/mnt/input_data:ro \
-    --volume /my_home/my_project/shivai_ouput:/mnt/out \
-    --volume /my_home/my_project/ReferenceModels:/mnt/model:ro \
-    --volume /my_home/my_project:/mnt/config_dir \
+    --volume /myHome/my_data/MRI_anat:/mnt/input_data:ro \
+    --volume /myHome/myProject/shivai_ouput:/mnt/out \
+    --volume /myHome/myProject:/mnt/config_dir \
+    --volume /myHome/myProject/Shiva_AI_models:/mnt/model:ro \
     myId/shivai \
     shiva --containerized_all --in /mnt/input_data --out /mnt/out --config /mnt/config_dir/config_debug.yml --prediction PVS
 ```
-Change the local paths (like `/my_home/my_data/MRI_anat` to your own), change the `shiva` arguments if needed (e.g. the prediction), and run it.
+Change the local paths (like `/myHome/my_data/MRI_anat` to your own), change the `shiva` arguments if needed (e.g. the prediction), and run it.
 
 > For now, this does not run with the Synthseg parcelation scheme. Stay tuned for more info on that soon.
 
