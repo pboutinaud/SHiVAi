@@ -227,14 +227,20 @@ Required mounts:
 - Folder containing the config file (given to --config)
 - Folder containg the models (that is normally given in the config file at the `model_path` keyword). This one must me **specifically mounted** to `/mnt/model`
 
-To build (and run) the docker image, you need root priviledges. Go to the folder containing the Dockerfil (the root folder of the project) and run:
+To build (and run) the docker image, you need root priviledges. Go to the folder containing the Dockerfil (the root folder of the project) and run (replace `myId` by your username or something equivalent):
 ```
 docker build --rm -t myId/shivai .
 ```
 
 To run the image, here is an example:
 ```
-docker run --gpus all --rm --name shivai --volume /my_home/my_data/MRI_anat:/mnt/input_data:ro --volume /my_home/my_project/test_docker:/mnt/out --volume /scratch/nozais/test_shiva/modele_pred/ReferenceModels_K3:/mnt/model:ro --volume /scratch/nozais/test_shiva:/mnt/config_dir myId/shivai shiva --containerized_all --in /mnt/input_data --out /mnt/out --config /mnt/config_dir/config_debug.yml --prediction PVS
+docker run --gpus all --rm --name shivai \
+    --volume /my_home/my_data/MRI_anat:/mnt/input_data:ro \
+    --volume /my_home/my_project/test_docker:/mnt/out \
+    --volume /scratch/nozais/test_shiva/modele_pred/ReferenceModels_K3:/mnt/model:ro \
+    --volume /scratch/nozais/test_shiva:/mnt/config_dir \
+    myId/shivai \
+    shiva --containerized_all --in /mnt/input_data --out /mnt/out --config /mnt/config_dir/config_debug.yml --prediction PVS
 ```
 Change the local paths (like `/my_home/my_data/MRI_anat` to your own), change the `shiva` arguments if needed (e.g. the prediction), and run it.
 
