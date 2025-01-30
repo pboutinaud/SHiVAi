@@ -33,7 +33,7 @@ The Shivai pipeline and all the repository content is provided under the GNU Aff
 - [Running the process](#running-the-process)
     - [Segmentation choice](#segmentation-choice)
     - [Running SHiVAi from an Apptainer container](#running-shivai-from-an-apptainer-container)
-    - [Running SHiVAi from an Docker container](#running-shivai-from-an-docker-container)
+    - [Running SHiVAi from a Docker container](#running-shivai-from-a-docker-container)
     - [Running SHIVAI from direct package commands (recommended)](#running-shivai-from-direct-package-commands-recommended)
 - [Results](#results)
 - [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai)
@@ -217,7 +217,7 @@ python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shi
 ```
 > If you have installed the shivai package locally, you can replace `python run_shiva.py` by `shiva_contained` in the command line.
 
-### Running SHiVAi from an Docker container
+### Running SHiVAi from a Docker container
 
 As we mostly worked on a seemless Apptainer integration, running Shivai with a Docker container will require a little more work from the user, especially concerning the mounting of host volumes to the container.
 
