@@ -1,5 +1,6 @@
 
 import os.path as op
+from pathlib import Path
 import warnings
 import math
 import nibabel as nib
@@ -14,20 +15,21 @@ from scipy.ndimage import (
 from shivai.utils.misc import get_mode
 
 
-def overlay_brainmask(ref_vol, brainmask_vol, save_fig, nb_of_cols=6, orient='XYZ', alpha=0.5):
+def overlay_brainmask(ref_vol, brainmask_vol, save_fig, nb_of_cols=6, slice_orients='XYZ', im_orient='RAS', alpha=0.5):
     """Overlay brainmask on t1 images
 
     Args:
         ref_vol (ndarray): t1 nifti images overlay with brainmask
         brainmask_vol (ndarray): brainmask to overlay with t1 nifti file
-        save_fig (str): filename of the figure to be saved
+        save_fig (str|Path): filename of the figure to be saved
         nb_of_cols (int): number of columns in the image
-        orient (str): Dimension(s) on which to do the slices for each row. e.g. 'XYZ' for all, or 'ZZ' for Axial slices only on 2 rows
+        slice_orients (str): Dimension(s) on which to do the slices for each row. e.g. 'XYZ' for all, or 'ZZ' for Axial slices only on 2 rows,
+        im_orient (str): Orientation code for the original brain images. Used to defile Left/Right/Anterior/...
     Returns:
         png: png file  brainmask overlaid on t1
     """
-
-    orient = orient.upper()
+    save_fig = Path(save_fig)
+    slice_orients = slice_orients.upper()
 
     # creating cmap to overlay reference image and given image (we don't actually need this here...)
     cmap = plt.cm.Reds
@@ -40,18 +42,48 @@ def overlay_brainmask(ref_vol, brainmask_vol, save_fig, nb_of_cols=6, orient='XY
     crop_ratio = 0.1  # 10% of the slice
     slices_dict = {}
     for dim in ['X', 'Y', 'Z']:
-        slices_nb = orient.count(dim) * nb_of_cols
+        slices_nb = slice_orients.count(dim) * nb_of_cols
         if slices_nb:
             border_crop = math.ceil(crop_ratio * ref_vol.shape[0])
             croped_shape = (1-2*crop_ratio)*ref_vol.shape[0]  # can be non-integer at this step, not important
             slices_ind_X = np.arange(border_crop, ref_vol.shape[0]-border_crop, croped_shape/slices_nb).astype(int)
             if dim == 'X':
-                slices_dict[dim] = [(ref_vol[ind, :, :], brainmask_vol[ind, :, :], ind) for ind in slices_ind_X]
+                curr_orients = im_orient[0]
+                if curr_orients in ['S', 'I', 'P', 'A']:  # Axial or Coronal views
+                    if 'R' in im_orient:
+                        corner_labels = ('L   ', '   R')
+                    elif 'L' in im_orient:
+                        corner_labels = ('R   ', '   L')
+                    else:
+                        corner_labels = ('', '')
+                else:
+                    corner_labels = ('', '')
+                slices_dict[dim] = [(ref_vol[ind, :, :], brainmask_vol[ind, :, :], ind, corner_labels) for ind in slices_ind_X]
             elif dim == 'Y':
-                slices_dict[dim] = [(ref_vol[:, ind, :], brainmask_vol[:, ind, :], ind) for ind in slices_ind_X]
+                curr_orients = im_orient[1]
+                if curr_orients in ['S', 'I', 'P', 'A']:  # Axial or Coronal views
+                    if 'R' in im_orient:
+                        corner_labels = ('L   ', '   R')
+                    elif 'L' in im_orient:
+                        corner_labels = ('R   ', '   L')
+                    else:
+                        corner_labels = ('', '')
+                else:
+                    corner_labels = ('', '')
+                slices_dict[dim] = [(ref_vol[:, ind, :], brainmask_vol[:, ind, :], ind, corner_labels) for ind in slices_ind_X]
             elif dim == 'Z':
-                slices_dict[dim] = [(ref_vol[:, :, ind], brainmask_vol[:, :, ind], ind) for ind in slices_ind_X]
-            row_nb += orient.count(dim)
+                curr_orients = im_orient[2]
+                if curr_orients in ['S', 'I', 'P', 'A']:  # Axial or Coronal views
+                    if 'R' in im_orient:
+                        corner_labels = ('L   ', '   R')
+                    elif 'L' in im_orient:
+                        corner_labels = ('R   ', '   L')
+                    else:
+                        corner_labels = ('', '')
+                else:
+                    corner_labels = ('', '')
+                slices_dict[dim] = [(ref_vol[:, :, ind], brainmask_vol[:, :, ind], ind, corner_labels) for ind in slices_ind_X]
+            row_nb += slice_orients.count(dim)
 
     # Affichage dans les trois axes
     fig, ax = plt.subplots(row_nb, nb_of_cols, figsize=(nb_of_cols*0.75, row_nb), dpi=300)
@@ -60,7 +92,7 @@ def overlay_brainmask(ref_vol, brainmask_vol, save_fig, nb_of_cols=6, orient='XY
 
     row = 0
     for dim in ['X', 'Y', 'Z']:
-        row_dim_nb = orient.count(dim)
+        row_dim_nb = slice_orients.count(dim)
         if row_dim_nb:
             for row_dim in range(row_dim_nb):
                 for col in range(nb_of_cols):
@@ -72,7 +104,9 @@ def overlay_brainmask(ref_vol, brainmask_vol, save_fig, nb_of_cols=6, orient='XY
                                         origin='lower',
                                         alpha=alpha,
                                         cmap=my_cmap)
-                    label_X = ax[row, col].set_xlabel(f'k = {slices_dict[dim][slice_n][2]}')
+                    slice_num = slices_dict[dim][slice_n][2]
+                    corner_labels = slices_dict[dim][slice_n][3]
+                    label_X = ax[row, col].set_xlabel(f'{corner_labels[0]}k = {slice_num}{corner_labels[1]}')
                     label_X.set_fontsize(5)  # Définir la taille de la police du label
                     label_X.set_color('white')
                     ax[row, col].get_xaxis().set_ticks([])
@@ -82,7 +116,7 @@ def overlay_brainmask(ref_vol, brainmask_vol, save_fig, nb_of_cols=6, orient='XY
     fig.tight_layout()
     plt.savefig(save_fig)
 
-    return op.abspath(save_fig)
+    return str(save_fig.absolute())
 
 
 def bounding_crop(brain_img: str,
@@ -383,7 +417,7 @@ def create_edges(path_image, path_ref_image, path_brainmask, nb_of_slices=12, sl
     def difference_of_gaussian(fdata, affine, fwhmNarrow, verbose=0):
         """Apply Difference of Gaussian (DoG) filter.
         https://en.wikipedia.org/wiki/Difference_of_Gaussians
-        https://en.wikipedia.org/wiki/Marr–Hildreth_algorithm
+        https://en.wikipedia.org/wiki/Marr%E2%80%93Hildreth_algorithm
         D. Marr and E. C. Hildreth. Theory of edge detection. Proceedings of the Royal Society, London B, 207:187-217, 1980
         Parameters
         ----------

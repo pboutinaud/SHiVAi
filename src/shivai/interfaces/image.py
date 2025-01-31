@@ -19,7 +19,7 @@ import os
 import warnings
 import nibabel.processing as nip
 import nibabel as nib
-from nibabel.orientations import axcodes2ornt, io_orientation, ornt_transform
+from nibabel.orientations import axcodes2ornt, io_orientation, ornt_transform, ornt2axcodes
 import numpy as np
 import csv
 import json
@@ -1145,13 +1145,18 @@ class Brainmask_Overlay(BaseInterface):
         brainmask = self.inputs.brainmask
         outname = self.inputs.outname
         cols_nb = self.inputs.cols_nb
-        orient = self.inputs.orient
+        slice_orients = self.inputs.orient
         alpha = self.inputs.alpha
 
         ref_im = nib.load(img_ref)
         ref_vol = ref_im.get_fdata().squeeze()
+        ref_orient = ornt2axcodes(io_orientation(ref_im.affine))
         brainmask_im = nib.load(brainmask)
+        mask_orient = ornt2axcodes(io_orientation(brainmask_im.affine))
         brainmask_vol = brainmask_im.get_fdata().squeeze().astype(bool)
+        if not ref_orient == mask_orient:
+            raise ValueError('The brainmask/segmentation and the reference image do not share the same orientation. '
+                             'This should not be possible...')
 
         if isdefined(self.inputs.fov_mask):
             fov_mask_vol = nib.load(self.inputs.fov_mask).get_fdata().squeeze().astype(bool)
@@ -1171,7 +1176,7 @@ class Brainmask_Overlay(BaseInterface):
             ref_vol_masked = ref_vol * fov_mask_vol  # masking
             ref_vol = ref_vol_masked[fov_box].reshape(fov_box_shape)  # new fov
 
-        overlayed_brainmask = overlay_brainmask(ref_vol, brainmask_vol, outname, cols_nb, orient, alpha)
+        overlayed_brainmask = overlay_brainmask(ref_vol, brainmask_vol, outname, cols_nb, slice_orients, mask_orient, alpha)
 
         setattr(self, 'overlayed_brainmask', overlayed_brainmask)  # overlayed_brainmask is already an absolute path
 
