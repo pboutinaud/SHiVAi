@@ -24,6 +24,7 @@ RUN curl -fLO https://github.com/rordenlab/dcm2niix/releases/latest/download/dcm
 COPY src /usr/local/src/shivai/src
 COPY tests /usr/local/src/shivai/tests
 COPY pyproject.toml /usr/local/src/shivai/
+COPY requirements.txt /usr/local/src/shivai/
 
 WORKDIR  /usr/local/src/shivai
 RUN find . -type f -print0 | xargs -0 dos2unix
