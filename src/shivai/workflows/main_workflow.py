@@ -375,11 +375,13 @@ def generate_main_wf(**kwargs) -> Workflow:
             main_wf.connect(wf_preproc, 'datagrabber.synthseg_qc', sink_node_subjects, 'shiva_preproc.synthseg.@qc')
         else:
             if kwargs['BRAIN_SEG'] == 'synthseg_precomp':
-                main_wf.connect(wf_preproc, 'synthseg_grabber.volumes', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
+                if kwargs['PREP_SETTINGS']['ss_vol']:
+                    main_wf.connect(wf_preproc, 'synthseg_grabber.volumes', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
                 if kwargs['PREP_SETTINGS']['ss_qc']:
                     main_wf.connect(wf_preproc, 'synthseg_grabber.qc', sink_node_subjects, 'shiva_preproc.synthseg.@qc')
             else:
-                main_wf.connect(wf_preproc, 'synthseg.volumes', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
+                if kwargs['PREP_SETTINGS']['ss_vol']:
+                    main_wf.connect(wf_preproc, 'synthseg.volumes', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
                 if kwargs['PREP_SETTINGS']['ss_qc']:
                     main_wf.connect(wf_preproc, 'synthseg.qc', sink_node_subjects, 'shiva_preproc.synthseg.@qc')
     elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:

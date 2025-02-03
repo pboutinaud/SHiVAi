@@ -37,12 +37,15 @@ def genWorkflow(**kwargs) -> Workflow:
     synthseg_grabber.inputs.sort_filelist = True
     synthseg_grabber.inputs.template = '%s/%s/*.nii*'
     synthseg_grabber.inputs.field_template = {'segmentation': '%s/synthseg_parc.nii*',
-                                              'volumes': '%s/volumes.csv'}  # add 'qc' here if needed
+                                              }
     synthseg_grabber.inputs.template_args = {'segmentation': [['subject_id']],
-                                             'volumes': [['subject_id']]}
+                                             }
     if kwargs['PREP_SETTINGS']['ss_qc']:
         synthseg_grabber.inputs.field_template.update({'qc': '%s/qc.csv'})
         synthseg_grabber.inputs.template_args.update({'qc': [['subject_id']]})
+    if kwargs['PREP_SETTINGS']['ss_vol']:
+        synthseg_grabber.inputs.field_template.update({'volumes': '%s/volumes.csv'})
+        synthseg_grabber.inputs.template_args.update({'volumes': [['subject_id']]})
 
     # Rewiring the workflow with the new nodes
     synthseg = workflow.get_node('synthseg')

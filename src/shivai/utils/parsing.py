@@ -131,6 +131,10 @@ def shivaParser():
                         action='store_true',
                         help='Runs the SynthSeg QC if --brain_seg synthseg* is selected too.')
 
+    parser.add_argument('--ss_vol',
+                        action='store_true',
+                        help='Runs the SynthSeg volumes if --brain_seg synthseg* is selected too.')
+
     parser.add_argument('--ai_threads',
                         default=8,
                         type=int,
