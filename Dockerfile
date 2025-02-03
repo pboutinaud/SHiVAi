@@ -28,11 +28,12 @@ COPY pyproject.toml /usr/local/src/shivai/
 WORKDIR  /usr/local/src/shivai
 RUN find . -type f -print0 | xargs -0 dos2unix
 RUN python -m pip install build && \
-    python -m pip install . && \
+    python -m pip install -r requirements.txt && \
     python -m pip cache purge
+RUN python -m pip install .
 
 WORKDIR /root
-RUN apt clean
+# RUN apt clean
 RUN mkdir -p /mnt/model
 
 # ENTRYPOINT ["shiva", "--containerized_all"]

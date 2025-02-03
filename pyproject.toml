@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "shivai"
-dynamic = ["version"]
+dynamic = ["version", "dependencies"]
 authors = [
     { name = "Yann RIO", email = "yrio@fealinx.com" },
     { name = "Pierre-Yves HERVE", email = "pyherve@fealinx.com" },
@@ -37,27 +37,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
-dependencies = [
-    "bokeh",
-    "cffi>=1.17.1",
-    "lxml>=5.3.0",
-    "matplotlib",
-    "seaborn",
-    "networkx>=2.8.7",
-    "nibabel>=4.0.2",
-    "nipype>=1.7.0",
-    "numpy",
-    "pandas",
-    "pybids",
-    "pydot",
-    "pydotplus",
-    "pyyaml",
-    "quickshear",
-    "scikit-image",
-    "scipy>=1.7.3",
-    "typing-extensions",
-    "weasyprint",
-]
 
 [project.optional-dependencies]
 TF_CUDA = ["tensorflow[and-cuda]==2.17.0", "keras==3.6.0"]
@@ -72,6 +51,7 @@ shiva_prep_json = "shivai.scripts.prep_json:main"
 
 [tool.setuptools.dynamic]
 version = { attr = "shivai.__version__" }
+dependencies = { file = ["requirements.txt"] }
 
 [tool.setuptools.packages.find]
 where = ["src"]
