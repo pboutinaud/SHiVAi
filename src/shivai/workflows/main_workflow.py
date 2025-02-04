@@ -258,7 +258,7 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_overlay_brainmask.overlayed_brainmask', wf_post, 'summary_report.overlayed_brainmask_1')
         if with_swi and with_t1:
             main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_overlay_brainmask_swi.overlayed_brainmask', wf_post, 'summary_report.overlayed_brainmask_2')
-        if with_flair:
+        if with_flair and not kwargs['PREP_SETTINGS']['prereg_flair']:
             main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.qc_coreg', wf_post, 'summary_report.isocontour_slides_FLAIR_T1')
         main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', wf_post, 'summary_report.brainmask')
 
