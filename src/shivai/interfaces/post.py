@@ -760,7 +760,7 @@ class Join_QC_metrics_OutputSpec(TraitedSpec):
     bad_qc_subs = traits.File(exists=True,
                               desc='json file containing the subjects with bad qc and their bad metrics')
 
-    qc_plot_svg = traits.File(exists=True,
+    qc_plot_png = traits.File(exists=True,
                               desc='svg file displaying the qc values for each metric and each subject')
 
     csv_pop_file = traits.File(exists=False,
@@ -810,7 +810,7 @@ class Join_QC_metrics(BaseInterface):
 
         bad_subjects = {}  # Will contain the subjects with outlier qc metrics
         pop_bad_subjects = {}  # Will contain the subjects with outlier qc metrics from the population csv
-        qc_plot_svg = 'qc_metrics_plot.svg'
+        qc_plot_png = 'qc_metrics_plot.svg'
         plot_per_row = 4
         n_rows = 1 + (len(all_sub_metrics.columns) - 1)//plot_per_row
         n_cols = min(len(all_sub_metrics.columns), plot_per_row)
@@ -858,7 +858,7 @@ class Join_QC_metrics(BaseInterface):
                 sns.swarmplot(data=metric_vals, ax=ax)
                 for id, val in metric_vals.items():
                     ax.annotate(id, xy=(0, val), xytext=(5, -2), textcoords='offset points')
-        plt.savefig(qc_plot_svg, format='svg')
+        plt.savefig(qc_plot_png, format='png')
         plt.close(fig)
 
         # Checking if the histogram peaks of normalized images are between 0 and 1
@@ -884,7 +884,7 @@ class Join_QC_metrics(BaseInterface):
 
         setattr(self, 'qc_metrics_csv', os.path.abspath(csv_out_file))
         setattr(self, 'bad_qc_subs', os.path.abspath(bad_subjects_file))
-        setattr(self, 'qc_plot_svg', os.path.abspath(qc_plot_svg))
+        setattr(self, 'qc_plot_png', os.path.abspath(qc_plot_png))
         if population_csv_file is not None:
             setattr(self, 'csv_pop_file', os.path.abspath(csv_pop_file))
             setattr(self, 'pop_bad_subjects_file', os.path.abspath(pop_bad_subjects_file))
@@ -896,7 +896,7 @@ class Join_QC_metrics(BaseInterface):
         outputs = self.output_spec().trait_get()
         outputs['qc_metrics_csv'] = getattr(self, 'qc_metrics_csv')
         outputs['bad_qc_subs'] = getattr(self, 'bad_qc_subs')
-        outputs['qc_plot_svg'] = getattr(self, 'qc_plot_svg')
+        outputs['qc_plot_png'] = getattr(self, 'qc_plot_png')
         if hasattr(self, 'csv_pop_file'):
             outputs['csv_pop_file'] = getattr(self, 'csv_pop_file')
             outputs['pop_bad_subjects_file'] = getattr(self, 'pop_bad_subjects_file')

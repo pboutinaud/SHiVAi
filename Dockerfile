@@ -1,7 +1,8 @@
 FROM tensorflow/tensorflow:2.17.0-gpu
 
 ENV PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/ants-2.4.3/bin
-RUN apt update && apt-get install -y build-essential weasyprint libpangocairo-1.0-0 graphviz wget unzip dos2unix
+RUN apt update && apt-get install -y build-essential libcairo2 libgdk-pixbuf2.0-0 graphviz wget unzip dos2unix weasyprint libpango-1.0-0 libpangoft2-1.0-0 libffi-dev libjpeg-dev libopenjp2-7-dev
+# RUN apt update && apt install libharfbuzz-subset0 libharfbuzz0b
 
 # Installing ANTs
 WORKDIR /opt

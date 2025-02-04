@@ -213,8 +213,8 @@ def save_histogram(img_normalized, bins=64):
     ax.set_xlabel("Voxel Intensity")
     ax.set_ylabel("Number of Voxels")
 
-    histogram = 'hist.svg'
-    plt.savefig('hist.svg')
+    histogram = 'hist.png'
+    plt.savefig('hist.png')
     return op.abspath(histogram), mode
 
 

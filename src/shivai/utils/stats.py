@@ -186,7 +186,7 @@ def violinplot_from_census(census_csv: str, resolution: tuple, pred: str):
     census_df = pd.read_csv(census_csv)
     scale = resolution[0] * resolution[1] * resolution[2]
     census_df['Cluster size ($mm^3$)'] = census_df['Cluster size'] * scale
-    save_name = f'{pred}_census_plot.svg'
+    save_name = f'{pred}_census_plot.png'
     plt.ioff()
     if 'Biomarker region' not in census_df.columns:
         fig, ax = plt.subplots(figsize=(6, 4))
@@ -194,7 +194,7 @@ def violinplot_from_census(census_csv: str, resolution: tuple, pred: str):
         sns.histplot(census_df, x='Cluster size ($mm^3$)', ax=ax)
         plt.title(f'{pred} size distribution')
         plt.tight_layout()
-        plt.savefig(save_name, format='svg')
+        plt.savefig(save_name, format='png')
         plt.close(fig)
     else:
         # Change all non-identified regions by "Other"
@@ -235,7 +235,7 @@ def violinplot_from_census(census_csv: str, resolution: tuple, pred: str):
         plt.xlabel('Cluster location', fontsize=16)
         plt.ylabel(f'Cluster size ($mm^3$){"(log scale)" if logscale else ""}', fontsize=16)
         plt.tight_layout()
-        plt.savefig(save_name, format='svg', bbox_inches='tight')
+        plt.savefig(save_name, format='png', bbox_inches='tight')
         plt.close(fig)
     return os.path.abspath(save_name)
 
