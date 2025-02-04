@@ -5,7 +5,7 @@ Contains custom interfaces wrapping scripts/functions used by the nipype workflo
 @modified by iastafeva (added niimath)
 """
 import os
-import os.path as op
+from pathlib import Path
 import json
 from datetime import datetime, timezone
 import base64
@@ -70,37 +70,8 @@ class CustomIntensityNormalization(BaseInterface):
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
-        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        outputs['out_file'] = Path(self.inputs.out_file).absolute()
         return outputs
-
-
-class MaskOverlayQCplotInputSpec(CommandLineInputSpec):
-    bg_im_file = traits.Str(mandatory=True,
-                            desc='Background ref image file (typically T1 brain)',
-                            argstr='%s',
-                            position=1)
-    mask_file = traits.Str(mandatory=True,
-                           desc='Brain mask',
-                           argstr='%s',
-                           position=2)
-    transparency = traits.Enum(0, 1,
-                               argstr='%d',
-                               desc='Set transparency (0: solid, 1:transparent)',
-                               mandatory=True,
-                               position=3)
-    out_file = traits.Str('mask_overlay.png',
-                          mandatory=False,
-                          desc='Output png filename',
-                          argstr='%s',
-                          position=4)
-    bg_max = traits.Float(argstr="%.3f",
-                          mandatory=False,
-                          desc='Optionally specifies the bg img intensity range as a percentile',
-                          position=5)
-
-
-class MaskOverlayQCplotOutputSpec(TraitedSpec):
-    out_file = File(exists=True)
 
 
 class SynthSegSegmentationInputSpec(CommandLineInputSpec):
@@ -144,16 +115,15 @@ class SynthSegSegmentationMap(CommandLine):
     Segmentation of MRI images using SynthSeg.
     """
     import shivai.interfaces as wf_interfaces
-    p = op.dirname(wf_interfaces.__file__)
-    _cmd = op.join(p, 'SynthSegSegmentation.sh')
+    _cmd = str(Path(wf_interfaces.__file__).parent / 'SynthSegSegmentation.sh')
     input_spec = SynthSegSegmentationInputSpec
     output_spec = SynthSegSegmentationOutputSpec
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
-        outputs['out_file'] = op.abspath(self.inputs.out_file)
-        outputs['out_vol'] = op.abspath(self.inputs.out_vol)
-        outputs['out_qc'] = op.abspath(self.inputs.out_qc)
+        outputs['out_file'] = Path(self.inputs.out_file).absolute()
+        outputs['out_vol'] = Path(self.inputs.out_vol).absolute()
+        outputs['out_qc'] = Path(self.inputs.out_qc).absolute()
 
         return outputs
 
@@ -211,16 +181,44 @@ class coregQC(CommandLine):
     Coregistration's QC using FLIRT.
     """
     import shivai.interfaces as wf_interfaces
-    p = op.dirname(wf_interfaces.__file__)
-    _cmd = op.join(p, 'coreg_QC.sh')
+    _cmd = str(Path(wf_interfaces.__file__) / 'coreg_QC.sh')
     input_spec = CoregQCInputSpec
     output_spec = coregQCOutputSpec
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
-        outputs['out_txt'] = op.abspath(self.inputs.out_txt)
-        outputs['out_png'] = op.abspath(self.inputs.out_png)
+        outputs['out_txt'] = Path(self.inputs.out_txt).absolute()
+        outputs['out_png'] = Path(self.inputs.out_png).absolute()
         return outputs
+
+
+class MaskOverlayQCplotInputSpec(CommandLineInputSpec):
+    bg_im_file = traits.Str(mandatory=True,
+                            desc='Background ref image file (typically T1 brain)',
+                            argstr='%s',
+                            position=1)
+    mask_file = traits.Str(mandatory=True,
+                           desc='Brain mask',
+                           argstr='%s',
+                           position=2)
+    transparency = traits.Enum(0, 1,
+                               argstr='%d',
+                               desc='Set transparency (0: solid, 1:transparent)',
+                               mandatory=True,
+                               position=3)
+    out_file = traits.Str('mask_overlay.png',
+                          mandatory=False,
+                          desc='Output png filename',
+                          argstr='%s',
+                          position=4)
+    bg_max = traits.Float(argstr="%.3f",
+                          mandatory=False,
+                          desc='Optionally specifies the bg img intensity range as a percentile',
+                          position=5)
+
+
+class MaskOverlayQCplotOutputSpec(TraitedSpec):
+    out_file = File(exists=True)
 
 
 class MaskOverlayQCplot(CommandLine):
@@ -229,14 +227,13 @@ class MaskOverlayQCplot(CommandLine):
     background image.
     """
     import shivai.interfaces as wf_interfaces
-    p = op.dirname(wf_interfaces.__file__)
-    _cmd = op.join(p, 'mask_overlay_QC_images.sh')
+    _cmd = str(Path(wf_interfaces.__file__) / 'mask_overlay_QC_images.sh')
     input_spec = MaskOverlayQCplotInputSpec
     output_spec = MaskOverlayQCplotOutputSpec
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
-        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        outputs['out_file'] = Path(self.inputs.out_file).absolute()
         return outputs
 
 
@@ -308,7 +305,7 @@ class SPMApplyDeformation(SPMCommand):
         outputs["out_files"] = []
         for filename in self.inputs.in_files:
             _, fname = os.path.split(filename)
-            outputs["out_files"].append(op.realpath("w%s" % fname))
+            outputs["out_files"].append(os.path.realpath("w%s" % fname))
         return outputs
 
 
@@ -512,8 +509,8 @@ class SummaryReport(BaseInterface):
             threshold=self.inputs.threshold,
             wf_graph=wf_graph
         )
-
-        with open('Shiva_report.html', 'w', encoding='utf-8') as fid:
+        html_report_file = Path('Shiva_report.html')
+        with open(html_report_file, 'w', encoding='utf-8') as fid:
             fid.write(html_report)
 
         # Convert the HTML file to PDF using CSS
