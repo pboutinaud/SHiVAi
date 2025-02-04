@@ -107,7 +107,7 @@ def synthsegParser():
     Small workflow running SynthSeg on input images. It is made to be used before running shiva with
     the --synthseg_precomp argument (meaning that shiva will look for the Synthseg parcellation in the
     output directory instead of computing it). This is necessary when running a fully contained shiva
-    processing, as it can't run the syntheg container from the shiva container.
+    processing, as it can't run the synthseg container from the shiva container.
     """
 
     parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -360,7 +360,7 @@ def main():
     pred_plugin_args.update(args.run_plugin_args)
     synthseg = Node(SynthSeg(),
                     name='synthseg')
-    if args.qc:
+    if args.ss_qc:
         synthseg.inputs.qc = 'qc.csv'
     synthseg.inputs.cpu = args.synthseg_cpu
     synthseg.inputs.threads = args.threads
@@ -376,9 +376,8 @@ def main():
     synthseg_wf.connect(subject_iterator, 'subject_id', datagrabber, 'subject_id')
     synthseg_wf.connect(datagrabber, 'img1', synthseg, 'input')
     synthseg_wf.connect(synthseg, 'segmentation', sink_node_subjects, 'shiva_preproc.synthseg')
-    if args.vol:
-        synthseg_wf.connect(synthseg, 'volumes', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
-    if args.qc:
+    synthseg_wf.connect(synthseg, 'volumes', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
+    if args.ss_qc:
         synthseg_wf.connect(synthseg, 'qc', sink_node_subjects, 'shiva_preproc.synthseg.@qc')
 
     if args.keep_all or args.debug:

@@ -36,6 +36,7 @@ From this folder (shivai/apptainer/), logged in as root (or sudo) use the follow
 To create the Synthseg container, you first need to download the Synthseg models from the UCL OnedDrive using [this link](https://liveuclac-my.sharepoint.com/:f:/g/personal/rmappmb_ucl_ac_uk/EtlNnulBSUtAvOP6S99KcAIBYzze7jTPsmFk2_iHqKDjEw?e=rBP0RO). If the link doesn't work, refer to the one given directly on the Synthseg repository [here](https://github.com/BBillot/SynthSeg/tree/master?tab=readme-ov-file#installation).
 Downloading the folder should give you a .zip file (with a name like *OneDrive_\*.zip*).
 Rename this file as `synthseg_models.zip` and put it in the same folder as the `apptainer_synthseg_tf.recipe` file.
+
 > To check if everything is as it should: When unzipped, `synthseg_models.zip` should yield a `synthseg models` folder containing the Synthseg models as .h5 files.
 
 Then follow the same procedure as for the Shivai pipeline explained above, with:
@@ -43,3 +44,12 @@ Then follow the same procedure as for the Shivai pipeline explained above, with:
 ```singularity build synthseg.sif apptainer_synthseg_tf.recipe```
 
 Then add the path to the `synthseg.sif` image to the yaml config file in the dedicated place.
+
+## Synthseg Docker image
+First navigate to the the [apptainer](.) folder of the project (containing the [Sythseg dockerfile](./synthseg.Dockerfile)) and follow the same directions from the [Synthseg Apptainer image](#synthseg-apptainer-image) section regarding the `synthseg_models.zip` file needed before building the image.
+
+Then, to build the image (you will need root privileges), run (replace `myId` by your username or something equivalent):
+
+```
+docker build --rm -f synthseg.Dockerfile -t myId/synthseg_shivai .
+```

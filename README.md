@@ -27,7 +27,7 @@ The Shivai pipeline and all the repository content is provided under the GNU Aff
 - [Package Installation](#package-installation)
     - [Trained AI model](#trained-AI-model)
     - [Brain masking](#brain-masking)
-    - [Fully contained process](#fully-contained-process)
+    - [Fully contained process (Apptainer)](#fully-contained-process-apptainer)
     - [Traditional python install](#traditional-python-install)
     - [Mixed approach (recommended)](#mixed-approach-recommended)
 - [Running the process](#running-the-process)
@@ -75,7 +75,7 @@ Once you have your models and json files properly stored and setup, update the c
 
 SHiVAi relies on the access to brain masks in order to crop the input volumes to the proper dimension for the aI models. More details are available [below](#brain-parcellation-and-region-wise-statistics), but if you do not have such masks on hand, SHiVAi can create them automatically using a dedicated AI model. To use this option, you will have to download it and store (after extracting/unzipping) in the same folder as the other AI models. The brain masking model can be found following the link: [https://cloud.efixia.com/sharing/Mn9LB5mIR](https://cloud.efixia.com/sharing/Mn9LB5mIR)
 
-### Fully contained process
+### Fully contained process (Apptainer)
 
 1. You will need to have **Apptainer** installed (previously known as **Singularity**):
 https://apptainer.org/docs/user/main/quick_start.html
@@ -83,7 +83,7 @@ https://apptainer.org/docs/user/main/quick_start.html
 2. Download the Apptainer image (.sif file) from [https://cloud.efixia.com/sharing/HKbnJ44zG](https://cloud.efixia.com/sharing/HKbnJ44zG) (it may take a while, the image weighs about 4GB).
     Let's assume you saved it in `/myHome/myProject/shiva.sif`
 
-3. From the shivai repository (where you are reading this), navigate to the [apptainer folder](apptainer/) and download [run_shiva.py](apptainer/run_shiva.py) and [config_example.yml](apptainer/config_example.yml)
+3. From the Shivai repository (where you are reading this), navigate to the [apptainer folder](apptainer/) and download [run_shiva.py](apptainer/run_shiva.py) and [config_example.yml](apptainer/config_example.yml)
 
 4. You now need to prepare this `config_example.yml`, it will hold diverse parameters as well as the path to the AI model and to the apptainer image. There, you should change the placeholder paths for `model_path` and `apptainer_image` with your own paths (e.g. `/myHome/myProject/Shiva_AI_models` and `/myHome/myProject/shiva.sif`). You will also have to set the model descriptors (like `PVS_descriptor` or `WMH_descriptor`) with the path to the `model_info_*.json` file [mentioned above](#trained-ai-model).
 
@@ -94,6 +94,21 @@ For the rest of this readme, let's assume that you now have the config file prep
 5. Finally, set-up a minimal Python virtual environment with the `pyyaml` package installed.
 
 Next, see [Running a contained SHiVAi](#running-shivai-from-a-container)
+
+### Fully contained process (Docker)
+
+Shivai was mostlydevelopped to run with Apptainer, but we also provide Dockerfiles to use Docker as a containter solution. It will, however, requirement a little more work on your part to run the process.
+
+1. Install Docker and be sure to have root access (needed to build and run the images)
+
+2. After cloning or downloading the Shivai project, navigate to the Shivai repository (where you are reading this), i.e. the folder containing the [Dockerfile](./Dockerfile), and run (replace `myId` by your username or something equivalent):
+```
+docker build --rm -t myId/shivai .
+```
+
+3. If you want to use the Synthseg parcelation system, you will also need a separate Docker image for Synthseg. To build it, follow the [related section](./apptainer/README.md#synthseg-docker-image) in the container-related readme.
+
+4. To run Shivai from Docker, check the [Docker section](#running-shivai-from-a-docker-container) of the guide.
 
 ### Traditional python install
 
@@ -219,7 +234,7 @@ python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shi
 
 ### Running SHiVAi from a Docker container
 
-As we mostly worked on a seemless Apptainer integration, running Shivai with a Docker container will require a little more work from the user, especially concerning the mounting of host volumes to the container.
+As we mostly worked on a seemless Apptainer integration, running Shivai with a Docker container will require a little more work from the user, especially concerning the mounting of host volumes to the container. Check the [Fully contained process (Docker)](#fully-contained-process-docker) section for informations on how to build the Docker image(s).
 
 Required mounts:
 - Input data folder (that you would have given to --in)
@@ -227,12 +242,24 @@ Required mounts:
 - Folder containing the config file (given to --config)
 - Folder containg the models (that is normally given in the config file at the `model_path` keyword). This one must me **specifically mounted** to `/mnt/model`
 
-To build (and run) the docker image, you need root priviledges. Go to the folder containing the Dockerfil (the root folder of the project) and run (replace `myId` by your username or something equivalent):
+To run the docker image, you need root priviledges.
+
+If you want to use the Synthseg parcelation, you will first need to run Synthseg using the [precomp_synthseg.py](./apptainer/precomp_synthseg.py) script, either directly (if you have a local install of Synthseg) or through the synthseg Docker image tackled in [this section](./apptainer/README.md#synthseg-docker-image). We will use the later situation as an example here.
+
+To run Synthseg with `precomp_synthseg.py`, you will need some of arguments you will feed to the `shiva` command (see next step), and they will need to by identical between the two `docker run` commands:
+
 ```
-docker build --rm -t myId/shivai .
+docker run --gpus all --rm --name synthseg_shivai \
+    --volume /myHome/my_data/MRI_anat:/mnt/input_data:ro \
+    --volume /myHome/myProject/shivai_ouput:/mnt/out \
+    myId/synthseg_shivai \
+    precomp_synthseg.py --in /mnt/input_data --out /mnt/out --prediction PVS
 ```
 
-To run the image, here is an example:
+You can display all arguments from `precomp_synthseg.py` by running `docker run --rm --name synthseg_shivai myId/synthseg_shivai`. For example, you can run Synthseg on CPU by using `--synthseg_cpu` (and `--threads X` to controle the number of CPUs used).
+
+
+To run **Shivai** with Docker:
 
 ```
 docker run --gpus all --rm --name shivai \
@@ -243,9 +270,11 @@ docker run --gpus all --rm --name shivai \
     myId/shivai \
     shiva --containerized_all --in /mnt/input_data --out /mnt/out --config /mnt/config_dir/config_debug.yml --prediction PVS
 ```
-Change the local paths (like `/myHome/my_data/MRI_anat` to your own), change the `shiva` arguments if needed (e.g. the prediction), and run it.
 
-> For now, this does not run with the Synthseg parcelation scheme. Stay tuned for more info on that soon.
+If you used precomp_synthseg.py to compute the Synthseg segmentation, use the `--brain_seg synthseg_precomp` argument for the `shiva` command above.
+
+> Before running the commands, don't forget to change the local paths (like `/myHome/my_data/MRI_anat`) to your own, change *myId* to the username put when building the image, and change the `shiva` arguments if needed (e.g. the prediction).
+
 
 ### Running SHiVAi from direct package commands (recommended)
 
