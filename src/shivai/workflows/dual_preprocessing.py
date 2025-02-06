@@ -10,7 +10,7 @@ from nipype.interfaces.quickshear import Quickshear
 
 from shivai.utils.misc import as_list
 
-from shivai.interfaces.image import Normalization, Conform
+from shivai.interfaces.image import Normalization, Conform, Resample_from_to
 from shivai.interfaces.shiva import (AntsRegistration_Singularity,
                                      AntsApplyTransforms_Singularity,
                                      Quickshear_Singularity)
@@ -79,7 +79,12 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
                               name='defacing_flair')
 
     if kwargs['PREP_SETTINGS']['prereg_flair']:  # FLAIR already registered
-        workflow.connect(conform_flair, 'resampled', defacing_flair, 'in_file')
+        flair_to_t1cropped = Node(Resample_from_to(), name='flair_to_t1cropped')
+        flair_to_t1cropped.inputs.spline_order = 0
+        flair_to_t1cropped.inputs.out_suffix = '_cropped'
+        workflow.connect(conform_flair, 'resampled', flair_to_t1cropped, 'moving_image')
+        workflow.connect(crop, 'cropped', flair_to_t1cropped, 'fixed_image')
+        workflow.connect(flair_to_t1cropped, 'resampled_image', defacing_flair, 'in_file')
     else:
         # compute 6-dof coregistration parameters of accessory scan
         # to cropped t1 image
