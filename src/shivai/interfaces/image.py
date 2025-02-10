@@ -1326,7 +1326,7 @@ class Regionwise_Prediction_metrics(BaseInterface):
             if len(region_list) > 1:
                 raise ValueError('The list of regions given when using only the brain mask can only be 1 '
                                  '(taking the whole mask)')
-        elif brain_seg_type == 'synthseg':
+        elif brain_seg_type in ['synthseg', 'freesurfer']:
             if isdefined(self.inputs.region_dict):
                 region_dict = self.inputs.region_dict
             else:  # Requieres "region_list" given as input, works with Synthseg (and Freesurfer) labels

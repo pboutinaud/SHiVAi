@@ -13,6 +13,7 @@ from shivai.workflows.preprocessing_synthseg import genWorkflow as genWorkflow_p
 from shivai.workflows.preprocessing_synthseg_precomp import genWorkflow as genWorkflow_preproc_synthseg_precomp
 from shivai.workflows.preprocessing_swomed_pre_synthseg import genWorkflow as genWorkflow_preproc_synthseg_swomed
 from shivai.workflows.preprocessing_custom_seg import genWorkflow as genWorkflow_preproc_custom_seg
+from shivai.workflows.preprocessing_fs_precomp import genWorkflow as genWorkflow_preproc_fs
 from shivai.workflows.predict_wf import genWorkflow as genWorkflow_prediction
 from shivai.workflows.dcm2nii_grafting import graft_dcm2nii
 from shivai.interfaces.post import Join_Prediction_metrics, Join_QC_metrics
@@ -40,6 +41,9 @@ def update_wf_grabber(wf, acquisitions, datatype, kwargs):
         datagrabber.inputs.template_args = {acq[0]: [['subject_id']] for acq in acquisitions}
         if kwargs['BRAIN_SEG'] == 'custom':
             datagrabber.inputs.field_template['seg'] = f'%s/seg/*.nii*'  # We expect a nifti here, as dicom is unlikely
+            datagrabber.inputs.template_args['seg'] = [['subject_id']]
+        if kwargs['BRAIN_SEG'] == 'fs_precomp':
+            datagrabber.inputs.field_template['seg'] = f'%s/seg/aparc+aseg.*'  # We expect nii or mgz here
             datagrabber.inputs.template_args['seg'] = [['subject_id']]
 
     if data_struct == 'BIDS':
@@ -133,6 +137,8 @@ def generate_main_wf(**kwargs) -> Workflow:
                     wf_preproc = genWorkflow_preproc_synthseg_precomp(**kwargs, wf_name=wf_name)
                 else:
                     wf_preproc = genWorkflow_preproc_synthseg(**kwargs, wf_name=wf_name)
+        elif kwargs['BRAIN_SEG'] == 'fs_precomp':
+            wf_preproc = genWorkflow_preproc_fs(**kwargs, wf_name=wf_name)
         elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
             wf_preproc = genWorkflow_preproc_custom_seg(**kwargs, wf_name=wf_name)
         elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is None:
@@ -305,7 +311,7 @@ def generate_main_wf(**kwargs) -> Workflow:
             main_wf.connect(seg_getters[pred], 'segmentation', wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
 
             if pred_with_swi and with_t1:
-                if 'synthseg' in kwargs['BRAIN_SEG']:
+                if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
                     main_wf.connect(wf_preproc, 'cmb_preprocessing.swi_to_t1.forward_transforms', wf_post, 'seg_to_swi.transforms')
                     main_wf.connect(seg_getters[pred], 'segmentation', wf_post, 'seg_to_swi.reference_image')
                     main_wf.connect(wf_preproc, 'custom_parc.brain_parc', wf_post, 'seg_to_swi.input_image')
@@ -317,7 +323,7 @@ def generate_main_wf(**kwargs) -> Workflow:
                     main_wf.connect(wf_preproc, 'cmb_preprocessing.mask_to_crop_swi.resampled_image', wf_post, f'cluster_labelling_{lpred}.brain_seg')
                     main_wf.connect(wf_preproc, 'cmb_preprocessing.mask_to_crop_swi.resampled_image', wf_post, 'prediction_metrics_cmb.brain_seg')
             else:
-                if 'synthseg' in kwargs['BRAIN_SEG']:
+                if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
                     main_wf.connect(wf_preproc, 'custom_parc.brain_parc', wf_post, f'custom_{lpred}_parc.brain_seg')
                 elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
                     main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', wf_post, f'cluster_labelling_{lpred}.brain_seg')
@@ -384,6 +390,11 @@ def generate_main_wf(**kwargs) -> Workflow:
                     main_wf.connect(wf_preproc, 'synthseg.volumes', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
                 if kwargs['PREP_SETTINGS']['ss_qc']:
                     main_wf.connect(wf_preproc, 'synthseg.qc', sink_node_subjects, 'shiva_preproc.synthseg.@qc')
+    elif kwargs['BRAIN_SEG'] == 'fs_precomp':
+        main_wf.connect(wf_preproc, 'seg_cleaning.ouput_seg', sink_node_subjects, 'shiva_preproc.freesurfer')
+        main_wf.connect(wf_preproc, 'seg_cleaning.sunk_islands', sink_node_subjects, 'shiva_preproc.freesurfer.@removed')
+        main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', sink_node_subjects, 'shiva_preproc.freesurfer.@cropped')
+        main_wf.connect(wf_preproc, 'custom_parc.brain_parc', sink_node_subjects, 'shiva_preproc.freesurfer.@custom')
     elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
         main_wf.connect(wf_preproc, 'seg_to_crop.resampled_image', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@seg')
     main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@bb1')
@@ -439,13 +450,13 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_census_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@census')
         main_wf.connect(prediction_metrics_all, 'prediction_metrics_csv', sink_node_all, f'segmentations.{lpred}_metrics{space}')
         main_wf.connect(prediction_metrics_all, 'prediction_metrics_wide_csv', sink_node_all, f'segmentations.{lpred}_metrics{space}.@wide')
-        if 'synthseg' in kwargs['BRAIN_SEG']:
+        if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
             main_wf.connect(wf_post, f'custom_{lpred}_parc.brain_seg', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@parc')
             main_wf.connect(wf_post, f'custom_{lpred}_parc.region_dict_json', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@parc_dict')
 
         if pred_with_swi and with_t1:
             # main_wf.connect(wf_post, 'swi_clust_to_t1.output_image', sink_node_subjects, f'segmentations.{lpred}_segmentation_t1-space')  # TODO at some point
-            if 'synthseg' in kwargs['BRAIN_SEG']:
+            if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
                 main_wf.connect(wf_post, 'seg_to_swi.output_image', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@custom_parc')
     return main_wf  # ENDPOINT with everything
 

@@ -32,7 +32,10 @@ def genWorkflow(**kwargs) -> Workflow:
     if 'wf_name' not in kwargs.keys():
         kwargs['wf_name'] = 'shiva_preprocessing_synthseg'
     else:
-        kwargs['wf_name'] = kwargs['wf_name'] + '_synthseg'
+        if kwargs['wf_name'].endswith('_fs'):
+            pass
+        else:
+            kwargs['wf_name'] = kwargs['wf_name'] + '_synthseg'
 
     # Initilazing the wf
     workflow = gen_preproc_wf(**kwargs)
@@ -44,7 +47,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.disconnect(datagrabber, 'seg', mask_to_conform, 'moving_image')
 
     # Creating the specific Synthseg nodes
-    # First he synthseg node
+    # First the synthseg node
     if kwargs['CONTAINERIZE_NODES'] and not kwargs['PREP_SETTINGS']['local_synthseg']:
         synthseg = Node(SynthsegSingularity(),
                         name='synthseg')

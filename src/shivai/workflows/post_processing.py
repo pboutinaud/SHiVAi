@@ -76,6 +76,12 @@ def genWorkflow(**kwargs) -> Workflow:
     else:
         swi_acq = 'swi'
 
+    if 'synthseg' in kwargs['BRAIN_SEG']:
+        segtype = 'synthseg'
+    elif kwargs['BRAIN_SEG'] == 'fs_precomp':
+        segtype = 'freesurfer'
+    else:
+        segtype = kwargs['BRAIN_SEG']
     name_workflow = "post_processing_workflow"
     workflow = Workflow(name_workflow)
     workflow.base_dir = kwargs['BASE_DIR']
@@ -97,9 +103,8 @@ def genWorkflow(**kwargs) -> Workflow:
                                       name="prediction_metrics_cmb")
             prediction_metrics.inputs.biomarker_type = 'cmb_swi-space'
 
-            if 'synthseg' in kwargs['BRAIN_SEG']:
-                prediction_metrics.inputs.brain_seg_type = 'synthseg'
-
+            if segtype in ['synthseg', 'freesurfer']:
+                prediction_metrics.inputs.brain_seg_type = segtype
                 if kwargs['CONTAINERIZE_NODES']:
                     seg_to_swi = Node(AntsApplyTransforms_Singularity(), name="seg_to_swi")
                     seg_to_swi.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
@@ -128,8 +133,8 @@ def genWorkflow(**kwargs) -> Workflow:
                 workflow.connect(custom_cmb_parc, 'region_dict', prediction_metrics, 'region_dict')
                 workflow.connect(custom_cmb_parc, 'brain_seg', cluster_labelling_cmb, 'brain_seg')
 
-            elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
-                prediction_metrics.inputs.brain_seg_type = 'custom'
+            elif segtype == 'custom' and kwargs['CUSTOM_LUT'] is not None:
+                prediction_metrics.inputs.brain_seg_type = segtype
                 prediction_metrics.inputs.region_dict = kwargs['CUSTOM_LUT']
 
                 if kwargs['CONTAINERIZE_NODES']:
@@ -171,8 +176,8 @@ def genWorkflow(**kwargs) -> Workflow:
             prediction_metrics = Node(Regionwise_Prediction_metrics(),
                                       name=f"prediction_metrics_{lpred}")
             prediction_metrics.inputs.biomarker_type = lpred
-            if 'synthseg' in kwargs['BRAIN_SEG']:
-                prediction_metrics.inputs.brain_seg_type = 'synthseg'
+            if segtype in ['synthseg', 'freesurfer']:
+                prediction_metrics.inputs.brain_seg_type = segtype
                 custom_parc = Node(Brain_Seg_for_biomarker(), name=f'custom_{lpred}_parc')
                 custom_parc.inputs.out_file = f'Brain_Seg_for_{pred}.nii.gz'
                 if pred in ('PVS', 'WMH'):  # Specific parcellation scheme for those two
@@ -182,8 +187,8 @@ def genWorkflow(**kwargs) -> Workflow:
                 workflow.connect(custom_parc, 'brain_seg', cluster_labelling, 'brain_seg')
                 workflow.connect(custom_parc, 'brain_seg', prediction_metrics, 'brain_seg')
                 workflow.connect(custom_parc, 'region_dict', prediction_metrics, 'region_dict')
-            elif kwargs['BRAIN_SEG'] == 'custom':
-                prediction_metrics.inputs.brain_seg_type = 'custom'
+            elif segtype == 'custom':
+                prediction_metrics.inputs.brain_seg_type = segtype
                 if kwargs['CUSTOM_LUT']:  # Only needed when a LUT is provided
                     prediction_metrics.inputs.region_dict = kwargs['CUSTOM_LUT']
                 # requires external connection for prediction_metrics, 'brain_seg'
