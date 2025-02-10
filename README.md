@@ -31,7 +31,8 @@ The Shivai pipeline and all the repository content is provided under the GNU Aff
     - [Traditional python install](#traditional-python-install)
     - [Mixed approach (recommended)](#mixed-approach-recommended)
 - [Running the process](#running-the-process)
-    - [Segmentation choice](#segmentation-choice)
+    - [Biomarker segmentation choice](#biomarker-segmentation-choice)
+    - [Brain parcellation and region-wise statistics](#brain-parcellation-and-region-wise-statistics)
     - [Running SHiVAi from an Apptainer container](#running-shivai-from-an-apptainer-container)
     - [Running SHiVAi from a Docker container](#running-shivai-from-a-docker-container)
     - [Running SHIVAI from direct package commands (recommended)](#running-shivai-from-direct-package-commands-recommended)
@@ -187,12 +188,12 @@ Examples of segmentations, detected biomarkers overlaid on original image:
 
 ### Brain parcellation and region-wise statistics
 
-The SHiVAi pipeline relies on the extraction of the brain, at minima to crop the volume to the proper dimensions, and offers the possibility to count cCSVD biomarkers by brain region if a brain parcellation is available. These options are set with the `brain_seg` argument of the shiva command lines (as is presented below). This argument can be set to `shiva`, `premasked`, `synthseg`, or `custom`.
+The SHiVAi pipeline relies on the extraction of the brain, at minima to crop the volume to the proper dimensions, and offers the possibility to count cCSVD biomarkers by brain region if a brain parcellation is available. These options are set with the `brain_seg` argument of the shiva command lines (as is presented below). This argument can be set to `shiva`, `premasked`, `synthseg` (and other synthseg-related arguments), `fs_precomp`, or `custom`.
 
 By default, SHiVAi uses `shiva`, which computes a brain mask using an AI model. Using `premasked` tells the pipeline that the input images are already brain-extracted, and using `custom` (without specifying a lookup-table with the `custom_LUT` argument) tells the pipeline to look for a brain mask among the input data (see [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai) for more details). In these three cases, the biomarker metrics are computed over the whole brain.
 
 However, SHiVAi also accepts brain parcellations and will then associate each biomarker with a region and provide more details about their distribution across the brain.
-To do this we recommend using the `synthseg` argument (see next paragraph). This can be achieved with the `custom` argument by filling the `custom_LUT` argument with the path to a look-up table stored in a file (see the accepted format in the command line help).
+To do this we recommend using the `synthseg` argument (that will let the pipeline compute the parcellation, see next paragraph) or the `fs_precomp` (that uses the **Freesurfer** "aparc+aseg" parcellation). It can also be achieved with the `custom` argument by filling the `custom_LUT` argument with the path to a look-up table stored in a file (see the accepted format in the command line help). To use `fs_precomp` and `custom`, you will need to put the parcellation files (nifti or optionnaly .mgz for `fs_precomp`) in a `seg` folder in the input folder (see the [standard data structure paragraphe](#data-structures-accepted-by-shivai)).
 
 In our implementation, we mainly worked with the [Synthseg parcellation](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg) to generate custom parcellation for each type of biomarker (hemispheres are always differenciated in the labels):
 - For PVS, we distinguish the basal ganglia territory, the cerebral white matter (away from the BG), the hippocampus, the cerebellum, the ventral diencephalon, the brainstem.
