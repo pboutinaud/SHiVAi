@@ -70,6 +70,7 @@ def genWorkflow(**kwargs) -> Workflow:
     synthseg_node.inputs.snglrt_enable_nvidia = True
     synthseg_node.inputs.out_filename = 'synthseg_parc.nii.gz'
     synthseg_node.inputs.vol = 'volumes.csv'
+    synthseg_node.inputs.qc = 'qc.csv'
 
     shivai_node = Node(Shivai_Singularity(),
                        name='shivai_node')
