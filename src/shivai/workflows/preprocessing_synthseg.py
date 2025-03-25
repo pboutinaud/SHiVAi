@@ -53,7 +53,7 @@ def genWorkflow(**kwargs) -> Workflow:
                         name='synthseg')
         synthseg.inputs.snglrt_bind = [
             (kwargs['DATA_DIR'], kwargs['DATA_DIR'], 'ro'),
-            # (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
+            (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),  # Needed if input file from dcm2nii (so in the results folder)
             ('`pwd`', '/mnt/data', 'rw'),]
         synthseg.inputs.snglrt_image = kwargs['SYNTHSEG_IMAGE']
         synthseg.inputs.out_filename = '/mnt/data/synthseg_parc.nii.gz'
