@@ -15,6 +15,20 @@ from scipy.ndimage import (
 from shivai.utils.misc import get_mode
 
 
+def get_corner_label(i_dim, im_orient):
+    curr_orients = im_orient[i_dim]
+    if curr_orients in ['S', 'I', 'P', 'A']:  # Axial or Coronal views
+        if 'R' in im_orient:
+            corner_labels = ('L   ', '   R')
+        elif 'L' in im_orient:
+            corner_labels = ('R   ', '   L')
+        else:
+            corner_labels = ('', '')
+    else:
+        corner_labels = ('', '')
+    return corner_labels
+
+
 def overlay_brainmask(ref_vol, brainmask_vol, save_fig, nb_of_cols=6, slice_orients='XYZ', im_orient='RAS', alpha=0.5):
     """Overlay brainmask on t1 images
 
@@ -41,48 +55,19 @@ def overlay_brainmask(ref_vol, brainmask_vol, save_fig, nb_of_cols=6, slice_orie
     row_nb = 0
     crop_ratio = 0.1  # 10% of the slice
     slices_dict = {}
-    for dim in ['X', 'Y', 'Z']:
+    for i_dim, dim in enumerate(['X', 'Y', 'Z']):
         slices_nb = slice_orients.count(dim) * nb_of_cols
         if slices_nb:
-            border_crop = math.ceil(crop_ratio * ref_vol.shape[0])
-            croped_shape = (1-2*crop_ratio)*ref_vol.shape[0]  # can be non-integer at this step, not important
-            slices_ind_X = np.arange(border_crop, ref_vol.shape[0]-border_crop, croped_shape/slices_nb).astype(int)
+            border_crop = math.ceil(crop_ratio * ref_vol.shape[i_dim])
+            croped_shape = (1-2*crop_ratio)*ref_vol.shape[i_dim]  # can be non-integer at this step, not important
+            slices_ind = np.arange(border_crop, ref_vol.shape[i_dim]-border_crop, croped_shape/slices_nb).astype(int)
+            corner_labels = get_corner_label(i_dim, im_orient)
             if dim == 'X':
-                curr_orients = im_orient[0]
-                if curr_orients in ['S', 'I', 'P', 'A']:  # Axial or Coronal views
-                    if 'R' in im_orient:
-                        corner_labels = ('L   ', '   R')
-                    elif 'L' in im_orient:
-                        corner_labels = ('R   ', '   L')
-                    else:
-                        corner_labels = ('', '')
-                else:
-                    corner_labels = ('', '')
-                slices_dict[dim] = [(ref_vol[ind, :, :], brainmask_vol[ind, :, :], ind, corner_labels) for ind in slices_ind_X]
+                slices_dict[dim] = [(ref_vol[ind, :, :], brainmask_vol[ind, :, :], ind, corner_labels) for ind in slices_ind]
             elif dim == 'Y':
-                curr_orients = im_orient[1]
-                if curr_orients in ['S', 'I', 'P', 'A']:  # Axial or Coronal views
-                    if 'R' in im_orient:
-                        corner_labels = ('L   ', '   R')
-                    elif 'L' in im_orient:
-                        corner_labels = ('R   ', '   L')
-                    else:
-                        corner_labels = ('', '')
-                else:
-                    corner_labels = ('', '')
-                slices_dict[dim] = [(ref_vol[:, ind, :], brainmask_vol[:, ind, :], ind, corner_labels) for ind in slices_ind_X]
+                slices_dict[dim] = [(ref_vol[:, ind, :], brainmask_vol[:, ind, :], ind, corner_labels) for ind in slices_ind]
             elif dim == 'Z':
-                curr_orients = im_orient[2]
-                if curr_orients in ['S', 'I', 'P', 'A']:  # Axial or Coronal views
-                    if 'R' in im_orient:
-                        corner_labels = ('L   ', '   R')
-                    elif 'L' in im_orient:
-                        corner_labels = ('R   ', '   L')
-                    else:
-                        corner_labels = ('', '')
-                else:
-                    corner_labels = ('', '')
-                slices_dict[dim] = [(ref_vol[:, :, ind], brainmask_vol[:, :, ind], ind, corner_labels) for ind in slices_ind_X]
+                slices_dict[dim] = [(ref_vol[:, :, ind], brainmask_vol[:, :, ind], ind, corner_labels) for ind in slices_ind]
             row_nb += slice_orients.count(dim)
 
     # Affichage dans les trois axes
