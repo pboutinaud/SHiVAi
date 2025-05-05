@@ -122,7 +122,7 @@ def singParser():
                               'This option can also be used with "replace_t1" to use another type of acquisition.'))
 
     parser.add_argument('--brain_seg',
-                        choices=['shiva', 'shiva_gpu', 'synthseg', 'synthseg_cpu', 'synthseg_precomp', 'premasked', 'custom'],
+                        choices=['shiva', 'shiva_gpu', 'synthseg', 'synthseg_cpu', 'synthseg_precomp', 'fs_precomp', 'premasked', 'custom'],
                         help=('Type of brain segmentation used in the pipeline\n'
                               '- "shiva" uses an inhouse AI model to create a simple brain mask. By default it runs on CPUs.\n'
                               '- "shiva_gpu" is the same as "shiva" but runs on a GPU\n'
@@ -136,7 +136,9 @@ def singParser():
                               '- "premasked" is to be used if the input images are already masked/brain-extracted\n'
                               '- "custom" considers that you provide a custom brain segmentation. If the said segmentation is '
                               'a full brain parcellation for region-wise analysis, a LUT must be provided with the "--custom_LUT"'
-                              'argument. Otherwise, the segmentation is considered simply as a brain mask.'),
+                              'argument. Otherwise, the segmentation is considered simply as a brain mask.\n'
+                              '- "fs_precomp" considers that, in the input folder, you provide brain segmentations created by FreeSurfer. '
+                              'It can be .nii(.gz) or .mgz files, but the filename must be "aparc+aseg" (e.g. "aparc+aseg.mgz")'),
                         default='shiva')
 
     parser.add_argument('--ss_qc',
