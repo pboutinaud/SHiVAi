@@ -60,7 +60,7 @@ Depending on your situation you may want to deploy SHiVAi in different ways:
 In all the mentioned situations, **you will also need** to obtain the trained deep-learning models you want to use (for PVS, WMH, CMB, and Lacuna segmentation).
 They are available at [https://github.com/pboutinaud](https://github.com/pboutinaud)
 
-All the models must be stored in a common folder whose path must also be filled in the `model_path` variable of the config file (see point 4 of [Fully contained process](#fully-contained-process)).
+All the models must be stored in a common folder whose path must also be filled in the `model_path` variable of the config file (see point 4 of [Fully contained process](#fully-contained-process-apptainer)).
 Let's consider that you stored them in `/myHome/myProject/Shiva_AI_models` for the following parts.
 
 Each model must also be paired with a `model_info.json` file. These json files should be available on the same repository as their corresponding model.
@@ -141,7 +141,7 @@ You will also need a few software locally installed:
 
 The scripts should then be available from the command line prompt.
 
-Optionally, you can download and prepare the `config_example.yml` like explained in the [Fully contained process](#fully-contained-process) section. This will ease the command call as a lot of arguments will be given through the yaml file (instead of manually entered with the command).
+Optionally, you can download and prepare the `config_example.yml` like explained in the [Fully contained process](#fully-contained-process-apptainer) section. This will ease the command call as a lot of arguments will be given through the yaml file (instead of manually entered with the command).
 
 Next, see [Running SHiVAi from direct package commands](#running-shivai-from-direct-package-commands)
 
@@ -153,7 +153,7 @@ For this approach, you will need to both install the shivai package and download
 python -m pip install .
 ```
 
-Then, download the Apptainer image and prepare the configuration file as explained in [Fully contained process](#fully-contained-process) (you can ignore the point 3 as you won't need the `run_shiva.py` script).
+Then, download the Apptainer image and prepare the configuration file as explained in [Fully contained process](#fully-contained-process-apptainer) (you can ignore the point 3 as you won't need the `run_shiva.py` script).
 
 To run SHiVAi with this approach, see point **2** in [Running SHiVAi from direct package commands (recommended)](#running-shivai-from-direct-package-commands-recommended)
 
