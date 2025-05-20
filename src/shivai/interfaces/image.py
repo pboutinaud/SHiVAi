@@ -1364,7 +1364,7 @@ class Regionwise_Prediction_metrics(BaseInterface):
         elif brain_seg_type == 'custom':
             region_dict = self.inputs.region_dict
             if 'Whole brain' not in region_dict:
-                region_dict = {'Whole brain': -1} | region_dict  # To ensure "Whole brain" is the first key
+                region_dict = dict({'Whole brain': -1}, **region_dict)  # To ensure "Whole brain" is the first key
         else:
             raise TraitError(f'Unrecognised segmentation type: {brain_seg_type}. Should be "brain_mask", "synthseg" or "custom"')
 
