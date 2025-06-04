@@ -25,7 +25,7 @@ The Shivai pipeline and all the repository content is provided under the GNU Aff
 
 - [Dependencies and hardware requirements](#dependencies-and-hardware-requirements)
 - [Package Installation](#package-installation)
-    - [Trained AI model](#trained-AI-model)
+    - [Trained AI model](#trained-ai-model)
     - [Brain masking](#brain-masking)
     - [Fully contained process (Apptainer)](#fully-contained-process-apptainer)
     - [Traditional python install](#traditional-python-install)
@@ -39,6 +39,7 @@ The Shivai pipeline and all the repository content is provided under the GNU Aff
 - [Results](#results)
 - [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai)
 - [Additional info](#additional-info)
+    - [Running Shivai for AI model training purpose](#running-shivai-for-ai-model-training-purpose)
     - [Create missing json file](#create-missing-json-file)
     - [More info on the .yml configuration file](#more-info-on-the-yml-configuration-file)
 
@@ -481,6 +482,12 @@ Example of `json` structure input:
 
 ## Additional info
 
+### Running Shivai for AI model training purpose
+
+Shivai can be used as a preprocessing tool, to prepare the data for training our AI models. To do so, use the `--preproc_only` argument.
+
+You can also fill the `--voxels_tolerance` argument (also present in the configuration file) to give a "tolerance" to the resampling: if the original size of the voxels is within the tolerance, it will keep the original voxel size instead of resampling (it will check this for each dimension independently). For example, if the original voxel size was (1.2, 1.2, 3.0), with the resampling voxel size set to (1.0, 1.0, 1.0) and the tolerance set to (0.3, 0.3, 0.3), the final voxel size will be (1.2, 1.2, 1.0), as X and Y were with the tolerance (|1.2 - 1.0| $\leqslant$ 0.3) but the Z axis was resampled.
+
 ### Create missing json file
 
 In some cases, the model_info.json might be missing from the model folder you downloaded. To create it, you need to use the `prep_json.py` script, found in src/shivai/scripts/prep_json.py.
@@ -520,7 +527,8 @@ shiva_prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 - **min_cmb_size** (int): Filter size (in voxels) for detected CMB under which the cluster is discarded
 - **min_lac_size** (int): Filter size (in voxels) for detected Lacuna under which the cluster is discarded
 - **final_dimensions** (list) : Image array size in i, j, k input to the model. Should be [160, 214, 176].
-- **voxels_size** (list) : Voxel size used for the resampling before entering the model
+- **voxels_size** (list) : Voxel size used for the resampling before entering the model.
+- **voxels_tolerance** (list) : Tolerance to the voxel size used for the resampling, keeping the original voxel size if its withing the tolerance.
 - **interpolation** (str): image resampling method, default interpolation : 'WelchWindowedSinc', others ANTS interpolation possibilities : 'Linear', 'NearestNeighbor', 'CosineWindowedSinc', 'HammingWindowedSinc', 'LanczosWindowedSinc', 'BSpline', 'MultiLabel', 'Gaussian', 'GenericLabel'
 
 

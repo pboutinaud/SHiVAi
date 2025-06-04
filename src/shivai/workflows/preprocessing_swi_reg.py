@@ -41,6 +41,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
                        name="conform_swi")
     conform_swi.inputs.dimensions = (256, 256, 256)
     conform_swi.inputs.voxel_size = kwargs['RESOLUTION']
+    conform_swi.inputs.voxels_tolerance = kwargs['TOLERANCE']
     conform_swi.inputs.orientation = kwargs['ORIENTATION']
 
     # compute 6-dof coregistration parameters of conformed swi

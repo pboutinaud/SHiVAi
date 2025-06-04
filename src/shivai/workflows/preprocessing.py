@@ -67,11 +67,12 @@ def genWorkflow(**kwargs) -> Workflow:
     datagrabber.inputs.sort_filelist = True
     datagrabber.inputs.template = '%s/%s/*.nii*'
 
-    # conform img1 to 1 mm isotropic, freesurfer-style
+    # conform img1 to 1 mm isotropic, freesurfer-style (unless a tolerance marfin is given)
     conform = Node(Conform(),
                    name="conform")
     conform.inputs.dimensions = (256, 256, 256)
     conform.inputs.voxel_size = kwargs['RESOLUTION']
+    conform.inputs.voxels_tolerance = kwargs['TOLERANCE']
     conform.inputs.orientation = kwargs['ORIENTATION']
 
     workflow.connect(datagrabber, 'img1', conform, 'img')

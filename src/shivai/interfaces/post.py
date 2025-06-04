@@ -792,7 +792,11 @@ class Join_QC_metrics(BaseInterface):
         csv_list = []
         for csv_file, sub_id in zip(path_csv_files, subject_id):
             sub_df = pd.read_csv(csv_file)
-            sub_df.insert(0, 'sub_id', [sub_id]*sub_df.shape[0])
+            if "Append date" in sub_df:
+                # Quick fix, not sure if it's a perfect solution
+                sub_df = sub_df.iloc[-1:]
+                sub_df = sub_df.drop("Append date", axis=1)
+            sub_df.insert(0, 'sub_id', [sub_id]*sub_df.shape[0])  # When does it have more than 1 row?
             csv_list.append(sub_df)
         all_sub_metrics = pd.concat(csv_list)
 

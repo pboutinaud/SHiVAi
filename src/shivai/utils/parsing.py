@@ -279,7 +279,7 @@ def shivaParser():
                               'AI model (as well as the path to the AppTainer container when used).\n'
                               'Using a configuration file is incompatible with the arguments listed below '
                               '(i.e. --model --swi_file_num --percentile --threshold --threshold_clusters '
-                              '--final_dimensions --voxels_size --interpolation --brainmask_descriptor --pvs_descriptor '
+                              '--final_dimensions --voxels_size --voxels_tolerance --interpolation --brainmask_descriptor --pvs_descriptor '
                               '--pvs2_descriptor --wmh_descriptor --cmb_descriptor, --lac_descriptor).'),
                         default=None)
 
@@ -365,6 +365,13 @@ def shivaParser():
                         type=float,
                         # default=(1.0, 1.0, 1.0),
                         help='Voxel size of final image')
+
+    parser.add_argument('--voxels_tolerance', nargs=3,
+                        type=float,
+                        # default=(0.0, 0.0, 0.0),
+                        help=('Tolerance on the original voxel size: if the difference between the original '
+                              'voxel size and the final voxel size (give by voxels_size) is less than the '
+                              'tolerance, then the original voxel size is kept.'))
 
     parser.add_argument('--interpolation',
                         type=str,
@@ -577,6 +584,11 @@ def set_args_and_check(inParser):
             args.final_dimensions = tuple(parameters['final_dimensions'])
         if args.voxels_size is None:
             args.voxels_size = tuple(parameters['voxels_size'])
+        if args.voxels_tolerance is None:
+            if 'voxels_tolerance' in parameters:
+                args.voxels_tolerance = tuple(parameters['voxels_tolerance'])
+            else:
+                args.voxels_tolerance = (0.0, 0.0, 0.0)
 
         # Checking and setting the model descriptors (not checking md5 yet though)
         if args.brainmask_descriptor is None:  # otherwise override the config file when manually inputing the descriptor file

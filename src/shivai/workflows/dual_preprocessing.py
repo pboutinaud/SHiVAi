@@ -36,6 +36,7 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
                          name='conform_flair')
     conform_flair.inputs.dimensions = (256, 256, 256)
     conform_flair.inputs.voxel_size = kwargs['RESOLUTION']
+    conform_flair.inputs.voxels_tolerance = (1.0, 1.0, 1.0)  # High tolerance to avoid unnecessary interpolation
     conform_flair.inputs.orientation = kwargs['ORIENTATION']
 
     crop = workflow.get_node('crop')
