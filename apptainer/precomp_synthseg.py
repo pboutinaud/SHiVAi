@@ -265,7 +265,13 @@ def main():
         args.prediction = [args.prediction]
 
     # Checks and parsing of subjects
-    subject_list = os.listdir(args.in_dir)
+    if args.input_type == 'BIDS':
+        subject_list = [
+            d for d in os.listdir(args.in_dir)
+            if os.path.isdir(os.path.join(args.in_dir, d)) and d.startswith('sub-')
+        ]
+    else:
+        subject_list = os.listdir(args.in_dir)
     if args.sub_list is None and args.sub_names is None:
         if args.exclusion_list:
             args.exclusion_list = parse_sub_list_file(args.exclusion_list)
