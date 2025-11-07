@@ -5,6 +5,7 @@ import yaml
 import json
 import xml.etree.ElementTree as ET
 import pandas as pd
+from shivai import __version__
 
 
 def shivaParser():
@@ -13,7 +14,9 @@ def shivaParser():
                 A nipype workflow is used to preprocess a lot of images at the same time.
                 The segmentation from the wmh, cmb and pvs models are generated depending on the inputs. A Report is generated.
 
-                Input data can be staged in BIDS or a simplified file arborescence, or described with a JSON file (for the 3D Slicer extension)."""
+                Input data can be staged in BIDS or a simplified file arborescence, or described with a JSON file (for the 3D Slicer extension).
+                
+                Shivai version: """ + __version__
 
     parser = argparse.ArgumentParser(description=DESCRIPTION)
 
