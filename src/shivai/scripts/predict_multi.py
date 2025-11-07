@@ -143,6 +143,7 @@ def main():
             if k_hashmd5 != k_md5:
                 badmd5.append(str(keras_model))
 
+    savedModel = False  # Whether the model is a keras savedModel or an h5 file
     for model_file, file_data in zip(model_files, meta_data['files']):
         if not model_file.exists():
             notfound.append(str(model_file))
@@ -150,6 +151,8 @@ def main():
             hashmd5 = md5(model_file)
             if file_data["md5"] != hashmd5:
                 badmd5.append(str(model_file))
+            else:
+                savedModel = model_file.is_dir()
     if notfound:
         raise ValueError('Some (or all) model files/folders were missing.\n'
                          'Please supply or mount a folder '
@@ -199,6 +202,11 @@ def main():
         print(f"Loading model file: {model_file}")
         if keras_model:
             model = keras.saving.load_model(model_file, custom_objects=None, compile=False)
+        elif savedModel:
+            model = tf.saved_model.load(model_file)
+            infer = model.signatures["serving_default"]
+            input_names = list(infer.structured_input_signature[1].keys())
+            input_name = input_names[0]
         else:
             model = keras.models.load_model(
                 model_file,
@@ -206,7 +214,7 @@ def main():
                 custom_objects={"tf": tf})
         for i in range(step):
             curr_slice = slice(i*args.batch_size, (i+1)*args.batch_size)
-            input_images = np.zeros((len(sub_list[curr_slice]), *args.input_size, modality_num))
+            input_images = np.zeros((len(sub_list[curr_slice]), *args.input_size, modality_num), dtype=np.float32)
             for j, (sub, in_file1) in enumerate(zip(sub_list[curr_slice], img1_files[curr_slice])):
                 inIm = nib.load(in_file1)
                 affine_dict[sub] = inIm.affine
@@ -214,10 +222,15 @@ def main():
                 if img2_files is not None:
                     inIm = nib.load(img2_files[sub_list.index(sub)])
                     input_images[j, ..., 1] = inIm.get_fdata(dtype=np.float32)
-            predictions = model.predict(
-                input_images,
-                batch_size=1
-            )
+            if savedModel:
+                result = infer(**{input_name: tf.constant(input_images, dtype=tf.float32)})
+                output_names = list(result.keys())
+                predictions = result[output_names[0]].numpy()
+            else:
+                predictions = model.predict(
+                    input_images,
+                    batch_size=1
+                )
             # Save temp results for the current fold model
             for j, sub in enumerate(sub_list[curr_slice]):
                 sub_pred = predictions[j].squeeze()

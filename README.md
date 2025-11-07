@@ -95,7 +95,7 @@ For the rest of this readme, let's assume that you now have the config file prep
 
 5. Finally, set-up a minimal Python virtual environment with the `pyyaml` package installed.
 
-Next, see [Running a contained SHiVAi](#running-shivai-from-a-container)
+Next, see [Running a contained SHiVAi](#running-shivai-from-an-apptainer-container)
 
 ### Fully contained process (Docker)
 

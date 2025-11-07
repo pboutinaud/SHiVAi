@@ -154,6 +154,7 @@ def main():
             if k_hashmd5 != k_md5:
                 raise ValueError("Mismatch between expected file from the model descriptor and the actual model script")
 
+    savedModel = False  # Whether the model is a keras savedModel or an h5 file
     for mfile in meta_data['files']:
         mfilename = Path(mfile['name'])
         if not (model_dir / mfilename).exists():
@@ -166,6 +167,7 @@ def main():
         hashmd5 = md5(model_file)
         if mfile["md5"] != hashmd5:
             raise ValueError("Mismatch between expected file from the model descriptor and the actual model file")
+        savedModel = model_file.is_dir()
         model_files.append(model_file)
 
     if len(model_files) == 0:
@@ -257,6 +259,11 @@ def main():
         try:
             if keras_model:
                 model = keras.saving.load_model(model_file, custom_objects=None, compile=False)
+            elif savedModel:
+                model = tf.saved_model.load(model_file)
+                infer = model.signatures["serving_default"]
+                input_names = list(infer.structured_input_signature[1].keys())
+                input_name = input_names[0]
             else:
                 model = tf.keras.models.load_model(
                     model_file,
@@ -267,10 +274,16 @@ def main():
             continue
         if hasattr(model_file, 'stem'):
             print('INFO : Predicting fold :', model_file.stem)
-        prediction = model.predict(
-            images,
-            batch_size=1
-        )
+
+        if savedModel:
+            result = infer(**{input_name: tf.constant(images, dtype=tf.float32)})
+            output_names = list(result.keys())
+            predictions = result[output_names[0]].numpy()
+        else:
+            prediction = model.predict(
+                images,
+                batch_size=1
+            )
         # prediction = model(images, training=False)  # slightly (?) faster alternative
         if brainmask is not None:
             prediction *= brainmask
