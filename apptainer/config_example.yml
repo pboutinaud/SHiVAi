@@ -22,4 +22,5 @@ parameters:
   min_lac_size: 3
   final_dimensions: [160, 214, 176]
   voxels_size: [1.0, 1.0, 1.0]
+  voxels_tolerance: [0, 0, 0]
   interpolation: 'WelchWindowedSinc'

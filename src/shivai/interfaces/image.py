@@ -48,8 +48,14 @@ class ConformInputSpec(BaseInterfaceInputSpec):
     order = traits.Int(3, desc="Order of spline interpolation", usedefault=True)
 
     voxel_size = traits.Tuple(float, float, float,
-                              desc='resampled voxel size',
+                              desc='Resampled voxel size',
                               mandatory=False)
+
+    voxels_tolerance = traits.Tuple(float, float, float,
+                                    default=(0, 0, 0),
+                                    usedefault=True,
+                                    desc='How close to the "voxel_size" can a dimension be to not be resampled',
+                                    mandatory=False)
 
     orientation = traits.Enum('RAS', 'LAS',
                               'RPS', 'LPS',
@@ -103,7 +109,7 @@ class Conform(BaseInterface):
         Return: runtime
         """
         fname = self.inputs.img
-        img = nib.funcs.squeeze_image(nib.load(fname))
+        img: nib.Nifti1Image = nib.funcs.squeeze_image(nib.load(fname))
 
         simplified_affine_centered = None
 
@@ -112,7 +118,13 @@ class Conform(BaseInterface):
             voxel_size = np.divide(np.multiply(img.header['dim'][1:4], img.header['pixdim'][1:4]).astype(np.double),
                                    self.inputs.dimensions)
         else:
-            voxel_size = self.inputs.voxel_size
+            ori_vox_size = img.header["pixdim"][1:4]
+            voxel_size = np.array(self.inputs.voxel_size)
+            diff_size = np.abs(voxel_size-ori_vox_size)
+            kept_vox_size = diff_size <= self.inputs.voxels_tolerance
+            # We keep the original voxel size if it's in the tolerance margin
+            voxel_size[kept_vox_size] = ori_vox_size[kept_vox_size]
+            voxel_size = tuple(voxel_size)
 
         if not self.inputs.ignore_bad_affine:
             # Create new affine (no rotation, centered on center of mass) if the affine is corrupted

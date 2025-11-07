@@ -75,6 +75,7 @@ def genWorkflow(**kwargs) -> Workflow:
                            name="conform_premask")
     conform_premask.inputs.dimensions = (256, 256, 256)
     conform_premask.inputs.voxel_size = kwargs['RESOLUTION']
+    conform_premask.inputs.voxels_tolerance = kwargs['TOLERANCE']
     conform_premask.inputs.orientation = kwargs['ORIENTATION']
     conform_premask.inputs.order = 0
     conform_premask.inputs.ignore_bad_affine = True  # The previous conform breaks the affine, but we don't care here
