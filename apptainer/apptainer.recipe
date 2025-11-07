@@ -16,7 +16,7 @@ Stage: build
     cd /usr/local/src/shivai
     python -m pip install build
     python -m pip install .
-    pip cache purge
+    python -m pip cache purge
     rm -rf /usr/local/src/shivai
 
     # Installing ANTs
