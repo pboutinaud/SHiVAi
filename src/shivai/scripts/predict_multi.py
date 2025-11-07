@@ -144,6 +144,7 @@ def main():
                 badmd5.append(str(keras_model))
 
     savedModel = False  # Whether the model is a keras savedModel or an h5 file
+    h5_models = False
     for model_file, file_data in zip(model_files, meta_data['files']):
         if not model_file.exists():
             notfound.append(str(model_file))
@@ -153,6 +154,7 @@ def main():
                 badmd5.append(str(model_file))
             else:
                 savedModel = model_file.is_dir()
+                h5_models = model_file.suffix == '.h5'
     if notfound:
         raise ValueError('Some (or all) model files/folders were missing.\n'
                          'Please supply or mount a folder '
@@ -163,6 +165,8 @@ def main():
         raise ValueError("Mismatch between expected file from the model descriptor and the actual model file.\n"
                          "Files in question:\n\t" +
                          "\n\t".join(badmd5))
+    if h5_models:
+        raise NotImplementedError("Models in .h5 format are no longer supported. ")
 
     if keras_model:
         # Execute keras_model to have access to its classes
