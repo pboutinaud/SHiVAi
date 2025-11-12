@@ -65,9 +65,9 @@ All the models must be stored in a common folder whose path must also be filled 
 Let's consider that you stored them in `/myHome/myProject/Shiva_AI_models` for the following parts.
 
 Each model must also be paired with a `model_info.json` file. These json files should be available on the same repository as their corresponding model.
-Note that json these files are where the pipeline will look for the models path, so you may have to manually edit the path to the models. By default, the paths to the models are the relative path starting from the folder storing the specific model it is paired with (e.g. `brainmask/modelfile.h5` for the brain mask models used [below](#brain-masking), stored in a `brainmask` folder).
+Note that json these files are where the pipeline will look for the models path, so you may have to manually edit the path to the models. By default, the paths to the models are the relative path starting from the folder storing the specific model it is paired with (e.g. `brainmask/detailed-name-of-the-model.keras` for the brain mask models used [below](#brain-masking), stored in a `brainmask` folder).
 
-This way, if you simply extract the downloaded models in the common model folder, the `model_info.json` file *should* already be good (e.g., the brainmask model should end up with a full path like `/myHome/myProject/Shiva_AI_models/brainmask/modelfile.h5`).
+This way, if you simply extract the downloaded models in the common model folder, the `model_info.json` file *should* already be good.
 
 Once you have your models and json files properly stored and setup, update the config file with the correct path for each "descriptor" file (i.e. the json files).
 
@@ -82,12 +82,12 @@ SHiVAi relies on the access to brain masks in order to crop the input volumes to
 1. You will need to have **Apptainer** installed (previously known as **Singularity**):
 https://apptainer.org/docs/user/main/quick_start.html
 
-2. Download the Apptainer image (.sif file) from [https://cloud.efixia.com/sharing/HKbnJ44zG](https://cloud.efixia.com/sharing/HKbnJ44zG) (it may take a while, the image weighs about 4GB).
-    Let's assume you saved it in `/myHome/myProject/shiva.sif`
+2. Download the Apptainer image (.sif file) from [https://cloud.efixia.com/sharing/t3jG8DICk](https://cloud.efixia.com/sharing/t3jG8DICk) (it may take a while, the image weighs about 4GB).
+    Let's assume you saved it in `/myHome/myProject/shivai.sif`
 
 3. From the Shivai repository (where you are reading this), navigate to the [apptainer folder](apptainer/) and download [run_shiva.py](apptainer/run_shiva.py) and [config_example.yml](apptainer/config_example.yml)
 
-4. You now need to prepare this `config_example.yml`, it will hold diverse parameters as well as the path to the AI model and to the apptainer image. There, you should change the placeholder paths for `model_path` and `apptainer_image` with your own paths (e.g. `/myHome/myProject/Shiva_AI_models` and `/myHome/myProject/shiva.sif`). You will also have to set the model descriptors (like `PVS_descriptor` or `WMH_descriptor`) with the path to the `model_info_*.json` file [mentioned above](#trained-ai-model).
+4. You now need to prepare this `config_example.yml`, it will hold diverse parameters as well as the path to the AI model and to the apptainer image. There, you should change the placeholder paths for `model_path` and `apptainer_image` with your own paths (e.g. `/myHome/myProject/Shiva_AI_models` and `/myHome/myProject/shivai.sif`). You will also have to set the model descriptors (like `PVS_descriptor` or `WMH_descriptor`) with the path to the `model_info_*.json` file [mentioned above](#trained-ai-model).
 
 > Other than the "descriptor" paths, you shouldn't have to modify any other setting in the `parameters` part.
 
@@ -210,7 +210,7 @@ When running SHiVAi from an Apptainer image, you can do it linearly (no parallel
 To run the shiva process, you will need:
 - The [run_shiva.py](apptainer/run_shiva.py) scirpt
 - The input dataset (see [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai))
-- The Apptainer image (`shiva.sif`)
+- The Apptainer image (`shivai.sif`)
 - The trained AI model (that we provide and you should have downloaded)
 - A configuration file (.yml) that will contain all the options and various paths needed for the workflow
 
