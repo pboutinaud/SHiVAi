@@ -5,9 +5,7 @@ from nipype.pipeline.engine import Node, Workflow
 
 from shivai.workflows.preprocessing import genWorkflow as gen_preproc_wf
 
-from shivai.interfaces.shiva import SynthSeg, SynthsegSingularity
-
-from shivai.interfaces.image import Parc_from_Synthseg, Segmentation_Cleaner, Resample_from_to
+from shivai.interfaces.image import Resample_from_to
 
 
 def genWorkflow(**kwargs) -> Workflow:

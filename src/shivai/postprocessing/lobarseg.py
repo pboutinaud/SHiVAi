@@ -39,7 +39,8 @@ from scipy.ndimage import (distance_transform_edt,
                            binary_erosion,
                            binary_dilation,
                            binary_closing,
-                           binary_opening)
+                           binary_opening,
+                           label as nd_label)
 from scipy.spatial import Delaunay, ConvexHull
 import numpy as np
 from shivai.utils.misc import fisin
@@ -295,6 +296,54 @@ def periventricular_wm(seg, thickness=2):
 
 # %%
 
+def convert_hyp_to_wm(seg: np.ndarray) -> np.ndarray:
+    '''
+    Convert "white matter hypo/hyper-intensities" (label 77) to corresponding
+    latteralized WM (2 for left, 41 for right) using connected component analysis.
+
+    '''
+    hyp_vox = (seg == 77)
+
+    if not np.any(hyp_vox):
+        return seg  # Early exit if no hyp voxels
+
+    # Label connected components of hyp voxels
+    labeled_hyp, num_clusters = nd_label(hyp_vox)
+
+    if num_clusters == 0:
+        return seg
+
+    wm_L = (seg == 2)
+    wm_R = (seg == 41)
+
+    # Dilate each WM region by 1 voxel to ensure contact detection
+    wm_L_dilated = binary_dilation(wm_L, iterations=1)
+    wm_R_dilated = binary_dilation(wm_R, iterations=1)
+
+    # For each cluster, count contacts with left and right WM
+    for cluster_id in range(1, num_clusters + 1):
+        cluster_mask = (labeled_hyp == cluster_id)
+
+        # Count voxels in this cluster that touch each WM region
+        touches_L = np.sum(cluster_mask & wm_L_dilated)
+        touches_R = np.sum(cluster_mask & wm_R_dilated)
+
+        # Assign entire cluster to the WM region it touches most
+        if touches_L > touches_R:
+            seg[cluster_mask] = 2
+        elif touches_R > touches_L:
+            seg[cluster_mask] = 41
+        else:
+            # If equal contact (rare), check which WM region is larger overall
+            # or default to left
+            if np.sum(wm_L) >= np.sum(wm_R):
+                seg[cluster_mask] = 2
+            else:
+                seg[cluster_mask] = 41
+
+    return seg
+
+
 def corpus_cal(seg):
     wm_L = (seg == 2)
     wm_R = (seg == 41)
@@ -336,7 +385,8 @@ def lobar_and_wm_segmentation(seg):
 
     Takes a Synthseg parcellation and returns derived segmentation with lobar labels for both
     GM and WM, and juxtacortical/deep/periventricular WM subdivisions, as well as internal capsule
-    and external/extreme capsule.
+    and external/extreme capsule. Also convert "white matter hypo/hyper-intensities" (label 77) to
+    corresponding latteralized WM.
 
     Left hemisphere:
                     gm   jxct deep prvc
@@ -375,7 +425,7 @@ def lobar_and_wm_segmentation(seg):
     Brainstem: 60
 
     '''
-
+    seg = convert_hyp_to_wm(seg)
     seg_lobar = lobar_seg(seg)
 
     ic_L, ic_R = internal_caps(seg)
