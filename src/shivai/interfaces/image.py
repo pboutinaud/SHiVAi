@@ -1397,7 +1397,8 @@ class Regionwise_Prediction_metrics(BaseInterface):
         cluster_stats['Index'] = 'Values'  # Dummy index for pivot_table
         cluster_stats_wide = cluster_stats.pivot_table(index='Index',
                                                        columns=['Region'],
-                                                       values=metrics_col,)
+                                                       values=metrics_col,
+                                                       dropna=False)
         cluster_stats_wide.columns = [f'{s2} - {s1}' for (s1, s2) in cluster_stats_wide.columns.tolist()]
         cluster_stats_wide.reset_index(inplace=True)
         cluster_stats_wide.set_index('Index', inplace=True)
