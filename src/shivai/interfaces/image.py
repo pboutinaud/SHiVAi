@@ -45,6 +45,11 @@ class ConformInputSpec(BaseInterfaceInputSpec):
                               desc='The minimal array dimensions for the'
                               'intermediate conformed image.')
 
+    adaptive_dim = traits.Bool(False,
+                               desc='If True, adapt the dimensions to keep the FOV',
+                               usedefault=True,
+                               mandatory=False)
+
     order = traits.Int(3, desc="Order of spline interpolation", usedefault=True)
 
     voxel_size = traits.Tuple(float, float, float,
@@ -113,23 +118,38 @@ class Conform(BaseInterface):
 
         simplified_affine_centered = None
 
+        outdim = self.inputs.dimensions
+        ori_dim = img.header['dim'][1:4]
+        ori_vox_size = img.header["pixdim"][1:4]
+
         if not (isdefined(self.inputs.voxel_size)):
             # resample so as to keep FOV
-            voxel_size = np.divide(np.multiply(img.header['dim'][1:4], img.header['pixdim'][1:4]).astype(np.double),
-                                   self.inputs.dimensions)
+            voxel_size = np.divide(np.multiply(ori_dim, ori_vox_size).astype(np.double),
+                                   outdim)
         else:
-            ori_vox_size = img.header["pixdim"][1:4]
-            voxel_size = np.array(self.inputs.voxel_size)
+            voxel_size_param = np.array(self.inputs.voxel_size)
+            voxel_size = voxel_size_param.copy()
             diff_size = np.abs(voxel_size-ori_vox_size)
             kept_vox_size = diff_size <= self.inputs.voxels_tolerance
             # We keep the original voxel size if it's in the tolerance margin
             voxel_size[kept_vox_size] = ori_vox_size[kept_vox_size]
             voxel_size = tuple(voxel_size)
+            if self.inputs.adaptive_dim:
+                _outdim = []
+                # adapt dimensions to keep expected FOV on dimensions where voxel sizes are kept
+                for odim, kept, pvox, ivox in zip(outdim, kept_vox_size, voxel_size_param, ori_vox_size):
+                    fov = odim * pvox
+                    new_odim = np.ceil(fov / ivox).astype(int)
+                    if kept:
+                        _outdim.append(new_odim)
+                    else:
+                        _outdim.append(odim)
+                outdim = tuple(_outdim)
 
         if not self.inputs.ignore_bad_affine:
             # Create new affine (no rotation, centered on center of mass) if the affine is corrupted
             rot, trans = nib.affines.to_matvec(img.affine)
-            rot_norm = rot.dot(np.diag(1/img.header['pixdim'][1:4]))  # putting the rotation in isotropic space
+            rot_norm = rot.dot(np.diag(1/ori_vox_size))  # putting the rotation in isotropic space
             test1 = np.isclose(rot_norm.dot(rot_norm.T), np.eye(3), atol=0.0001).all()  # rot x rot.T must give an indentity matrix
             test2 = np.isclose(np.abs(np.linalg.det(rot_norm)), 1, atol=0.0001)  # Determinant for the rotation must be 1
             if not all([test1, test2]):
@@ -145,7 +165,7 @@ class Conform(BaseInterface):
                 vol = img.get_fdata()
                 cdg_ijk = np.round(ndimage.center_of_mass(vol))
                 # As the affine may be corrupted, we discard it and create a simplified version (without rotations)
-                simplified_rot = np.eye(3) * img.header['pixdim'][1:4]  # Keeping the voxel dimensions
+                simplified_rot = np.eye(3) * ori_vox_size  # Keeping the voxel dimensions
                 simplified_rot[0] *= img.header['pixdim'][0]  # Keeping the L/R orientation
                 trans_centered = -simplified_rot.dot(cdg_ijk)
                 simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
@@ -153,7 +173,7 @@ class Conform(BaseInterface):
         setattr(self, 'corrected_affine', simplified_affine_centered)
 
         resampled = nip.conform(img,
-                                out_shape=self.inputs.dimensions,
+                                out_shape=outdim,
                                 voxel_size=voxel_size,
                                 order=self.inputs.order,
                                 cval=0.0,
