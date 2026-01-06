@@ -121,6 +121,7 @@ class Conform(BaseInterface):
         outdim = self.inputs.dimensions
         ori_dim = img.header['dim'][1:4]
         ori_vox_size = img.header["pixdim"][1:4]
+        order = self.inputs.order
 
         if not (isdefined(self.inputs.voxel_size)):
             # resample so as to keep FOV
@@ -131,6 +132,8 @@ class Conform(BaseInterface):
             voxel_size = voxel_size_param.copy()
             diff_size = np.abs(voxel_size-ori_vox_size)
             kept_vox_size = diff_size <= self.inputs.voxels_tolerance
+            if all(kept_vox_size):
+                order = 0  # No resampling needed
             # We keep the original voxel size if it's in the tolerance margin
             voxel_size[kept_vox_size] = ori_vox_size[kept_vox_size]
             voxel_size = tuple(voxel_size)
@@ -175,7 +178,7 @@ class Conform(BaseInterface):
         resampled = nip.conform(img,
                                 out_shape=outdim,
                                 voxel_size=voxel_size,
-                                order=self.inputs.order,
+                                order=order,
                                 cval=0.0,
                                 orientation=self.inputs.orientation,
                                 out_class=None)
