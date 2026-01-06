@@ -149,6 +149,9 @@ class Conform(BaseInterface):
                         _outdim.append(odim)
                 outdim = tuple(_outdim)
 
+        if voxel_size == tuple(ori_vox_size):
+            order = 0  # No resampling needed
+
         if not self.inputs.ignore_bad_affine:
             # Create new affine (no rotation, centered on center of mass) if the affine is corrupted
             rot, trans = nib.affines.to_matvec(img.affine)
