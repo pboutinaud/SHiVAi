@@ -501,7 +501,11 @@ def seg_cleaner(raw_seg: np.ndarray, max_size: int = 300, ignore_labels: list = 
                 clust_isle = (relabeled_lab == isl_val)
                 if n == 1:  # Manually getting the neighbors is faster here
                     vox_coord_dif = np.concatenate([np.eye(3), -np.eye(3)], axis=0).astype(int)
-                    neighbors = tuple((np.argwhere(clust_isle) + vox_coord_dif).T)
+                    vox_coord = (np.argwhere(clust_isle) + vox_coord_dif).T
+                    # removing coords outside of the image
+                    for i in range(3):
+                        vox_coord = vox_coord[:, (vox_coord[i] >= 0) & (vox_coord[i] < raw_seg.shape[i])]
+                    neighbors = tuple(vox_coord)
                 else:
                     neighbors = ndimage.binary_dilation(clust_isle) & ~clust_isle
                 neighbors_vals, neighbors_cnt = np.unique(raw_seg[neighbors], return_counts=True)
