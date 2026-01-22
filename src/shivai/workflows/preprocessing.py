@@ -127,6 +127,8 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # Intensity normalize co-registered image for tensorflow (ENDPOINT 1)
     img1_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="img1_final_intensity_normalization")
+    if 'inverse_t2' in kwargs['ACQUISITIONS']:
+        img1_norm.inputs.inverse = kwargs['ACQUISITIONS']['inverse_t2']
     workflow.connect(crop, 'cropped',
                      img1_norm, 'input_image')
     workflow.connect(mask_to_crop, 'resampled_image',

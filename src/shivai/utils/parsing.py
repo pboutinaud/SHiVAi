@@ -92,6 +92,10 @@ def shivaParser():
                               '(Note that part of the labels may keep the "t1" notation instead of the image type you '
                               'specified)'))
 
+    parser.add_argument('--inverse_t2',
+                        action='store_true',
+                        help=('If set, the T2 image intensities will be inverted during preprocessing. Assumes that "replace_t1" is set to a T2-weighted image.'))
+
     parser.add_argument('--replace_flair',
                         type=str,
                         metavar='img_type',

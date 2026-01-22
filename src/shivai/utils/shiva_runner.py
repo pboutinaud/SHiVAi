@@ -22,7 +22,7 @@ def check_input_for_pred(wfargs):
 
 
 def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, brain_seg, ss_qc, ss_vol, ai_threads,
-          node_plugin_args, prev_qc, preproc_results, replace_t1, replace_flair, replace_swi, swi_file_num,
+          node_plugin_args, prev_qc, preproc_results, replace_t1, inverse_t2, replace_flair, replace_swi, swi_file_num,
           db_name, custom_LUT, preproc_only, use_cpu, swomed_parc, swomed_ssvol, swomed_ssqc, swomed_t1, swomed_flair,
           swomed_swi, use_t1, container_image, synthseg_image, containerized_nodes, local_synthseg, prereg_flair,
           anonymize, interpolation, percentile, threshold, threshold_pvs, threshold_wmh, threshold_cmb,
@@ -112,6 +112,7 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
         't1-like': replace_t1,
         'flair-like': replace_flair,
         'swi-like': replace_swi,
+        'inverse_t2': inverse_t2
     }
 
     # wfargs are settings shared between workflows. It's clearer to have them all in one dict and pass it around
