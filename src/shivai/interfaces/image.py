@@ -25,10 +25,30 @@ import csv
 import json
 from scipy import ndimage
 from scipy.io import loadmat
+
+from itertools import permutations, product
 # from bokeh.io import export_png
 
 import sys
 # sys.path.append('/mnt/devt')
+
+
+def generate_orientation_codes():
+    """Generate all valid 3-letter orientation codes from L/R, A/P, I/S.
+
+    Returns a list containing every permutation of the three axis pairs with
+    their possible directions, e.g. RAS, LPI, PIR, etc. RAS is placed first to
+    keep the previous default unchanged.
+    """
+    axis_pairs = [('L', 'R'), ('A', 'P'), ('I', 'S')]
+    orientations = [''.join(choice)
+                    for axes in permutations(axis_pairs)
+                    for choice in product(*axes)]
+    orientations.sort(key=lambda code: code != 'RAS')  # Keep RAS as default
+    return orientations
+
+
+ORIENTATION_CODES = generate_orientation_codes()
 
 # %% Preprocessing and general image manipulation
 
@@ -62,11 +82,7 @@ class ConformInputSpec(BaseInterfaceInputSpec):
                                     desc='How close to the "voxel_size" can a dimension be to not be resampled',
                                     mandatory=False)
 
-    orientation = traits.Enum('RAS', 'LAS',
-                              'RPS', 'LPS',
-                              'RAI', 'LPI',
-                              'RPI', 'LAP',
-                              'RAP',
+    orientation = traits.Enum(*ORIENTATION_CODES,
                               desc="orientation of image volume brain",
                               usedefault=True)
 

@@ -6,6 +6,7 @@ import random
 from copy import deepcopy
 from skimage.measure import label
 from skimage.morphology import opening, binary_erosion, binary_dilation, ball, cube
+from itertools import permutations, product
 
 import nibabel.processing as nip
 import nibabel as nib
@@ -82,6 +83,34 @@ from shivai.utils.misc import histogram, fisin
 #     return res
 
 
+def create_anisotropic_ellipsoid(radius_voxels, max_radius=None):
+    """Create an ellipsoid footprint with different radii per dimension.
+
+    Args:
+        radius_voxels (tuple): Radius in voxels for each dimension (x, y, z)
+        max_radius (int): Optional maximum radius to cap any dimension
+
+    Returns:
+        np.ndarray: Binary 3D ellipsoid footprint
+    """
+    radii = np.array(radius_voxels, dtype=float)
+    if max_radius is not None:
+        radii = np.minimum(radii, max_radius)
+
+    # Ensure at least radius of 1 in each dimension
+    radii = np.maximum(radii, 1)
+    radii = radii.astype(int)
+
+    # Create meshgrid
+    ranges = [np.arange(-r, r + 1) for r in radii]
+    grids = np.meshgrid(*ranges, indexing='ij')
+
+    # Create ellipsoid: (x/rx)^2 + (y/ry)^2 + (z/rz)^2 <= 1
+    ellipsoid = sum((g.astype(float) / r)**2 for g, r in zip(grids, radii)) <= 1
+
+    return ellipsoid.astype(np.uint8)
+
+
 def normalization(img: nib.Nifti1Image,
                   percentile: int,
                   brain_mask: nib.Nifti1Image = None,
@@ -141,7 +170,7 @@ def threshold(img: nib.Nifti1Image,
               thr: float = 0.4,
               sign: str = '+',
               binarize: bool = False,
-              rad: int = 0,
+              open_iter: int = 0,
               clusterCheck: str = 'size',
               minVol: int = 0) -> nib.Nifti1Image:
     """Create a brain_mask by putting all the values below the threshold.
@@ -153,7 +182,7 @@ def threshold(img: nib.Nifti1Image,
                 (white matter) and remove background
             sign (str): '+' zero anything below, '-' zero anythin above threshold
             binarize (bool): make a binary mask
-            rad (int): do a morphological opening using the given int for the radius
+            open_iter (int): do a morphological opening using the given int for the radius
                 of the ball used as footprint. If 0 is given, skip this step.
             clusterCheck (str): Can be 'top', 'size', or 'all'. Labels the clusters in the mask,
                 then keep the one highest in the brain if 'top' was selected, or keep
@@ -190,15 +219,50 @@ def threshold(img: nib.Nifti1Image,
     else:
         raise ValueError(f'Unsupported sign argument value {sign} (+ or -)...')
 
-    if rad:
+    voxel_size = img.header['pixdim'][1:4]
+    min_voxel_size = voxel_size.min()
+    if open_iter:
+        # Calculate adaptive radius based on voxel spacing
+        # Scale the radius by voxel dimensions to maintain similar physical size
+        # Normalize by the smallest voxel dimension
+        radius_voxels = tuple((open_iter * min_voxel_size / voxel_size).astype(int))
+
+        # For very anisotropic images, cap the maximum radius to avoid issues
+        max_radius = max(array.shape) // 4  # Don't let exceed 1/4 of any dimension
+        radius_voxels = tuple(np.minimum(radius_voxels, max_radius))
+        # Ensure at least 1 iteration per dimension if open_iter > 0
+        radius_voxels = tuple(np.maximum(radius_voxels, 1))
+
+        ori_array = array.copy()
+
         if binarize:
-            for i in range(rad):
-                array = binary_erosion(array)
-            for i in range(rad):
-                array = binary_dilation(array)
-            # array = roll_binary_opening(array, outtype=np.uint8, rep=rad)
+            # Apply dimension-adaptive erosion/dilation using 1D footprints
+            # This is faster than using a 3D footprint and preserves the original speed benefit
+            for dim in range(3):
+                # Create 1D footprint along current dimension
+                footprint_1d = np.zeros((3, 3, 3), dtype=bool)
+                footprint_1d[1, 1, 1] = True
+                # Add the line along the dimension axis
+                footprint_1d[tuple([1 if i != dim else slice(0, 3) for i in range(3)])] = True
+
+                # Apply erosion for this dimension
+                for _ in range(radius_voxels[dim]):
+                    array = binary_erosion(array, footprint=footprint_1d)
+
+            # Apply dilation (reverse order, same dimensions)
+            for dim in range(3):
+                footprint_1d = np.zeros((3, 3, 3), dtype=bool)
+                footprint_1d[1, 1, 1] = True
+                footprint_1d[tuple([1 if i != dim else slice(0, 3) for i in range(3)])] = True
+
+                for _ in range(radius_voxels[dim]):
+                    array = binary_dilation(array, footprint=footprint_1d)
+
+            array = array.astype(np.uint8)
         else:
-            array = opening(array, footprint=ball(rad))
+            # Use anisotropic ellipsoid footprint for non-binary case
+            footprint = create_anisotropic_ellipsoid(radius_voxels)
+            array = opening(array, footprint=footprint)
     if clusterCheck in ('top', 'size') or minVol:
         labeled_clusters = label(array)
         clst,  clst_cnt = np.unique(
@@ -207,25 +271,45 @@ def threshold(img: nib.Nifti1Image,
         # Sorting the clusters by size
         sort_ind = np.argsort(clst_cnt)[::-1]
         clst,  clst_cnt = clst[sort_ind],  clst_cnt[sort_ind]
-        if minVol:
-            clst = clst[clst_cnt > minVol]
-        if clusterCheck in ('top', 'size'):
-            maxInd = []
-            for c in clst:
-                zmax = np.where(labeled_clusters == c)[2].max()
-                maxInd.append(zmax)
-            topClst = clst[np.argmax(maxInd)]  # Highest (z-axis) cluster
-            if clusterCheck == 'top':
-                cluster_mask = (labeled_clusters == topClst)
+        if clst.size > 1:
+            if minVol:
+                clst = clst[clst_cnt > minVol]
+            if clusterCheck in ('top', 'size'):
+                maxInd = []
+                for c in clst:
+                    zmax = np.where(labeled_clusters == c)[2].max()
+                    maxInd.append(zmax)
+                topClst = clst[np.argmax(maxInd)]  # Highest (z-axis) cluster
+                if clusterCheck == 'top':
+                    cluster_mask = (labeled_clusters == topClst)
+                else:
+                    if not topClst == clst[0]:
+                        raise ValueError(
+                            'The biggest cluster in the mask is not the one at '
+                            'the top of the brain. Check the data for that participant.')
+                    cluster_mask = (labeled_clusters == clst[0])
+            else:  # only minVol filtering
+                cluster_mask = fisin(labeled_clusters, clst)
+            # Dilating the main cluster mask to make sure to keep the full brain
+            dil_size = 5  # in mm
+            radius_voxels = (dil_size / voxel_size).astype(int)
+            radius_voxels = tuple(np.maximum(radius_voxels, 1))
+            if binarize:
+                for dim in range(3):
+                    # Create 1D footprint along current dimension
+                    footprint_1d = np.zeros((3, 3, 3), dtype=bool)
+                    footprint_1d[1, 1, 1] = True
+                    # Add the line along the dimension axis
+                    footprint_1d[tuple([1 if i != dim else slice(0, 3) for i in range(3)])] = True
+
+                    # Apply dilation for this dimension
+                    for _ in range(radius_voxels[dim]):
+                        cluster_mask = binary_dilation(cluster_mask, footprint=footprint_1d)
+                cluster_mask = cluster_mask.astype(np.uint8)
             else:
-                if not topClst == clst[0]:
-                    raise ValueError(
-                        'The biggest cluster in the mask is not the one at '
-                        'the top of the brain. Check the data for that participant.')
-                cluster_mask = (labeled_clusters == clst[0])
-        else:  # only minVol filtering
-            cluster_mask = fisin(labeled_clusters, clst)
-        array *= cluster_mask
+                footprint = create_anisotropic_ellipsoid(radius_voxels)
+                cluster_mask = binary_dilation(cluster_mask, footprint=footprint)
+            array *= cluster_mask
 
     thresholded = nip.Nifti1Image(array.astype('f'), img.affine)
 
