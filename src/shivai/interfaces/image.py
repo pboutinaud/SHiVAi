@@ -141,8 +141,8 @@ class Conform(BaseInterface):
 
         if not (isdefined(self.inputs.voxel_size)):
             # resample so as to keep FOV
-            voxel_size = np.divide(np.multiply(ori_dim, ori_vox_size).astype(np.double),
-                                   outdim)
+            voxel_size = tuple(np.divide(np.multiply(ori_dim, ori_vox_size).astype(np.double),
+                                         outdim))
         else:
             voxel_size_param = np.array(self.inputs.voxel_size)
             voxel_size = voxel_size_param.copy()
@@ -222,6 +222,86 @@ class Conform(BaseInterface):
         fname = self.inputs.img
         _, base, _ = split_filename(fname)
         outputs["resampled"] = os.path.abspath(base + '_resampled.nii.gz')
+        if self.corrected_affine is not None:
+            outputs['corrected_affine'] = self.corrected_affine
+        return outputs
+
+
+class CorrectAffineInputSpec(BaseInterfaceInputSpec):
+    """Input parameter to correct affine of a NIfTI image"""
+    img = traits.File(exists=True, desc='NIfTI image file to process',
+                      mandatory=True)
+
+
+class CorrectAffineOutputSpec(TraitedSpec):
+    """Output class
+
+    Args:
+        corrected_img (nib.Nifti1Image): NIfTI image with corrected affine
+    """
+    corrected_img = traits.File(exists=True,
+                                desc='NIfTI image with corrected affine')
+    corrected_affine = traits.Any(
+        desc=('If the image had a bad affine matrix that needed to be corrected, '
+              'this output contains the corrected affine matrix.'))
+
+
+class CorrectAffine(BaseInterface):
+    """Correct the affine of a NIfTI image if necessary when the affine is corrupted.
+    Put the origin at the center of mass and remove any rotation from the affine.
+
+    Attributes:
+        input_spec:
+            img: NIfTI image file to process
+        output_spec:
+            corrected_img: NIfTI image with corrected affine
+    """
+    input_spec = CorrectAffineInputSpec
+    output_spec = CorrectAffineOutputSpec
+
+    def _run_interface(self, runtime):
+
+        fname = self.inputs.img
+        img: nib.Nifti1Image = nib.funcs.squeeze_image(nib.load(fname))
+
+        simplified_affine_centered = None
+
+        ori_vox_size = img.header["pixdim"][1:4]
+
+        rot, trans = nib.affines.to_matvec(img.affine)
+        rot_norm = rot.dot(np.diag(1/ori_vox_size))  # putting the rotation in isotropic space
+        test1 = np.isclose(rot_norm.dot(rot_norm.T), np.eye(3), atol=0.0001).all()  # rot x rot.T must give an indentity matrix
+        test2 = np.isclose(np.abs(np.linalg.det(rot_norm)), 1, atol=0.0001)  # Determinant for the rotation must be 1
+        if not all([test1, test2]):
+            warn_msg = (
+                f"BAD AFFINE: in {fname}\n"
+                "The image's affine is corrupted (not encoding a proper rotation).\n"
+                "To avoid problems during registration, a new affine was created using the center of mass as origin and "
+                "ignoring any rotation specified by the affine (but keeping voxel dim and left/right orientation).\n"
+                "This will misalign the masks (brain masks and cSVD biomarkers) compared to the raw images but will not "
+                "be a problem if you use the intensity normalized images from the img_preproc folder of the results."
+            )
+            warnings.warn(warn_msg)
+            vol = img.get_fdata()
+            cdg_ijk = np.round(ndimage.center_of_mass(vol))
+            # As the affine may be corrupted, we discard it and create a simplified version (without rotations)
+            simplified_rot = np.eye(3) * ori_vox_size  # Keeping the voxel dimensions
+            simplified_rot[0] *= img.header['pixdim'][0]  # Keeping the L/R orientation
+            trans_centered = -simplified_rot.dot(cdg_ijk)
+            simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
+            img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
+        setattr(self, 'corrected_affine', simplified_affine_centered)
+        _, base, _ = split_filename(fname)
+        nib.save(img, base + '_corrected.nii.gz')
+
+        return runtime
+
+    def _list_outputs(self):
+        """Just get the absolute path to the file name."""
+        outputs = self.output_spec().get()
+        fname = self.inputs.img
+        _, base, _ = split_filename(fname)
+        outputs["corrected_img"] = os.path.abspath(base + '_corrected.nii.gz')
         if self.corrected_affine is not None:
             outputs['corrected_affine'] = self.corrected_affine
         return outputs
@@ -491,7 +571,7 @@ class Threshold(BaseInterface):
                                 self.inputs.threshold,
                                 sign=self.inputs.sign,
                                 binarize=self.inputs.binarize,
-                                rad=self.inputs.open,
+                                open_iter=self.inputs.open,
                                 clusterCheck=self.inputs.clusterCheck,
                                 minVol=self.inputs.minVol)
 

@@ -10,7 +10,7 @@ from nipype.interfaces.quickshear import Quickshear
 
 from shivai.utils.misc import as_list
 
-from shivai.interfaces.image import Normalization, Conform, Resample_from_to
+from shivai.interfaces.image import Normalization, CorrectAffine, Resample_from_to
 from shivai.interfaces.shiva import (AntsRegistration_Singularity,
                                      AntsApplyTransforms_Singularity,
                                      Quickshear_Singularity)
@@ -30,22 +30,16 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
     # file selection
     datagrabber = workflow.get_node('datagrabber')
 
-    # Conform img2, should not be necessary but allows for the centering
-    # of the origin of the nifti image (if far out of the brain)
-    conform_flair = Node(Conform(),
-                         name='conform_flair')
-    conform_flair.inputs.dimensions = (256, 256, 256)
-    conform_flair.inputs.voxel_size = kwargs['RESOLUTION']
-    conform_flair.inputs.orientation = kwargs['ORIENTATION']
-    conform_flair.inputs.voxels_tolerance = (1.0, 1.0, 1.0)  # High tolerance to avoid unnecessary interpolation
-    conform_flair.inputs.adaptive_dim = True  # adapt dimensions to keep FOV if tolerance keeped some voxel sizes
+    # Correct affine if necessary
+    correct_flair = Node(CorrectAffine(),
+                         name='correct_flair')
 
     crop = workflow.get_node('crop')
     img1_norm = workflow.get_node('img1_final_intensity_normalization')
     mask_to_crop = workflow.get_node('mask_to_crop')
 
     workflow.connect(datagrabber, 'img2',
-                     conform_flair, 'img')
+                     correct_flair, 'img')
 
     # # write mask to flair in conformed space  # TODO: add it back maybe
     # if kwargs['CONTAINERIZE_NODES']:
@@ -84,7 +78,7 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
         flair_to_t1cropped = Node(Resample_from_to(), name='flair_to_t1cropped')
         flair_to_t1cropped.inputs.spline_order = 0
         flair_to_t1cropped.inputs.out_suffix = '_cropped'
-        workflow.connect(conform_flair, 'resampled', flair_to_t1cropped, 'moving_image')
+        workflow.connect(correct_flair, 'corrected_img', flair_to_t1cropped, 'moving_image')
         workflow.connect(crop, 'cropped', flair_to_t1cropped, 'fixed_image')
         workflow.connect(flair_to_t1cropped, 'resampled_image', defacing_flair, 'in_file')
     else:
@@ -118,7 +112,7 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
         flair_to_t1.inputs.winsorize_lower_quantile = 0.005
         flair_to_t1.inputs.winsorize_upper_quantile = 0.995
 
-        workflow.connect(conform_flair, 'resampled',
+        workflow.connect(correct_flair, 'corrected_img',
                          flair_to_t1, 'moving_image')
 
         workflow.connect(crop, 'cropped',
