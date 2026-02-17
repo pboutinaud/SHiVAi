@@ -568,6 +568,10 @@ def set_args_and_check(inParser):
         args.threshold_cmb = args.threshold_clusters
         args.threshold_lac = args.threshold_clusters
 
+    # Check if inverse_t2 is used properly
+    if args.inverse_t2 and (args.replace_t1 is None):
+        inParser.error('The "--inverse_t2" option can only be used when "--replace_t1" is set.')
+
     # Parse the config file
     if args.config:
         config_params = ['percentile', 'threshold', 'threshold_pvs', 'threshold_wmh',
