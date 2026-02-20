@@ -154,7 +154,8 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
         'IMAGE_SIZE': tuple(final_dimensions),
         'RESOLUTION': tuple(voxels_size),
         'TOLERANCE': tuple(voxels_tolerance),
-        'ORIENTATION': 'RAS'}
+        'ORIENTATION': 'RAS',
+        'AFFINE_CORREC_THRESHOLD': }
 
     # Check if the AI models are available for the predictions
     check_input_for_pred(wfargs)

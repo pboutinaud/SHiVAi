@@ -23,6 +23,7 @@ def genWorkflow(**kwargs) -> Workflow:
                       name="preconform")
     preconform.inputs.dimensions = kwargs['IMAGE_SIZE']  # = final dim = 160x214x176
     preconform.inputs.orientation = 'RAS'
+    preconform.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
 
     # workflow.connect(datagrabber, "img1", preconform, 'img')  # External connection
 

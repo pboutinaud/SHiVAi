@@ -91,6 +91,12 @@ class ConformInputSpec(BaseInterfaceInputSpec):
                                     usedefault=True,
                                     desc='If True, does not check if the affine is correct')
 
+    correction_threshold = traits.Float(0.005,
+                                        usedefault=True,
+                                        mandatory=False,
+                                        desc=('Threshold for detecting bad affine (rotation matrix not close enough to a proper rotation). ')
+                                        )
+
 
 class ConformOutputSpec(TraitedSpec):
     """Output class
@@ -139,6 +145,11 @@ class Conform(BaseInterface):
         ori_vox_size = img.header["pixdim"][1:4]
         order = self.inputs.order
 
+        if not (isdefined(self.inputs.correction_threshold)):
+            correction_thr = 0.005  # Threshold for detecting bad affine (rotation matrix not close enough to a proper rotation)
+        else:
+            correction_thr = self.inputs.correction_threshold
+
         if not (isdefined(self.inputs.voxel_size)):
             # resample so as to keep FOV
             voxel_size = tuple(np.divide(np.multiply(ori_dim, ori_vox_size).astype(np.double),
@@ -172,8 +183,8 @@ class Conform(BaseInterface):
             # Create new affine (no rotation, centered on center of mass) if the affine is corrupted
             rot, trans = nib.affines.to_matvec(img.affine)
             rot_norm = rot.dot(np.diag(1/ori_vox_size))  # putting the rotation in isotropic space
-            test1 = np.isclose(rot_norm.dot(rot_norm.T), np.eye(3), atol=0.0001).all()  # rot x rot.T must give an indentity matrix
-            test2 = np.isclose(np.abs(np.linalg.det(rot_norm)), 1, atol=0.0001)  # Determinant for the rotation must be 1
+            test1 = np.isclose(rot_norm.dot(rot_norm.T), np.eye(3), atol=correction_thr).all()  # rot x rot.T must give an indentity matrix
+            test2 = np.isclose(np.abs(np.linalg.det(rot_norm)), 1, atol=correction_thr)  # Determinant for the rotation must be 1
             if not all([test1, test2]):
                 warn_msg = (
                     f"BAD AFFINE: in {fname}\n"

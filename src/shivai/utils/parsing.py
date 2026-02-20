@@ -415,6 +415,13 @@ def shivaParser():
                         # default='T1.FLAIR-LAC/model_info.json',
                         help='Lacuna descriptor file path')
 
+    parser.add_argument('--aff_correc_thr',
+                        type=float,
+                        # default=0.005,
+                        help=('Threshold used to detect faulty affine in image header (between 0 and 1), '
+                              'triggering a reset to identity and thus keeping the original '
+                              'image orientation and dimensions. Lower values = stricter condition'))
+
     return parser
 
 
@@ -600,6 +607,11 @@ def set_args_and_check(inParser):
                 args.voxels_tolerance = tuple(parameters['voxels_tolerance'])
             else:
                 args.voxels_tolerance = (0.0, 0.0, 0.0)
+        if args.aff_correc_thr is None:
+            if 'aff_correc_thr' in parameters:
+                args.aff_correc_thr = parameters['aff_correc_thr']
+            else:
+                args.aff_correc_thr = 0.005
 
         # Checking and setting the model descriptors (not checking md5 yet though)
         if args.brainmask_descriptor is None:  # otherwise override the config file when manually inputing the descriptor file

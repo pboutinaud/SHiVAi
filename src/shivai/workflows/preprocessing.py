@@ -74,6 +74,7 @@ def genWorkflow(**kwargs) -> Workflow:
     conform.inputs.voxel_size = kwargs['RESOLUTION']
     conform.inputs.voxels_tolerance = kwargs['TOLERANCE']
     conform.inputs.orientation = kwargs['ORIENTATION']
+    conform.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
     # conform.inputs.adaptive_dim = True  # adapt dimensions to keep FOV if tolerance kept some voxel sizes
 
     workflow.connect(datagrabber, 'img1', conform, 'img')

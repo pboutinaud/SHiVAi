@@ -43,6 +43,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     conform_swi.inputs.voxel_size = kwargs['RESOLUTION']
     conform_swi.inputs.voxels_tolerance = kwargs['TOLERANCE']
     conform_swi.inputs.orientation = kwargs['ORIENTATION']
+    conform_swi.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
 
     # compute 6-dof coregistration parameters of conformed swi
     # to t1 cropped image
