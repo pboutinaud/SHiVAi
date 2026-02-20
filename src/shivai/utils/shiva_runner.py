@@ -27,7 +27,7 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
           swomed_swi, use_t1, container_image, synthseg_image, containerized_nodes, local_synthseg, prereg_flair,
           anonymize, interpolation, percentile, threshold, threshold_pvs, threshold_wmh, threshold_cmb,
           threshold_lac, min_pvs_size, min_wmh_size, min_cmb_size, min_lac_size, final_dimensions,
-          voxels_size, voxels_tolerance, keep_all, debug, remove_intermediates, run_plugin, run_plugin_args,
+          voxels_size, voxels_tolerance, aff_correc_thr, keep_all, debug, remove_intermediates, run_plugin, run_plugin_args,
           brainmask_descriptor, wmh_descriptor, pvs_descriptor, pvs2_descriptor, cmb_descriptor, lac_descriptor,
           **kwargs):
     """
@@ -155,7 +155,7 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
         'RESOLUTION': tuple(voxels_size),
         'TOLERANCE': tuple(voxels_tolerance),
         'ORIENTATION': 'RAS',
-        'AFFINE_CORREC_THRESHOLD': }
+        'AFFINE_CORREC_THRESHOLD': aff_correc_thr}
 
     # Check if the AI models are available for the predictions
     check_input_for_pred(wfargs)

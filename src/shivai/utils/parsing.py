@@ -380,6 +380,13 @@ def shivaParser():
                               'voxel size and the final voxel size (give by voxels_size) is less than the '
                               'tolerance, then the original voxel size is kept.'))
 
+    parser.add_argument('--aff_correc_thr',
+                        type=float,
+                        # default=0.005,
+                        help=('Threshold used to detect faulty affine in image header (between 0 and 1), '
+                              'triggering a reset to identity and thus keeping the original '
+                              'image orientation and dimensions. Lower values = stricter condition'))
+
     parser.add_argument('--interpolation',
                         type=str,
                         # default='WelchWindowedSinc',
@@ -414,13 +421,6 @@ def shivaParser():
                         type=str,
                         # default='T1.FLAIR-LAC/model_info.json',
                         help='Lacuna descriptor file path')
-
-    parser.add_argument('--aff_correc_thr',
-                        type=float,
-                        # default=0.005,
-                        help=('Threshold used to detect faulty affine in image header (between 0 and 1), '
-                              'triggering a reset to identity and thus keeping the original '
-                              'image orientation and dimensions. Lower values = stricter condition'))
 
     return parser
 
