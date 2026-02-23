@@ -189,7 +189,7 @@ class Conform(BaseInterface):
                 warn_msg = (
                     f"BAD AFFINE: in {fname}\n"
                     "The image's affine is corrupted (not encoding a proper rotation).\n"
-                    "To avoid problems during registration, a new affine was createdusing the center of mass as origin and "
+                    "To avoid problems during registration, a new affine was created using the center of mass as origin and "
                     "ignoring any rotation specified by the affine (but keeping voxel dim and left/right orientation).\n"
                     "This will misalign the masks (brain masks and cSVD biomarkers) compared to the raw images but will not "
                     "be a problem if you use the intensity normalized images from the img_preproc folder of the results."
@@ -198,8 +198,13 @@ class Conform(BaseInterface):
                 vol = img.get_fdata()
                 cdg_ijk = np.round(ndimage.center_of_mass(vol))
                 # As the affine may be corrupted, we discard it and create a simplified version (without rotations)
-                simplified_rot = np.eye(3) * ori_vox_size  # Keeping the voxel dimensions
-                simplified_rot[0] *= img.header['pixdim'][0]  # Keeping the L/R orientation
+                # Use io_orientation to correctly determine the dominant world axis AND sign for every voxel axis,
+                # not just the first one (previously only L/R was preserved via pixdim[0], causing A/P and S/I flips
+                # on oblique acquisitions).
+                ornt = io_orientation(img.affine)
+                simplified_rot = np.zeros((3, 3))
+                for vox_ax, (world_ax, sign) in enumerate(ornt):
+                    simplified_rot[int(world_ax), vox_ax] = sign * ori_vox_size[vox_ax]
                 trans_centered = -simplified_rot.dot(cdg_ijk)
                 simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
                 img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
@@ -296,8 +301,13 @@ class CorrectAffine(BaseInterface):
             vol = img.get_fdata()
             cdg_ijk = np.round(ndimage.center_of_mass(vol))
             # As the affine may be corrupted, we discard it and create a simplified version (without rotations)
-            simplified_rot = np.eye(3) * ori_vox_size  # Keeping the voxel dimensions
-            simplified_rot[0] *= img.header['pixdim'][0]  # Keeping the L/R orientation
+            # Use io_orientation to correctly determine the dominant world axis AND sign for every voxel axis,
+            # not just the first one (previously only L/R was preserved via pixdim[0], causing A/P and S/I flips
+            # on oblique acquisitions).
+            ornt = io_orientation(img.affine)
+            simplified_rot = np.zeros((3, 3))
+            for vox_ax, (world_ax, sign) in enumerate(ornt):
+                simplified_rot[int(world_ax), vox_ax] = sign * ori_vox_size[vox_ax]
             trans_centered = -simplified_rot.dot(cdg_ijk)
             simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
             img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
