@@ -31,6 +31,9 @@ def genWorkflow(**kwargs) -> Workflow:
     conform = workflow.get_node('conform')
     mask_to_conform = workflow.get_node('mask_to_conform')
     workflow.disconnect(datagrabber, 'seg', mask_to_conform, 'moving_image')
+    # Since we use the conformed image as input for proper_brain_mask, no need for corrected_affine
+    workflow.disconnect(conform, 'corrected_affine', mask_to_conform, 'corrected_affine')
+    workflow.disconnect(conform, 'original_affine', mask_to_conform, 'original_affine')
     workflow.connect(datagrabber, 'img1', masking_wf, 'preconform.img')
     workflow.connect(conform, 'resampled', masking_wf, 'intensity_norm_with_premask.input_image')
     workflow.connect(masking_wf, 'proper_brain_mask.segmentation', mask_to_conform, 'moving_image')

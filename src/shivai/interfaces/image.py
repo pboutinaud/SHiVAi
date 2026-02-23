@@ -111,6 +111,10 @@ class ConformOutputSpec(TraitedSpec):
                                         'corrected before the conformation, this output contains the corrected affine '
                                         'as a 2D Numpy array. Otherwise it stays undefined'))
 
+    original_affine = traits.Any(desc=('The original (bad) affine of the input image, output alongside '
+                                       'corrected_affine when a bad affine was detected and corrected. '
+                                       'Required by Resample_from_to to correctly remap companion images.'))
+
 
 class Conform(BaseInterface):
     """Main class
@@ -179,6 +183,8 @@ class Conform(BaseInterface):
         if voxel_size == tuple(ori_vox_size):
             order = 0  # No resampling needed
 
+        original_affine = img.affine.copy()
+
         if not self.inputs.ignore_bad_affine:
             # Create new affine (no rotation, centered on center of mass) if the affine is corrupted
             rot, trans = nib.affines.to_matvec(img.affine)
@@ -209,6 +215,7 @@ class Conform(BaseInterface):
                 simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
                 img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
         setattr(self, 'corrected_affine', simplified_affine_centered)
+        setattr(self, 'original_affine', original_affine if simplified_affine_centered is not None else None)
 
         resampled = nip.conform(img,
                                 out_shape=outdim,
@@ -240,6 +247,7 @@ class Conform(BaseInterface):
         outputs["resampled"] = os.path.abspath(base + '_resampled.nii.gz')
         if self.corrected_affine is not None:
             outputs['corrected_affine'] = self.corrected_affine
+            outputs['original_affine'] = self.original_affine
         return outputs
 
 
@@ -261,6 +269,11 @@ class CorrectAffineOutputSpec(TraitedSpec):
         desc=('If the image had a bad affine matrix that needed to be corrected, '
               'this output contains the corrected affine matrix.'))
 
+    original_affine = traits.Any(
+        desc=('The original (bad) affine of the input image, output alongside '
+              'corrected_affine when a bad affine was detected and corrected. '
+              'Required by Resample_from_to to correctly remap companion images.'))
+
 
 class CorrectAffine(BaseInterface):
     """Correct the affine of a NIfTI image if necessary when the affine is corrupted.
@@ -281,6 +294,7 @@ class CorrectAffine(BaseInterface):
         img: nib.Nifti1Image = nib.funcs.squeeze_image(nib.load(fname))
 
         simplified_affine_centered = None
+        original_affine = img.affine.copy()
 
         ori_vox_size = img.header["pixdim"][1:4]
 
@@ -312,6 +326,7 @@ class CorrectAffine(BaseInterface):
             simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
             img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
         setattr(self, 'corrected_affine', simplified_affine_centered)
+        setattr(self, 'original_affine', original_affine if simplified_affine_centered is not None else None)
         _, base, _ = split_filename(fname)
         nib.save(img, base + '_corrected.nii.gz')
 
@@ -325,6 +340,7 @@ class CorrectAffine(BaseInterface):
         outputs["corrected_img"] = os.path.abspath(base + '_corrected.nii.gz')
         if self.corrected_affine is not None:
             outputs['corrected_affine'] = self.corrected_affine
+            outputs['original_affine'] = self.original_affine
         return outputs
 
 
@@ -351,9 +367,12 @@ class Resample_from_to_InputSpec(BaseInterfaceInputSpec):
                             desc=('If set, uses the moving image name and add the given suffix to create the '
                                   'output filename. This will override the "out_name" input of the node.'))
 
-    corrected_affine = traits.Any(desc=('Affine matrix to use instead of the input affine, if defined, '
-                                        'as it means that the original space had a bad affine (e.g. img1 '
-                                        'needed a correction before its conformation)'))
+    corrected_affine = traits.Any(desc=('Corrected affine of img1 (output of Conform or CorrectAffine). '
+                                        'Must be provided together with original_affine when img1 had a bad affine.'))
+
+    original_affine = traits.Any(desc=('Original bad affine of img1 (output of Conform or CorrectAffine). '
+                                       'Used together with corrected_affine to remap img2 into img1\'s '
+                                       'corrected virtual space via: T = corrected_affine @ inv(original_affine).'))
 
 
 class Resample_from_to_OutputSpec(TraitedSpec):
@@ -392,15 +411,27 @@ class Resample_from_to(BaseInterface):
         Return: runtime
         """
         in_img = nib.load(self.inputs.moving_image)
-        if isdefined(self.inputs.corrected_affine):
-            # Apply the affine correction to the image before resampling
-            # (assuming that in_img is in the same space as the input to the conform node)
-            trans_centered = self.inputs.corrected_affine[:3, 3]
-            simpl_rot_sign = np.sign(np.diag(self.inputs.corrected_affine[:3, :3]))
-            simplified_rot = np.eye(3) * in_img.header['pixdim'][1:4] * simpl_rot_sign  # Keeping the voxel dimensions and signs
-            simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
-            in_img.set_sform(affine=simplified_affine_centered)
-            in_img.set_qform(affine=simplified_affine_centered)
+        if isdefined(self.inputs.corrected_affine) and isdefined(self.inputs.original_affine):
+            # img1 had a bad (non-orthogonal) affine. Conform/CorrectAffine replaced it with
+            # corrected_affine (a clean, COM-centred affine) and outputs the original bad affine.
+            #
+            # img2 (moving_image) is a companion image in the same scanner space as img1.
+            # Both bad affines correctly encode the physical (scanner-space) position of each
+            # image's voxel [0,0,0] — the only problem is the non-orthogonal rotation part.
+            #
+            # The transformation from scanner space → img1's corrected virtual space is:
+            #   T = corrected_affine @ inv(original_affine)
+            # Applying it to img2's own (bad) affine gives img2's virtual-space affine:
+            #   A2_virtual = T @ A2_bad = corrected_affine @ inv(original_affine) @ A2_bad
+
+            T = self.inputs.corrected_affine @ np.linalg.inv(self.inputs.original_affine)
+            new_affine = T @ in_img.affine
+            in_img.set_sform(affine=new_affine)
+            in_img.set_qform(affine=new_affine)
+        elif isdefined(self.inputs.corrected_affine):
+            # Fallback (legacy): original_affine not provided. Apply corrected_affine directly.
+            in_img.set_sform(affine=self.inputs.corrected_affine)
+            in_img.set_qform(affine=self.inputs.corrected_affine)
         in_img = nib.funcs.squeeze_image(in_img)
         ref_img = nib.funcs.squeeze_image(nib.load(self.inputs.fixed_image))
         if isdefined(self.inputs.out_suffix):
