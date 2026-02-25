@@ -33,11 +33,12 @@ From this folder (shivai/apptainer/), logged in as root (or sudo) use the follow
 4. Run the command line as [described in the main readme](../README.md/#running-shivai-from-a-container)
 
 ## Synthseg Apptainer image
-To create the Synthseg container, you first need to download the Synthseg models from the UCL OnedDrive using [this link](https://liveuclac-my.sharepoint.com/:f:/g/personal/rmappmb_ucl_ac_uk/EtlNnulBSUtAvOP6S99KcAIBYzze7jTPsmFk2_iHqKDjEw?e=rBP0RO). If the link doesn't work, refer to the one given directly on the Synthseg repository [here](https://github.com/BBillot/SynthSeg/tree/master?tab=readme-ov-file#installation).
-Downloading the folder should give you a .zip file (with a name like *OneDrive_\*.zip*).
-Rename this file as `synthseg_models.zip` and put it in the same folder as the `apptainer_synthseg_tf.recipe` file.
 
-> To check if everything is as it should: When unzipped, `synthseg_models.zip` should yield a `synthseg models` folder containing the Synthseg models as .h5 files.
+To create the Synthseg container, you first need to download the Synthseg models from the [MIT using this link](https://mitprod-my.sharepoint.com/:u:/g/personal/bbillot_mit_edu/Ebqxo6YgUmBJkOML0m8NSXgBrhaHG7iqClFXRXPinS6FGw?e=DzKf1p). If the link doesn't work, refer to the one given directly on the [Synthseg repository here](https://github.com/BBillot/SynthSeg/tree/master?tab=readme-ov-file#installation), and check the [issues page](https://github.com/BBillot/SynthSeg/issues) where other people may have faced the same problem.
+Downloading the folder should give you a .zip file (named *SynthSeg_models.zip*).
+Put it in the same folder as the `apptainer_synthseg_tf.recipe` file.
+
+> To check if everything is as it should: When unzipped, `SynthSeg_models.zip` should yield a `SynthSeg_models` folder containing the Synthseg models as .h5 files.
 
 Then follow the same procedure as for the Shivai pipeline explained above, with:
 
