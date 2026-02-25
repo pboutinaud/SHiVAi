@@ -1,9 +1,10 @@
 # SHiVAi: SHiVA preprocessing and deep learning segmentation workflow
 
 <img src="src/shivai/postprocessing/logo_shiva.png" align="right" width="100px"/>
+
 The shivai package includes a set of image analysis tools for the study of covert cerebral small vessel diseases (cCSVD) with structural Magnetic Resonance Imaging. More specifically, it installs **SHiVAi**, the full pipeline for preprocessing, AI-based segmentation, and reporting of cCVSD biomarkers.
 
-The SHiVAi segmentation tools currently include Cerebral MicroBleeds (CMB),  PeriVascular Spaces (PVS) (also known as Virchow Robin Spaces - VRS), White Matter Hyperintensities (WMH), and Lacunas. The 3D-Unet model weights are available separately at https://github.com/pboutinaud.
+The SHiVAi segmentation tools currently include Cerebral MicroBleeds (CMB),  PeriVascular Spaces (PVS) (also known as Virchow Robin Spaces - VRS), White Matter Hyperintensities (WMH), and Lacunas. The 3D-Unet model weights are available separately at <https://github.com/pboutinaud>.
 
 The tools cover preprocessing (image resampling and cropping to match the required size for the deep learning models, coregistration for multimodal segmentation tools), automatic segmentation, and reporting (QC and results). It accepts both Nifti and DICOM images as input (see the possible [input structures](#data-structures-accepted-by-shivai) for more details).
 
@@ -20,38 +21,38 @@ All the content, code, and ressources of this repository, has been registered at
 The Shivai pipeline and all the repository content is provided under the GNU Affero General Public License version 3 (Affero GPLv3) or more recent.
 <img src="https://www.gnu.org/graphics/agplv3-155x51.png" align="right" width="100px"/>
 
-
 ## Index
 
 - [Dependencies and hardware requirements](#dependencies-and-hardware-requirements)
 - [Package Installation](#package-installation)
-    - [Trained AI model](#trained-ai-model)
-    - [Brain masking](#brain-masking)
-    - [Fully contained process (Apptainer)](#fully-contained-process-apptainer)
-    - [Traditional python install](#traditional-python-install)
-    - [Mixed approach (recommended)](#mixed-approach-recommended)
+  - [Trained AI model](#trained-ai-model)
+  - [Brain masking](#brain-masking)
+  - [Fully contained process (Apptainer)](#fully-contained-process-apptainer)
+  - [Traditional python install](#traditional-python-install)
+  - [Mixed approach (recommended)](#mixed-approach-recommended)
 - [Running the process](#running-the-process)
-    - [Biomarker segmentation choice](#biomarker-segmentation-choice)
-    - [Brain parcellation and region-wise statistics](#brain-parcellation-and-region-wise-statistics)
-    - [Running SHiVAi from an Apptainer container](#running-shivai-from-an-apptainer-container)
-    - [Running SHiVAi from a Docker container](#running-shivai-from-a-docker-container)
-    - [Running SHIVAI from direct package commands (recommended)](#running-shivai-from-direct-package-commands-recommended)
+  - [Biomarker segmentation choice](#biomarker-segmentation-choice)
+  - [Brain parcellation and region-wise statistics](#brain-parcellation-and-region-wise-statistics)
+  - [Running SHiVAi from an Apptainer container](#running-shivai-from-an-apptainer-container)
+  - [Running SHiVAi from a Docker container](#running-shivai-from-a-docker-container)
+  - [Running SHIVAI from direct package commands (recommended)](#running-shivai-from-direct-package-commands-recommended)
 - [Results](#results)
 - [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai)
 - [Additional info](#additional-info)
-    - [Running Shivai for AI model training purpose](#running-shivai-for-ai-model-training-purpose)
-    - [Create missing json file](#create-missing-json-file)
-    - [More info on the .yml configuration file](#more-info-on-the-yml-configuration-file)
+  - [Running Shivai for AI model training purpose](#running-shivai-for-ai-model-training-purpose)
+  - [Create missing json file](#create-missing-json-file)
+  - [More info on the .yml configuration file](#more-info-on-the-yml-configuration-file)
 
 ## Dependencies and hardware requirements
 
 The SHiVAi application requires a Linux machine with a GPU (with 16GB of dedicated memory).
 
-The deep-learning models relies on Tensorflow 2.7.13. The processing pipelines are implemented with Nipype and make use of ANTs (Copyright 2009-2023, ConsortiumOfANTS) for image registration and [Quickshear](https://github.com/nipy/quickshear) (Copyright 2011, Nakeisha Schimke) for defacing. Quality control reporting uses (among others) DOG contours [PyDog](https://github.com/neurolabusc/PyDog) (Copyright 2021, Chris Rorden). Building and/or using the container image relies on Apptainer (https://apptainer.org). More details about Apptainer in the [Apptainer image](#apptainer-image) section and our [Appatainer readme file](apptainer/README.md).
+The deep-learning models relies on Tensorflow 2.7.13. The processing pipelines are implemented with Nipype and make use of ANTs (Copyright 2009-2023, ConsortiumOfANTS) for image registration and [Quickshear](https://github.com/nipy/quickshear) (Copyright 2011, Nakeisha Schimke) for defacing. Quality control reporting uses (among others) DOG contours [PyDog](https://github.com/neurolabusc/PyDog) (Copyright 2021, Chris Rorden). Building and/or using the container image relies on Apptainer (<https://apptainer.org>). More details about Apptainer in the [Apptainer image](apptainer/README.md#apptainer-image) section and our [Appatainer readme file](apptainer/README.md).
 
 ## Package Installation
 
 Depending on your situation you may want to deploy SHiVAi in different ways:
+
 - **Fully contained process**: The simplest approach. All the computation is done through the Apptainer image. It accounts for most of the local environment set-up, which simplifies the installation and ensure portability. However the process in run linearly (no parallelization of the different steps).
 - **Traditional python install**: does not require apptainer as all the dependencies will have to be installed locally. Useful for full control and development of the package, however it may lead to problems due to the finicky nature of TensorFlow and CUDA.
 - **Mixed approach**: Local installation of the package without TensorFlow (and so without troubles), but using the Apptainer image to run the deep-learning processes (using TensorFlow). Ideal for parallelization of the processes and use on HPC clusters.
@@ -80,7 +81,7 @@ SHiVAi relies on the access to brain masks in order to crop the input volumes to
 ### Fully contained process (Apptainer)
 
 1. You will need to have **Apptainer** installed (previously known as **Singularity**):
-https://apptainer.org/docs/user/main/quick_start.html
+<https://apptainer.org/docs/user/main/quick_start.html>
 
 2. Download the Apptainer image (.sif file) from [https://cloud.efixia.com/sharing/t3jG8DICk](https://cloud.efixia.com/sharing/t3jG8DICk) (it may take a while, the image weighs about 4GB).
     Let's assume you saved it in `/myHome/myProject/shivai.sif`
@@ -93,7 +94,7 @@ https://apptainer.org/docs/user/main/quick_start.html
 
 For the rest of this readme, let's assume that you now have the config file prepared and saved as `/myHome/myProject/myConfig.yml`.
 
-5. Finally, set-up a minimal Python virtual environment with the `pyyaml` package installed.
+1. Finally, set-up a minimal Python virtual environment with the `pyyaml` package installed.
 
 Next, see [Running a contained SHiVAi](#running-shivai-from-an-apptainer-container)
 
@@ -104,19 +105,20 @@ Shivai was mostlydevelopped to run with Apptainer, but we also provide Dockerfil
 1. Install Docker and be sure to have root access (needed to build and run the images)
 
 2. After cloning or downloading the Shivai project, navigate to the Shivai repository (where you are reading this), i.e. the folder containing the [Dockerfile](./Dockerfile), and run (replace `myId` by your username or something equivalent):
-```
+
+```bash
 docker build --rm -t myId/shivai .
 ```
 
-3. If you want to use the Synthseg parcelation system, you will also need a separate Docker image for Synthseg. To build it, follow the [related section](./apptainer/README.md#synthseg-docker-image) in the container-related readme.
+1. If you want to use the Synthseg parcelation system, you will also need a separate Docker image for Synthseg. To build it, follow the [related section](./apptainer/README.md#synthseg-docker-image) in the container-related readme.
 
-4. To run Shivai from Docker, check the [Docker section](#running-shivai-from-a-docker-container) of the guide.
+2. To run Shivai from Docker, check the [Docker section](#running-shivai-from-a-docker-container) of the guide.
 
 ### Traditional python install
 
 This type of install is mostly aimed for development and require some know-how to find the proper Drivers for GPU usage. For a simpler install, see [the Mixed approach section](#mixed-approach-recommended).
 
-To deploy the python package, create a Python 3.9 virtual environment, clone or download the shivai project and use the following command line from the project's directory (containing the 'pyproject.toml' file): 
+To deploy the python package, create a Python 3.9 virtual environment, clone or download the shivai project and use the following command line from the project's directory (containing the 'pyproject.toml' file):
 
 ```bash
 python -m pip install .[TF_CUDA]
@@ -144,7 +146,7 @@ The scripts should then be available from the command line prompt.
 
 Optionally, you can download and prepare the `config_example.yml` like explained in the [Fully contained process](#fully-contained-process-apptainer) section. This will ease the command call as a lot of arguments will be given through the yaml file (instead of manually entered with the command).
 
-Next, see [Running SHiVAi from direct package commands](#running-shivai-from-direct-package-commands)
+Next, see [Running SHiVAi from direct package commands (recommended)](#running-shivai-from-direct-package-commands-recommended)
 
 ### Mixed approach (recommended)
 
@@ -163,6 +165,7 @@ To run SHiVAi with this approach, see point **2** in [Running SHiVAi from direct
 ### Biomarker segmentation choice
 
 In all cases below, you will be prompted to chose a "prediction". This refers to the type of segmentation you want to compute, and it will depend on your available MRI acquisitions:
+
 - PVS: Mono-modal segmentation of perivascular spaces -> Uses T1 acquisitions
 - PVS2: Bi-modal segmentation of perivascular spaces -> Uses both T1 and FLAIR acquisitions
 - WMH: Bi-modal segmentation of white matter hyperintensities -> Uses both T1 and FLAIR acquisitions
@@ -171,6 +174,7 @@ In all cases below, you will be prompted to chose a "prediction". This refers to
 - all: PVS2 + WMH + CMB -> Uses T1, FLAIR, and SWI acquisitions
 
 Examples of segmentations, detected biomarkers overlaid on original image:
+
 - PVS (overlaid on the T1w acquisition)
 
 <img src="src/shivai/ressources/pvs.png" width="300px"/>
@@ -197,17 +201,19 @@ However, SHiVAi also accepts brain parcellations and will then associate each bi
 To do this we recommend using the `synthseg` argument (that will let the pipeline compute the parcellation, see next paragraph) or the `fs_precomp` (that uses the **Freesurfer** "aparc+aseg" parcellation). It can also be achieved with the `custom` argument by filling the `custom_LUT` argument with the path to a look-up table stored in a file (see the accepted format in the command line help). To use `fs_precomp` and `custom`, you will need to put the parcellation files (nifti or optionnaly .mgz for `fs_precomp`) in a `seg` folder in the input folder (see the [standard data structure paragraphe](#data-structures-accepted-by-shivai)).
 
 In our implementation, we mainly worked with the [Synthseg parcellation](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg) to generate custom parcellation for each type of biomarker (hemispheres are always differenciated in the labels):
+
 - For PVS, we distinguish the basal ganglia territory, the cerebral white matter (away from the BG), the hippocampus, the cerebellum, the ventral diencephalon, the brainstem.
 - For WMH, we segregate biomarkers between shallow, deep, periventricular, and cerebellar white matter, as well as the brain stem.
 - For CMB and Lacuna, we used the [The Microbleed Anatomical Rating Scale (MARS)](https://doi.org/10.1212/wnl.0b013e3181c34a7d).
 
-Synthseg is a project completly independent from Shiva and it was used here as a very convenient and powerful tool. As such, we do not directly provide the Synthseg software. However, it can be installed through the steps mentioned in [Traditional python install](#traditional-python-install) or, if you are using Apptainer to run SHiVAi (with the "Fully contained process" or the "mixed approach"), we provide a [recipe](apptainer/apptainer_synthseg_tf.recipe) to build an Apptainer image that will contain Synthseg and is designed to properly interface with SHiVAi. More details can be found in the [corresponding section of our Apptainer readme](apptainer/README.md#synthseg-apptainer-image). 
+Synthseg is a project completly independent from Shiva and it was used here as a very convenient and powerful tool. As such, we do not directly provide the Synthseg software. However, it can be installed through the steps mentioned in [Traditional python install](#traditional-python-install) or, if you are using Apptainer to run SHiVAi (with the "Fully contained process" or the "mixed approach"), we provide a [recipe](apptainer/apptainer_synthseg_tf.recipe) to build an Apptainer image that will contain Synthseg and is designed to properly interface with SHiVAi. More details can be found in the [corresponding section of our Apptainer readme](apptainer/README.md#synthseg-apptainer-image).
 
 ### Running SHiVAi from an Apptainer container
 
 When running SHiVAi from an Apptainer image, you can do it linearly (no parallelisation of the steps, default behavior), or in parallel using the Python multiprocessing library, [as implemented by Nypipe](https://nipype.readthedocs.io/en/0.11.0/users/plugins.html#multiproc). However, we have seen problems with the multiprocessing option on some systems, so it may not work.
 
 To run the shiva process, you will need:
+
 - The [run_shiva.py](apptainer/run_shiva.py) scirpt
 - The input dataset (see [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai))
 - The Apptainer image (`shivai.sif`)
@@ -216,22 +222,25 @@ To run the shiva process, you will need:
 
 **Command line arguments (with `run_shiva.py`):**
 
-    --in: Path of the input dataset\
-    --out: Path to where the generated files will be saved\
-    --input_type: Type of structure file, way to capture and manage nifti files : standard or BIDS\
-    --prediction: Choice of the type of prediction (i.e. segmentation) you want to compute (PVS, PVS2, WMH, CMB, all). Give a combination of these labels separated by blanc spaces.\
-    --brain_seg: Type of brain segmentation (or parcellation) to use in the pipeline (shiva, premasked, synthseg, or custom)\
+```bash
+    --in: Path of the input dataset
+    --out: Path to where the generated files will be saved
+    --input_type: Type of structure file, way to capture and manage nifti files : standard or BIDS
+    --prediction: Choice of the type of prediction (i.e. segmentation) you want to compute (PVS, PVS2, WMH, CMB, all). Give a combination of these labels separated by blanc spaces.
+    --brain_seg: Type of brain segmentation (or parcellation) to use in the pipeline (shiva, premasked, synthseg, or custom)
     --config: File with configuration options for the workflow
+```
 
 These are the most useful argument you will want to set. However, there are more arguments available to further control the pipeline. To see them and their description, run `python run_shiva.py --help`.
 
 **Command line example**
 
-Running the processing (from the directory where you stored `run_shiva.py`): 
+Running the processing (from the directory where you stored `run_shiva.py`):
 
 ```bash
 python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --brain_seg synthseg --config /myHome/myProject/myConfig.yml
 ```
+
 > If you have installed the shivai package locally, you can replace `python run_shiva.py` by `shiva_contained` in the command line.
 
 ### Running SHiVAi from a Docker container
@@ -239,6 +248,7 @@ python run_shiva.py --in /myHome/myProject/MyDataset --out /myHome/myProject/shi
 As we mostly worked on a seemless Apptainer integration, running Shivai with a Docker container will require a little more work from the user, especially concerning the mounting of host volumes to the container. Check the [Fully contained process (Docker)](#fully-contained-process-docker) section for informations on how to build the Docker image(s).
 
 Required mounts:
+
 - Input data folder (that you would have given to --in)
 - Output folder (that you would have given to --out)
 - Folder containing the config file (given to --config)
@@ -260,7 +270,6 @@ docker run --gpus all --rm --name synthseg_shivai \
 
 You can display all arguments from `precomp_synthseg.py` by running `docker run --rm --name synthseg_shivai myId/synthseg_shivai`. For example, you can run Synthseg on CPU by using `--synthseg_cpu` (and `--threads X` to controle the number of CPUs used).
 
-
 To run **Shivai** with Docker:
 
 ```
@@ -277,32 +286,38 @@ If you used precomp_synthseg.py to compute the Synthseg segmentation, use the `-
 
 > Before running the commands, don't forget to change the local paths (like `/myHome/my_data/MRI_anat`) to your own, change *myId* to the username put when building the image, and change the `shiva` arguments if needed (e.g. the prediction).
 
-
 ### Running SHiVAi from direct package commands (recommended)
 
 From the virtual environment where you installed shivai, run the command `shiva` (calling the `shiva.py` script).
 
 To see the detailed help for this command, you can call:
+
 ```bash
 shiva -h
 ```
 
 Here is an example of a shiva call, using a config .yml file, processing linearly on available GPUs:
+
 ```bash
 shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --brain_seg synthseg --config /myHome/myProject/myConfig.yml
 ```
 
 Using SLURM to parallelize the processes (use `--run_plugin SLURM` in the arguments):
+
 1. Without Apptainer image (requires TensorFlow, CUDA, ANTs and niimath locally installed):
+
     ```bash
     shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config /myHome/myProject/myConfig.yml --run_plugin SLURM
     ```
+
     Here, the configuration file (`/myHome/myProject/myConfig.yml`) is optional, but helps with the readability of the command line
 
 2. With the Apptainer image used on the nodes requiring TensorFlow, CUDA, ANTs or niimath (use `--containerized_nodes` in the arguments):
+
     ```bash
     shiva --in /myHome/myProject/MyDataset --out /myHome/myProject/shiva_results --input_type standard --prediction PVS CMB --config /myHome/myProject/myConfig.yml --run_plugin SLURM --containerized_nodes
     ```
+
     Here, the configuration file (`/myHome/myProject/myConfig.yml`) is absolutly necessary as it holds the path to the Apptainer image.
 
 ## Results
@@ -387,8 +402,8 @@ You will also find a PDF report for each participant detailing statics about the
         ├── sub-002
         :
 
-
 ## Data structures accepted by SHiVAi
+
 The pipeline can accept two types of structure for **Nifti** input: *BIDS* and "*standard*".
 
 It is also possible to give images stored as **DICOM** (using the `--file_type dicom` option in the command line), but this in only compatible with the *standard* input structure
@@ -408,7 +423,6 @@ Example of `BIDS` structure folders:
         │       ├── sub-51_FLAIR_raw.nii.gz
         │       ├── sub-51_T1_raw.nii.gz
         ·       └── sub-21_seg.nii.gz
-
 
 Example of `standard` structure folders (the important parts are the name of the subject folder, e.g. "sub-21", and the name of the sub folders, e.g. "flair" or "t1", with only one nifti file per folder):
 
@@ -443,7 +457,6 @@ In the case of DICOM files (the individual names of each files do not matter her
     │       ├── xxxxx.dcm
     │       ├── xxxxx.dcm
     :       :
-
 
 <!-- 
 Example of `json` structure input:
@@ -495,11 +508,13 @@ In some cases, the model_info.json might be missing from the model folder you do
 Let's assume you downloaded the T1-PVS model (for PVS detection using only T1 images), you should now have it in `/myHome/myProject/Shiva_AI_models/T1-PVS` (or something close to this).
 
 If you directly download `prep_json.py` it, you can run it with:
+
 ```bash
 python shiva_prep_json.py --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 ```
 
 If you installed the shivai package, you can directly run the command line:
+
 ```bash
 shiva_prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 ```
@@ -531,9 +546,8 @@ shiva_prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 - **voxels_tolerance** (list) : Tolerance to the voxel size used for the resampling, keeping the original voxel size if its withing the tolerance.
 - **interpolation** (str): image resampling method, default interpolation : 'WelchWindowedSinc', others ANTS interpolation possibilities : 'Linear', 'NearestNeighbor', 'CosineWindowedSinc', 'HammingWindowedSinc', 'LanczosWindowedSinc', 'BSpline', 'MultiLabel', 'Gaussian', 'GenericLabel'
 
-
-
 ## Acknowledgements
+
 This work has been done in collaboration between the [Fealinx](http://www.fealinx-biomedical.com/en/) company and the [GIN](https://www.gin.cnrs.fr/en/) laboratory (Groupe d'Imagerie Neurofonctionelle, UMR5293, IMN, Univ. Bordeaux, CEA , CNRS) with grants from the Agence Nationale de la Recherche (ANR) with the projects [GinesisLab](http://www.ginesislab.fr/) (ANR 16-LCV2-0006-01) and [SHIVA](https://rhu-shiva.com/en/) (ANR-18-RHUS-0002)
 
 |<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/shiva_blue.png" width="100" height="100" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/fealinx.jpg" height="200" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/Logo-Gin.png" height="200" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/logo_ginesis-1.jpeg" height="100" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/logo_anr.png" height="50" />|
