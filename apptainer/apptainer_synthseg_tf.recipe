@@ -3,7 +3,7 @@ From: tensorflow/tensorflow:2.0.4-gpu-py3
 Stage: build
 
 %files
-    synthseg_models.zip /usr/local/
+    SynthSeg_models.zip /usr/local/
     precomp_synthseg.py /usr/local/bin
 
 %environment
