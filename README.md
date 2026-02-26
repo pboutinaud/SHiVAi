@@ -49,6 +49,8 @@ The SHiVAi application requires a Linux machine with a GPU (with 16GB of dedicat
 
 The deep-learning models relies on Tensorflow 2.7.13. The processing pipelines are implemented with Nipype and make use of ANTs (Copyright 2009-2023, ConsortiumOfANTS) for image registration and [Quickshear](https://github.com/nipy/quickshear) (Copyright 2011, Nakeisha Schimke) for defacing. Quality control reporting uses (among others) DOG contours [PyDog](https://github.com/neurolabusc/PyDog) (Copyright 2021, Chris Rorden). Building and/or using the container image relies on Apptainer (<https://apptainer.org>). More details about Apptainer in the [Apptainer image](apptainer/README.md#apptainer-image) section and our [Appatainer readme file](apptainer/README.md).
 
+> Beware, the current version of the pipeline (version 0.5.*) is no longer compatible with models saved as .h5 files. Get the latest models (in SavedModel format) to avoid problems.
+
 ## Package Installation
 
 Depending on your situation you may want to deploy SHiVAi in different ways:
@@ -220,7 +222,7 @@ To run the shiva process, you will need:
 - The trained AI model (that we provide and you should have downloaded)
 - A configuration file (.yml) that will contain all the options and various paths needed for the workflow
 
-**Command line arguments (with `run_shiva.py`):**
+#### Command line arguments (with `run_shiva.py`)
 
 ```bash
     --in: Path of the input dataset
@@ -233,7 +235,7 @@ To run the shiva process, you will need:
 
 These are the most useful argument you will want to set. However, there are more arguments available to further control the pipeline. To see them and their description, run `python run_shiva.py --help`.
 
-**Command line example**
+#### Command line example
 
 Running the processing (from the directory where you stored `run_shiva.py`):
 
@@ -410,6 +412,7 @@ It is also possible to give images stored as **DICOM** (using the `--file_type d
 
 Example of `BIDS` structure folders:
 
+```txt
     .
     ├── dataset_description.json
     └── rawdata
@@ -423,9 +426,11 @@ Example of `BIDS` structure folders:
         │       ├── sub-51_FLAIR_raw.nii.gz
         │       ├── sub-51_T1_raw.nii.gz
         ·       └── sub-21_seg.nii.gz
+```
 
 Example of `standard` structure folders (the important parts are the name of the subject folder, e.g. "sub-21", and the name of the sub folders, e.g. "flair" or "t1", with only one nifti file per folder):
 
+```txt
     .
     ├── sub-21
     │   ├── flair
@@ -441,9 +446,11 @@ Example of `standard` structure folders (the important parts are the name of the
     │   │   └── sub-51_T1_raw.nii.gz
     │   └── seg
     ·       └── sub-51_brainparc.nii.gz
+```
 
 In the case of DICOM files (the individual names of each files do not matter here):
 
+```txt
     .
     ├── sub-21
     │   ├── flair
@@ -457,6 +464,7 @@ In the case of DICOM files (the individual names of each files do not matter her
     │       ├── xxxxx.dcm
     │       ├── xxxxx.dcm
     :       :
+```
 
 <!-- 
 Example of `json` structure input:
