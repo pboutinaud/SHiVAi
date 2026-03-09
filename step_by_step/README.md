@@ -42,7 +42,7 @@ For reproducible statistic analysis, we also require a brain parcellation.
 
 ### SHiVAi Apptainer image
 
-Download `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/t3jG8DICk)
+Download `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/bbWPx1QAZ)
 
 ### SHiVAi Launcher script
 
@@ -271,5 +271,5 @@ The `segmentation` folder will contain all the segmented cSVD and csv files with
 
 **Note:**
 
-- Only the fully contained Apptainer workflow is described here. I runs linearly, which make it potentially slower than other modes. For better performence, check the [Mixed approach](../README.md/#mixed-approach-recommended) from the main read-me. It requires specific python envivornment with more installs, so you will need to know how to do this kind of things if you want to go this way.
+- Only the fully contained Apptainer workflow is described here. It runs linearly, which make it potentially slower than other modes. For better performence, check the [Mixed approach](../README.md/#mixed-approach-recommended) from the main read-me. It requires specific python envivornment with more installs, so you will need to know how to do this kind of things if you want to go this way.
 - For advanced options or troubleshooting, see the full [README](../README.md)
