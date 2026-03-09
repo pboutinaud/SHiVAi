@@ -55,6 +55,9 @@ def update_wf_grabber(wf, acquisitions, datatype, kwargs):
         if kwargs['BRAIN_SEG'] == 'custom':  # TODO: Correct this for proper bids format. It should actually be in the "derived" folder...
             datagrabber.inputs.field_template['seg'] = '%s/anat/%s_*seg*.nii*'
             datagrabber.inputs.template_args['seg'] = [['subject_id', 'subject_id']]
+        if kwargs['BRAIN_SEG'] == 'fs_precomp':
+            datagrabber.inputs.field_template['seg'] = '%s/anat/*aparc+aseg.*'
+            datagrabber.inputs.template_args['seg'] = [['subject_id']]
 
     if data_struct == 'swomed':
         in_files_dict = kwargs['PREP_SETTINGS']['swomed_input']
