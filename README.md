@@ -10,7 +10,7 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 <br clear="right"/>
 
-**cCSVD biomarkers detected with SHiVAi**
+**cCSVD biomarkers detected with SHiVAi:**
 
 ![Gif Image](https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/Images/SHIVA_BrainTools_small2.gif)
 
@@ -262,7 +262,7 @@ If you want to use the Synthseg parcelation, you will first need to run Synthseg
 
 To run Synthseg with `precomp_synthseg.py`, you will need some of arguments you will feed to the `shiva` command (see next step), and they will need to by identical between the two `docker run` commands:
 
-```
+```bash
 docker run --gpus all --rm --name synthseg_shivai \
     --volume /myHome/my_data/MRI_anat:/mnt/input_data:ro \
     --volume /myHome/myProject/shivai_ouput:/mnt/out \
@@ -274,7 +274,7 @@ You can display all arguments from `precomp_synthseg.py` by running `docker run 
 
 To run **Shivai** with Docker:
 
-```
+```bash
 docker run --gpus all --rm --name shivai \
     --volume /myHome/my_data/MRI_anat:/mnt/input_data:ro \
     --volume /myHome/myProject/shivai_ouput:/mnt/out \
@@ -328,8 +328,9 @@ The results will be stored in the `results` folder in your output folder (so `/m
 
 You will also find a PDF report for each participant detailing statics about their segmentation and QC in `results/report/{participant_ID}/Shiva_report.pdf`
 
-**Example of results folder**
+**Example of results folder:**
 
+```txt
     results
     ├── results_summary
     │   ├── wf_graph
@@ -403,6 +404,7 @@ You will also find a PDF report for each participant detailing statics about the
         │
         ├── sub-002
         :
+```
 
 ## Data structures accepted by SHiVAi
 

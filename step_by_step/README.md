@@ -4,11 +4,37 @@ This guide summarizes the essential steps to run SHiVAi using Apptainer in a ful
 
 In this guide, we will assume we are using storing everying in a folder called `~/myShivaiProject/` as an example.
 
+> Note:\
+> SHiVAi offers a lot of flexibility with regards to the inputs and the processing applied, but for the sake of simplicity in this step-by-step README, we will only focus on basic commands.
 ---
 
 ## 1. Requirements
 
+### System
+
 - **Linux machine** with GPU (16GB memory recommended) - GPU-only processing is *possible* but very slow.
+
+### Data
+
+Depending on the cSVD segmentation you want to run, you will need different types of acquisition:
+
+- PVS : T1w (and FLAIR optionnally)
+- WMH : T1w + FLAIR
+- Lacunes : T1w + FLAIR
+- CMB : SWI
+
+For reproducible statistic analysis, we also require a brain parcellation.
+
+**Here we need to make a distinction between two cases:**
+
+- If you have access to a Freesurfer-type parcellation of the brain (from the Freesurfer pipeline or Synthseg) for your dataset, or not. We will assume here that you have one and that it already is in the same space as the T1w image (or SWI image if you are running CMB segmentation alone). The parcellation **must** have a name of the form `*aparc+aseg.[nii | nii.gz | mgz]` to be properly recognized (e.g. aparc+aseg.mgz or sub-01_aparc+aseg.nii.gz would work).
+
+- If you don't have such parcellation on hand, you can:
+  - Download, install, and run Freesurfer on your dataset (see the [Freesurfer website](https://surfer.nmr.mgh.harvard.edu/) for more info).
+  - Or use our Synthseg integration that will compute everything for you. However, if you want to use our Synthseg integration, you will need to be a super-user (capable of doing `sudo` commands) on your computer during the installation (so only once), as you will need to build a new Apptainer image. Everything related to this is described in the [Synthseg Apptainer image section](#synthseg-apptainer-image-optional).
+
+### Software
+
 - **Apptainer** installed ([Install Guide](https://apptainer.org/docs/user/main/quick_start.html))
 - Being an admin / super user on your machine during the installation.
 
@@ -33,7 +59,7 @@ Download AI models from [pboutinaud GitHub](https://github.com/pboutinaud) as we
   - v1/T1-FLAIR.WMH
   - model_info_t1-flair-wmh-v2.json
 
-> Notes:
+> Notes:\
 > Here we only talk about the PVS and WMH models as an example for the current read-me, but feel free to download all the models you need
 
 Place the model file archive in a single folder (let's call it `shivai_models`). Extract the models from the downloaded archives. Place the json file in their corresponding model folder (i.e. "model_info_t1-flair-wmh-v1.json" in "T1-FLAIR.PVS").
@@ -53,7 +79,9 @@ You should then have something like this:
                     ...
 ```
 
-### Synthseg Apptainer image
+### Synthseg Apptainer image (optional)
+
+If you want to use our Synthseg parcellation pipeline, fully integrated in our process, follow the steps decribed in this section. If you already have your own parcellation, you can skip this.
 
 Create of folder where we will put Synthseg-related files (e.g. `~/myShivaiProject/synthseg/`).
 
@@ -61,7 +89,7 @@ Download the [Synthseg Apptainer recipe](../apptainer/apptainer_synthseg_tf.reci
 
 Download the Synthseg models from the [MIT file-sharing system](https://mitprod-my.sharepoint.com/:u:/g/personal/bbillot_mit_edu/Ebqxo6YgUmBJkOML0m8NSXgBrhaHG7iqClFXRXPinS6FGw?e=DzKf1p).
 
-> Notes:
+> Notes:\
 > If this link fails, check [Benjamin Billot's repository on Github](https://github.com/BBillot/SynthSeg), and more specifically [the issues page](https://github.com/BBillot/SynthSeg/issues) to see of other people have encountered the same problem.
 
 Put the model files in the above-mentioned synthseg folder.
@@ -81,7 +109,7 @@ You can now build the Apptainer image. In a terminal, from the synthseg folder w
 apptainer build synthseg.sif apptainer_synthseg_tf.recipe
 ```
 
-> Notes:
+> Notes:\
 > Beware, you will need to be an admin / super user to do this. So you may need to add `sudo` in front of the command (and have the rights to do so).
 
 This will generate the `synthseg.sif` image that we will use.
@@ -92,7 +120,7 @@ This will generate the `synthseg.sif` image that we will use.
 - Edit `config.yml` with a text editor:
   - Set `model_path` to your models folder (e.g., `~/myShivaiProject/shivai_models`)
   - Set `apptainer_image` to your pipeline `.sif` file (e.g., `~/myShivaiProject/shivai.sif`)
-  - Set `synthseg_image` to the Synthseg `.sif` file (e.g.  `~/myShivaiProject/synthseg/synthseg.sif`)
+  - (Opt.) Set `synthseg_image` to the Synthseg `.sif` file (e.g.  `~/myShivaiProject/synthseg/synthseg.sif`)
   - Set descriptor paths for AI models `.json` files relative to the models folder (e.g. `"T1.FLAIR-PVS/model_info_t1-flair-pvs-v3.json"` for PVS2_descriptor)
 
 In our case, the file should look something like this:
@@ -139,8 +167,8 @@ source ~/shivai_env/bin/activate
 pip install pyyaml
 ```
 
-> Notes:
-> Feel free to use any Python environment manager. The one I gave here, `venv`, is common and lightweigh, but this can be done using any other one.
+> Notes:\
+> Feel free to use any Python environment manager. The one I gave here, `venv`, is common and lightweigh, but this can be done using any other one.\
 > If you don't have any Python distribution already installed on your machine, there is plenty of material available online that will guide you through this (even more so now with the advances of LLM-based chat-bots)
 
 ## 3. Running Shivai
@@ -155,22 +183,26 @@ pip install pyyaml
   - Each file must start with the subject id exactly as written in the folder name.
   - Each file must have their modality written in **upper-case** in their name.
 
-**Example folder structure:**
+As explained in the [Requirements - Data section](#data), if you are providing a FreeSurfer-type parcellation, it must be in a format `*aparc+aseg.[nii | nii.gz | mgz]`. The file would then be put in the same `anat` folder as the rest of the files.
+
+**Example folder structure (with available parcellation):**
 
 ```txt
 ~/myShivaiProject/BIDS_dataset/
                     ├── sub-01/
                     │   └── anat/
+                    │       ├── aparc+aseg.mgz
                     │       ├── sub-01_T1w.nii.gz
                     │       └── sub-01_FLAIR.nii.gz
                     ├── sub-02/
                     │   └──  anat/
+                    │       ├── aparc+aseg.mgz
                     │       ├── sub-02_T1w.nii.gz
                     │       └── sub-02_FLAIR.nii.gz
                     └── ...
 ```
 
-> Notes:
+> Notes:\
 > Alternatively, you can also use what we called the "standard" file structure, less stringent on the filenames. See the [dedicated section in the main read-me](../README.md/#data-structures-accepted-by-shivai).
 
 ### Run SHiVAi Processing
@@ -180,6 +212,20 @@ pip install pyyaml
 - Optionally, you can test if the environment is set up correctly by doing `python3 run_shiva.py --help`. This will display all the available options for running Shivai using the `run_shiva.py` script.
 
 **Example command:**
+
+1. With available parcellation
+
+```bash
+python run_shiva.py \
+  --in ~/myShivaiProject/BIDS_dataset \
+  --out ~/myShivaiProject/shivai_results \
+  --input_type BIDS \
+  --prediction PVS2 WMH \
+  --brain_seg fs_precomp \
+  --config ~/myShivaiProject/config.yml
+```
+
+1. Using our Synthseg integration
 
 ```bash
 python run_shiva.py \
@@ -193,8 +239,8 @@ python run_shiva.py \
 
 Replace the paths with your actual folders.
 
-> Notes:
-> This will run Shivai on all the subjects available in the input folder. If you want to restrict this, check the `--sub_list` or `--sub_names` options (run `python3 run_shiva.py --help` to see all options and their function)
+> Notes:\
+> This will run Shivai on all the subjects available in the input folder. If you want to restrict this, check the `--sub_list` or `--sub_names` options (run `python3 run_shiva.py --help` to see all options and their function).\
 > If you get an error about missing permissions or a file path being having a problem because "`<class 'str'> was specified`", check that you have access to all files and folders, cehck that you gave the proper paths (e.g. no typo) check that the data structure is correct.
 
 ---
