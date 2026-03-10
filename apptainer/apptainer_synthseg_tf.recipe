@@ -15,13 +15,13 @@ Stage: build
     rm /etc/apt/sources.list.d/nvidia-ml.list
     apt-get update && apt-get -y install wget unzip
     cd /usr/local
-    unzip synthseg_models.zip
-    rm synthseg_models.zip
+    unzip SynthSeg_models.zip
+    rm SynthSeg_models.zip
     wget https://github.com/BBillot/SynthSeg/archive/refs/heads/master.zip
     unzip master.zip
     rm master.zip
-    mv 'synthseg models'/* SynthSeg-master/models/
-    rm -r 'synthseg models'
+    mv 'SynthSeg_models'/* SynthSeg-master/models/
+    rm -r 'SynthSeg_models'
     cd SynthSeg-master
     pip install keras==2.3.1 nibabel==3.2.2 matplotlib==3.3.4
     pip install . --no-dependencies

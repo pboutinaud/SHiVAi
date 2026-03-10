@@ -4,12 +4,12 @@ RUN rm /etc/apt/sources.list.d/cuda.list && rm /etc/apt/sources.list.d/nvidia-ml
 RUN apt-get update && apt-get -y install wget unzip
 
 WORKDIR /usr/local
-COPY synthseg_models.zip ./
-RUN unzip synthseg_models.zip && rm synthseg_models.zip
+COPY SynthSeg_models.zip ./
+RUN unzip SynthSeg_models.zip && rm SynthSeg_models.zip
 
 RUN wget https://github.com/BBillot/SynthSeg/archive/refs/heads/master.zip
 RUN unzip master.zip && rm master.zip
-RUN mv 'synthseg models'/* SynthSeg-master/models/
+RUN mv 'SynthSeg_models'/* SynthSeg-master/models/
 
 WORKDIR SynthSeg-master
 RUN pip install keras==2.3.1 nibabel==3.2.2 matplotlib==3.3.4
