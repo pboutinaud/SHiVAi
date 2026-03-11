@@ -347,8 +347,10 @@ def generate_main_wf(**kwargs) -> Workflow:
 
     # The workflow graph
     wf_graph = None
+    datasing_fields = []
     if kwargs['SAVE_GRAPH']:
         wf_graph = main_wf.write_graph(graph2use='colored', dotfilename='graph.svg', format='svg')
+        datasing_fields.append('wf_graph')
 
     # %% Finally the data sinks
     # Initializing the data sinks
@@ -361,7 +363,8 @@ def generate_main_wf(**kwargs) -> Workflow:
         ('_resampled_defaced_cropped_img_normalized', '_defaced_cropped_intensity_normed'),
         ('flair_to_t1__Warped_defaced_img_normalized', 'flair_to_t1_defaced_cropped_intensity_normed')
     ]
-    sink_node_all = Node(DataSink_CSV_and_PDF_safe(infields=['wf_graph']), name='sink_node_all')
+    sink_node_all = Node(DataSink_CSV_and_PDF_safe(
+        infields=datasing_fields), name='sink_node_all')
     sink_node_all.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
     sink_node_all.inputs.container = 'results_summary'
 
@@ -429,7 +432,8 @@ def generate_main_wf(**kwargs) -> Workflow:
     if prev_qc is not None:
         main_wf.connect(qc_joiner, 'csv_pop_file', sink_node_all, 'preproc_qc.@preproc_qc_pop')
         main_wf.connect(qc_joiner, 'pop_bad_subjects_file', sink_node_all, 'preproc_qc.@pop_bad_subjects')
-    sink_node_all.inputs.wf_graph = wf_graph
+    if wf_graph is not None:
+        sink_node_all.inputs.wf_graph = wf_graph
 
     if kwargs['PREP_SETTINGS']['preproc_only']:
         return main_wf  # ENDPOINT if just running the preprocessing
@@ -573,7 +577,13 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
     wf_post = genWorkflowPost(**kwargs)
     main_wf.add_nodes([wf_post])  # May not be needed after all
 
-    sink_node_all = Node(DataSink_CSV_and_PDF_safe(infields=['wf_graph']), name='sink_node_all')
+    wf_graph = None
+    datasing_fields = []
+    if kwargs['SAVE_GRAPH']:
+        datasing_fields.append('wf_graph')
+
+    sink_node_all = Node(DataSink_CSV_and_PDF_safe(
+        infields=datasing_fields), name='sink_node_all')
     sink_node_all.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
     sink_node_all.inputs.container = 'results_summary'
 
@@ -694,7 +704,6 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
         main_wf.connect(prediction_metrics_all, 'prediction_metrics_wide_csv', sink_node_all, f'segmentations.{lpred}_metrics{space}.@wide')
 
     # The workflow graph
-    wf_graph = None
     if kwargs['SAVE_GRAPH']:
         wf_graph = main_wf.write_graph(graph2use='colored', dotfilename='graph.svg', format='svg')
 
@@ -734,5 +743,6 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
             if 'synthseg' in kwargs['BRAIN_SEG']:
                 main_wf.connect(wf_post, 'seg_to_swi.output_image', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space.@custom_parc')
 
-    sink_node_all.inputs.wf_graph = wf_graph
+    if kwargs['SAVE_GRAPH']:
+        sink_node_all.inputs.wf_graph = wf_graph
     return main_wf
