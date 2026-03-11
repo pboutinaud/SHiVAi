@@ -346,7 +346,9 @@ def generate_main_wf(**kwargs) -> Workflow:
                             prediction_metrics_all, 'subject_id')
 
     # The workflow graph
-    wf_graph = main_wf.write_graph(graph2use='colored', dotfilename='graph.svg', format='svg')
+    wf_graph = None
+    if kwargs['SAVE_GRAPH']:
+        wf_graph = main_wf.write_graph(graph2use='colored', dotfilename='graph.svg', format='svg')
 
     # %% Finally the data sinks
     # Initializing the data sinks
@@ -692,7 +694,9 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
         main_wf.connect(prediction_metrics_all, 'prediction_metrics_wide_csv', sink_node_all, f'segmentations.{lpred}_metrics{space}.@wide')
 
     # The workflow graph
-    wf_graph = main_wf.write_graph(graph2use='colored', dotfilename='graph.svg', format='svg')
+    wf_graph = None
+    if kwargs['SAVE_GRAPH']:
+        wf_graph = main_wf.write_graph(graph2use='colored', dotfilename='graph.svg', format='svg')
 
     # Finally the data sinks
     # Initializing the data sinks

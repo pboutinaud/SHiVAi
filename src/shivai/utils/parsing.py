@@ -263,6 +263,10 @@ def shivaParser():
                             'are available in the results folder. If you have subjects with missing preprocessed data, you will '
                             'need to run their processing separatly.'
                         ))
+    
+    parser.add_argument('--save_graph',
+                        action='store_true',
+                        help='If selected, the workflow graph will be saved as a .svg file in the output folder. Requires Graphviz to be installed.')
 
     file_management = parser.add_mutually_exclusive_group()
 
@@ -272,7 +276,7 @@ def shivaParser():
 
     file_management.add_argument('--debug',
                                  action='store_true',
-                                 help='Like --keep_all plus stop on first crash')
+                                 help='Like --keep_all plus stop on first crash. Also automatically set save_graph to True.')
 
     file_management.add_argument('--remove_intermediates',
                                  action='store_true',
@@ -522,6 +526,7 @@ def set_args_and_check(inParser):
 
     if args.debug:
         args.keep_all = True
+        args.save_graph = True
 
     # Check if there is a LUT with the custom seg and parse it
     if args.brain_seg == 'custom' and args.custom_LUT:
