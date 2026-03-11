@@ -1,4 +1,4 @@
-# SHiVAi Quick Start: Mixed Approach (Local Package + Apptainer, BIDS, Synthseg, PVS2/WMH/LAC)
+# SHiVAi Quick Start: Mixed Approach
 
 This guide summarizes the essential steps to run SHiVAi using the **mixed approach**: the shivai package is installed locally (without TensorFlow, which avoids dependency conflicts), while the Apptainer image is used for the deep-learning steps that require TensorFlow and CUDA. This is the **recommended approach** as it supports parallelization of the pipeline steps (e.g. via SLURM on HPC clusters), unlike the fully contained approach.
 
