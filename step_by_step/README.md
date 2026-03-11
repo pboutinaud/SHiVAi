@@ -62,7 +62,7 @@ Download AI models from [pboutinaud GitHub](https://github.com/pboutinaud) as we
 > Notes:\
 > Here we only talk about the PVS and WMH models as an example for the current read-me, but feel free to download all the models you need
 
-Place the model file archive in a single folder (let's call it `shivai_models`). Extract the models from the downloaded archives. Place the json file in their corresponding model folder (i.e. "model_info_t1-flair-wmh-v1.json" in "T1-FLAIR.PVS").
+Place the model file archive in a single folder (let's call it `shivai_models`). Extract the models from the downloaded archives. Place the json file in their corresponding model folder (i.e. "model_info_t1-flair-wmh-v2.json" in "T1-FLAIR.PVS").
 
 You should then have something like this:
 
@@ -168,7 +168,7 @@ pip install pyyaml
 ```
 
 > Notes:\
-> Feel free to use any Python environment manager. The one I gave here, `venv`, is common and lightweigh, but this can be done using any other one.\
+> Feel free to use any Python environment manager. The one I gave here, `venv`, is common, lightweigh, and usually natively provided with Python distributions. But this can be done using any other one.\
 > If you don't have any Python distribution already installed on your machine, there is plenty of material available online that will guide you through this (even more so now with the advances of LLM-based chat-bots)
 
 ## 3. Running Shivai
@@ -203,7 +203,8 @@ As explained in the [Requirements - Data section](#data), if you are providing a
 ```
 
 > Notes:\
-> Alternatively, you can also use what we called the "standard" file structure, less stringent on the filenames. See the [dedicated section in the main read-me](../README.md/#data-structures-accepted-by-shivai).
+> For the sake of simplicity, we expect all the input images to be in the `anat` folder so that MRI acquisitions that may not have a specific spot in the official BIDS structure can also be placed there (typically, the SWI images needed for CMB detection).\
+> Alternatively, you can use the "standard" file structure, which is less stringent on filenames. See the [dedicated section in the main read-me](../README.md/#data-structures-accepted-by-shivai). You would then need to swap `--input_type BIDS` for `--input_type standard` in the SHiVAi command line shown below.
 
 ### Run SHiVAi Processing
 

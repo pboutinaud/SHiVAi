@@ -120,7 +120,7 @@ docker build --rm -t myId/shivai .
 
 This type of install is mostly aimed for development and require some know-how to find the proper Drivers for GPU usage. For a simpler install, see [the Mixed approach section](#mixed-approach-recommended).
 
-To deploy the python package, create a Python 3.9 virtual environment, clone or download the shivai project and use the following command line from the project's directory (containing the 'pyproject.toml' file):
+To deploy the python package, create a Python 3.11 virtual environment, clone or download the shivai project and use the following command line from the project's directory (containing the 'pyproject.toml' file):
 
 ```bash
 python -m pip install .[TF_CUDA]
@@ -152,7 +152,7 @@ Next, see [Running SHiVAi from direct package commands (recommended)](#running-s
 
 ### Mixed approach (recommended)
 
-For this approach, you will need to both install the shivai package and download the Apptainer image. First, like in [Traditional python install](#traditional-python-install), create a dedicated Python 3.9 environment, clone or download shivai, and, from the project's directory (and within the new virtual environment), run:
+For this approach, you will need to both install the shivai package and download the Apptainer image. First, like in [Traditional python install](#traditional-python-install), create a dedicated Python 3.11 environment, clone or download shivai, and, from the project's directory (and within the new virtual environment), run:
 
 ```bash
 python -m pip install .

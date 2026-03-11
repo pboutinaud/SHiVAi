@@ -41,11 +41,12 @@ For reproducible statistical analysis, a brain parcellation is also required.
 ### Software
 
 - **Apptainer** installed ([Install Guide](https://apptainer.org/docs/user/main/quick_start.html))
-- **Python 3.9** environment manager (e.g. `venv` or `conda`)
-- **ANTs** toolbox ([original repository](http://stnava.github.io/ANTs/) or `conda install -c aramislab ants`)
-- **Graphviz** ([classic install](https://graphviz.org/download/) or `conda install graphviz`)
-- **dcm2niix** ([install guide](https://github.com/rordenlab/dcm2niix) or `conda install -c conda-forge dcm2niix`)
-- Being an admin / super user on your machine during the Apptainer image build (one-time step).
+- **Python 3.11** distribution (or more recent)
+- **A Python environment manager** like `venv` (should be natively available with your Python distribution)
+
+> Notes:\
+> Feel free to use any Python environment manager. The one I gave here, `venv`, is common, lightweigh, and usually natively provided with Python distributions. But this can be done using any other one. For example, we often use *Miniconda* on our end. You can find more about it [on their website](https://www.anaconda.com/docs/getting-started/miniconda/main).\
+> If you don't have any Python distribution already installed on your machine, there is plenty of material available online that will guide you through this (even more so now with the advances of LLM-based chat-bots).
 
 ---
 
@@ -88,9 +89,8 @@ You should then have something like this:
                     ...
 ```
 
-### Brain masking model (if needed)
-
-If you do not have brain masks on hand, SHiVAi can create them automatically using a dedicated AI model. Download it from [cloud.efixia.com/sharing/Mn9LB5mIR](https://cloud.efixia.com/sharing/Mn9LB5mIR) and extract it into the same `shivai_models` folder.
+> Notes:\
+> The exact name of the json files does not matter. It must just match the one that will be specified in the configuration file ([as described in the relevent section](#prepare-the-configuration-file)).
 
 ### Synthseg Apptainer image (optional)
 
@@ -114,7 +114,7 @@ Put the model files in the synthseg folder. You should now have:
                     └── SynthSeg_models.zip
 ```
 
-Build the Apptainer image. In a terminal, from the synthseg folder run:
+Build the Apptainer image. In a terminal, from the synthseg folder, run:
 
 ```bash
 apptainer build synthseg.sif apptainer_synthseg_tf.recipe
@@ -165,21 +165,23 @@ parameters:
   interpolation: 'WelchWindowedSinc'
 ```
 
-> The `apptainer_image` entry is **required** for the mixed approach because SHiVAi will delegate the TensorFlow-based steps (AI inference, and optionally brain masking) to the Apptainer container while running everything else locally.
+> The `apptainer_image` entry is **required** for the mixed approach because SHiVAi will delegate the TensorFlow-based steps (AI inference, and optionally brain masking) to the Apptainer container, as well as some other processes that require specific tools (like defacing), while running everything else locally.
 
 ### Install the SHiVAi Python Package
 
-Create a Python 3.9 virtual environment, clone or download the SHiVAi project, and from the project directory (containing `pyproject.toml`) run:
+Create a Python 3.11 virtual environment, clone (if you are familiar with `git`) or download the SHiVAi project, and *from the project directory* (containing `pyproject.toml`) run:
 
 ```bash
-python3.9 -m venv ~/shivai_env
+python3 -m venv ~/shivai_env
 source ~/shivai_env/bin/activate
 pip install .
 ```
 
 > Notes:\
+> You don't need to create an new environment with `python3 -m venv ~/shivai_env` if you already have one ready, just activate it to install SHiVAi in it.\
+> You can check your Python version by running `python --version`.\
 > Unlike the traditional install, you do **not** need to install TensorFlow or CUDA locally — these are handled by the Apptainer image.\
-> Feel free to use any Python environment manager (e.g. `conda`). The `venv` example above is common and lightweight.
+> As mentioned before, feel free to use any Python environment manager (e.g. `conda`).
 
 The `shiva` command line tool will then be available from within the activated environment.
 
@@ -206,32 +208,35 @@ As explained earlier, if you are providing a FreeSurfer-type parcellation, it mu
 ~/myShivaiProject/BIDS_dataset/
                     ├── sub-01/
                     │   └── anat/
-                    │       ├── aparc+aseg.mgz
+                    │       ├── sub-01_aparc+aseg.mgz
                     │       ├── sub-01_T1w.nii.gz
                     │       └── sub-01_FLAIR.nii.gz
                     ├── sub-02/
                     │   └── anat/
-                    │       ├── aparc+aseg.mgz
+                    │       ├── sub-02_aparc+aseg.mgz
                     │       ├── sub-02_T1w.nii.gz
                     │       └── sub-02_FLAIR.nii.gz
                     └── ...
 ```
 
 > Notes:\
-> Alternatively, you can use the "standard" file structure, which is less stringent on filenames. See the [dedicated section in the main read-me](../README.md/#data-structures-accepted-by-shivai).
+> For the sake of simplicity, we expect all the input images to be in the `anat` folder so that MRI acquisitions that may not have a specific spot in the official BIDS structure can also be placed there (typically, the SWI images needed for CMB detection).\
+> Alternatively, you can use the "standard" file structure, which is less stringent on filenames. See the [dedicated section in the main read-me](../README.md/#data-structures-accepted-by-shivai). You would then need to swap `--input_type BIDS` for `--input_type standard` in the SHiVAi command line shown below.
 
 ### Run SHiVAi Processing
 
-Activate the environment and use the `shiva` command directly (no `run_shiva.py` script needed):
+Activate the environment and use the `shiva` command directly.
+
+To activate the environment if it is not the case yet (and you are using `venv`), do:
 
 ```bash
-source ~/shivai_env/bin/activate
+source ~/shivai_env/bin/activate   # Replace "~/shivai_env" by your own env location
 shiva --help   # optional, to verify the install and explore all options
 ```
 
 **Example command:**
 
-1. With available parcellation
+- With available parcellation
 
 ```bash
 shiva \
@@ -244,7 +249,7 @@ shiva \
   --config ~/myShivaiProject/config.yml
 ```
 
-1. Using our Synthseg integration
+- Using our Synthseg integration
 
 ```bash
 shiva \
@@ -257,7 +262,7 @@ shiva \
   --config ~/myShivaiProject/config.yml
 ```
 
-The `--containerized_nodes` flag tells SHiVAi to delegate the nodes that require TensorFlow, CUDA, ANTs, or niimath to the Apptainer image, while the orchestration and non-deep-learning steps run locally. The path to the Apptainer image is read from the `apptainer_image` entry in your config file.
+The `--containerized_nodes` flag tells SHiVAi to delegate the nodes that require TensorFlow, CUDA, ANTs, or other non-python tools to the Apptainer image, while the orchestration and python-specific steps run locally. The path to the Apptainer image is read from the `apptainer_image` entry in your config file.
 
 Replace the paths with your actual folders.
 
@@ -269,22 +274,6 @@ Replace the paths with your actual folders.
 
 One of the main advantages of the mixed approach over the fully contained process is the ability to **parallelize** the pipeline steps. SHiVAi uses Nipype under the hood, which supports several parallel execution plugins.
 
-**Using local multiprocessing** (when multiple GPUs or CPUs are available on the same machine):
-
-```bash
-shiva \
-  --in ~/myShivaiProject/BIDS_dataset \
-  --out ~/myShivaiProject/shivai_results \
-  --input_type BIDS \
-  --prediction PVS2 WMH \
-  --brain_seg synthseg \
-  --containerized_nodes \
-  --config ~/myShivaiProject/config.yml \
-  --run_plugin MultiProc
-```
-
-> Note: multiprocessing may cause issues on some systems.
-
 **Using SLURM** (on HPC clusters):
 
 ```bash
@@ -293,13 +282,15 @@ shiva \
   --out ~/myShivaiProject/shivai_results \
   --input_type BIDS \
   --prediction PVS2 WMH \
-  --brain_seg synthseg \
+  --brain_seg fs_precomp \
   --containerized_nodes \
   --config ~/myShivaiProject/config.yml \
   --run_plugin SLURM
 ```
 
-In the SLURM case, the config file is **required** as it holds the path to the Apptainer image used by the compute nodes.
+> Notes:\
+> We use SLURM in our lab so the pipeline is somewhat optimised for it and can run with it out-of-the-box. If you are using another scheduler, check the [Nipype documentation on this type of plugins](https://nipype.readthedocs.io/en/1.1.0/users/plugins.html). You will see there that you can specify plugin_args. We have some already set up for SLURM under the hood, but you can add your own using the `--run_plugin_args` and `--node_plugin_args` arguments (check the help documentation using `shiva --help` for more info).\
+> Note however the the `MultiProc` plugin (for local parallel processing) appears to have problems with running SHiVAi on GPU. You can still use it but you will need to run the predictions on CPU using the SHiVAi argument `--use_cpu`.
 
 ---
 
