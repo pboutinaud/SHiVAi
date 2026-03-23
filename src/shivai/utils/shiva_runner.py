@@ -21,7 +21,7 @@ def check_input_for_pred(wfargs):
             raise ValueError(errormsg)
 
 
-def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, brain_seg, ss_qc, ss_vol, ai_threads,
+def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, brain_seg, ss_qc, ss_vol, ai_threads, batch_size,
           node_plugin_args, prev_qc, preproc_results, replace_t1, inverse_t2, replace_flair, replace_swi, swi_file_num,
           db_name, custom_LUT, preproc_only, use_cpu, swomed_parc, swomed_ssvol, swomed_ssqc, swomed_t1, swomed_flair,
           swomed_swi, use_t1, container_image, synthseg_image, containerized_nodes, local_synthseg, prereg_flair,
@@ -126,6 +126,7 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
         'PREDICTION': prediction,  # Needed by the postproc for now
         'BRAIN_SEG': brain_seg,
         'AI_THREADS': ai_threads,  # Number of threads to use for AI inference on CPUs
+        'BATCH_SIZE': batch_size,
         'CUSTOM_LUT': custom_LUT,
         **descriptor_paths,
         'ACQUISITIONS': pred_acqui,

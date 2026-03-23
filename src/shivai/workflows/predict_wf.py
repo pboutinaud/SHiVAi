@@ -48,6 +48,7 @@ def genWorkflow(**kwargs) -> Workflow:
         predict_node.inputs.model_dir = kwargs['MODELS_PATH']
         predict_node.inputs.descriptor = descriptor
         predict_node.inputs.input_size = kwargs['IMAGE_SIZE']
+        predict_node.inputs.batch_size = kwargs['BATCH_SIZE']
 
         plugin_args = kwargs['PRED_PLUGIN_ARGS']
 

@@ -372,6 +372,12 @@ def shivaParser():
                         # default=(160, 214, 176),
                         help='Final image array size in i, j, k.')
 
+    parser.add_argument('--batch_size',
+                        type=int,
+                        # default=20,
+                        help=('Batch size used for predictions, i.e. number of images fed to the GPU at the same time. '
+                              'If you get an OOM error, try reducing this number.'))
+
     parser.add_argument('--voxels_size', nargs=3,
                         type=float,
                         # default=(1.0, 1.0, 1.0),
@@ -605,6 +611,11 @@ def set_args_and_check(inParser):
 
         if args.final_dimensions is None:
             args.final_dimensions = tuple(parameters['final_dimensions'])
+        if args.batch_size is None:
+            if 'batch_size' in parameters:
+                args.batch_size = parameters['batch_size']
+            else:
+                args.batch_size = 20
         if args.voxels_size is None:
             args.voxels_size = tuple(parameters['voxels_size'])
         if args.voxels_tolerance is None:
