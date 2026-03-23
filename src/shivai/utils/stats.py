@@ -130,7 +130,10 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
             if prio_labels:  # Overriding the w-t-a approach for priority labels
                 prio_ind = fisin(reg_in_clust, list(prio_dict.values()))
                 if prio_ind.any():
-                    seg_attributed_label = np.random.choice(reg_in_clust[prio_ind])  # takes equalities into account
+                    prio_labels_in_clust = reg_in_clust[prio_ind]
+                    prio_counts = reg_count[prio_ind]
+                    max_prio_count = prio_counts.max()
+                    seg_attributed_label = np.random.choice(prio_labels_in_clust[prio_counts == max_prio_count])
 
             if seg_attributed_label in swaped_region_dict.keys():
                 seg_attributed = swaped_region_dict[seg_attributed_label]
