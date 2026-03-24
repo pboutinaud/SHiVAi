@@ -1554,7 +1554,7 @@ class Regionwise_Prediction_metrics(BaseInterface):
         else:
             raise TraitError(f'Unrecognised segmentation type: {brain_seg_type}. Should be "brain_mask", "synthseg" or "custom"')
 
-        if biomarker == 'wmh' and brain_seg_type == 'synthseg':
+        if biomarker == 'wmh' and brain_seg_type in ['synthseg', 'freesurfer']:
             prio_labels = ['Left PV WM', 'Right PV WM']
         else:
             prio_labels = []
