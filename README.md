@@ -1,4 +1,4 @@
-# SHiVAi: SHiVA preprocessing and deep learning segmentation workflow
+﻿# SHiVAi: SHiVA preprocessing and deep learning segmentation workflow
 
 <img src="src/shivai/postprocessing/logo_shiva.png" align="right" width="100px"/>
 
@@ -9,6 +9,20 @@ The SHiVAi segmentation tools currently include Cerebral MicroBleeds (CMB),  Per
 The tools cover preprocessing (image resampling and cropping to match the required size for the deep learning models, coregistration for multimodal segmentation tools), automatic segmentation, and reporting (QC and results). It accepts both Nifti and DICOM images as input (see the possible [input structures](#data-structures-accepted-by-shivai) for more details).
 
 <br clear="right"/>
+
+## What's New in v0.5.7 (2026-03-25)
+
+- Added basal ganglia + thalamus to deep WM for WMH statistics
+- Added initial transform to ANTs registration using center of mass
+- Proper winner-takes-all logic for priority labels
+- Added batch size parameter to SHiVAi configuration
+- Workflow graph is now optional (requires graphviz)
+- Fixed FreeSurfer case handling for priority labels on WMH
+- Step-by-step README for the mixed approach
+- Updated .sif download link
+
+> See the full [CHANGELOG](CHANGELOG.md) for all versions.
+
 
 **cCSVD biomarkers detected with SHiVAi:**
 
