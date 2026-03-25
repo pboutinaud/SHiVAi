@@ -63,7 +63,7 @@ def seg_for_wmh(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
     '''
     Will segment WMH into:  L / R
         - Shallow:          1 / 5  (includes the cortex, i.e. GM)
-        - Deep:             2 / 6
+        - Deep:             2 / 6  (includes the deep GM nuclei)
         - Perivetricular:   3 / 7
         - Cerebellar:       4 / 8
         - Brainstem:          9
@@ -71,12 +71,12 @@ def seg_for_wmh(parc: np.ndarray) -> Tuple[np.ndarray, dict]:
     seg_vals = {  # See src/shivai/postprocessing/lobarseg.py for labels
         # Left
         'Left Shallow WM': [1, 2, 5, 6, 9, 10, 13, 14, 17, 45],  # With cortical GM
-        'Left Deep WM': [3, 7, 11, 15, 44, 46],
+        'Left Deep WM': [3, 7, 11, 15, 44, 46] + [40, 41],  # With deep GM nuclei for now
         'Left PV WM': [4, 8, 12, 16],
         'Left Cerebellar': [47],
         # Right
         'Right Shallow WM': [21, 22, 25, 26, 29, 30, 33, 34, 37, 55],  # With cortical GM
-        'Right Deep WM': [23, 27, 31, 35, 54, 56],
+        'Right Deep WM': [23, 27, 31, 35, 54, 56] + [50, 51],  # With deep GM nuclei for now
         'Right PV WM': [24, 28, 32, 36],
         'Right Cerebellar': [57],
         #
