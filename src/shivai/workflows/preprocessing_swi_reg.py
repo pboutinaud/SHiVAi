@@ -9,9 +9,10 @@ from nipype.interfaces.quickshear import Quickshear
 
 from shivai.interfaces.image import Normalization, Conform, Crop, Resample_from_to
 from shivai.workflows.qc_preproc import qc_wf_add_swi
-from shivai.interfaces.shiva import (AntsRegistration_Singularity,
-                                     AntsApplyTransforms_Singularity,
-                                     Quickshear_Singularity)
+from shivai.interfaces.shiva import (AntsRegistration_Contained,
+                                     AntsApplyTransforms_Contained,
+                                     Quickshear_Contained)
+from shivai.utils.container_config import configure_container_node
 
 
 def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
@@ -47,12 +48,13 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
 
     # compute 6-dof coregistration parameters of conformed swi
     # to t1 cropped image
-    if kwargs['CONTAINERIZE_NODES']:
-        swi_to_t1 = Node(AntsRegistration_Singularity(), name='swi_to_t1')
-        swi_to_t1.inputs.snglrt_bind = [
+    container_runtime = kwargs.get('CONTAINER_RUNTIME')
+    if container_runtime:
+        swi_to_t1 = Node(AntsRegistration_Contained(), name='swi_to_t1')
+        bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
             ('`pwd`', '`pwd`', 'rw'),]
-        swi_to_t1.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+        configure_container_node(swi_to_t1, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
     else:
         swi_to_t1 = Node(ants.Registration(),
                          name='swi_to_t1')
@@ -80,12 +82,12 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     workflow.connect(conform_swi, 'resampled', swi_to_t1, 'moving_image')
 
     # Application of the t1 to swi transformation to the t1 mask
-    if kwargs['CONTAINERIZE_NODES']:
-        mask_to_swi = Node(AntsApplyTransforms_Singularity(), name="mask_to_swi")
-        mask_to_swi.inputs.snglrt_bind = [
+    if container_runtime:
+        mask_to_swi = Node(AntsApplyTransforms_Contained(), name="mask_to_swi")
+        bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
             ('`pwd`', '`pwd`', 'rw'),]
-        mask_to_swi.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+        configure_container_node(mask_to_swi, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
     else:
         mask_to_swi = Node(ants.ApplyTransforms(), name="mask_to_swi")
     mask_to_swi.inputs.float = True
@@ -96,12 +98,12 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     workflow.connect(conform_swi, 'resampled', mask_to_swi, 'reference_image')
 
     # Defacing the conformed image
-    if kwargs['CONTAINERIZE_NODES']:
-        defacing_swi = Node(Quickshear_Singularity(), name="defacing_swi")
-        defacing_swi.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
-        defacing_swi.inputs.snglrt_bind = [
+    if container_runtime:
+        defacing_swi = Node(Quickshear_Contained(), name="defacing_swi")
+        bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
-            ('`pwd`', '`pwd`', 'rw')]  # TODO: See if this works
+            ('`pwd`', '`pwd`', 'rw')]
+        configure_container_node(defacing_swi, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
     else:
         defacing_swi = Node(Quickshear(),
                             name='defacing_swi')

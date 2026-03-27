@@ -30,7 +30,8 @@ from nipype.interfaces.quickshear import Quickshear
 
 from shivai.interfaces.image import (Threshold, Normalization,
                                      Conform, Crop, Resample_from_to)
-from shivai.interfaces.shiva import Quickshear_Singularity
+from shivai.interfaces.shiva import Quickshear_Contained
+from shivai.utils.container_config import configure_container_node
 from shivai.workflows.qc_preproc import gen_qc_wf
 
 
@@ -98,12 +99,13 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(mask_to_conform, 'resampled_image', binarize_brain_mask, 'img')
 
     # Defacing the conformed image
-    if kwargs['CONTAINERIZE_NODES']:
-        defacing_img1 = Node(Quickshear_Singularity(), name="defacing_img1")
-        defacing_img1.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
-        defacing_img1.inputs.snglrt_bind = [
+    container_runtime = kwargs.get('CONTAINER_RUNTIME')
+    if container_runtime:
+        defacing_img1 = Node(Quickshear_Contained(), name="defacing_img1")
+        bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
             ('`pwd`', '`pwd`', 'rw')]
+        configure_container_node(defacing_img1, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
     else:
         defacing_img1 = Node(Quickshear(),
                              name='defacing_img1')

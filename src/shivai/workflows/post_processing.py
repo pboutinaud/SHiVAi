@@ -38,7 +38,8 @@ from shivai.interfaces.image import (Regionwise_Prediction_metrics,
                                      Brain_Seg_for_biomarker,
                                      Label_clusters,
                                      Brainmask_Overlay)
-from shivai.interfaces.shiva import AntsApplyTransforms_Singularity
+from shivai.interfaces.shiva import (AntsApplyTransforms_Contained)
+from shivai.utils.container_config import configure_container_node
 from shivai.utils.misc import set_wf_shapers
 
 
@@ -105,17 +106,18 @@ def genWorkflow(**kwargs) -> Workflow:
 
             if segtype in ['synthseg', 'freesurfer']:
                 prediction_metrics.inputs.brain_seg_type = segtype
-                if kwargs['CONTAINERIZE_NODES']:
-                    seg_to_swi = Node(AntsApplyTransforms_Singularity(), name="seg_to_swi")
-                    seg_to_swi.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
-                    seg_to_swi.inputs.snglrt_bind = [
+                container_runtime = kwargs.get('CONTAINER_RUNTIME')
+                if container_runtime:
+                    seg_to_swi = Node(AntsApplyTransforms_Contained(), name="seg_to_swi")
+                    bind_list = [
                         (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
                         ('`pwd`', '`pwd`', 'rw'),]
                     preproc_dir = kwargs['PREP_SETTINGS']['preproc_res']
-                    if preproc_dir and kwargs['BASE_DIR'] not in preproc_dir:  # Preprocessed data not in BASE_DIR
-                        seg_to_swi.inputs.snglrt_bind.append(
+                    if preproc_dir and kwargs['BASE_DIR'] not in preproc_dir:
+                        bind_list.append(
                             (preproc_dir, preproc_dir, 'ro')
                         )
+                    configure_container_node(seg_to_swi, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
                 else:
                     seg_to_swi = Node(ants.ApplyTransforms(), name="seg_to_swi")  # Register custom parc to swi space
                 seg_to_swi.inputs.float = True
@@ -137,17 +139,18 @@ def genWorkflow(**kwargs) -> Workflow:
                 prediction_metrics.inputs.brain_seg_type = segtype
                 prediction_metrics.inputs.region_dict = kwargs['CUSTOM_LUT']
 
-                if kwargs['CONTAINERIZE_NODES']:
-                    seg_to_swi = Node(AntsApplyTransforms_Singularity(), name="seg_to_swi")
-                    seg_to_swi.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
-                    seg_to_swi.inputs.snglrt_bind = [
+                container_runtime = kwargs.get('CONTAINER_RUNTIME')
+                if container_runtime:
+                    seg_to_swi = Node(AntsApplyTransforms_Contained(), name="seg_to_swi")
+                    bind_list = [
                         (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
                         ('`pwd`', '`pwd`', 'rw'),]
                     preproc_dir = kwargs['PREP_SETTINGS']['preproc_res']
-                    if preproc_dir and kwargs['BASE_DIR'] not in preproc_dir:  # Preprocessed data not in BASE_DIR
-                        seg_to_swi.inputs.snglrt_bind.append(
+                    if preproc_dir and kwargs['BASE_DIR'] not in preproc_dir:
+                        bind_list.append(
                             (preproc_dir, preproc_dir, 'ro')
                         )
+                    configure_container_node(seg_to_swi, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
                 else:
                     seg_to_swi = Node(ants.ApplyTransforms(), name="seg_to_swi")  # Register custom parc to swi space
                 seg_to_swi.inputs.float = True

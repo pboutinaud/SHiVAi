@@ -11,7 +11,8 @@ from nipype.pipeline.engine import Node, Workflow
 
 from shivai.workflows.preprocessing import genWorkflow as gen_preproc_wf
 
-from shivai.interfaces.shiva import SynthSeg, SynthsegSingularity
+from shivai.interfaces.shiva import SynthSeg, SynthsegContained
+from shivai.utils.container_config import configure_container_node
 
 from shivai.interfaces.image import Parc_from_Synthseg, Segmentation_Cleaner, Resample_from_to
 
@@ -48,20 +49,20 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # Creating the specific Synthseg nodes
     # First the synthseg node
-    if kwargs['CONTAINERIZE_NODES'] and not kwargs['PREP_SETTINGS']['local_synthseg']:
-        synthseg = Node(SynthsegSingularity(),
-                        name='synthseg')
-        synthseg.inputs.snglrt_bind = [
+    container_runtime = kwargs.get('CONTAINER_RUNTIME')
+    if container_runtime and not kwargs['PREP_SETTINGS']['local_synthseg']:
+        gpu = not kwargs['BRAIN_SEG'] == 'synthseg_cpu'
+        bind_list = [
             (kwargs['DATA_DIR'], kwargs['DATA_DIR'], 'ro'),
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),  # Needed if input file from dcm2nii (so in the results folder)
             ('`pwd`', '/mnt/data', 'rw'),]
-        synthseg.inputs.snglrt_image = kwargs['SYNTHSEG_IMAGE']
+        synthseg = Node(SynthsegContained(),
+                        name='synthseg')
+        configure_container_node(synthseg, container_runtime, kwargs['SYNTHSEG_IMAGE'], bind_list, gpu=gpu)
         synthseg.inputs.out_filename = '/mnt/data/synthseg_parc.nii.gz'
         synthseg.inputs.vol = '/mnt/data/volumes.csv'
         if kwargs['PREP_SETTINGS']['ss_qc']:
             synthseg.inputs.qc = '/mnt/data/qc.csv'
-        if not kwargs['BRAIN_SEG'] == 'synthseg_cpu':
-            synthseg.inputs.snglrt_enable_nvidia = True
     else:
         synthseg = Node(SynthSeg(),
                         name='synthseg')

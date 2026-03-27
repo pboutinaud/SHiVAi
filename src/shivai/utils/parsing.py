@@ -205,7 +205,12 @@ def shivaParser():
                                 action='store_true')
 
     container_args.add_argument('--containerized_nodes',
-                                help='Used when the process uses the container to run specific nodes (prediction and registration)',
+                                help='Used when the process uses the Apptainer/Singularity container to run specific nodes (prediction and registration)',
+                                action='store_true')
+
+    container_args.add_argument('--containerized_nodes_docker',
+                                help='Used when the process uses Docker to run specific nodes (prediction and registration). '
+                                     'Designed for Mac systems where Apptainer is not available.',
                                 action='store_true')
 
     parser.add_argument('--local_synthseg',
@@ -263,7 +268,7 @@ def shivaParser():
                             'are available in the results folder. If you have subjects with missing preprocessed data, you will '
                             'need to run their processing separatly.'
                         ))
-    
+
     parser.add_argument('--save_graph',
                         action='store_true',
                         help='If selected, the workflow graph will be saved as a .svg file in the output folder. Requires Graphviz to be installed.')
@@ -302,6 +307,14 @@ def shivaParser():
     parser.add_argument('--synthseg_image',
                         default=None,
                         help='path to the synthseg apptainer image (.sif file)')
+
+    parser.add_argument('--docker_image',
+                        default=None,
+                        help='Docker image name/tag for SHIV-AI (e.g. "shivai:latest")')
+
+    parser.add_argument('--synthseg_docker_image',
+                        default=None,
+                        help='Docker image name/tag for synthseg (e.g. "synthseg:latest")')
 
     parser.add_argument('--model',
                         default=None,
@@ -602,6 +615,10 @@ def set_args_and_check(inParser):
             args.container_image = yaml_content['apptainer_image']
             if 'synthseg' in args.brain_seg and not args.brain_seg == 'synthseg_precomp':
                 args.synthseg_image = yaml_content['synthseg_image']
+        elif args.containerized_nodes_docker:
+            args.docker_image = yaml_content.get('docker_image', args.docker_image)
+            if 'synthseg' in args.brain_seg and not args.brain_seg == 'synthseg_precomp':
+                args.synthseg_docker_image = yaml_content.get('synthseg_docker_image', args.synthseg_docker_image)
         parameters = yaml_content['parameters']
         for param in config_params:
             if getattr(args, param) is None:  # Giving param as argument to the command line overrides the config.yml params
@@ -675,12 +692,22 @@ def set_args_and_check(inParser):
             'Using a container (with the "--containerized_all" or "containerized_nodes" arguments) '
             'requires a container image (.sif file) but none was given. Add its path --container_image '
             'or in the configuration file (.yaml file).')
+    if args.containerized_nodes_docker and not args.docker_image:
+        inParser.error(
+            'Using Docker containers (with "--containerized_nodes_docker") '
+            'requires a Docker image name/tag but none was given. Add it with --docker_image '
+            'or in the configuration file (.yaml file).')
     if args.containerized_nodes and args.brain_seg in ['synthseg', 'synthseg_cpu'] and not args.synthseg_image:
         inParser.error(
             'Using the "containerized_nodes" option with synthseg, but no synthseg apptainer image was provided')
+    if args.containerized_nodes_docker and args.brain_seg in ['synthseg', 'synthseg_cpu'] and not args.synthseg_docker_image:
+        inParser.error(
+            'Using the "containerized_nodes_docker" option with synthseg, but no synthseg Docker image was provided')
 
     if args.brain_seg == 'synthseg_precomp':
         args.synthseg_image = args.container_image  # This is just a dummy here to avoid problems
+        if args.containerized_nodes_docker:
+            args.synthseg_docker_image = args.docker_image  # Dummy for Docker mode too
 
     # Parse the plugin arguments
     if args.run_plugin_args:

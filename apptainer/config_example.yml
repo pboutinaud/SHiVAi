@@ -2,6 +2,11 @@ model_path: /myHome/myProject/Shiva_AI_models
 apptainer_image: /myHome/myProject/shiva.sif
 synthseg_image: /myHome/myProject/synthseg.sif
 
+# Docker images (used with --containerized_nodes_docker)
+# docker_image: shivai:latest
+# synthseg_docker_image: synthseg:latest
+# container_runtime: docker  # or 'singularity' (default) — used by swomed workflows
+
 parameters:
   brainmask_descriptor: "brainmask/V0/model_info.json"
   PVS_descriptor: "T1-PVS/V1/model_info.json"

@@ -11,9 +11,10 @@ from nipype.interfaces.quickshear import Quickshear
 from shivai.utils.misc import as_list
 
 from shivai.interfaces.image import Normalization, CorrectAffine, Resample_from_to
-from shivai.interfaces.shiva import (AntsRegistration_Singularity,
-                                     AntsApplyTransforms_Singularity,
-                                     Quickshear_Singularity)
+from shivai.interfaces.shiva import (AntsRegistration_Contained,
+                                     AntsApplyTransforms_Contained,
+                                     Quickshear_Contained)
+from shivai.utils.container_config import configure_container_node
 from shivai.workflows.qc_preproc import qc_wf_add_flair
 
 
@@ -64,12 +65,13 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
     #                  mask_to_img2, 'reference_image')
 
     # Defacing the conformed image (uses the conformed mask from the 'unpreconform' node)
-    if kwargs['CONTAINERIZE_NODES']:
-        defacing_flair = Node(Quickshear_Singularity(), name="defacing_flair")
-        defacing_flair.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
-        defacing_flair.inputs.snglrt_bind = [
+    container_runtime = kwargs.get('CONTAINER_RUNTIME')
+    if container_runtime:
+        defacing_flair = Node(Quickshear_Contained(), name="defacing_flair")
+        bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
-            ('`pwd`', '`pwd`', 'rw')]  # TODO: See if this works
+            ('`pwd`', '`pwd`', 'rw')]
+        configure_container_node(defacing_flair, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
     else:
         defacing_flair = Node(Quickshear(),
                               name='defacing_flair')
@@ -84,12 +86,12 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
     else:
         # compute 6-dof coregistration parameters of accessory scan
         # to cropped t1 image
-        if kwargs['CONTAINERIZE_NODES']:
-            flair_to_t1 = Node(AntsRegistration_Singularity(), name="flair_to_t1")
-            flair_to_t1.inputs.snglrt_bind = [
+        if container_runtime:
+            flair_to_t1 = Node(AntsRegistration_Contained(), name="flair_to_t1")
+            bind_list = [
                 (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
                 ('`pwd`', '`pwd`', 'rw'),]
-            flair_to_t1.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+            configure_container_node(flair_to_t1, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
         else:
             flair_to_t1 = Node(ants.Registration(),
                                name='flair_to_t1')

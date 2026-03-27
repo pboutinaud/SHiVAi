@@ -4,7 +4,8 @@ Shivai worflow for swomed with a dcm2nii first step and synthseg
 
 from nipype import Node, Workflow, IdentityInterface, DataGrabber
 from nipype.interfaces.dcm2nii import Dcm2niix
-from shivai.interfaces.shiva import Shivai_Singularity, SynthsegSingularity
+from shivai.interfaces.shiva import (Shivai_Contained, SynthsegContained)
+from shivai.utils.container_config import configure_container_node
 from shivai.utils.misc import file_selector
 import os
 import yaml
@@ -63,18 +64,20 @@ def genWorkflow(**kwargs) -> Workflow:
     dcm2nii_swi_node.inputs.anon_bids = True
     dcm2nii_swi_node.inputs.out_filename = 'converted_%p'
 
-    synthseg_node = Node(SynthsegSingularity(),
+    container_runtime = config.get('container_runtime', 'singularity')
+
+    synthseg_node = Node(SynthsegContained(),
                          name='synthseg_node')
-    synthseg_node.inputs.snglrt_bind = [(workflow.base_dir, workflow.base_dir, 'rw')]
-    synthseg_node.inputs.snglrt_image = config['synthseg_image']
-    synthseg_node.inputs.snglrt_enable_nvidia = True
+    ss_image_key = 'synthseg_docker_image' if container_runtime == 'docker' else 'synthseg_image'
+    configure_container_node(synthseg_node, container_runtime, config[ss_image_key],
+                             [(workflow.base_dir, workflow.base_dir, 'rw')])
     synthseg_node.inputs.out_filename = 'synthseg_parc.nii.gz'
     synthseg_node.inputs.vol = 'volumes.csv'
     synthseg_node.inputs.qc = 'qc.csv'
 
-    shivai_node = Node(Shivai_Singularity(),
+    shivai_node = Node(Shivai_Contained(),
                        name='shivai_node')
-    # Singularity settings
+    # Container settings
     config_dir = os.path.dirname(kwargs['SHIVAI_CONFIG'])
     bind_list = [
         (config['model_path'], '/mnt/model', 'ro'),
@@ -91,9 +94,8 @@ def genWorkflow(**kwargs) -> Workflow:
             setattr(shivai_node.inputs, descriptor, kwargs[f'BIOMIST::{descriptor.upper()}'])
     if os.path.abspath(config_dir) != os.path.abspath(workflow.base_dir):
         bind_list.append((config_dir, config_dir, 'rw'))
-    shivai_node.inputs.snglrt_bind = bind_list
-    shivai_node.inputs.snglrt_image = config['apptainer_image']
-    shivai_node.inputs.snglrt_enable_nvidia = True
+    image_key = 'docker_image' if container_runtime == 'docker' else 'apptainer_image'
+    configure_container_node(shivai_node, container_runtime, config[image_key], bind_list)
     # Mandatory inputs:
     shivai_node.inputs.in_dir = workflow.base_dir
     # shivai_node.inputs.out_dir = workflow.base_dir

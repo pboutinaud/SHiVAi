@@ -10,7 +10,7 @@ from shivai.utils.stats import prediction_metrics, get_mask_regions
 from shivai.utils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask, seg_cleaner
 from shivai.utils.quality_control import create_edges, save_histogram, bounding_crop, overlay_brainmask
 from shivai.utils.misc import label_clusters, cluster_registration
-from shivai.interfaces.singularity import SingularityCommandLine, SingularityInputSpec
+from shivai.interfaces.container import ContainerCommandLine, ContainerInputSpec
 from nipype.utils.filemanip import split_filename
 from nipype.interfaces.base import CommandLine, CommandLineInputSpec, isdefined
 from nipype.interfaces.base import (BaseInterface, BaseInterfaceInputSpec,
@@ -1675,25 +1675,29 @@ class MakeDistanceMap(CommandLine):
         return outputs
 
 
-class MakeDistanceMap_Singularity_InputSpec(SingularityInputSpec, MakeDistanceMapInputSpec):
-    """MakeDistanceMap input specification (singularity mixin).
-
-    Inherits from Singularity command line fields.
-    """
+class MakeDistanceMap_Contained_InputSpec(ContainerInputSpec, MakeDistanceMapInputSpec):
+    """MakeDistanceMap input specification (container mixin)."""
 
 
-class MakeDistanceMap_Singularity(SingularityCommandLine):
-    """Create distance maps using ventricles binarized maps (niimaths)."""
+class MakeDistanceMap_Contained(ContainerCommandLine):
+    """Create distance maps using ventricles binarized maps (niimaths) in a container."""
 
     _cmd = 'niimath'
 
-    input_spec = MakeDistanceMapInputSpec
+    input_spec = MakeDistanceMap_Contained_InputSpec
     output_spec = MakeDistanceMapOutputSpec
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs['out_file'] = op.abspath(self.inputs.out_file)
         return outputs
+
+
+# Backward-compatible aliases
+MakeDistanceMap_Singularity_InputSpec = MakeDistanceMap_Contained_InputSpec
+MakeDistanceMap_Docker_InputSpec = MakeDistanceMap_Contained_InputSpec
+MakeDistanceMap_Singularity = MakeDistanceMap_Contained
+MakeDistanceMap_Docker = MakeDistanceMap_Contained
 
 
 class Parc_from_Synthseg_InputSpec(BaseInterfaceInputSpec):
