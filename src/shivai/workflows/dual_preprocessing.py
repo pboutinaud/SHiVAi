@@ -33,7 +33,7 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
     # Correct affine if necessary
     correct_flair = Node(CorrectAffine(),
                          name='correct_flair')
-
+    correct_flair.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
     crop = workflow.get_node('crop')
     img1_norm = workflow.get_node('img1_final_intensity_normalization')
     mask_to_crop = workflow.get_node('mask_to_crop')

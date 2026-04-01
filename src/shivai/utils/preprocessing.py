@@ -12,6 +12,7 @@ import nibabel.processing as nip
 import nibabel as nib
 from scipy import ndimage
 from nibabel.orientations import axcodes2ornt, io_orientation, ornt_transform
+import warnings
 
 from shivai.utils.misc import histogram, fisin
 
@@ -601,3 +602,71 @@ def seg_cleaner(raw_seg: np.ndarray, max_size: int = 300, ignore_labels: list = 
                 cleaned_seg[clust_isle] = neighbors_vals[np.argmax(neighbors_cnt)]
                 removed_islands[clust_isle] = lab
     return cleaned_seg, removed_islands  # , kept_islands
+
+
+def affine_check(img: nib.Nifti1Image, ori_vox_size: np.ndarray, correction_thr: float,
+                 mild_thr: float = 5e-5) -> tuple[bool, nib.Nifti1Image]:
+    """Checks if the affine encodes a valid orthonormal rotation (up to voxel scaling).
+
+    Two-tier correction strategy:
+    - Mildly corrupted (mild_thr <= deviation < correction_thr): corrected to the
+      nearest orthogonal matrix via polar decomposition (U @ Vt from SVD). Preserves the
+      original oblique orientation, translation, and det sign (proper rotation vs reflection).
+    - Severely corrupted (deviation >= correction_thr): falls back to a simplified axis-aligned affine
+      centered on the center of mass, discarding any rotation.
+
+    Args:
+        img: image whose affine to check
+        ori_vox_size: voxel sizes used to normalise the rotation part of the affine
+        correction_thr: tolerance for the orthonormality tests (atol passed to np.isclose)
+        mild_thr: tolerance for the orthonormality tests under which a
+                  correction is attempted instead of the full fallback (default: 5e-5)
+
+    Returns:
+        (affine_was_bad, corrected_img): bool flag and the image (affine replaced if bad)
+    """
+    corrected = False
+    rot, trans = nib.affines.to_matvec(img.affine)
+    rot_norm = rot.dot(np.diag(1/ori_vox_size))  # putting the rotation in isotropic space
+    deviation = np.abs(rot_norm.dot(rot_norm.T) - np.eye(3)).max()
+    # test2 = np.isclose(np.abs(np.linalg.det(rot_norm)), 1, atol=correction_thr, rtol=0)  # Determinant for the rotation must be 1
+    if mild_thr <= deviation < correction_thr:
+        U, S, Vt = np.linalg.svd(rot_norm)
+        # Mildly corrupted: project onto the nearest orthogonal matrix.
+        # U @ Vt is the Orthogonal Procrustes solution and naturally preserves
+        # the determinant sign of the original matrix (proper rotation or reflection).
+        R_corrected = U @ Vt
+        corrected_rot = R_corrected.dot(np.diag(ori_vox_size))
+        corrected_affine = nib.affines.from_matvec(corrected_rot, trans)
+        warnings.warn(
+            "MILDLY BAD AFFINE:\n"
+            "The image's affine was slightly non-orthonormal "
+            f"(max singular value deviation from 1: {deviation:.6f}).\n"
+            "It was corrected to the nearest valid rotation matrix via polar decomposition. "
+            "Spatial alignment, oblique orientation, and translation are preserved."
+        )
+        img = nib.Nifti1Image(img.get_fdata().astype('f'), corrected_affine)
+    elif deviation >= correction_thr:
+        corrected = True
+        # Severely corrupted: discard the rotation entirely and rebuild from scratch.
+        warnings.warn(
+            "BAD AFFINE:\n"
+            "The image's affine is corrupted (not encoding a proper rotation).\n"
+            "To avoid problems during registration, a new affine was created using the center of mass as origin and "
+            "ignoring any rotation specified by the affine (but keeping voxel dim and left/right orientation).\n"
+            "This will misalign the masks (brain masks and cSVD biomarkers) compared to the raw images but will not "
+            "be a problem if you use the intensity normalized images from the img_preproc folder of the results."
+        )
+        vol = img.get_fdata()
+        cdg_ijk = np.round(ndimage.center_of_mass(vol))
+        # Use io_orientation to correctly determine the dominant world axis AND sign for every
+        # voxel axis, not just the first one (previously only L/R was preserved via pixdim[0],
+        # causing A/P and S/I flips on oblique acquisitions).
+        ornt = io_orientation(img.affine)
+        simplified_rot = np.zeros((3, 3))
+        for vox_ax, (world_ax, sign) in enumerate(ornt):
+            simplified_rot[int(world_ax), vox_ax] = sign * ori_vox_size[vox_ax]
+        trans_centered = -simplified_rot.dot(cdg_ijk)
+        simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
+        img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
+    return corrected, img
