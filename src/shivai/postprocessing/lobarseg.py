@@ -482,21 +482,21 @@ def lobar_and_wm_segmentation(seg):
 
     '''
     import time
-    t = time.time()
+    # t = time.time()
     seg = convert_hyp_to_wm(seg)
-    print(f"Time for convert_hyp_to_wm: {time.time() - t:.2f} seconds")
-    t = time.time()
+    # print(f"Time for convert_hyp_to_wm: {time.time() - t:.2f} seconds")
+    # t = time.time()
     seg_lobar = lobar_seg(seg)
-    print(f"Time for lobar_seg: {time.time() - t:.2f} seconds")
-    t = time.time()
+    # print(f"Time for lobar_seg: {time.time() - t:.2f} seconds")
+    # t = time.time()
     ic_L, ic_R = internal_caps(seg)
-    print(f"Time for internal_caps: {time.time() - t:.2f} seconds")
-    t = time.time()
+    # print(f"Time for internal_caps: {time.time() - t:.2f} seconds")
+    # t = time.time()
     jxtc_L, jxtc_R = juxtacortical_wm(seg, 3)
-    print(f"Time for juxtacortical_wm: {time.time() - t:.2f} seconds")
-    t = time.time()
+    # print(f"Time for juxtacortical_wm: {time.time() - t:.2f} seconds")
+    # t = time.time()
     pv_voxels = periventricular(seg, 2)
-    print(f"Time for periventricular: {time.time() - t:.2f} seconds")
+    # print(f"Time for periventricular: {time.time() - t:.2f} seconds")
     prvc_L = pv_voxels & (seg == 2)
     prvc_R = pv_voxels & (seg == 41)
 
@@ -509,10 +509,10 @@ def lobar_and_wm_segmentation(seg):
 
     ic_L = ic_L & ~prvc_L
     ic_R = ic_R & ~prvc_R
-    t = time.time()
+    # t = time.time()
     ec_L, ec_R = ex_capsule(seg, (jxtc_L | jxtc_R | ic_L | ic_R))
-    print(f"Time for ex_capsule: {time.time() - t:.2f} seconds")
-    t = time.time()
+    # print(f"Time for ex_capsule: {time.time() - t:.2f} seconds")
+    # t = time.time()
     cc_L, cc_R = corpus_cal(seg)
 
     wm_L = (seg == 2)
