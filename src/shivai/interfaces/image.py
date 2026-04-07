@@ -287,6 +287,7 @@ class CorrectAffine(BaseInterface):
         setattr(self, 'corrected_affine', simplified_affine_centered)
         setattr(self, 'original_affine', original_affine if simplified_affine_centered is not None else None)
         _, base, _ = split_filename(fname)
+        base = base.replace(' ', '_').replace('.', '_')  # Clean the base name to avoid issues
         nib.save(img, base + '_corrected.nii.gz')
 
         return runtime
@@ -296,6 +297,7 @@ class CorrectAffine(BaseInterface):
         outputs = self.output_spec().get()
         fname = self.inputs.img
         _, base, _ = split_filename(fname)
+        base = base.replace(' ', '_').replace('.', '_')  # Clean the base name to avoid issues
         outputs["corrected_img"] = os.path.abspath(base + '_corrected.nii.gz')
         if self.corrected_affine is not None:
             outputs['corrected_affine'] = self.corrected_affine
