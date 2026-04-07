@@ -7,7 +7,7 @@ from nipype.interfaces import ants
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.quickshear import Quickshear
 
-from shivai.interfaces.image import Normalization, Conform, Crop, Resample_from_to
+from shivai.interfaces.image import CorrectAffine, Normalization, Conform, Crop, Resample_from_to
 from shivai.workflows.qc_preproc import qc_wf_add_swi
 from shivai.interfaces.shiva import (AntsRegistration_Singularity,
                                      AntsApplyTransforms_Singularity,
@@ -36,14 +36,19 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     workflow = Workflow(wf_name)
     workflow.base_dir = kwargs['BASE_DIR']
 
-    # Conforms the SWI image, must be connected to the datagrabber from the other workflow
+    # CorrectAffine must be connected to the datagrabber from the other workflow
+    correct_affine_swi = Node(CorrectAffine(), name="correct_affine_swi")
+    correct_affine_swi.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
+
     conform_swi = Node(Conform(),
                        name="conform_swi")
     conform_swi.inputs.dimensions = (256, 256, 256)
     conform_swi.inputs.voxel_size = kwargs['RESOLUTION']
     conform_swi.inputs.voxels_tolerance = kwargs['TOLERANCE']
     conform_swi.inputs.orientation = kwargs['ORIENTATION']
-    conform_swi.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
+    # conform_swi.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
+
+    workflow.connect(correct_affine_swi, 'corrected_img', conform_swi, 'img')
 
     # compute 6-dof coregistration parameters of conformed swi
     # to t1 cropped image
@@ -133,7 +138,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     datagrabber = preproc_wf.get_node('datagrabber')
     crop = preproc_wf.get_node('crop')
     mask_to_crop = preproc_wf.get_node('mask_to_crop')
-    preproc_wf.connect(datagrabber, 'img3', workflow, 'conform_swi.img')
+    preproc_wf.connect(datagrabber, 'img3', workflow, 'correct_affine_swi.img')
     preproc_wf.connect(crop, 'cropped', workflow, 'swi_to_t1.fixed_image')
     preproc_wf.connect(mask_to_crop, 'resampled_image', mask_to_swi, 'input_image')  # using "workflow, 'mask_to_swi.input_image'" does not work for some reason...
 

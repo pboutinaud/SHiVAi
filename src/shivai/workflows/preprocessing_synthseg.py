@@ -41,10 +41,11 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow = gen_preproc_wf(**kwargs)
 
     # Preparing the rewiring of the workflow with the new nodes
-    datagrabber = workflow.get_node('datagrabber')
+    correct_affine_img1 = workflow.get_node('correct_affine_img1')
+    correct_affine_seg = workflow.get_node('correct_affine_seg')
     mask_to_conform = workflow.get_node('mask_to_conform')
     crop = workflow.get_node('crop')
-    workflow.disconnect(datagrabber, 'seg', mask_to_conform, 'moving_image')
+    workflow.remove_nodes([correct_affine_seg])
 
     # Creating the specific Synthseg nodes
     # First the synthseg node
@@ -89,7 +90,7 @@ def genWorkflow(**kwargs) -> Workflow:
     custom_parc = Node(Parc_from_Synthseg(), name='custom_parc')
 
     # All the connections and rewiring
-    workflow.connect(datagrabber, 'img1', synthseg, 'input')
+    workflow.connect(correct_affine_img1, 'corrected_img', synthseg, 'input')
     workflow.connect(synthseg, 'segmentation', seg_cleaning, 'input_seg')
     workflow.connect(seg_cleaning, 'ouput_seg', mask_to_conform, 'moving_image')
     workflow.connect(mask_to_conform, 'resampled_image', seg_to_crop, 'moving_image')

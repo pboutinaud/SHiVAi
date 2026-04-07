@@ -86,7 +86,7 @@ class ConformInputSpec(BaseInterfaceInputSpec):
                               desc="orientation of image volume brain",
                               usedefault=True)
 
-    ignore_bad_affine = traits.Bool(False,
+    ignore_bad_affine = traits.Bool(True,
                                     mandatory=False,
                                     usedefault=True,
                                     desc='If True, does not check if the affine is correct')

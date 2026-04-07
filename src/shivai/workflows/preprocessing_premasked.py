@@ -22,13 +22,14 @@ def genWorkflow(**kwargs) -> Workflow:
     else:
         kwargs['wf_name'] = kwargs['wf_name'] + '_premasked'
 
-    # Initilazing the wf
+    # Initializing the wf
     workflow = gen_preproc_wf(**kwargs)
 
-    # Chaing the connection, using img1 as mask
-    datagrabber = workflow.get_node('datagrabber')
+    # Changing the connection, using img1 as mask
     mask_to_conform = workflow.get_node('mask_to_conform')
-    workflow.disconnect(datagrabber, 'seg', mask_to_conform, 'moving_image')
-    workflow.connect(datagrabber, 'img1', mask_to_conform, 'moving_image')
+    corrected_affine_img1 = workflow.get_node('correct_affine_img1')
+    correct_affine_seg = workflow.get_node('correct_affine_seg')
+    workflow.remove_nodes([correct_affine_seg])
+    workflow.connect(corrected_affine_img1, 'corrected_img', mask_to_conform, 'moving_image')
 
     return workflow
