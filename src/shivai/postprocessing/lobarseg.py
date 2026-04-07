@@ -36,16 +36,38 @@ Lobar segmentation from a SynthSeg parc
 1035    ctx-lh-insula                       Insula
 """
 from scipy.ndimage import (distance_transform_edt,
+                           distance_transform_cdt,
                            binary_erosion,
                            binary_dilation,
                            binary_closing,
                            binary_opening,
                            label as nd_label)
 from scipy.spatial import Delaunay, ConvexHull
+from skimage.morphology import ball as _skball
 import numpy as np
 from shivai.utils.misc import fisin
 
-# %%
+
+def _dilate(mask, r):
+    """Binary dilation by r voxels (taxicab/L1 metric), single O(V) CDT call.
+    Semantically identical to binary_dilation(mask, iterations=r) with 6-conn footprint.
+    """
+    return distance_transform_cdt(~np.asarray(mask, dtype=bool), metric='taxicab') <= r
+
+
+def _erode(mask, r):
+    """Binary erosion by r voxels (taxicab/L1 metric), single O(V) CDT call.
+    Semantically identical to binary_erosion(mask, iterations=r) with 6-conn footprint.
+    """
+    return distance_transform_cdt(np.asarray(mask, dtype=bool), metric='taxicab') >= r
+
+
+def _close(mask, r):
+    """Binary closing by r voxels (taxicab/L1 metric). Two CDT calls instead of 2r iterations."""
+    return _erode(_dilate(mask, r), r)
+
+
+# %%  Values in the original Freesurfer/Synthseg parcellation for the new labels
 lobar_vals_L = {
     'Frontal': [1002, 1003, 1012, 1014, 1017, 1018, 1019, 1020, 1027, 1028, 1032, 1024, 1026],
     'Pariental': [1008, 1010, 1025, 1029, 1031, 1022, 1023],
@@ -79,6 +101,8 @@ to_excluded_R = [val+1000 for val in to_excluded_L]
 cingulate_vals_L = [1002, 1010, 1023, 1026]
 cingulate_vals_R = [2002, 2010, 2023, 2026]
 
+# %% Labels for the final parcellation
+
 lobar_labels_L = {
     'Frontal': 1,  # 2, 3, 4 for wm (jxtc/deep/prvc)
     'Pariental': 5,  # 6, 7, 8
@@ -94,7 +118,10 @@ other_labels_L = {
     'Internal capsule': 44,
     'Ext. capsule': 45,
     'Corpus callosum': 46,
-    'Cerebellum': 47
+    'Cerebellum': 47,
+    'BG prvc': 78,
+    'Thal. prvc': 79,
+    'In. cap. prvc': 80
 }
 
 lobar_labels_R = {k: val+20 for k, val in lobar_labels_L.items()}
@@ -109,7 +136,7 @@ def expand_label_masked(label_image, mask):
     '''
     Re-implementation of expand_label with a mask to fill instead of a distance
     '''
-    nearest_label_coords = distance_transform_edt(
+    nearest_label_coords = distance_transform_cdt(
         label_image == 0, return_distances=False, return_indices=True
     )
     labels_out = np.zeros(label_image.shape, dtype='int16')
@@ -177,7 +204,7 @@ def fill_hull(brain_regions):
     return filled_vol
 
 
-def internal_caps(seg):
+def internal_caps(seg) -> tuple[np.ndarray[tuple[int, int, int], np.dtype[np.bool_]], np.ndarray[tuple[int, int, int], np.dtype[np.bool_]]]:
     '''
     Find the internal capsule by creating a convex hull around the basal ganglia
     getting its internal volume, doing some erosion to avoid voxels that could
@@ -207,7 +234,7 @@ def ex_capsule(seg, exclusion_wm):
     wm_R = (seg == 41)
 
     hipp_vdc = fisin(seg, [17, 53, 28, 60])  # hippocampus and ventral DC
-    hipp_vdc_dil = binary_dilation(hipp_vdc, iterations=5)  # To prevent the ec from growing too low
+    hipp_vdc_dil = _dilate(hipp_vdc, 5)  # To prevent the ec from growing too low
 
     exclusion_area = exclusion_wm | hipp_vdc_dil
 
@@ -216,19 +243,21 @@ def ex_capsule(seg, exclusion_wm):
     putamen_R = (seg == 51)
     insula_R = (seg == 2035)
 
-    xcap_L_raw = (fill_hull(insula_L | putamen_L).astype(bool) &
-                  binary_dilation(putamen_L, iterations=10) &
-                  binary_dilation(insula_L, iterations=10))
-    xcap_R_raw = (fill_hull(insula_R | putamen_R).astype(bool) &
-                  binary_dilation(putamen_R, iterations=10) &
-                  binary_dilation(insula_R, iterations=10))
+    # Pre-compute dilations once (reused in xcap_raw and closing below)
+    put_L_dil = _dilate(putamen_L, 10)
+    ins_L_dil = _dilate(insula_L, 10)
+    put_R_dil = _dilate(putamen_R, 10)
+    ins_R_dil = _dilate(insula_R, 10)
+
+    xcap_L_raw = fill_hull(insula_L | putamen_L).astype(bool) & put_L_dil & ins_L_dil
+    xcap_R_raw = fill_hull(insula_R | putamen_R).astype(bool) & put_R_dil & ins_R_dil
 
     xcap_L = xcap_L_raw & wm_L & ~exclusion_area
     xcap_R = xcap_R_raw & wm_R & ~exclusion_area
 
     # final cleaning
-    xcap_L = binary_closing(xcap_L | insula_L | putamen_L, iterations=3) & ~(insula_L | putamen_L) & wm_L
-    xcap_R = binary_closing(xcap_R | insula_R | putamen_R, iterations=3) & ~(insula_R | putamen_R) & wm_R
+    xcap_L = _close(xcap_L | insula_L | putamen_L, 3) & ~(insula_L | putamen_L) & wm_L
+    xcap_R = _close(xcap_R | insula_R | putamen_R, 3) & ~(insula_R | putamen_R) & wm_R
 
     return xcap_L, xcap_R
 
@@ -275,18 +304,25 @@ def juxtacortical_wm(seg, thickness=3):
         cortex_vals_R += vals
     cortex_vals = cortex_vals_L + cortex_vals_R
     cortex = fisin(seg, cortex_vals)
-    cortex_dil = binary_dilation(cortex, iterations=thickness)
+    cortex_dil = _dilate(cortex, thickness)
     jxtc_L = cortex_dil & wm_L
     jxtc_R = cortex_dil & wm_R
     return jxtc_L, jxtc_R
+
+
+def periventricular(seg, thickness=2):
+    vent = fisin(seg, [4, 5, 43, 44, 31, 63])  # we ignore the third ventricle for now (label 14)
+    vent_dil = binary_dilation(vent, iterations=thickness).astype(bool)
+    pv = vent_dil & ~vent
+    return pv
 
 
 def periventricular_wm(seg, thickness=2):
     wm_L = (seg == 2)
     wm_R = (seg == 41)
 
-    vent_L = fisin(seg, [4, 5])
-    vent_R = fisin(seg, [43, 44])
+    vent_L = fisin(seg, [4, 5, 31])
+    vent_R = fisin(seg, [43, 44, 63])
 
     pvwm_L = binary_dilation(vent_L, iterations=thickness) * wm_L
     pvwm_R = binary_dilation(vent_R, iterations=thickness) * wm_R
@@ -345,36 +381,49 @@ def convert_hyp_to_wm(seg: np.ndarray) -> np.ndarray:
 
 
 def corpus_cal(seg):
-    wm_L = (seg == 2)
-    wm_R = (seg == 41)
+    cc_labels = [251, 252, 253, 254, 255]
+    if fisin(seg, cc_labels).any():
+        cc = fisin(seg, cc_labels)
+        cc_mask = binary_dilation(cc)
+        # Assign each CC voxel to the nearest WM half (2=left, 41=right) via EDT
+        seed = np.zeros(seg.shape, dtype='int16')
+        wm_in_mask = cc_mask & fisin(seg, [2, 41])
+        seed[wm_in_mask] = seg[wm_in_mask]
+        assigned = expand_label_masked(seed, cc_mask)
+        cc_L = (assigned == 2) & cc_mask
+        cc_R = (assigned == 41) & cc_mask
+        return cc_L, cc_R
+    else:
+        wm_L = (seg == 2)
+        wm_R = (seg == 41)
 
-    wm = wm_L + wm_R
+        wm = wm_L + wm_R
 
-    # Exclusion areas for wm
-    #   Fornix
-    vent_1_2 = fisin(seg, [4, 5, 43, 44])
-    vent_3_dil6 = binary_dilation(seg == 14, iterations=6)
-    vent_123_raw = vent_1_2 + vent_3_dil6
-    vent_123 = binary_closing(vent_123_raw, iterations=6)
-    #   Cingulum
-    cing_L = binary_closing(fisin(seg, cingulate_vals_L), iterations=5)
-    cing_R = binary_closing(fisin(seg, cingulate_vals_R), iterations=5)
-    cing = cing_L + cing_R
-    #   Total
-    exclusion_area = vent_123 + cing
-    wm[exclusion_area] = False
+        # Exclusion areas for wm
+        #   Fornix
+        vent_1_2 = fisin(seg, [4, 5, 43, 44])
+        vent_3_dil6 = _dilate(seg == 14, 6)
+        vent_123_raw = vent_1_2 | vent_3_dil6
+        vent_123 = _close(vent_123_raw, 6)
+        #   Cingulum
+        cing_L = _close(fisin(seg, cingulate_vals_L), 5)
+        cing_R = _close(fisin(seg, cingulate_vals_R), 5)
+        cing = cing_L | cing_R
+        #   Total
+        exclusion_area = vent_123 | cing
+        wm[exclusion_area] = False
 
-    dil_wm_L = binary_dilation(wm_L)*wm
-    dil_wm_R = binary_dilation(wm_R)*wm
+        dil_wm_L = binary_dilation(wm_L)*wm
+        dil_wm_R = binary_dilation(wm_R)*wm
 
-    seed_cc = dil_wm_L & dil_wm_R
+        seed_cc = dil_wm_L & dil_wm_R
 
-    cc_raw = binary_dilation(seed_cc, iterations=10)
-    cc_filtered = binary_opening(cc_raw & wm, iterations=2)  # To hopefully remove stray extensions (in cingulate)
+        cc_raw = _dilate(seed_cc, 10)
+        cc_filtered = binary_opening(cc_raw & wm, iterations=2)  # To hopefully remove stray extensions (in cingulate)
 
-    cc_L = (cc_filtered & wm_L)
-    cc_R = (cc_filtered & wm_R)
-    return cc_L, cc_R
+        cc_L = (cc_filtered & wm_L)
+        cc_R = (cc_filtered & wm_R)
+        return cc_L, cc_R
 
 # %%
 
@@ -404,6 +453,10 @@ def lobar_and_wm_segmentation(seg):
         Ext. capsule:   45  (external + extreme capsules)
         Corpus call.:   46
         Cerebellum :    47
+        Caudate prvc:   78 (Caudate periventricular voxels)
+        Thal. prvc:     79 (Thalamus periventricular voxels)
+        In. cap. prvc:  80 (Internal capsule periventricular voxels)
+
 
     Right hemisphere:
                     gm   jxct deep prvc
@@ -420,19 +473,46 @@ def lobar_and_wm_segmentation(seg):
         Int. capsule:   54
         Ext. capsule:   55  (external + extreme capsules)
         Corpus call.:   56
-        Cerebellum':    57
+        Cerebellum :    57
+        Caudate prvc:   88 (Caudate periventricular voxels)
+        Thal. prvc:     89 (Thalamus periventricular voxels)
+        In. cap. prvc:  90 (Internal capsule periventricular voxels)
 
     Brainstem: 60
 
     '''
+    import time
+    # t = time.time()
     seg = convert_hyp_to_wm(seg)
+    # print(f"Time for convert_hyp_to_wm: {time.time() - t:.2f} seconds")
+    # t = time.time()
     seg_lobar = lobar_seg(seg)
-
+    # print(f"Time for lobar_seg: {time.time() - t:.2f} seconds")
+    # t = time.time()
     ic_L, ic_R = internal_caps(seg)
+    # print(f"Time for internal_caps: {time.time() - t:.2f} seconds")
+    # t = time.time()
     jxtc_L, jxtc_R = juxtacortical_wm(seg, 3)
-    prvc_L, prvc_R = periventricular_wm(seg, 2)
+    # print(f"Time for juxtacortical_wm: {time.time() - t:.2f} seconds")
+    # t = time.time()
+    pv_voxels = periventricular(seg, 2)
+    # print(f"Time for periventricular: {time.time() - t:.2f} seconds")
+    prvc_L = pv_voxels & (seg == 2)
+    prvc_R = pv_voxels & (seg == 41)
 
+    bgpv_L = pv_voxels & (seg_lobar == 40)
+    thalpv_L = pv_voxels & (seg_lobar == 41)
+    icpv_L = pv_voxels & ic_L
+    bgpv_R = pv_voxels & (seg_lobar == 50)
+    thalpv_R = pv_voxels & (seg_lobar == 51)
+    icpv_R = pv_voxels & ic_R
+
+    ic_L = ic_L & ~prvc_L
+    ic_R = ic_R & ~prvc_R
+    # t = time.time()
     ec_L, ec_R = ex_capsule(seg, (jxtc_L | jxtc_R | ic_L | ic_R))
+    # print(f"Time for ex_capsule: {time.time() - t:.2f} seconds")
+    # t = time.time()
     cc_L, cc_R = corpus_cal(seg)
 
     wm_L = (seg == 2)
@@ -460,6 +540,12 @@ def lobar_and_wm_segmentation(seg):
     seg_lobar[ec_R] = other_labels_R['Ext. capsule']
     seg_lobar[cc_L] = other_labels_L['Corpus callosum']
     seg_lobar[cc_R] = other_labels_R['Corpus callosum']
+    seg_lobar[bgpv_L] = other_labels_L['BG prvc']
+    seg_lobar[bgpv_R] = other_labels_R['BG prvc']
+    seg_lobar[icpv_L] = other_labels_L['In. cap. prvc']
+    seg_lobar[icpv_R] = other_labels_R['In. cap. prvc']
+    seg_lobar[thalpv_L] = other_labels_L['Thal. prvc']
+    seg_lobar[thalpv_R] = other_labels_R['Thal. prvc']
 
     return seg_lobar
 

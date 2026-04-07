@@ -10,6 +10,7 @@ import json
 
 import numpy as np
 import nibabel as nib
+import matplotlib.pyplot as plt
 from bokeh.embed import file_html
 from bokeh.plotting import figure
 from bokeh.resources import CDN
@@ -267,3 +268,35 @@ def fisin(arr, vals):
     except TypeError:  # Typically if there is only 1 value
         arrl = [arr == vals]
     return reduce(lambda x, y: x | y, arrl)
+
+
+def salient_slices(vol: np.ndarray, slices_ind: tuple[int, int, int] = None) -> tuple[int, int, int]:
+    """Get the most salient slices of a 3D volume (i.e. those with the most non-zero voxels)
+    and display them with nilearn plot_anat function.
+    Mostly for QC / tests purposes, not really for the pipeline itself
+    Args:
+        vol (np.ndarray): 3D volume
+
+    Returns:
+        tuple[int, int, int]: the indices of the most salient slice of each plane
+    """
+    if slices_ind is None:
+        # Salient slices are those with the most non-zero voxels. Find the max for each dim
+        X_slice = np.argmax(np.sum(vol > 0, axis=(1, 2)))
+        Y_slice = np.argmax(np.sum(vol > 0, axis=(0, 2)))
+        Z_slice = np.argmax(np.sum(vol > 0, axis=(0, 1)))
+        slices_ind = (X_slice, Y_slice, Z_slice)
+    else:
+        X_slice, Y_slice, Z_slice = slices_ind
+    plt.figure(figsize=(15, 5))
+    plt.subplot(1, 3, 1)
+    plt.imshow(vol[X_slice, :, :].T, cmap='gray', origin='lower')
+    plt.title(f'X slice {X_slice}')
+    plt.subplot(1, 3, 2)
+    plt.imshow(vol[:, Y_slice, :].T, cmap='gray', origin='lower')
+    plt.title(f'Y slice {Y_slice}')
+    plt.subplot(1, 3, 3)
+    plt.imshow(vol[:, :, Z_slice].T, cmap='gray', origin='lower')
+    plt.title(f'Z slice {Z_slice}')
+    plt.show()
+    return slices_ind

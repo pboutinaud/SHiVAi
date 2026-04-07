@@ -7,7 +7,7 @@ from nipype.interfaces import ants
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.quickshear import Quickshear
 
-from shivai.interfaces.image import Normalization, Conform, Crop, Resample_from_to
+from shivai.interfaces.image import CorrectAffine, Normalization, Conform, Crop, Resample_from_to
 from shivai.workflows.qc_preproc import qc_wf_add_swi
 from shivai.interfaces.shiva import (AntsRegistration_Contained,
                                      AntsApplyTransforms_Contained,
@@ -37,14 +37,19 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     workflow = Workflow(wf_name)
     workflow.base_dir = kwargs['BASE_DIR']
 
-    # Conforms the SWI image, must be connected to the datagrabber from the other workflow
+    # CorrectAffine must be connected to the datagrabber from the other workflow
+    correct_affine_swi = Node(CorrectAffine(), name="correct_affine_swi")
+    correct_affine_swi.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
+
     conform_swi = Node(Conform(),
                        name="conform_swi")
     conform_swi.inputs.dimensions = (256, 256, 256)
     conform_swi.inputs.voxel_size = kwargs['RESOLUTION']
     conform_swi.inputs.voxels_tolerance = kwargs['TOLERANCE']
     conform_swi.inputs.orientation = kwargs['ORIENTATION']
-    conform_swi.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
+    # conform_swi.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
+
+    workflow.connect(correct_affine_swi, 'corrected_img', conform_swi, 'img')
 
     # compute 6-dof coregistration parameters of conformed swi
     # to t1 cropped image
@@ -65,9 +70,9 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     swi_to_t1.inputs.metric = ['MI']
     swi_to_t1.inputs.radius_or_number_of_bins = [64]
     swi_to_t1.inputs.interpolation = 'WelchWindowedSinc'
-    swi_to_t1.inputs.shrink_factors = [[8, 4, 2, 1]]
+    swi_to_t1.inputs.shrink_factors = [[4, 2, 1, 1]]
     swi_to_t1.inputs.output_warped_image = True
-    swi_to_t1.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
+    swi_to_t1.inputs.smoothing_sigmas = [[4, 2, 1, 0]]
     swi_to_t1.inputs.sigma_units = ['mm']
     swi_to_t1.inputs.num_threads = 8
     swi_to_t1.inputs.number_of_iterations = [[1000, 500, 250, 125]]
@@ -78,6 +83,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     swi_to_t1.inputs.winsorize_lower_quantile = 0.005
     swi_to_t1.inputs.winsorize_upper_quantile = 0.995
     swi_to_t1.inputs.initial_moving_transform_com = 1
+    swi_to_t1.inputs.use_histogram_matching = False
 
     workflow.connect(conform_swi, 'resampled', swi_to_t1, 'moving_image')
 
@@ -135,7 +141,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     datagrabber = preproc_wf.get_node('datagrabber')
     crop = preproc_wf.get_node('crop')
     mask_to_crop = preproc_wf.get_node('mask_to_crop')
-    preproc_wf.connect(datagrabber, 'img3', workflow, 'conform_swi.img')
+    preproc_wf.connect(datagrabber, 'img3', workflow, 'correct_affine_swi.img')
     preproc_wf.connect(crop, 'cropped', workflow, 'swi_to_t1.fixed_image')
     preproc_wf.connect(mask_to_crop, 'resampled_image', mask_to_swi, 'input_image')  # using "workflow, 'mask_to_swi.input_image'" does not work for some reason...
 

@@ -34,7 +34,7 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
     # Correct affine if necessary
     correct_flair = Node(CorrectAffine(),
                          name='correct_flair')
-
+    correct_flair.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
     crop = workflow.get_node('crop')
     img1_norm = workflow.get_node('img1_final_intensity_normalization')
     mask_to_crop = workflow.get_node('mask_to_crop')
@@ -103,9 +103,9 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
         flair_to_t1.inputs.metric = ['MI']
         flair_to_t1.inputs.radius_or_number_of_bins = [64]
         flair_to_t1.inputs.interpolation = kwargs['INTERPOLATION']
-        flair_to_t1.inputs.shrink_factors = [[8, 4, 2, 1]]
+        flair_to_t1.inputs.shrink_factors = [[4, 2, 1, 1]]
         flair_to_t1.inputs.output_warped_image = True
-        flair_to_t1.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
+        flair_to_t1.inputs.smoothing_sigmas = [[4, 2, 1, 0]]
         flair_to_t1.inputs.sigma_units = ['mm']
         flair_to_t1.inputs.num_threads = 8
         flair_to_t1.inputs.number_of_iterations = [[1000, 500, 250, 125]]
@@ -115,6 +115,7 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
         flair_to_t1.inputs.winsorize_lower_quantile = 0.005
         flair_to_t1.inputs.winsorize_upper_quantile = 0.995
         flair_to_t1.inputs.initial_moving_transform_com = 1
+        flair_to_t1.inputs.use_histogram_matching = False
 
         workflow.connect(correct_flair, 'corrected_img',
                          flair_to_t1, 'moving_image')

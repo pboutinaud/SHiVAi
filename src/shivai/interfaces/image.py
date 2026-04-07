@@ -7,7 +7,7 @@ from shivai.postprocessing.pvs import quantify_clusters
 from shivai.postprocessing.basalganglia import create_basalganglia_slice_mask
 from shivai.postprocessing.wmh import metrics_clusters_latventricles
 from shivai.utils.stats import prediction_metrics, get_mask_regions
-from shivai.utils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask, seg_cleaner
+from shivai.utils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask, seg_cleaner, affine_check
 from shivai.utils.quality_control import create_edges, save_histogram, bounding_crop, overlay_brainmask
 from shivai.utils.misc import label_clusters, cluster_registration
 from shivai.interfaces.container import ContainerCommandLine, ContainerInputSpec
@@ -86,7 +86,7 @@ class ConformInputSpec(BaseInterfaceInputSpec):
                               desc="orientation of image volume brain",
                               usedefault=True)
 
-    ignore_bad_affine = traits.Bool(False,
+    ignore_bad_affine = traits.Bool(True,
                                     mandatory=False,
                                     usedefault=True,
                                     desc='If True, does not check if the affine is correct')
@@ -187,33 +187,10 @@ class Conform(BaseInterface):
 
         if not self.inputs.ignore_bad_affine:
             # Create new affine (no rotation, centered on center of mass) if the affine is corrupted
-            rot, trans = nib.affines.to_matvec(img.affine)
-            rot_norm = rot.dot(np.diag(1/ori_vox_size))  # putting the rotation in isotropic space
-            test1 = np.isclose(rot_norm.dot(rot_norm.T), np.eye(3), atol=correction_thr).all()  # rot x rot.T must give an indentity matrix
-            test2 = np.isclose(np.abs(np.linalg.det(rot_norm)), 1, atol=correction_thr)  # Determinant for the rotation must be 1
-            if not all([test1, test2]):
-                warn_msg = (
-                    f"BAD AFFINE: in {fname}\n"
-                    "The image's affine is corrupted (not encoding a proper rotation).\n"
-                    "To avoid problems during registration, a new affine was created using the center of mass as origin and "
-                    "ignoring any rotation specified by the affine (but keeping voxel dim and left/right orientation).\n"
-                    "This will misalign the masks (brain masks and cSVD biomarkers) compared to the raw images but will not "
-                    "be a problem if you use the intensity normalized images from the img_preproc folder of the results."
-                )
-                warnings.warn(warn_msg)
-                vol = img.get_fdata()
-                cdg_ijk = np.round(ndimage.center_of_mass(vol))
-                # As the affine may be corrupted, we discard it and create a simplified version (without rotations)
-                # Use io_orientation to correctly determine the dominant world axis AND sign for every voxel axis,
-                # not just the first one (previously only L/R was preserved via pixdim[0], causing A/P and S/I flips
-                # on oblique acquisitions).
-                ornt = io_orientation(img.affine)
-                simplified_rot = np.zeros((3, 3))
-                for vox_ax, (world_ax, sign) in enumerate(ornt):
-                    simplified_rot[int(world_ax), vox_ax] = sign * ori_vox_size[vox_ax]
-                trans_centered = -simplified_rot.dot(cdg_ijk)
-                simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
-                img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
+            affine_bad, img = affine_check(img, ori_vox_size, correction_thr, mild_thr=0.00005)
+            if affine_bad:
+                simplified_affine_centered = img.affine.copy()
+
         setattr(self, 'corrected_affine', simplified_affine_centered)
         setattr(self, 'original_affine', original_affine if simplified_affine_centered is not None else None)
 
@@ -255,6 +232,12 @@ class CorrectAffineInputSpec(BaseInterfaceInputSpec):
     """Input parameter to correct affine of a NIfTI image"""
     img = traits.File(exists=True, desc='NIfTI image file to process',
                       mandatory=True)
+
+    correction_threshold = traits.Float(0.005,
+                                        usedefault=True,
+                                        mandatory=False,
+                                        desc=('Threshold for detecting bad affine (rotation matrix not close enough to a proper rotation). ')
+                                        )
 
 
 class CorrectAffineOutputSpec(TraitedSpec):
@@ -298,36 +281,13 @@ class CorrectAffine(BaseInterface):
 
         ori_vox_size = img.header["pixdim"][1:4]
 
-        rot, trans = nib.affines.to_matvec(img.affine)
-        rot_norm = rot.dot(np.diag(1/ori_vox_size))  # putting the rotation in isotropic space
-        test1 = np.isclose(rot_norm.dot(rot_norm.T), np.eye(3), atol=0.0001).all()  # rot x rot.T must give an indentity matrix
-        test2 = np.isclose(np.abs(np.linalg.det(rot_norm)), 1, atol=0.0001)  # Determinant for the rotation must be 1
-        if not all([test1, test2]):
-            warn_msg = (
-                f"BAD AFFINE: in {fname}\n"
-                "The image's affine is corrupted (not encoding a proper rotation).\n"
-                "To avoid problems during registration, a new affine was created using the center of mass as origin and "
-                "ignoring any rotation specified by the affine (but keeping voxel dim and left/right orientation).\n"
-                "This will misalign the masks (brain masks and cSVD biomarkers) compared to the raw images but will not "
-                "be a problem if you use the intensity normalized images from the img_preproc folder of the results."
-            )
-            warnings.warn(warn_msg)
-            vol = img.get_fdata()
-            cdg_ijk = np.round(ndimage.center_of_mass(vol))
-            # As the affine may be corrupted, we discard it and create a simplified version (without rotations)
-            # Use io_orientation to correctly determine the dominant world axis AND sign for every voxel axis,
-            # not just the first one (previously only L/R was preserved via pixdim[0], causing A/P and S/I flips
-            # on oblique acquisitions).
-            ornt = io_orientation(img.affine)
-            simplified_rot = np.zeros((3, 3))
-            for vox_ax, (world_ax, sign) in enumerate(ornt):
-                simplified_rot[int(world_ax), vox_ax] = sign * ori_vox_size[vox_ax]
-            trans_centered = -simplified_rot.dot(cdg_ijk)
-            simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
-            img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
+        affine_bad, img = affine_check(img, ori_vox_size, self.inputs.correction_threshold)
+        if affine_bad:
+            simplified_affine_centered = img.affine.copy()
         setattr(self, 'corrected_affine', simplified_affine_centered)
         setattr(self, 'original_affine', original_affine if simplified_affine_centered is not None else None)
         _, base, _ = split_filename(fname)
+        base = base.replace(' ', '_').replace('.', '_')  # Clean the base name to avoid issues
         nib.save(img, base + '_corrected.nii.gz')
 
         return runtime
@@ -337,6 +297,7 @@ class CorrectAffine(BaseInterface):
         outputs = self.output_spec().get()
         fname = self.inputs.img
         _, base, _ = split_filename(fname)
+        base = base.replace(' ', '_').replace('.', '_')  # Clean the base name to avoid issues
         outputs["corrected_img"] = os.path.abspath(base + '_corrected.nii.gz')
         if self.corrected_affine is not None:
             outputs['corrected_affine'] = self.corrected_affine
