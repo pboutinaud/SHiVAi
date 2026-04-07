@@ -68,9 +68,9 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     swi_to_t1.inputs.metric = ['MI']
     swi_to_t1.inputs.radius_or_number_of_bins = [64]
     swi_to_t1.inputs.interpolation = 'WelchWindowedSinc'
-    swi_to_t1.inputs.shrink_factors = [[8, 4, 2, 1]]
+    swi_to_t1.inputs.shrink_factors = [[4, 2, 1, 1]]
     swi_to_t1.inputs.output_warped_image = True
-    swi_to_t1.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
+    swi_to_t1.inputs.smoothing_sigmas = [[4, 2, 1, 0]]
     swi_to_t1.inputs.sigma_units = ['mm']
     swi_to_t1.inputs.num_threads = 8
     swi_to_t1.inputs.number_of_iterations = [[1000, 500, 250, 125]]
@@ -81,6 +81,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     swi_to_t1.inputs.winsorize_lower_quantile = 0.005
     swi_to_t1.inputs.winsorize_upper_quantile = 0.995
     swi_to_t1.inputs.initial_moving_transform_com = 1
+    swi_to_t1.inputs.use_histogram_matching = False
 
     workflow.connect(conform_swi, 'resampled', swi_to_t1, 'moving_image')
 
