@@ -607,6 +607,9 @@ def seg_cleaner(raw_seg: np.ndarray, max_size: int = 300, ignore_labels: list = 
 def affine_check(img: nib.Nifti1Image, ori_vox_size: np.ndarray, correction_thr: float,
                  mild_thr: float = 5e-5) -> tuple[bool, nib.Nifti1Image]:
     """Checks if the affine encodes a valid orthonormal rotation (up to voxel scaling).
+    Also set the sform and qform to be equal to avoid downstream issues with ANTs vs. Nibabel.
+    Try to keep the sform, but if non orthogonality is detected tries to keep the qform. If both fail
+    the test, will keep the sform and will try to correct it as described below.
 
     Two-tier correction strategy:
     - Mildly corrupted (mild_thr <= deviation < correction_thr): corrected to the
@@ -625,11 +628,23 @@ def affine_check(img: nib.Nifti1Image, ori_vox_size: np.ndarray, correction_thr:
     Returns:
         (affine_was_bad, corrected_img): bool flag and the image (affine replaced if bad)
     """
+    sform = img.get_sform()
+    qform = img.get_qform()
+
     corrected = False
-    rot, trans = nib.affines.to_matvec(img.affine)
+    rot, trans = nib.affines.to_matvec(sform)
     rot_norm = rot.dot(np.diag(1/ori_vox_size))  # putting the rotation in isotropic space
     deviation = np.abs(rot_norm.dot(rot_norm.T) - np.eye(3)).max()
-    # test2 = np.isclose(np.abs(np.linalg.det(rot_norm)), 1, atol=correction_thr, rtol=0)  # Determinant for the rotation must be 1
+
+    # If the sform is bad but the qform is good, we keep the qform only
+    if mild_thr <= deviation:
+        rot2, trans2 = nib.affines.to_matvec(qform)
+        rot_norm2 = rot2.dot(np.diag(1/ori_vox_size))
+        deviation2 = np.abs(rot_norm2.dot(rot_norm2.T) - np.eye(3)).max()
+        if deviation2 < mild_thr:
+            img.set_sform(qform)
+
+    # If both sform and qform fail the test, we try to correct the sform
     if mild_thr <= deviation < correction_thr:
         U, S, Vt = np.linalg.svd(rot_norm)
         # Mildly corrupted: project onto the nearest orthogonal matrix.
