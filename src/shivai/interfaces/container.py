@@ -303,6 +303,16 @@ class ContainerCommandLine(CommandLine):
                 except AttributeError:
                     pass  # os.getuid() not available (e.g. Windows)
 
+        # Auto-inject working directory for Docker when not explicitly provided.
+        # Some tools (e.g. quickshear) write outputs using relative paths;
+        # without an explicit -w flag the container defaults to / where the
+        # mapped user has no write permission.
+        if self.inputs.container_runtime == 'docker':
+            wd_val = getattr(self.inputs, 'container_working_directory', None)
+            if wd_val is None or not isdefined(wd_val) or not wd_val:
+                cwd = os.path.realpath(os.getcwd())
+                result.insert(0, f'-w {cwd}')
+
         return result
 
     def _parse_inputs(self, skip=None):
