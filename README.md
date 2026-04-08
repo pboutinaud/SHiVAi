@@ -102,7 +102,7 @@ Next, see [Running a contained SHiVAi](#running-shivai-from-an-apptainer-contain
 
 ### Fully contained process (Docker)
 
-Shivai was mostlydevelopped to run with Apptainer, but we also provide Dockerfiles to use Docker as a containter solution. It will, however, requirement a little more work on your part to run the process.
+Shivai was mostly developped to run with Apptainer, but we also provide Dockerfiles to use Docker as a containter solution. It will, however, requirement a little more work on your part to run the process.
 
 1. Install Docker and be sure to have root access (needed to build and run the images)
 
