@@ -54,7 +54,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     # compute 6-dof coregistration parameters of conformed swi
     # to t1 cropped image
     container_runtime = kwargs.get('CONTAINER_RUNTIME')
-    if container_runtime:
+    if kwargs['CONTAINERIZE_NODES']:
         swi_to_t1 = Node(AntsRegistration_Contained(), name='swi_to_t1')
         bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
@@ -88,7 +88,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     workflow.connect(conform_swi, 'resampled', swi_to_t1, 'moving_image')
 
     # Application of the t1 to swi transformation to the t1 mask
-    if container_runtime:
+    if kwargs['CONTAINERIZE_NODES']:
         mask_to_swi = Node(AntsApplyTransforms_Contained(), name="mask_to_swi")
         bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
@@ -104,7 +104,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     workflow.connect(conform_swi, 'resampled', mask_to_swi, 'reference_image')
 
     # Defacing the conformed image
-    if container_runtime:
+    if kwargs['CONTAINERIZE_NODES']:
         defacing_swi = Node(Quickshear_Contained(), name="defacing_swi")
         bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),

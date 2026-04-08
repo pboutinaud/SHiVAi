@@ -51,7 +51,7 @@ def genWorkflow(**kwargs) -> Workflow:
     # Creating the specific Synthseg nodes
     # First the synthseg node
     container_runtime = kwargs.get('CONTAINER_RUNTIME')
-    if container_runtime and not kwargs['PREP_SETTINGS']['local_synthseg']:
+    if kwargs['CONTAINERIZE_NODES'] and not kwargs['PREP_SETTINGS']['local_synthseg']:
         gpu = not kwargs['BRAIN_SEG'] == 'synthseg_cpu'
         bind_list = [
             (kwargs['DATA_DIR'], kwargs['DATA_DIR'], 'ro'),

@@ -65,8 +65,9 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
     #                  mask_to_img2, 'reference_image')
 
     # Defacing the conformed image (uses the conformed mask from the 'unpreconform' node)
+
     container_runtime = kwargs.get('CONTAINER_RUNTIME')
-    if container_runtime:
+    if kwargs['CONTAINERIZE_NODES']:
         defacing_flair = Node(Quickshear_Contained(), name="defacing_flair")
         bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
@@ -86,7 +87,7 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
     else:
         # compute 6-dof coregistration parameters of accessory scan
         # to cropped t1 image
-        if container_runtime:
+        if kwargs['CONTAINERIZE_NODES']:
             flair_to_t1 = Node(AntsRegistration_Contained(), name="flair_to_t1")
             bind_list = [
                 (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),

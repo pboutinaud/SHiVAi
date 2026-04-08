@@ -107,7 +107,7 @@ def genWorkflow(**kwargs) -> Workflow:
             if segtype in ['synthseg', 'freesurfer']:
                 prediction_metrics.inputs.brain_seg_type = segtype
                 container_runtime = kwargs.get('CONTAINER_RUNTIME')
-                if container_runtime:
+                if kwargs['CONTAINERIZE_NODES']:
                     seg_to_swi = Node(AntsApplyTransforms_Contained(), name="seg_to_swi")
                     bind_list = [
                         (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
@@ -140,7 +140,7 @@ def genWorkflow(**kwargs) -> Workflow:
                 prediction_metrics.inputs.region_dict = kwargs['CUSTOM_LUT']
 
                 container_runtime = kwargs.get('CONTAINER_RUNTIME')
-                if container_runtime:
+                if kwargs['CONTAINERIZE_NODES']:
                     seg_to_swi = Node(AntsApplyTransforms_Contained(), name="seg_to_swi")
                     bind_list = [
                         (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),

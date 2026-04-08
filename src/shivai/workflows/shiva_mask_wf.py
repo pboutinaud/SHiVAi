@@ -36,7 +36,7 @@ def genWorkflow(**kwargs) -> Workflow:
     # First prediction node for rough mask creation
     descriptor = kwargs['BRAINMASK_DESCRIPTOR']
     container_runtime = kwargs.get('CONTAINER_RUNTIME')
-    if container_runtime:
+    if kwargs['CONTAINERIZE_NODES']:
         pre_brain_mask = Node(PredictContained(), name="pre_brain_mask")
         bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
@@ -107,7 +107,7 @@ def genWorkflow(**kwargs) -> Workflow:
                      crop_with_premask, 'roi_mask')
 
     # New better mask creation
-    if container_runtime:
+    if kwargs['CONTAINERIZE_NODES']:
         proper_brain_mask = Node(PredictContained(), name="proper_brain_mask")
         bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),

@@ -36,7 +36,7 @@ def graft_dcm2nii(workflow: Workflow, **kwargs):
                 reconnections.append((grab_out, connected_node, node_in))
                 if grab_out not in dmc2nii_nodes.keys():
                     container_runtime = kwargs.get('CONTAINER_RUNTIME')
-                    if container_runtime:
+                    if kwargs['CONTAINERIZE_NODES']:
                         dcm2nii = Node(Dcm2niix_Contained(), f'dicom2nifti_{grab_out}')
                         bind_list = [
                             ('`pwd`', '`pwd`', 'rw'),

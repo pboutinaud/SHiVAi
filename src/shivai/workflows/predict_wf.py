@@ -27,7 +27,7 @@ def genWorkflow(**kwargs) -> Workflow:
         lpred = pred.lower()
         # Prediction Node set-up
         container_runtime = kwargs.get('CONTAINER_RUNTIME')
-        if container_runtime:
+        if kwargs['CONTAINERIZE_NODES']:
             predict_node = Node(Predict_Multi_Contained(), name=f'predict_{lpred}')
             predict_node.inputs.out_dir = '/mnt/data'
             bind_list = [

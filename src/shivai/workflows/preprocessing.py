@@ -106,7 +106,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # Defacing the conformed image
     container_runtime = kwargs.get('CONTAINER_RUNTIME')
-    if container_runtime:
+    if kwargs['CONTAINERIZE_NODES']:
         defacing_img1 = Node(Quickshear_Contained(), name="defacing_img1")
         bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
