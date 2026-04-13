@@ -2,6 +2,28 @@
 
 All notable changes to the SHiVAi project will be documented in this file.
 
+## [v0.5.8] - 2026-04-13
+
+### Added
+
+- Full Docker support for containerized and mixed approach SHiVAi workflows
+- New `.dockerignore` and improved Docker images (main + SynthSeg)
+
+### Fixed
+
+- Periventricular voxel handling in deep GM nuclei for WMH analysis
+- Affine consistency fixes (`sform`/`qform`) in preprocessing and registration flow
+- Container interface/debug fixes for mixed Singularity/Apptainer usage
+- Working-directory and argument parsing fixes for Docker execution
+
+### Changed
+
+- Default container backend set to `singularity` for retrocompatibility
+- Rewired preprocessing to apply affine correction earlier in workflows
+- Updated ANTs registration parameters for better support of large voxel sizes
+- Lobar segmentation optimization and filename normalization improvements
+- Updated READMEs and container recipes for the Docker workflow
+
 ## [v0.5.7] - 2026-03-25
 
 ### Added

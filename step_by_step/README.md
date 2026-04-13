@@ -51,7 +51,7 @@ Two choices are available here, depending on the container solution you chose, A
 
 ### SHiVAi Apptainer image
 
-Download `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/bbWPx1QAZ)
+Download `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/ga270luKd)
 
 ### SHiVAi Docker image
 

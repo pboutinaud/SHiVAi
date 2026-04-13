@@ -10,16 +10,10 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 <br clear="right"/>
 
-## What's New in v0.5.7 (2026-03-25)
+## What's New in v0.5.8 (2026-04-13)
 
-- Added basal ganglia + thalamus to deep WM for WMH statistics
-- Added initial transform to ANTs registration using center of mass
-- Proper winner-takes-all logic for priority labels
-- Added batch size parameter to SHiVAi configuration
-- Workflow graph is now optional (requires graphviz)
-- Fixed FreeSurfer case handling for priority labels on WMH
-- Step-by-step README for the mixed approach
-- Updated .sif download link
+- Added basal ganglia + thalamus to deep WM for WMH statistics, and their periventricular voxels to the periventricular WM
+- Full support for Docker containerization, and update of the step-by-step README files linked to each case ([fully containerized](step_by_step/README.md) and [mixed](step_by_step_mixed_approach/README.md) approaches)
 
 > See the full [CHANGELOG](CHANGELOG.md) for all versions.
 
@@ -99,7 +93,7 @@ SHiVAi relies on the access to brain masks in order to crop the input volumes to
 1. You will need to have **Apptainer** installed (previously known as **Singularity**):
 <https://apptainer.org/docs/user/main/quick_start.html>
 
-2. Download the Apptainer image (.sif file) from [https://cloud.efixia.com/sharing/bbWPx1QAZ](https://cloud.efixia.com/sharing/bbWPx1QAZ) (it may take a while, the image weighs about 4GB).
+2. Download the Apptainer image (.sif file) from [https://cloud.efixia.com/sharing/ga270luKd](https://cloud.efixia.com/sharing/ga270luKd) (it may take a while, the image weighs about 4GB).
     Let's assume you saved it in `/myHome/myProject/shivai.sif`
 
 3. From the Shivai repository (where you are reading this), navigate to the [apptainer folder](apptainer/) and download [run_shiva.py](apptainer/run_shiva.py) and [config_example.yml](apptainer/config_example.yml)

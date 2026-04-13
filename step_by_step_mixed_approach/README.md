@@ -66,7 +66,7 @@ In both cases, you will also need:
 
 ### SHiVAi Apptainer image
 
-Download the `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/bbWPx1QAZ) (about 4GB).
+Download the `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/ga270luKd) (about 4GB).
 
 Let's assume you saved it as `~/myShivaiProject/shivai.sif`.
 
