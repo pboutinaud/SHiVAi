@@ -11,7 +11,8 @@ from nipype.pipeline.engine import Node, Workflow
 
 from shivai.workflows.preprocessing import genWorkflow as gen_preproc_wf
 
-from shivai.interfaces.shiva import SynthSeg, SynthsegSingularity
+from shivai.interfaces.shiva import SynthSeg, SynthsegContained
+from shivai.utils.container_config import configure_container_node
 
 from shivai.interfaces.image import Parc_from_Synthseg, Segmentation_Cleaner, Resample_from_to
 
@@ -41,27 +42,28 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow = gen_preproc_wf(**kwargs)
 
     # Preparing the rewiring of the workflow with the new nodes
-    datagrabber = workflow.get_node('datagrabber')
+    correct_affine_img1 = workflow.get_node('correct_affine_img1')
+    correct_affine_seg = workflow.get_node('correct_affine_seg')
     mask_to_conform = workflow.get_node('mask_to_conform')
     crop = workflow.get_node('crop')
-    workflow.disconnect(datagrabber, 'seg', mask_to_conform, 'moving_image')
+    workflow.remove_nodes([correct_affine_seg])
 
     # Creating the specific Synthseg nodes
     # First the synthseg node
+    container_runtime = kwargs.get('CONTAINER_RUNTIME')
     if kwargs['CONTAINERIZE_NODES'] and not kwargs['PREP_SETTINGS']['local_synthseg']:
-        synthseg = Node(SynthsegSingularity(),
-                        name='synthseg')
-        synthseg.inputs.snglrt_bind = [
+        gpu = not kwargs['BRAIN_SEG'] == 'synthseg_cpu'
+        bind_list = [
             (kwargs['DATA_DIR'], kwargs['DATA_DIR'], 'ro'),
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),  # Needed if input file from dcm2nii (so in the results folder)
             ('`pwd`', '/mnt/data', 'rw'),]
-        synthseg.inputs.snglrt_image = kwargs['SYNTHSEG_IMAGE']
+        synthseg = Node(SynthsegContained(),
+                        name='synthseg')
+        configure_container_node(synthseg, container_runtime, kwargs['SYNTHSEG_IMAGE'], bind_list, gpu=gpu)
         synthseg.inputs.out_filename = '/mnt/data/synthseg_parc.nii.gz'
         synthseg.inputs.vol = '/mnt/data/volumes.csv'
         if kwargs['PREP_SETTINGS']['ss_qc']:
             synthseg.inputs.qc = '/mnt/data/qc.csv'
-        if not kwargs['BRAIN_SEG'] == 'synthseg_cpu':
-            synthseg.inputs.snglrt_enable_nvidia = True
     else:
         synthseg = Node(SynthSeg(),
                         name='synthseg')
@@ -89,7 +91,7 @@ def genWorkflow(**kwargs) -> Workflow:
     custom_parc = Node(Parc_from_Synthseg(), name='custom_parc')
 
     # All the connections and rewiring
-    workflow.connect(datagrabber, 'img1', synthseg, 'input')
+    workflow.connect(correct_affine_img1, 'corrected_img', synthseg, 'input')
     workflow.connect(synthseg, 'segmentation', seg_cleaning, 'input_seg')
     workflow.connect(seg_cleaning, 'ouput_seg', mask_to_conform, 'moving_image')
     workflow.connect(mask_to_conform, 'resampled_image', seg_to_crop, 'moving_image')

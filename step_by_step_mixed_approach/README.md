@@ -1,20 +1,20 @@
 # SHiVAi Quick Start: Mixed Approach
 
-This guide summarizes the essential steps to run SHiVAi using the **mixed approach**: the shivai package is installed locally (without TensorFlow, which avoids dependency conflicts), while the Apptainer image is used for the deep-learning steps that require TensorFlow and CUDA. This is the **recommended approach** as it supports parallelization of the pipeline steps (e.g. via SLURM on HPC clusters), unlike the fully contained approach.
+This guide summarizes the essential steps to run SHiVAi using the **mixed approach**: the shivai package is installed locally (without TensorFlow, which avoids dependency conflicts), while a container image (Apptainer or Docker) is used for the deep-learning steps that require TensorFlow and CUDA. This is the **recommended approach** as it supports parallelization of the pipeline steps (e.g. via SLURM on HPC clusters), unlike the fully contained approach.
 
 Here we will run bi-modal PVS and WMH segmentation, using the Synthseg masking scheme, on BIDS-structured data. Other segmentations (lacunes, CMB, mono-modal PVS) follow exactly the same process and can be added by adapting the models and predictions described below.
 
 In this guide, we will assume everything is stored in a folder called `~/myShivaiProject/` as an example.
 
 > Note:\
-> SHiVAi offers a lot of flexibility regarding inputs and processing, but for the sake of simplicity in this step-by-step README, we will only focus on basic commands.
+> SHiVAi offers a lot of flexibility regarding inputs and processing, but for the sake of simplicity in this step-by-step README, we will only focus on basic commands. For more information, once installed, you can run `shiva --help` for a complete description of all available arguments.
 ---
 
 ## 1. Requirements
 
 ### System
 
-- **Linux machine** with GPU (16GB memory recommended) — CPU-only processing is *possible* but very slow.
+- **Linux machine** with GPU (16GB memory recommended) — CPU-only processing is *possible* but slower.
 
 ### Data
 
@@ -36,11 +36,23 @@ For reproducible statistical analysis, a brain parcellation is also required.
 
 - If you don't have such a parcellation on hand, you can:
   - Download, install, and run Freesurfer on your dataset (see the [Freesurfer website](https://surfer.nmr.mgh.harvard.edu/) for more info).
-  - Or use our Synthseg integration that will compute everything for you. If you want to use our Synthseg integration with the Apptainer image, you will need to be a super-user (capable of doing `sudo` commands) on your computer during the build (so only once), as you will need to build a Synthseg Apptainer image. Everything related to this is described in the [Synthseg Apptainer image section](#synthseg-apptainer-image-optional).
+  - Or use our Synthseg integration that will compute everything for you. However, if you want to use our Synthseg integration, you will need to build the container images yourself. If you chose the Apptainer solution, you will need to be a super-user (capable of doing `sudo` commands) on your computer during the build (so only once). If you chose the Docker solution, you will need to be part of the `docker` group on the machine. Everything related to this is described in the [Synthseg container image section](#synthseg-container-image-optional).
 
 ### Software
 
+Two choices are available here, depending on the container solution you chose, Apptainer or Docker. We provide the Apptainer image, but you will need to build the Docker image yourself.
+
+#### With Apptainer:
+
 - **Apptainer** installed ([Install Guide](https://apptainer.org/docs/user/main/quick_start.html))
+
+#### With Docker:
+
+- **Docker installed** (check the [Install Docker Engine page](https://docs.docker.com/engine/install/) or ask your system admin)
+- Being part of the `docker` user group on your machine.
+
+In both cases, you will also need:
+
 - **Python 3.11** distribution (or more recent)
 - **A Python environment manager** like `venv` (should be natively available with your Python distribution)
 
@@ -57,6 +69,16 @@ For reproducible statistical analysis, a brain parcellation is also required.
 Download the `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/bbWPx1QAZ) (about 4GB).
 
 Let's assume you saved it as `~/myShivaiProject/shivai.sif`.
+
+### SHiVAi Docker image
+
+1. Download the whole [SHiVAi source code, including the Dockerfile file](..). Let's assume it is saved in `~/myShivaiProject/Shivai_source/`.
+2. Open a terminal, navigate to `~/myShivaiProject/Shivai_source/` and run:
+  ```bash
+  docker build --rm -t myId/shivai:latest -t myId/shivai:x.x.x .
+  ```
+  > Replace `myId` by your name or another recognizable ID, and the `x.x.x` tag to the current SHiVAi version.
+3. To check if the image is properly installed, run `docker images` and check the displayed list of images.
 
 ### Trained AI models
 
@@ -92,13 +114,18 @@ You should then have something like this:
 > Notes:\
 > The exact name of the json files does not matter. It must just match the one that will be specified in the configuration file ([as described in the relevent section](#prepare-the-configuration-file)).
 
-### Synthseg Apptainer image (optional)
+### Synthseg container image (optional)
 
 If you want to use our Synthseg parcellation pipeline, fully integrated in the process, follow the steps in this section. If you already have your own parcellation, you can skip this.
 
+We provide two types of container solutions: Apptainer and Docker. However, the container solution used **must be the same** between SHiVAi and Synthseg.
+
 Create a folder for Synthseg-related files (e.g. `~/myShivaiProject/synthseg/`).
 
-Download the [Synthseg Apptainer recipe](../apptainer/apptainer_synthseg_tf.recipe) and the [precomp_synthseg.py script](../apptainer/precomp_synthseg.py), and put them in `~/myShivaiProject/synthseg/`.
+Download the files from the ["apptainer" folder](../apptainer/) (which also contains the Docker implementation): the [Synthseg Apptainer recipe](../apptainer/apptainer_synthseg_tf.recipe) and the [precomp_synthseg.py script](../apptainer/precomp_synthseg.py), and put them in `~/myShivaiProject/synthseg/`.
+
+> Notes:\
+> If you are using the Docker image, you should already have downloaded everything you need in `~/myShivaiProject/Shivai_source/apptainer`, set up in the [SHiVAi Docker image](#shivai-docker-image) section. Adapt your file structure as needed or copy-paste the `Shivai_source/apptainer` content to the `synthseg` folder.
 
 Download the Synthseg models from the [MIT file-sharing system](https://mitprod-my.sharepoint.com/:u:/g/personal/bbillot_mit_edu/Ebqxo6YgUmBJkOML0m8NSXgBrhaHG7iqClFXRXPinS6FGw?e=DzKf1p).
 
@@ -110,11 +137,14 @@ Put the model files in the synthseg folder. You should now have:
 ```txt
 ~/myShivaiProject/synthseg/
                     ├── apptainer_synthseg_tf.recipe
+                    ├── synthseg.Dockerfile
                     ├── precomp_synthseg.py
                     └── SynthSeg_models.zip
 ```
 
-Build the Apptainer image. In a terminal, from the synthseg folder, run:
+#### Building the Synthseg Apptainer image
+
+In a terminal, from the synthseg folder, run:
 
 ```bash
 apptainer build synthseg.sif apptainer_synthseg_tf.recipe
@@ -125,7 +155,21 @@ apptainer build synthseg.sif apptainer_synthseg_tf.recipe
 
 This will generate the `synthseg.sif` image.
 
+#### Building the Synthseg Docker image
+
+In a terminal, from the synthseg folder, run:
+
+```bash
+docker build --rm -t myId/synthseg_shivai:latest
+```
+
+> In the above command, you should replace `myId` by a proper ID (like your name), and you can change the `latest` tag by something more specific. We will just keep what was put here as an example in the following parts of the readme.
+
+This will locally install the Docker image to the machine.
+
 ### Prepare the Configuration file
+
+> We will assume here that we are using the Apptainer container solution. See below for the Docker implementation.
 
 Download [`config_example.yml`](../apptainer/config_example.yml) to your project directory and optionally rename it (e.g. `config.yml`). Edit it with a text editor:
 
@@ -140,6 +184,8 @@ In our case, the file should look something like this:
 model_path: ~/myShivaiProject/shivai_models
 apptainer_image: ~/myShivaiProject/shivai.sif
 synthseg_image: ~/myShivaiProject/synthseg/synthseg.sif
+
+container_runtime: apptainer
 
 parameters:
   brainmask_descriptor:
@@ -165,7 +211,18 @@ parameters:
   interpolation: 'WelchWindowedSinc'
 ```
 
-> The `apptainer_image` entry is **required** for the mixed approach because SHiVAi will delegate the TensorFlow-based steps (AI inference, and optionally brain masking) to the Apptainer container, as well as some other processes that require specific tools (like defacing), while running everything else locally.
+> The `apptainer_image` (or `docker_image`, see below) entry is **required** for the mixed approach because SHiVAi will delegate the TensorFlow-based steps (AI inference, and optionally brain masking) to the container, as well as some other processes that require specific tools (like defacing), while running everything else using the local environment.
+
+If you are using the Docker implementation, replace the first lines to look something like this, referencing the Docker images:
+```yaml
+docker_image: myId/shivai:latest
+synthseg_docker_image: myId/synthseg_shivai:latest
+container_runtime: docker 
+
+parameters:
+  ...
+```
+> You can change the `latest` tags to more specific tags if you set them up.
 
 ### Install the SHiVAi Python Package
 
@@ -180,7 +237,6 @@ pip install .
 > Notes:\
 > You don't need to create an new environment with `python3 -m venv ~/shivai_env` if you already have one ready, just activate it to install SHiVAi in it.\
 > You can check your Python version by running `python --version`.\
-> Unlike the traditional install, you do **not** need to install TensorFlow or CUDA locally — these are handled by the Apptainer image.\
 > As mentioned before, feel free to use any Python environment manager (e.g. `conda`).
 
 The `shiva` command line tool will then be available from within the activated environment.
@@ -262,7 +318,7 @@ shiva \
   --config ~/myShivaiProject/config.yml
 ```
 
-The `--containerized_nodes` flag tells SHiVAi to delegate the nodes that require TensorFlow, CUDA, ANTs, or other non-python tools to the Apptainer image, while the orchestration and python-specific steps run locally. The path to the Apptainer image is read from the `apptainer_image` entry in your config file.
+The `--containerized_nodes` flag tells SHiVAi to delegate the nodes that require TensorFlow, CUDA, ANTs, or other non-python tools to the container image (Apptainer or Docker), while the orchestration and python-specific steps run locally. The path to the container image is read from the `apptainer_image` or `docker_image` entry in your config file.
 
 Replace the paths with your actual folders.
 
@@ -341,6 +397,6 @@ The `segmentation` folder contains all segmented cSVD results and csv statistics
 
 **Notes:**
 
-- For the mixed approach, the `--containerized_nodes` flag is the key argument that routes GPU-intensive steps through the Apptainer image while keeping the rest local.
+- For the mixed approach, the `--containerized_nodes` flag is the key argument that routes GPU-intensive steps through the container image (Apptainer or Docker) while keeping the rest local.
 - For the fully contained (non-parallel) approach, see the [step_by_step README](../step_by_step/README.md).
 - For advanced options or troubleshooting, see the full [README](../README.md).

@@ -3,7 +3,8 @@ Shivai workflow for swomed
 """
 
 from nipype import Node, Workflow, IdentityInterface, DataGrabber
-from shivai.interfaces.shiva import Shivai_Singularity
+from shivai.interfaces.shiva import Shivai_Contained
+from shivai.utils.container_config import configure_container_node
 import os
 import yaml
 
@@ -39,9 +40,10 @@ def genWorkflow(**kwargs) -> Workflow:
     datagrabber.inputs.sort_filelist = True
     datagrabber.inputs.template = '%s/%s/*'
 
-    shivai_node = Node(Shivai_Singularity(),
+    container_runtime = config.get('container_runtime', 'singularity')
+    shivai_node = Node(Shivai_Contained(),
                        name='shivai_node')
-    # Singularity settings
+    # Container settings
     config_dir = os.path.dirname(kwargs['SHIVAI_CONFIG'])
     bind_list = [
         (config['model_path'], '/mnt/model', 'ro'),
@@ -58,9 +60,8 @@ def genWorkflow(**kwargs) -> Workflow:
             setattr(shivai_node.inputs, descriptor, kwargs[f'BIOMIST::{descriptor.upper()}'])
     if os.path.abspath(config_dir) != os.path.abspath(workflow.base_dir):
         bind_list.append((config_dir, config_dir, 'rw'))
-    shivai_node.inputs.snglrt_bind = bind_list
-    shivai_node.inputs.snglrt_image = config['apptainer_image']
-    shivai_node.inputs.snglrt_enable_nvidia = True
+    image_key = 'docker_image' if container_runtime == 'docker' else 'apptainer_image'
+    configure_container_node(shivai_node, container_runtime, config[image_key], bind_list)
     # Mandatory inputs:
     shivai_node.inputs.in_dir = workflow.base_dir
     shivai_node.inputs.out_dir = workflow.base_dir

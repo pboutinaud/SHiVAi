@@ -1,7 +1,8 @@
 
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.dcm2nii import Dcm2niix
-from shivai.interfaces.shiva import Dcm2niix_Singularity
+from shivai.interfaces.shiva import Dcm2niix_Contained
+from shivai.utils.container_config import configure_container_node
 from shivai.utils.misc import file_selector
 
 
@@ -34,13 +35,14 @@ def graft_dcm2nii(workflow: Workflow, **kwargs):
             if grab_out in ['img1', 'img2', 'img3']:  # Does not interpose dcm2nii for the "seg" output
                 reconnections.append((grab_out, connected_node, node_in))
                 if grab_out not in dmc2nii_nodes.keys():
+                    container_runtime = kwargs.get('CONTAINER_RUNTIME')
                     if kwargs['CONTAINERIZE_NODES']:
-                        dcm2nii = Node(Dcm2niix_Singularity(), f'dicom2nifti_{grab_out}')
-                        dcm2nii.inputs.snglrt_bind = [
+                        dcm2nii = Node(Dcm2niix_Contained(), f'dicom2nifti_{grab_out}')
+                        bind_list = [
                             ('`pwd`', '`pwd`', 'rw'),
                             (kwargs['DATA_DIR'], kwargs['DATA_DIR'], 'rw'),
                         ]
-                        dcm2nii.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+                        configure_container_node(dcm2nii, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
                     else:
                         dcm2nii = Node(Dcm2niix(), name=f'dicom2nifti_{grab_out}')
                     dcm2nii.inputs.anon_bids = True

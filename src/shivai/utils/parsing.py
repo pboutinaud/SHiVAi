@@ -205,7 +205,8 @@ def shivaParser():
                                 action='store_true')
 
     container_args.add_argument('--containerized_nodes',
-                                help='Used when the process uses the container to run specific nodes (prediction and registration)',
+                                help=('Used when the process uses the Apptainer/Singularity or Docker container '
+                                      'to run specific nodes (prediction and registration). Set the container type within the yaml config file.'),
                                 action='store_true')
 
     parser.add_argument('--local_synthseg',
@@ -263,7 +264,7 @@ def shivaParser():
                             'are available in the results folder. If you have subjects with missing preprocessed data, you will '
                             'need to run their processing separatly.'
                         ))
-    
+
     parser.add_argument('--save_graph',
                         action='store_true',
                         help='If selected, the workflow graph will be saved as a .svg file in the output folder. Requires Graphviz to be installed.')
@@ -295,13 +296,18 @@ def shivaParser():
                         default=None)
 
     # Manual input if no config file
+    parser.add_argument('--container_runtime',
+                        choices=['apptainer', 'singularity', 'docker'],
+                        default=None,
+                        help=('Container runtime to use when using containerized nodes. Only used if --containerized_nodes or --containerized_all are selected. '
+                              'Default is apptainer/singularity.'))
     parser.add_argument('--container_image',
                         default=None,
-                        help='path to the SHIV-AI apptainer image (.sif file)')
+                        help='path to the SHiVAI Apptainer image (.sif file) or name of the Docker image (e.g. "shivai:latest")')
 
     parser.add_argument('--synthseg_image',
                         default=None,
-                        help='path to the synthseg apptainer image (.sif file)')
+                        help='path to the Synthseg Apptainer image (.sif file) or name of the Docker image (e.g. "synthseg:latest")')
 
     parser.add_argument('--model',
                         default=None,
@@ -598,10 +604,28 @@ def set_args_and_check(inParser):
         args.config = os.path.abspath(args.config)
         with open(args.config, 'r') as file:
             yaml_content = yaml.safe_load(file)
+        print(yaml_content)
+
         if args.containerized_all or args.containerized_nodes:
-            args.container_image = yaml_content['apptainer_image']
-            if 'synthseg' in args.brain_seg and not args.brain_seg == 'synthseg_precomp':
-                args.synthseg_image = yaml_content['synthseg_image']
+            if args.container_runtime is None:
+                if 'container_runtime' not in yaml_content:
+                    args.container_runtime = 'singularity'  # default to singularity if not specified anywhere
+                else:
+                    args.container_runtime = yaml_content.get('container_runtime')
+
+            if args.container_runtime in ['apptainer', 'singularity']:
+                if args.container_image is None:
+                    args.container_image = yaml_content.get('apptainer_image')
+                if 'synthseg' in args.brain_seg and not args.brain_seg == 'synthseg_precomp' and args.synthseg_image is None:
+                    args.synthseg_image = yaml_content.get('synthseg_image')
+            elif args.container_runtime == 'docker':
+                if args.container_image is None:
+                    args.container_image = yaml_content.get('docker_image')
+                if 'synthseg' in args.brain_seg and not args.brain_seg == 'synthseg_precomp' and args.synthseg_image is None:
+                    args.synthseg_image = yaml_content.get('synthseg_docker_image')
+        print(f'Container runtime set to: {args.container_runtime}')
+        print(f'Container image set to: {args.container_image}')
+        print(f'SynthSeg image set to: {args.synthseg_image}')
         parameters = yaml_content['parameters']
         for param in config_params:
             if getattr(args, param) is None:  # Giving param as argument to the command line overrides the config.yml params
@@ -673,11 +697,11 @@ def set_args_and_check(inParser):
     if (args.containerized_all or args.containerized_nodes) and not args.container_image:
         inParser.error(
             'Using a container (with the "--containerized_all" or "containerized_nodes" arguments) '
-            'requires a container image (.sif file) but none was given. Add its path --container_image '
+            'requires a container image (.sif file or docker image name) but none was given. Add its path --container_image '
             'or in the configuration file (.yaml file).')
     if args.containerized_nodes and args.brain_seg in ['synthseg', 'synthseg_cpu'] and not args.synthseg_image:
         inParser.error(
-            'Using the "containerized_nodes" option with synthseg, but no synthseg apptainer image was provided')
+            'Using the "containerized_nodes" option with synthseg, but no synthseg apptainer or docker image was provided')
 
     if args.brain_seg == 'synthseg_precomp':
         args.synthseg_image = args.container_image  # This is just a dummy here to avoid problems

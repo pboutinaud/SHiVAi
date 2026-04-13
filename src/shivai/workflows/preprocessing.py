@@ -27,10 +27,10 @@ import os
 from nipype.pipeline.engine import Node, Workflow
 from nipype.interfaces.io import DataGrabber
 from nipype.interfaces.quickshear import Quickshear
-
-from shivai.interfaces.image import (Threshold, Normalization,
+from shivai.interfaces.image import (Threshold, Normalization, CorrectAffine,
                                      Conform, Crop, Resample_from_to)
-from shivai.interfaces.shiva import Quickshear_Singularity
+from shivai.interfaces.shiva import Quickshear_Contained
+from shivai.utils.container_config import configure_container_node
 from shivai.workflows.qc_preproc import gen_qc_wf
 
 
@@ -67,6 +67,10 @@ def genWorkflow(**kwargs) -> Workflow:
     datagrabber.inputs.sort_filelist = True
     datagrabber.inputs.template = '%s/%s/*.nii*'
 
+    correct_affine_img1 = Node(CorrectAffine(), name="correct_affine_img1")
+    correct_affine_img1.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
+    workflow.connect(datagrabber, 'img1', correct_affine_img1, 'img')
+
     # conform img1 to 1 mm isotropic, freesurfer-style (unless a tolerance marfin is given)
     conform = Node(Conform(),
                    name="conform")
@@ -74,20 +78,23 @@ def genWorkflow(**kwargs) -> Workflow:
     conform.inputs.voxel_size = kwargs['RESOLUTION']
     conform.inputs.voxels_tolerance = kwargs['TOLERANCE']
     conform.inputs.orientation = kwargs['ORIENTATION']
-    conform.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
+    # conform.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
     # conform.inputs.adaptive_dim = True  # adapt dimensions to keep FOV if tolerance kept some voxel sizes
 
-    workflow.connect(datagrabber, 'img1', conform, 'img')
+    workflow.connect(correct_affine_img1, 'corrected_img', conform, 'img')
 
     # conform mask to 256 256 256, same as anatomical conformed image (works even on cropped input like shiva mask)
+
+    correct_affine_seg = Node(CorrectAffine(), name="correct_affine_seg")
+    correct_affine_seg.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
+    workflow.connect(datagrabber, 'seg', correct_affine_seg, 'img')
+
     mask_to_conform = Node(Resample_from_to(),
                            name="mask_to_conform")
     mask_to_conform.inputs.spline_order = 0
 
-    workflow.connect(datagrabber, 'seg', mask_to_conform, 'moving_image')
+    workflow.connect(correct_affine_seg, 'corrected_img', mask_to_conform, 'moving_image')
     workflow.connect(conform, 'resampled', mask_to_conform, 'fixed_image')
-    workflow.connect(conform, 'corrected_affine', mask_to_conform, 'corrected_affine')
-    workflow.connect(conform, 'original_affine', mask_to_conform, 'original_affine')
 
     # binarize and clean conformed brain mask
     binarize_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="binarize_brain_mask")
@@ -98,12 +105,13 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.connect(mask_to_conform, 'resampled_image', binarize_brain_mask, 'img')
 
     # Defacing the conformed image
+    container_runtime = kwargs.get('CONTAINER_RUNTIME')
     if kwargs['CONTAINERIZE_NODES']:
-        defacing_img1 = Node(Quickshear_Singularity(), name="defacing_img1")
-        defacing_img1.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
-        defacing_img1.inputs.snglrt_bind = [
+        defacing_img1 = Node(Quickshear_Contained(), name="defacing_img1")
+        bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
             ('`pwd`', '`pwd`', 'rw')]
+        configure_container_node(defacing_img1, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
     else:
         defacing_img1 = Node(Quickshear(),
                              name='defacing_img1')

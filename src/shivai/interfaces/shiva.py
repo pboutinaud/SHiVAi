@@ -10,8 +10,8 @@ from nipype.interfaces.base import (traits, TraitedSpec,
                                     CommandLine, BaseInterface,
                                     isdefined)
 
-from shivai.interfaces.singularity import (SingularityCommandLine,
-                                           SingularityInputSpec)
+from shivai.interfaces.container import (ContainerCommandLine,
+                                         ContainerInputSpec)
 
 from nipype.interfaces.ants.registration import (RegistrationInputSpec,
                                                  RegistrationOutputSpec,
@@ -89,10 +89,10 @@ class PredictInputSpec(BaseInterfaceInputSpec):
                          desc='Set to a positive integer to ignore GPUs and use CPUs instead. Limit the CPU usage by the given number')
 
 
-class PredictSingularityInputSpec(SingularityInputSpec, PredictInputSpec):
-    """PredictVRS input specification (singularity mixin).
+class PredictContainedInputSpec(ContainerInputSpec, PredictInputSpec):
+    """Predict input specification (container mixin).
 
-    Inherits from Singularity command line fields.
+    Inherits from Container command line fields.
     """
 
 
@@ -116,12 +116,12 @@ class Predict(CommandLine):
         return outputs
 
 
-class PredictSingularity(SingularityCommandLine):
+class PredictContained(ContainerCommandLine):
     """Run predict to segment from reformated structural images.
 
-    Uses a 3D U-Net with tensorflow-gpu in a container (apptainer/singularity).
+    Uses a 3D U-Net with tensorflow-gpu in a container (Singularity or Docker).
     """
-    input_spec = PredictSingularityInputSpec
+    input_spec = PredictContainedInputSpec
     output_spec = PredictOutputSpec
     _cmd = 'shiva_predict'
 
@@ -129,6 +129,13 @@ class PredictSingularity(SingularityCommandLine):
         outputs = self.output_spec().get()
         outputs["segmentation"] = os.path.abspath(os.path.basename(str(self.inputs.out_filename)))
         return outputs
+
+
+# Backward-compatible aliases
+PredictSingularityInputSpec = PredictContainedInputSpec
+PredictDockerInputSpec = PredictContainedInputSpec
+PredictSingularity = PredictContained
+PredictDocker = PredictContained
 
 
 class Predict_Multi_InputSpec(BaseInterfaceInputSpec):
@@ -189,13 +196,13 @@ class Predict_Multi_InputSpec(BaseInterfaceInputSpec):
                          desc='Set to a positive integer to ignore GPUs and use CPUs instead. Limit the CPU usage by the given number')
 
 
-class Predict_Multi_SingularityInputSpec(SingularityInputSpec, Predict_Multi_InputSpec):
-    """PredictVRS input specification (singularity mixin).
+class Predict_Multi_ContainedInputSpec(ContainerInputSpec, Predict_Multi_InputSpec):
+    """Predict_Multi input specification (container mixin).
 
-    Inherits from Singularity command line fields.
+    Inherits from Container command line fields.
     """
     out_dir = traits.Directory(exists=False,
-                               desc='Folder where the results will be saved',  # Only for Singularity
+                               desc='Folder where the results will be saved',
                                argstr='--out_dir %s',
                                mandatory=True)
 
@@ -232,12 +239,12 @@ class Predict_Multi(CommandLine):
         return outputs
 
 
-class Predict_Multi_Singularity(SingularityCommandLine):
+class Predict_Multi_Contained(ContainerCommandLine):
     """Run predict to segment from reformated structural images.
 
-    Uses a 3D U-Net with tensorflow-gpu in a container (apptainer/singularity).
+    Uses a 3D U-Net with tensorflow-gpu in a container (Singularity or Docker).
     """
-    input_spec = Predict_Multi_SingularityInputSpec
+    input_spec = Predict_Multi_ContainedInputSpec
     output_spec = Predict_Multi_OutputSpec
     _cmd = 'shiva_predict_multi'
 
@@ -250,7 +257,7 @@ class Predict_Multi_Singularity(SingularityCommandLine):
                 return spec.argstr % (' '.join(sub_list), ' '.join(file_list))
             else:
                 return spec.argstr % (' '.join(file_list))
-        return super(Predict_Multi_Singularity, self)._singularity_format_arg(name, spec, value)
+        return super(Predict_Multi_Contained, self)._container_format_arg(name, spec, value)
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
@@ -258,6 +265,13 @@ class Predict_Multi_Singularity(SingularityCommandLine):
         outnames = [self.inputs.foutname.format(sub=sub) for sub in sub_list]
         outputs['segmentations'] = {sub: os.path.abspath(file) for sub, file in zip(sub_list, outnames)}
         return outputs
+
+
+# Backward-compatible aliases
+Predict_Multi_SingularityInputSpec = Predict_Multi_ContainedInputSpec
+Predict_Multi_DockerInputSpec = Predict_Multi_ContainedInputSpec
+Predict_Multi_Singularity = Predict_Multi_Contained
+Predict_Multi_Docker = Predict_Multi_Contained
 
 
 class SynthSegInputSpec(CommandLineInputSpec):
@@ -322,19 +336,16 @@ class SynthSeg(CommandLine):
         return outputs
 
 
-class SynthsegSingularityInputSpec(SingularityInputSpec, SynthSegInputSpec):
-    """Synthseg input specification (singularity mixin).
+class SynthsegContainedInputSpec(ContainerInputSpec, SynthSegInputSpec):
+    """Synthseg input specification (container mixin).
 
-    Inherits from Singularity command line fields.
+    Inherits from Container command line fields.
     """
 
 
-class SynthsegSingularity(SingularityCommandLine):
-    """Run predict to segment from reformated structural images.
-
-    Uses a 3D U-Net with tensorflow-gpu in a container (apptainer/singularity).
-    """
-    input_spec = SynthsegSingularityInputSpec
+class SynthsegContained(ContainerCommandLine):
+    """Run synthseg in a container (Singularity or Docker)."""
+    input_spec = SynthsegContainedInputSpec
     output_spec = SynthSegOutputSpec
     _cmd = 'mri_synthseg'
 
@@ -346,76 +357,99 @@ class SynthsegSingularity(SingularityCommandLine):
         return outputs
 
 
-class AntsRegistration_Singularity_InputSpec(SingularityInputSpec, RegistrationInputSpec):
-    """antsRegistration input specification (singularity mixin).
+# Backward-compatible aliases
+SynthsegSingularityInputSpec = SynthsegContainedInputSpec
+SynthsegDockerInputSpec = SynthsegContainedInputSpec
+SynthsegSingularity = SynthsegContained
+SynthsegDocker = SynthsegContained
 
-    Inherits from Singularity command line fields.
-    """
+
+class AntsRegistration_Contained_InputSpec(ContainerInputSpec, RegistrationInputSpec):
+    """antsRegistration input specification (container mixin)."""
     pass
 
 
-class AntsRegistration_Singularity(Registration, SingularityCommandLine):
+class AntsRegistration_Contained(Registration, ContainerCommandLine):
     def __init__(self):
         """Call parent constructor."""
-        super(AntsRegistration_Singularity, self).__init__()
+        super(AntsRegistration_Contained, self).__init__()
 
-    input_spec = AntsRegistration_Singularity_InputSpec
+    input_spec = AntsRegistration_Contained_InputSpec
     output_spec = RegistrationOutputSpec
     _cmd = Registration._cmd
 
 
-class AntsApplyTransforms_Singularity_InputSpec(SingularityInputSpec, ApplyTransformsInputSpec):
-    """antsApplyTransforms input specification (singularity mixin).
+# Backward-compatible aliases
+AntsRegistration_Singularity_InputSpec = AntsRegistration_Contained_InputSpec
+AntsRegistration_Docker_InputSpec = AntsRegistration_Contained_InputSpec
+AntsRegistration_Singularity = AntsRegistration_Contained
+AntsRegistration_Docker = AntsRegistration_Contained
 
-    Inherits from Singularity command line fields.
-    """
+
+class AntsApplyTransforms_Contained_InputSpec(ContainerInputSpec, ApplyTransformsInputSpec):
+    """antsApplyTransforms input specification (container mixin)."""
     pass
 
 
-class AntsApplyTransforms_Singularity(ApplyTransforms, SingularityCommandLine):
+class AntsApplyTransforms_Contained(ApplyTransforms, ContainerCommandLine):
     def __init__(self):
         """Call parent constructor."""
-        super(AntsApplyTransforms_Singularity, self).__init__()
+        super(AntsApplyTransforms_Contained, self).__init__()
 
-    input_spec = AntsApplyTransforms_Singularity_InputSpec
+    input_spec = AntsApplyTransforms_Contained_InputSpec
     output_spec = ApplyTransformsOutputSpec
     _cmd = ApplyTransforms._cmd
 
 
-class Quickshear_Singularity_InputSpec(SingularityInputSpec, QuickshearInputSpec):
-    """Quickshear input specification (singularity mixin).
+# Backward-compatible aliases
+AntsApplyTransforms_Singularity_InputSpec = AntsApplyTransforms_Contained_InputSpec
+AntsApplyTransforms_Docker_InputSpec = AntsApplyTransforms_Contained_InputSpec
+AntsApplyTransforms_Singularity = AntsApplyTransforms_Contained
+AntsApplyTransforms_Docker = AntsApplyTransforms_Contained
 
-    Inherits from Singularity command line fields.
-    """
+
+class Quickshear_Contained_InputSpec(ContainerInputSpec, QuickshearInputSpec):
+    """Quickshear input specification (container mixin)."""
     pass
 
 
-class Quickshear_Singularity(Quickshear, SingularityCommandLine):
+class Quickshear_Contained(Quickshear, ContainerCommandLine):
     def __init__(self):
         """Call parent constructor."""
-        super(Quickshear_Singularity, self).__init__()
+        super(Quickshear_Contained, self).__init__()
 
-    input_spec = Quickshear_Singularity_InputSpec
+    input_spec = Quickshear_Contained_InputSpec
     output_spec = QuickshearOutputSpec
     _cmd = Quickshear._cmd
 
 
-class Dcm2niix_Singularity_InputSpec(SingularityInputSpec, Dcm2niixInputSpec):
-    """Quickshear input specification (singularity mixin).
+# Backward-compatible aliases
+Quickshear_Singularity_InputSpec = Quickshear_Contained_InputSpec
+Quickshear_Docker_InputSpec = Quickshear_Contained_InputSpec
+Quickshear_Singularity = Quickshear_Contained
+Quickshear_Docker = Quickshear_Contained
 
-    Inherits from Singularity command line fields.
-    """
+
+class Dcm2niix_Contained_InputSpec(ContainerInputSpec, Dcm2niixInputSpec):
+    """Dcm2niix input specification (container mixin)."""
     pass
 
 
-class Dcm2niix_Singularity(Dcm2niix, SingularityCommandLine):
+class Dcm2niix_Contained(Dcm2niix, ContainerCommandLine):
     def __init__(self):
         """Call parent constructor."""
-        super(Dcm2niix_Singularity, self).__init__()
+        super(Dcm2niix_Contained, self).__init__()
 
-    input_spec = Dcm2niix_Singularity_InputSpec
+    input_spec = Dcm2niix_Contained_InputSpec
     output_spec = Dcm2niixOutputSpec
     _cmd = Dcm2niix._cmd
+
+
+# Backward-compatible aliases
+Dcm2niix_Singularity_InputSpec = Dcm2niix_Contained_InputSpec
+Dcm2niix_Docker_InputSpec = Dcm2niix_Contained_InputSpec
+Dcm2niix_Singularity = Dcm2niix_Contained
+Dcm2niix_Docker = Dcm2niix_Contained
 
 
 class Shivai_InputSpec(CommandLineInputSpec):
@@ -707,22 +741,26 @@ class Shivai(CommandLine):
         return outputs
 
 
-class Shivai_Singularity_InputSpec(SingularityInputSpec, Shivai_InputSpec):
-    """Shivai input specification (singularity mixin).
-
-    Inherits from Singularity command line fields.
-    """
+class Shivai_Contained_InputSpec(ContainerInputSpec, Shivai_InputSpec):
+    """Shivai input specification (container mixin)."""
     pass
 
 
-class Shivai_Singularity(Shivai, SingularityCommandLine):
+class Shivai_Contained(Shivai, ContainerCommandLine):
     def __init__(self):
         """Call parent constructor."""
-        super(Shivai_Singularity, self).__init__()
+        super(Shivai_Contained, self).__init__()
 
-    input_spec = Shivai_Singularity_InputSpec
+    input_spec = Shivai_Contained_InputSpec
     output_spec = Shivai_OutputSpec
     _cmd = Shivai._cmd + ' --containerized_all'
+
+
+# Backward-compatible aliases
+Shivai_Singularity_InputSpec = Shivai_Contained_InputSpec
+Shivai_Docker_InputSpec = Shivai_Contained_InputSpec
+Shivai_Singularity = Shivai_Contained
+Shivai_Docker = Shivai_Contained
 
 
 class Direct_File_Provider_InputSpec(BaseInterfaceInputSpec):

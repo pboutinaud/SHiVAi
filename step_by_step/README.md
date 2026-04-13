@@ -12,7 +12,7 @@ In this guide, we will assume we are using storing everying in a folder called `
 
 ### System
 
-- **Linux machine** with GPU (16GB memory recommended) - GPU-only processing is *possible* but very slow.
+- **Linux machine** with GPU (16GB memory recommended) - GPU-only processing is *possible* but slower.
 
 ### Data
 
@@ -31,18 +31,37 @@ For reproducible statistic analysis, we also require a brain parcellation.
 
 - If you don't have such parcellation on hand, you can:
   - Download, install, and run Freesurfer on your dataset (see the [Freesurfer website](https://surfer.nmr.mgh.harvard.edu/) for more info).
-  - Or use our Synthseg integration that will compute everything for you. However, if you want to use our Synthseg integration, you will need to be a super-user (capable of doing `sudo` commands) on your computer during the installation (so only once), as you will need to build a new Apptainer image. Everything related to this is described in the [Synthseg Apptainer image section](#synthseg-apptainer-image-optional).
+  - Or use our Synthseg integration that will compute everything for you. However, if you want to use our Synthseg integration, you will need to build the container images yourself. If you chose the Apptainer solution, you will need to be a super-user (capable of doing `sudo` commands) on your computer during the installation (so only once). If you chose the Docker solution, you will need to be part of the `docker` group on the machine. Everything related to this is described in the [Synthseg containter image section](#synthseg-container-image-optional).
 
 ### Software
 
+Two choices are available here, depending on the container solution you chose, Apptainer or Docker. We provide the Apptainer image, but you will need to build the Docker image yourself.
+
+#### With Apptainer:
+
 - **Apptainer** installed ([Install Guide](https://apptainer.org/docs/user/main/quick_start.html))
 - Being an admin / super user on your machine during the installation.
+
+#### Wither Docker:
+
+- **Docker installed** (check the [Install Docker Engine page](https://docs.docker.com/engine/install/) or ask your system admin)
+- Being part of the `docker` user group on your machine.
 
 ## 2. Setting up Shivai
 
 ### SHiVAi Apptainer image
 
 Download `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/bbWPx1QAZ)
+
+### SHiVAi Docker image
+
+1. Download the whole [Shivai source code, including the Dockerfile file](..). Let's assume it is saved in `~/myShivaiProject/Shivai_source/`.
+2. Open a terminal, navigate to `~/myShivaiProject/Shivai_source/` and run:
+  ```bash
+  docker build --rm -t myId/shivai:latest -t myId/shivai:x.x.x .
+  ```
+  > Replace `myId` by your name or another recognizable ID, and the `x.x.x` tag to the current Shivai version.
+3. To check if the image is properly installed, run `docker images` and check the diplayed list of images.
 
 ### SHiVAi Launcher script
 
@@ -79,31 +98,40 @@ You should then have something like this:
                     ...
 ```
 
-### Synthseg Apptainer image (optional)
+### Synthseg container image (optional)
 
-If you want to use our Synthseg parcellation pipeline, fully integrated in our process, follow the steps decribed in this section. If you already have your own parcellation, you can skip this.
+> If you want to use our Synthseg parcellation pipeline, fully integrated in our process, follow the steps decribed in this section. If you already have your own parcellation, you can skip this.
 
-Create of folder where we will put Synthseg-related files (e.g. `~/myShivaiProject/synthseg/`).
+We provide two types of container solution: Apptainer and Docker. However, the container solution use **must be the same** between Shivai and Synthseg.
 
-Download the [Synthseg Apptainer recipe](../apptainer/apptainer_synthseg_tf.recipe) and the [precomp_synthseg.py script](../apptainer/precomp_synthseg.py), and put them in their own folder, say `~/myShivaiProject/synthseg/`.
+Create of folder where we will put Synthseg-related files (e.g. `~/myShivaiProject/containers/`).
+
+Download the files from the ["apptainer" folder](../apptainer/) (which also contains the Docker implementation)[Synthseg Apptainer recipe](../apptainer/apptainer_synthseg_tf.recipe) and the [precomp_synthseg.py script](../apptainer/precomp_synthseg.py), and put them in their own folder, say `~/myShivaiProject/containers/`.
+
+> Notes:\
+> If you are using the Docker image, you should already have downloaded everything you need in `~/myShivaiProject/Shivai_source/apptainer`, set-up in the [SHiVAi Docker image](#shivai-docker-image) section. Adapt your file structure as needed or copy-paste the `Shivai_source/apptainer` content to the `containers` folder.
 
 Download the Synthseg models from the [MIT file-sharing system](https://mitprod-my.sharepoint.com/:u:/g/personal/bbillot_mit_edu/Ebqxo6YgUmBJkOML0m8NSXgBrhaHG7iqClFXRXPinS6FGw?e=DzKf1p).
 
 > Notes:\
 > If this link fails, check [Benjamin Billot's repository on Github](https://github.com/BBillot/SynthSeg), and more specifically [the issues page](https://github.com/BBillot/SynthSeg/issues) to see of other people have encountered the same problem.
 
-Put the model files in the above-mentioned synthseg folder.
+Put the model files in the above-mentioned *containers* folder.
 
 You should now have:
 
 ```txt
-~/myShivaiProject/synthseg/
+~/myShivaiProject/containers/
                     ├── apptainer_synthseg_tf.recipe
+                    ├── synthseg.Dockerfile
                     ├── precomp_synthseg.py
-                    └── SynthSeg_models.zip
+                    ├── SynthSeg_models.zip
+                    ...
 ```
 
-You can now build the Apptainer image. In a terminal, from the synthseg folder we just created, do:
+#### Building the Synthseg Apptainer image
+
+You can now build the Apptainer image (see below for the Docker image). In a terminal, from the *containers* folder we just created, do:
 
 ```bash
 apptainer build synthseg.sif apptainer_synthseg_tf.recipe
@@ -114,13 +142,27 @@ apptainer build synthseg.sif apptainer_synthseg_tf.recipe
 
 This will generate the `synthseg.sif` image that we will use.
 
+#### Building the Synthseg Docker image
+
+You can also build the Docker image. In a terminal, from the *containers* folder we just created, do:
+
+```bash
+docker build --rm -t myId/synthseg_shivai:latest
+```
+
+> In the above command, you should replace `myId` by a proper ID (like your name), and you can change the `latest` tag by something more specific. We will just keep what was put here as an example in the following parts of the readme.
+
+This will locally install the Docker image to the machine.
+
 ### Prepare Configuration file
+
+> We will assume here that we are using the Apptainer container solution. See below for the Docker implementation.
 
 - Download [`config_example.yml`](../apptainer/config_example.yml) to your project directory and optionally remane it (e.g. `config.yml`):
 - Edit `config.yml` with a text editor:
   - Set `model_path` to your models folder (e.g., `~/myShivaiProject/shivai_models`)
   - Set `apptainer_image` to your pipeline `.sif` file (e.g., `~/myShivaiProject/shivai.sif`)
-  - (Opt.) Set `synthseg_image` to the Synthseg `.sif` file (e.g.  `~/myShivaiProject/synthseg/synthseg.sif`)
+  - (Opt.) Set `synthseg_image` to the Synthseg `.sif` file (e.g.  `~/myShivaiProject/containers/synthseg.sif`)
   - Set descriptor paths for AI models `.json` files relative to the models folder (e.g. `"T1.FLAIR-PVS/model_info_t1-flair-pvs-v3.json"` for PVS2_descriptor)
 
 In our case, the file should look something like this:
@@ -128,7 +170,9 @@ In our case, the file should look something like this:
 ```yml
 model_path: ~/myShivaiProject/shivai_models
 apptainer_image: ~/myShivaiProject/shivai.sif
-synthseg_image: ~/myShivaiProject/synthseg/synthseg.sif
+synthseg_image: ~/myShivaiProject/containers/synthseg.sif
+
+container_runtime: apptainer
 
 parameters:
   brainmask_descriptor:
@@ -153,6 +197,17 @@ parameters:
   voxels_tolerance: [0, 0, 0]
   interpolation: 'WelchWindowedSinc'
 ```
+
+If you are using the Docker implementation, replace the first lines to look something like this, referencing the Docker images:
+```yaml
+docker_image: myId/shivai:latest
+synthseg_docker_image: myId/synthseg_shivai:latest
+container_runtime: docker 
+
+parameters:
+  ...
+```
+> You can change the `latest` tags to more specific tags if you set them up.
 
 ## Set Up Python Environment
 
@@ -212,6 +267,9 @@ As explained in the [Requirements - Data section](#data), if you are providing a
 - Activate the python environment you've set up for Shivai (e.g. by doing `source ~/shivai_env/bin/activate`, like above)
 - Optionally, you can test if the environment is set up correctly by doing `python3 run_shiva.py --help`. This will display all the available options for running Shivai using the `run_shiva.py` script.
 
+> Notes:\
+> To run Shivai using a scheduler to optimise parallelization and ressources usage, you will need manually split your dataset and feed it to the scheduler with independant calls to `run_shiva.py` with your dataset batches / unitary dataset. Check the `--sub_names` and `--sub_list` arguments (using `python run_shiva.py --help`) to send specific datasets from your input folder to Shivai.
+
 **Example command:**
 
 1. With available parcellation
@@ -244,7 +302,6 @@ Replace the paths with your actual folders.
 > This will run Shivai on all the subjects available in the input folder. If you want to restrict this, check the `--sub_list` or `--sub_names` options (run `python3 run_shiva.py --help` to see all options and their function).\
 > If you get an error about missing permissions or a file path being having a problem because "`<class 'str'> was specified`", check that you have access to all files and folders, cehck that you gave the proper paths (e.g. no typo) check that the data structure is correct.
 
----
 
 ## 7. Results
 

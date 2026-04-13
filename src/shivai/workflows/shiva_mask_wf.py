@@ -11,7 +11,8 @@ from nipype.pipeline.engine import Node, Workflow
 
 from shivai.interfaces.image import (Threshold, Normalization,
                                      Conform, Crop)
-from shivai.interfaces.shiva import Predict, PredictSingularity
+from shivai.interfaces.shiva import Predict, PredictContained
+from shivai.utils.container_config import configure_container_node
 import os
 
 
@@ -34,18 +35,18 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # First prediction node for rough mask creation
     descriptor = kwargs['BRAINMASK_DESCRIPTOR']
+    container_runtime = kwargs.get('CONTAINER_RUNTIME')
     if kwargs['CONTAINERIZE_NODES']:
-        pre_brain_mask = Node(PredictSingularity(), name="pre_brain_mask")
-        pre_brain_mask.inputs.snglrt_bind = [
+        pre_brain_mask = Node(PredictContained(), name="pre_brain_mask")
+        bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
             ('`pwd`', '/mnt/data', 'rw'),
             (kwargs['MODELS_PATH'], kwargs['MODELS_PATH'], 'ro')]
         if kwargs['MODELS_PATH'] not in descriptor:
             descriptor_dir = os.path.dirname(descriptor)
-            pre_brain_mask.inputs.snglrt_bind.append((descriptor_dir, descriptor_dir, 'ro'))
+            bind_list.append((descriptor_dir, descriptor_dir, 'ro'))
         pre_brain_mask.inputs.out_filename = '/mnt/data/pre_brain_mask.nii.gz'
-        pre_brain_mask.inputs.snglrt_enable_nvidia = True
-        pre_brain_mask.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+        configure_container_node(pre_brain_mask, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list)
     else:
         pre_brain_mask = Node(Predict(), "pre_brain_mask")
         pre_brain_mask.inputs.out_filename = 'pre_brain_mask.nii.gz'
@@ -107,14 +108,13 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # New better mask creation
     if kwargs['CONTAINERIZE_NODES']:
-        proper_brain_mask = Node(PredictSingularity(), name="proper_brain_mask")
-        proper_brain_mask.inputs.snglrt_bind = [
+        proper_brain_mask = Node(PredictContained(), name="proper_brain_mask")
+        bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
             ('`pwd`', '/mnt/data', 'rw'),
             (kwargs['MODELS_PATH'], kwargs['MODELS_PATH'], 'ro')]
         proper_brain_mask.inputs.out_filename = '/mnt/data/brain_mask.nii.gz'
-        proper_brain_mask.inputs.snglrt_enable_nvidia = True
-        proper_brain_mask.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+        configure_container_node(proper_brain_mask, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list)
     else:
         proper_brain_mask = Node(Predict(),  name="proper_brain_mask")
         proper_brain_mask.inputs.out_filename = 'brain_mask.nii.gz'

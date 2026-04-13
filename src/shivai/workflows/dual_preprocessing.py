@@ -11,9 +11,10 @@ from nipype.interfaces.quickshear import Quickshear
 from shivai.utils.misc import as_list
 
 from shivai.interfaces.image import Normalization, CorrectAffine, Resample_from_to
-from shivai.interfaces.shiva import (AntsRegistration_Singularity,
-                                     AntsApplyTransforms_Singularity,
-                                     Quickshear_Singularity)
+from shivai.interfaces.shiva import (AntsRegistration_Contained,
+                                     AntsApplyTransforms_Contained,
+                                     Quickshear_Contained)
+from shivai.utils.container_config import configure_container_node
 from shivai.workflows.qc_preproc import qc_wf_add_flair
 
 
@@ -33,7 +34,7 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
     # Correct affine if necessary
     correct_flair = Node(CorrectAffine(),
                          name='correct_flair')
-
+    correct_flair.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
     crop = workflow.get_node('crop')
     img1_norm = workflow.get_node('img1_final_intensity_normalization')
     mask_to_crop = workflow.get_node('mask_to_crop')
@@ -64,12 +65,14 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
     #                  mask_to_img2, 'reference_image')
 
     # Defacing the conformed image (uses the conformed mask from the 'unpreconform' node)
+
+    container_runtime = kwargs.get('CONTAINER_RUNTIME')
     if kwargs['CONTAINERIZE_NODES']:
-        defacing_flair = Node(Quickshear_Singularity(), name="defacing_flair")
-        defacing_flair.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
-        defacing_flair.inputs.snglrt_bind = [
+        defacing_flair = Node(Quickshear_Contained(), name="defacing_flair")
+        bind_list = [
             (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
-            ('`pwd`', '`pwd`', 'rw')]  # TODO: See if this works
+            ('`pwd`', '`pwd`', 'rw')]
+        configure_container_node(defacing_flair, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
     else:
         defacing_flair = Node(Quickshear(),
                               name='defacing_flair')
@@ -85,11 +88,11 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
         # compute 6-dof coregistration parameters of accessory scan
         # to cropped t1 image
         if kwargs['CONTAINERIZE_NODES']:
-            flair_to_t1 = Node(AntsRegistration_Singularity(), name="flair_to_t1")
-            flair_to_t1.inputs.snglrt_bind = [
+            flair_to_t1 = Node(AntsRegistration_Contained(), name="flair_to_t1")
+            bind_list = [
                 (kwargs['BASE_DIR'], kwargs['BASE_DIR'], 'rw'),
                 ('`pwd`', '`pwd`', 'rw'),]
-            flair_to_t1.inputs.snglrt_image = kwargs['CONTAINER_IMAGE']
+            configure_container_node(flair_to_t1, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
         else:
             flair_to_t1 = Node(ants.Registration(),
                                name='flair_to_t1')
@@ -101,9 +104,9 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
         flair_to_t1.inputs.metric = ['MI']
         flair_to_t1.inputs.radius_or_number_of_bins = [64]
         flair_to_t1.inputs.interpolation = kwargs['INTERPOLATION']
-        flair_to_t1.inputs.shrink_factors = [[8, 4, 2, 1]]
+        flair_to_t1.inputs.shrink_factors = [[4, 2, 1, 1]]
         flair_to_t1.inputs.output_warped_image = True
-        flair_to_t1.inputs.smoothing_sigmas = [[3, 2, 1, 0]]
+        flair_to_t1.inputs.smoothing_sigmas = [[4, 2, 1, 0]]
         flair_to_t1.inputs.sigma_units = ['mm']
         flair_to_t1.inputs.num_threads = 8
         flair_to_t1.inputs.number_of_iterations = [[1000, 500, 250, 125]]
@@ -113,6 +116,7 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
         flair_to_t1.inputs.winsorize_lower_quantile = 0.005
         flair_to_t1.inputs.winsorize_upper_quantile = 0.995
         flair_to_t1.inputs.initial_moving_transform_com = 1
+        flair_to_t1.inputs.use_histogram_matching = False
 
         workflow.connect(correct_flair, 'corrected_img',
                          flair_to_t1, 'moving_image')

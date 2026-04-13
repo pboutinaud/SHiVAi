@@ -1,0 +1,12 @@
+**/__pycache__
+**/*.pyc
+**/*.egg-info
+build/
+test/
+tests/
+step_by_step/
+step_by_step_mixed_approach/
+apptainer/
+.git/
+.gitignore
+.vscode/

@@ -24,7 +24,8 @@ def check_input_for_pred(wfargs):
 def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, brain_seg, ss_qc, ss_vol, ai_threads, batch_size,
           node_plugin_args, prev_qc, preproc_results, replace_t1, inverse_t2, replace_flair, replace_swi, swi_file_num,
           db_name, custom_LUT, preproc_only, use_cpu, swomed_parc, swomed_ssvol, swomed_ssqc, swomed_t1, swomed_flair,
-          swomed_swi, use_t1, container_image, synthseg_image, containerized_nodes, local_synthseg, prereg_flair,
+          swomed_swi, use_t1, container_image, synthseg_image, containerized_nodes, container_runtime,
+          local_synthseg, prereg_flair,
           anonymize, interpolation, percentile, threshold, threshold_pvs, threshold_wmh, threshold_cmb,
           threshold_lac, min_pvs_size, min_wmh_size, min_cmb_size, min_lac_size, final_dimensions,
           voxels_size, voxels_tolerance, aff_correc_thr, keep_all, debug, remove_intermediates, run_plugin, run_plugin_args,
@@ -134,6 +135,7 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
         'SWI_FILE_NUM': swi_file_num,
         'CONTAINER_IMAGE': container_image,
         'SYNTHSEG_IMAGE': synthseg_image,
+        'CONTAINER_RUNTIME': container_runtime,
         'CONTAINERIZE_NODES': containerized_nodes,
         # 'CONTAINER': True #  legacy variable. Only when used by SMOmed usually
         'MODELS_PATH': model,
