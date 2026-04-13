@@ -63,6 +63,16 @@ Download `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/ga
   > Replace `myId` by your name or another recognizable ID, and the `x.x.x` tag to the current Shivai version.
 3. To check if the image is properly installed, run `docker images` and check the diplayed list of images.
 
+### SHiVAi Docker image
+
+1. Download the whole [Shivai source code, including the Dockerfile file](..). Let's assume it is saved in `~/myShivaiProject/Shivai_source/`.
+2. Open a terminal, navigate to `~/myShivaiProject/Shivai_source/` and run:
+  ```bash
+  docker build --rm -t myId/shivai:latest -t myId/shivai:x.x.x .
+  ```
+  > Replace `myId` by your name or another recognizable ID, and the `x.x.x` tag to the current Shivai version.
+3. To check if the image is properly installed, run `docker images` and check the diplayed list of images.
+
 ### SHiVAi Launcher script
 
 Download the [run_shiva.py script](../apptainer/run_shiva.py).
