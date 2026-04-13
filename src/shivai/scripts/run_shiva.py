@@ -169,6 +169,16 @@ def singParser():
                         action='store_true',
                         help='If selected, will ignore available GPU(s) and run the segmentations on CPUs')
 
+    parser.add_argument('--container_runtime',
+                        choices=['apptainer', 'singularity', 'docker'],
+                        default=None,
+                        help=('Container runtime to use for running SHiVAi. '
+                              'If not set, the value from the config file (container_runtime key) is used, '
+                              'defaulting to "apptainer".\n'
+                              '- "apptainer": use the Apptainer runtime (recommended)\n'
+                              '- "singularity": use the Singularity runtime\n'
+                              '- "docker": use Docker (requires root or docker group membership)'))
+
     parser.add_argument('--run_plugin',
                         default='Linear',
                         help=('Type of plugin used by Nipype to run the workflow.\n'
@@ -208,12 +218,65 @@ def singParser():
     return parser
 
 
+def build_exec_command(runtime, image, mounts, gpu, inner_cmd_parts, out_dir=None):
+    """Build the container exec command string for the given runtime.
+
+    Parameters
+    ----------
+    runtime : str
+        Container runtime: 'apptainer', 'singularity', or 'docker'.
+    image : str
+        Container image path (.sif) for apptainer/singularity, or image name:tag for docker.
+    mounts : list of str
+        Mount specifications as 'src:dest:mode' strings.
+    gpu : bool
+        Whether to enable GPU support.
+    inner_cmd_parts : list of str
+        Command and arguments to run inside the container.
+    out_dir : str or Path, optional
+        Host output directory (unused for Docker; the container working
+        directory is always set to /mnt/data/output).
+
+    Returns
+    -------
+    str
+        Complete shell command string.
+    """
+    inner_cmd = ' '.join(part for part in inner_cmd_parts if part)
+    if runtime == 'docker':
+        gpu_flag = '--gpus all' if gpu else ''
+        volume_flags = ' '.join(f'-v {m}' for m in mounts)
+        user_flag = f'--user {os.getuid()}:{os.getgid()}'
+        # Pass USER and HOME env vars so getpass.getuser() works without
+        # /etc/passwd entry, and nipype can chdir to HOME.
+        # Use the container-side mount path, not the host path.
+        user_env = f'-e USER={os.getenv("USER", "user")} -e HOME=/mnt/data/output'
+        parts = ['docker run --rm', user_flag, user_env, '-w /mnt/data/output', gpu_flag, volume_flags, image, inner_cmd]
+    else:
+        gpu_flag = '--nv' if gpu else ''
+        bind_str = ','.join(mounts)
+        parts = [f'{runtime} exec', gpu_flag, '--bind', bind_str, image, inner_cmd]
+    return ' '.join(part for part in parts if part)
+
+
 def main():
     parser = singParser()
     args = parser.parse_args()
 
     with open(args.config, 'r') as file:
         yaml_content = yaml.safe_load(file)
+
+    # Resolve container runtime
+    if args.container_runtime is None:
+        args.container_runtime = yaml_content.get('container_runtime', 'apptainer')
+
+    # Select container images based on runtime
+    if args.container_runtime in ['apptainer', 'singularity']:
+        container_image = yaml_content['apptainer_image']
+        container_image_ss = yaml_content.get('synthseg_image')
+    else:  # docker
+        container_image = yaml_content['docker_image']
+        container_image_ss = yaml_content.get('synthseg_docker_image', yaml_content.get('synthseg_image'))
 
     # Minimal input
     input = "--in /mnt/data/input"
@@ -258,28 +321,23 @@ def main():
     # Synthseg precomputation
     if 'synthseg' in args.brain_seg and not args.preproc_results:
         args_ss = []
+        gpu_ss = True
         if args.brain_seg == 'synthseg_cpu':
             args_ss.append("--synthseg_cpu")
             args_ss.append(f"--threads {args.ai_threads}")
-            nv = ''  # nvidia support for GPU usage with Singularity
-        else:
-            nv = '--nv'
-        sing_image_ss = f"{yaml_content['synthseg_image']}"
+            gpu_ss = False
         bind_list_ss = [f"{args.in_dir}:/mnt/data/input:rw", f"{args.out_dir}:/mnt/data/output:rw"]
         if bind_sublist:
             bind_list_ss.append(bind_sublist)
-        bind_ss = ','.join(bind_list_ss)
-        command_list_ss = [
-            f"singularity exec", nv,
-            "--bind", bind_ss,
-            sing_image_ss,
-            "precomp_synthseg.py", input, output, pred
-        ] + args_ss + opt_args1
-
-        command_ss = ' '.join(command_list_ss)
+        command_ss = build_exec_command(
+            args.container_runtime,
+            container_image_ss,
+            bind_list_ss,
+            gpu_ss,
+            ["precomp_synthseg.py", input, output, pred] + args_ss + opt_args1,
+            args.out_dir
+        )
         print(command_ss)
-        # singularity exec --bind /scratch/nozais/test_shiva/MRI_anat_moi:/mnt/data/input:rw,/scratch/nozais/test_shiva/test_synthprecomp:/mnt/data/output:rw /scratch/nozais/test_shiva/synthseg_test.sif precomp_synthseg.py --in /mnt/data/input --out /mnt/data/output --synthseg_cpu
-
         res_proc = subprocess.run(command_ss, shell=True)
         if res_proc.returncode != 0:
             raise RuntimeError('The Synthseg process failed. Interrupting the Shiva process.')
@@ -288,8 +346,6 @@ def main():
     bind_input = f"{args.in_dir}:/mnt/data/input:rw"
     bind_output = f"{args.out_dir}:/mnt/data/output:rw"
     bind_config = f"{op.dirname(op.abspath(args.config))}:/mnt/config:rw"
-
-    singularity_image = f"{yaml_content['apptainer_image']}"
 
     # Optional input only for Shiva
     opt_args2_names = ['db_name',
@@ -331,17 +387,17 @@ def main():
     if bind_lut:
         bind_list.append(bind_lut)
 
-    bind = ','.join(bind_list)
-
-    command_list = [f"singularity exec --nv --bind", bind,
-                    singularity_image,
-                    "shiva --containerized_all", input, output, pred, config
-                    ] + opt_args1 + opt_args2
-
+    inner_cmd = ["shiva --containerized_all", input, output, pred, config] + opt_args1 + opt_args2
     if args.anonymize:
-        command_list.append('--anonymize')
+        inner_cmd.append('--anonymize')
 
-    command = ' '.join(command_list)
+    command = build_exec_command(
+        args.container_runtime,
+        container_image,
+        bind_list,
+        not args.use_cpu,
+        inner_cmd
+    )
 
     print(command)
 
