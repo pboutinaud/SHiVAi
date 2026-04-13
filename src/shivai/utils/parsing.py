@@ -609,7 +609,7 @@ def set_args_and_check(inParser):
         if args.containerized_all or args.containerized_nodes:
             if args.container_runtime is None:
                 if 'container_runtime' not in yaml_content:
-                    args.container_runtime = 'apptainer'  # default to apptainer if not specified anywhere
+                    args.container_runtime = 'singularity'  # default to singularity if not specified anywhere
                 else:
                     args.container_runtime = yaml_content.get('container_runtime')
 

@@ -268,7 +268,7 @@ def main():
 
     # Resolve container runtime
     if args.container_runtime is None:
-        args.container_runtime = yaml_content.get('container_runtime', 'apptainer')
+        args.container_runtime = yaml_content.get('container_runtime', 'singularity')
 
     # Select container images based on runtime
     if args.container_runtime in ['apptainer', 'singularity']:
