@@ -37,40 +37,37 @@ For reproducible statistic analysis, we also require a brain parcellation.
 
 Two choices are available here, depending on the container solution you chose, Apptainer or Docker. We provide the Apptainer image, but you will need to build the Docker image yourself.
 
-#### With Apptainer:
+#### With Apptainer
 
 - **Apptainer** installed ([Install Guide](https://apptainer.org/docs/user/main/quick_start.html))
 - Being an admin / super user on your machine during the installation.
 
-#### Wither Docker:
+#### Wither Docker
 
 - **Docker installed** (check the [Install Docker Engine page](https://docs.docker.com/engine/install/) or ask your system admin)
 - Being part of the `docker` user group on your machine.
 
 ## 2. Setting up Shivai
 
-### SHiVAi Apptainer image
+### SHiVAi container images
+
+Chose one of the two following paragraphs below (Apptainer vs. Docker)
+
+#### SHiVAi Apptainer image
 
 Download `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/ga270luKd)
 
-### SHiVAi Docker image
+#### SHiVAi Docker image
 
 1. Download the whole [Shivai source code, including the Dockerfile file](..). Let's assume it is saved in `~/myShivaiProject/Shivai_source/`.
 2. Open a terminal, navigate to `~/myShivaiProject/Shivai_source/` and run:
+
   ```bash
   docker build --rm -t myId/shivai:latest -t myId/shivai:x.x.x .
   ```
-  > Replace `myId` by your name or another recognizable ID, and the `x.x.x` tag to the current Shivai version.
-3. To check if the image is properly installed, run `docker images` and check the diplayed list of images.
 
-### SHiVAi Docker image
-
-1. Download the whole [Shivai source code, including the Dockerfile file](..). Let's assume it is saved in `~/myShivaiProject/Shivai_source/`.
-2. Open a terminal, navigate to `~/myShivaiProject/Shivai_source/` and run:
-  ```bash
-  docker build --rm -t myId/shivai:latest -t myId/shivai:x.x.x .
-  ```
   > Replace `myId` by your name or another recognizable ID, and the `x.x.x` tag to the current Shivai version.
+
 3. To check if the image is properly installed, run `docker images` and check the diplayed list of images.
 
 ### SHiVAi Launcher script
@@ -209,6 +206,7 @@ parameters:
 ```
 
 If you are using the Docker implementation, replace the first lines to look something like this, referencing the Docker images:
+
 ```yaml
 docker_image: myId/shivai:latest
 synthseg_docker_image: myId/synthseg_shivai:latest
@@ -217,6 +215,7 @@ container_runtime: docker
 parameters:
   ...
 ```
+
 > You can change the `latest` tags to more specific tags if you set them up.
 
 ## Set Up Python Environment
@@ -311,7 +310,6 @@ Replace the paths with your actual folders.
 > Notes:\
 > This will run Shivai on all the subjects available in the input folder. If you want to restrict this, check the `--sub_list` or `--sub_names` options (run `python3 run_shiva.py --help` to see all options and their function).\
 > If you get an error about missing permissions or a file path being having a problem because "`<class 'str'> was specified`", check that you have access to all files and folders, cehck that you gave the proper paths (e.g. no typo) check that the data structure is correct.
-
 
 ## 7. Results
 
