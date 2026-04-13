@@ -40,7 +40,8 @@ class ContainerInputSpec(CommandLineInputSpec):
     """
 
     container_runtime = traits.Enum(
-        'singularity', 'docker',
+        'singularity', 'docker', 'apptainer',
+        argstr='%s',
         desc='Container runtime to use.',
         mandatory=True)
 
@@ -61,15 +62,18 @@ class ContainerInputSpec(CommandLineInputSpec):
 
     container_enable_nvidia = traits.Bool(
         False,
+        argstr='--nv',
         desc='Enable NVIDIA GPU support (--nv for Singularity, --gpus all for Docker)',
         mandatory=False)
 
     container_no_net = traits.Bool(
         False,
+        argstr='--nonet',
         desc='Disable network (--nonet for Singularity, --network none for Docker)',
         mandatory=False)
 
     container_working_directory = traits.Directory(
+        argstr='--workdir %s',
         mandatory=False,
         position=1,
         desc='Working directory inside the container.')
@@ -78,39 +82,47 @@ class ContainerInputSpec(CommandLineInputSpec):
     container_home = traits.Directory(
         os.getenv('HOME'),
         exists=True,
+        argstr='--home %s',
         desc='Home folder (Singularity only)',
         mandatory=False)
 
     container_scratch = traits.String(
+        argstr='--scratch %s',
         desc='Scratch directory within the container (Singularity only)',
         mandatory=False)
 
     container_disable_cache = traits.Bool(
         False,
+        argstr='--disable-cache',
         desc="Don't use cache (Singularity only)",
         mandatory=False)
 
     # --- Docker-specific ---
     container_user = traits.Str(
+        argstr='--user %s',
         desc='User ID mapping uid:gid (Docker only)',
         mandatory=False)
 
     container_tmpfs = traits.Str(
+        argstr='--tmpfs %s',
         desc='Mount a tmpfs inside the container (Docker only)',
         mandatory=False)
 
     container_platform = traits.Str(
+        argstr='--platform %s',
         desc='Platform specification, e.g. "linux/amd64" (Docker only)',
         mandatory=False)
 
     container_environ = traits.Dict(
         key_trait=traits.Str,
         value_trait=traits.Str,
+        argstr='-e %s',
         desc='Environment variables to pass into the container (Docker only)',
         mandatory=False)
 
     container_enable_mps = traits.Bool(
         False,
+        argstr='-e PYTORCH_ENABLE_MPS_FALLBACK=1',
         desc='Enable Apple Metal Performance Shaders support (Docker only, experimental)',
         mandatory=False)
 
@@ -135,9 +147,9 @@ class ContainerCommandLine(CommandLine):
         """Return the container base command depending on runtime."""
         runtime = getattr(self.inputs, 'container_runtime', None)
         if not isdefined(runtime) or runtime is None:
-            raise ValueError('container_runtime must be set to "singularity" or "docker"')
-        if runtime == 'singularity':
-            return 'singularity exec'
+            raise ValueError('container_runtime must be set to "singularity", "apptainer", or "docker"')
+        if runtime in ['singularity', 'apptainer']:
+            return f'{runtime} exec'
         return 'docker run --rm'
 
     @property
@@ -170,7 +182,7 @@ class ContainerCommandLine(CommandLine):
 
         # --- bind / volume mounts ---
         if name == 'container_bind':
-            if runtime == 'singularity':
+            if runtime in ['singularity', 'apptainer']:
                 return '--bind ' + ','.join(
                     ':'.join(realpath_binding(b)) for b in value)
             # Docker: one -v flag per mount
@@ -187,27 +199,27 @@ class ContainerCommandLine(CommandLine):
         if name == 'container_enable_nvidia':
             if not value:
                 return None
-            return '--nv' if runtime == 'singularity' else '--gpus all'
+            return '--nv' if runtime in ['singularity', 'apptainer'] else '--gpus all'
 
         # --- network ---
         if name == 'container_no_net':
             if not value:
                 return None
-            return '--nonet' if runtime == 'singularity' else '--network none'
+            return '--nonet' if runtime in ['singularity', 'apptainer'] else '--network none'
 
         # --- working directory ---
         if name == 'container_working_directory':
-            flag = '--workdir' if runtime == 'singularity' else '-w'
+            flag = '--workdir' if runtime in ['singularity', 'apptainer'] else '-w'
             return f'{flag} {value}'
 
         # --- Singularity-only traits (skip silently for Docker) ---
         if name == 'container_scratch':
-            if runtime != 'singularity':
+            if runtime not in ['singularity', 'apptainer']:
                 return None
             return f'--scratch {value}'
 
         if name == 'container_disable_cache':
-            if runtime != 'singularity' or not value:
+            if runtime not in ['singularity', 'apptainer'] or not value:
                 return None
             return '--disable-cache'
 
