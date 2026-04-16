@@ -154,7 +154,7 @@ This will generate the `synthseg.sif` image that we will use.
 You can also build the Docker image. In a terminal, from the *containers* folder we just created, do:
 
 ```bash
-docker build --rm -t myId/synthseg_shivai:latest
+docker build --rm -t myId/synthseg_shivai:latest -f synthseg.Dockerfile .
 ```
 
 > In the above command, you should replace `myId` by a proper ID (like your name), and you can change the `latest` tag by something more specific. We will just keep what was put here as an example in the following parts of the readme.
