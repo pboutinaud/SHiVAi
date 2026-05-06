@@ -172,41 +172,65 @@ def histogram(array, percentile, bins):
     return template_hist, mode
 
 
-def get_clusters_and_filter_image(image, cluster_filter=0):
-    """ 
-    Compute clusters and filter out those of size "cluster_filter" and smaller
+def get_clusters_and_filter_image(image, cluster_filter=0, brain=None, outside_ratio=0.25):
+    """
+    Compute clusters and filter out those of size "cluster_filter" and smaller.
+    Also removes clusters that are mostly outside of the brain segmentation mask
+    if a brain segmentation mask is provided (>25% of cluster voxels outside brain).
 
     """
-    clusters, num_clusters = measure.label(
-        image, return_num=True)
-    if cluster_filter:
+
+    clusters, num_clusters = measure.label(image, return_num=True)
+    if num_clusters == 0:
+        return image, clusters, num_clusters, clusters, num_clusters
+
+    apply_filter = bool(cluster_filter) or brain is not None
+    if apply_filter:
         clusnum, counts = np.unique(clusters[clusters > 0], return_counts=True)
-        to_remove = clusnum[counts <= cluster_filter]
+        to_remove = set(clusnum[counts <= cluster_filter]) if cluster_filter else set()
+
+        if brain is not None:
+            brain_mask = np.asarray(brain).astype(bool)
+            if brain_mask.shape != image.shape:
+                raise ValueError(
+                    f'Brain mask shape ({brain_mask.shape}) does not match image shape ({image.shape}).'
+                )
+            for clus_i in clusnum:
+                clus_mask = (clusters == clus_i)
+                clus_size = np.count_nonzero(clus_mask)
+                vox_out = np.count_nonzero(clus_mask & ~brain_mask)
+                if clus_size > 0 and vox_out > (outside_ratio * clus_size):
+                    to_remove.add(clus_i)
+
         nums_left = [i for i in clusnum if i not in to_remove]
 
         image_f = image.copy()
         clusters_f = clusters.copy()
-        if to_remove.size:
-            image_f[fisin(clusters, to_remove)] = 0
-            clusters_f[fisin(clusters, to_remove)] = 0
-        num_clusters_f = num_clusters - len(to_remove)
+        if to_remove:
+            to_remove_arr = np.array(sorted(to_remove), dtype=clusters.dtype)
+            remove_mask = fisin(clusters, to_remove_arr)
+            image_f[remove_mask] = 0
+            clusters_f[remove_mask] = 0
+        num_clusters_f = len(nums_left)
 
-        for new_i, old_i in enumerate(nums_left):
-            new_i += 1  # because starts at 0
+        for new_i, old_i in enumerate(nums_left, start=1):
             clusters_f[clusters == old_i] = new_i
     else:  # filtered clusters are the same
         image_f, clusters_f, num_clusters_f = image, clusters, num_clusters
     return image_f, clusters, num_clusters, clusters_f, num_clusters_f
 
 
-def label_clusters(pred_vol, brain_seg_vol, threshold, cluster_filter):
-    """Threshold and labelize the clusters from a prediction map
+def label_clusters(pred_vol, brain_seg_vol, threshold, cluster_filter, outside_ratio=0.25):
+    """Threshold and labelize the clusters from a prediction map.
+    Also removes clusters that are smaller than or equal to the "cluster_filter" size (in voxels) 
+    and those that are mostly outside of the brain segmentation mask.
 
     Args:
         pred_vol (np.ndarray): Prediction map from the AI model
         brain_seg_vol (np.ndarray): Brain seg delimiting the brain
         threshold (float): Value to threshold the prediction map
         cluster_filter (int): size up to which (including) small clusters are removed
+        outside_ratio (float): ratio of voxels outside the brain seg mask above which a cluster is removed (default: 0.25)
 
     Returns:
         labelled_clusters (np.ndarray): Labelled clusters volume
@@ -216,8 +240,13 @@ def label_clusters(pred_vol, brain_seg_vol, threshold, cluster_filter):
     if len(brain_seg_vol.shape) > 3:
         brain_seg_vol = brain_seg_vol.squeeze()
     brain_mask = (brain_seg_vol > 0)
-    thresholded_img = (pred_vol > threshold).astype(int)*brain_mask
-    _, _, _, labelled_clusters, _ = get_clusters_and_filter_image(thresholded_img, cluster_filter)
+    thresholded_img = (pred_vol > threshold).astype(int)
+    _, _, _, labelled_clusters, _ = get_clusters_and_filter_image(
+        thresholded_img,
+        cluster_filter=cluster_filter,
+        brain=brain_mask,
+        outside_ratio=outside_ratio
+    )
     return labelled_clusters
 
 
