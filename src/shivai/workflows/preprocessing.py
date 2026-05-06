@@ -100,7 +100,7 @@ def genWorkflow(**kwargs) -> Workflow:
     binarize_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="binarize_brain_mask")
     binarize_brain_mask.inputs.binarize = True
     binarize_brain_mask.inputs.minVol = 100  # Get rif of potential small clusters
-    binarize_brain_mask.inputs.clusterCheck = 'all'  # Keep all cluster above minVol
+    binarize_brain_mask.inputs.clusterCheck = 'keep_all'  # Keep all clusters above minVol
 
     workflow.connect(mask_to_conform, 'resampled_image', binarize_brain_mask, 'img')
 

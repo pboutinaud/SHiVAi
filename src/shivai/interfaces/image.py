@@ -534,8 +534,8 @@ class ThresholdInputSpec(BaseInterfaceInputSpec):
                             'as footprint (skip opening if <= 0'))
 
     clusterCheck = traits.Str('size', usedefault=True,
-                              desc=("Can be 'size', 'top' or 'all'. Select one cluster "
-                                    "(if not 'all') in the mask, biggest or highest on z-axis"))
+                              desc=("Can be 'size', 'top', 'keep_all', or legacy 'all'. "
+                                    "Select one cluster (if not 'keep_all') in the mask, biggest or highest on z-axis"))
 
     minVol = traits.Int(0, usedefault=True,
                         desc='Minimum size of the clusters to keep (if > 0, else keep all)')
@@ -1252,7 +1252,8 @@ class Brainmask_Overlay_InputSpec(BaseInterfaceInputSpec):
     brainmask = traits.File(exists=True,
                             mandatory=True,
                             desc='Brain mask file')
-    outname = traits.Str(usedefault=True,
+    outname = traits.Str('mask_overlay.png',
+                         usedefault=True,
                          mandatory=True,
                          desc='Name of the output image')
     cols_nb = traits.Int(6,

@@ -269,6 +269,13 @@ def shivaParser():
                         action='store_true',
                         help='If selected, the workflow graph will be saved as a .svg file in the output folder. Requires Graphviz to be installed.')
 
+    parser.add_argument('--export_code',
+                        action='store_true',
+                        help=('(Experimental) If selected, the workflow code will be exported as a .py file in the output folder. '
+                              'As of now, the exported code is not runnable as is, but it will provide a good view of the workflow '
+                              'structure and the different nodes used, as well as the parameters given to those nodes. This can be '
+                              'useful for debugging and reproducibility purposes.'))
+
     file_management = parser.add_mutually_exclusive_group()
 
     file_management.add_argument('--keep_all',

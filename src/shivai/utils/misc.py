@@ -19,6 +19,8 @@ from functools import reduce
 
 from skimage import measure
 
+from nipype.pipeline.engine import Workflow
+
 
 def md5(fname: Path):
     """
@@ -329,3 +331,57 @@ def salient_slices(vol: np.ndarray, slices_ind: tuple[int, int, int] = None) -> 
     plt.title(f'Z slice {Z_slice}')
     plt.show()
     return slices_ind
+
+
+def _export_workflow_compat(workflow: Workflow, filename: str = None, prefix: str = "output_"):
+    """Export workflow with a compatibility patch for Nipype 1.9.x string handling bugs."""
+    from nipype.pipeline.engine import utils as pe_utils
+    from nipype.pipeline.engine import workflows as pe_workflows
+    from nipype.interfaces.base.traits_extension import isdefined
+    from nipype.utils.functions import create_function_from_source
+
+    original_write_inputs = pe_utils._write_inputs
+    original_pickle_loads = pe_workflows.pickle.loads
+
+    def _compat_pickle_loads(value):
+        if isinstance(value, str):
+            return value
+        return original_pickle_loads(value)
+
+    def _write_inputs_compat(node):
+        lines = []
+        nodename = node.fullname.replace('.', '_')
+        for key, _ in list(node.inputs.items()):
+            val = getattr(node.inputs, key)
+            if isdefined(val):
+                if isinstance(val, (str, bytes)):
+                    try:
+                        func = create_function_from_source(val)
+                    except (RuntimeError, AssertionError, TypeError):
+                        lines.append(f"{nodename}.inputs.{key} = {val!r}")
+                    else:
+                        funcname = [name for name in func.__globals__ if name != '__builtins__'][0]
+                        # Nipype 1.9.x expects pickled bytes in this branch but Function stores source as str.
+                        # try:
+                        #     lines.append(pickle.loads(val))
+                        # except Exception:
+                        #     lines.append(val.decode() if isinstance(val, bytes) else val)
+                        lines.append(_compat_pickle_loads(val).rstrip())
+                        if funcname == nodename:
+                            lines[-1] = lines[-1].replace(
+                                f" {funcname}(", f" {funcname}_1("
+                            )
+                            funcname = f"{funcname}_1"
+                        lines.append('from nipype.utils.functions import getsource')
+                        lines.append(f"{nodename}.inputs.{key} = getsource({funcname})")
+                else:
+                    lines.append(f"{nodename}.inputs.{key} = {val}")
+        return lines
+
+    pe_utils._write_inputs = _write_inputs_compat
+    pe_workflows.pickle.loads = _compat_pickle_loads
+    try:
+        return workflow.export(filename, prefix)
+    finally:
+        pe_utils._write_inputs = original_write_inputs
+        pe_workflows.pickle.loads = original_pickle_loads
