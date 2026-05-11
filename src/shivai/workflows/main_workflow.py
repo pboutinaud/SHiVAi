@@ -83,6 +83,204 @@ def dict_to_res(sub_id, files_dict):
     return files_dict[sub_id]
 
 
+# %% Helper functions for shared prediction/postproc/sink logic
+# The "preproc_signals" dict maps logical "signal" (i.e. images being piped through the workflow) names to (node, output_field) tuples.
+# Expected keys (all optional except 'brain_mask'):
+#   'brain_mask', 't1', 'flair', 'swi',
+#   'brain_seg', 'swi2t1_transforms', 'brain_mask_swi',
+#   'swi_img_ref', 'swi_fov_mask'  (only for live preproc with SWI+T1)
+# Optional QC keys (only from live preprocessing):
+#   'crop_brain_img', 'overlayed_brainmask_1', 'overlayed_brainmask_2', 'isocontour_slides_FLAIR_T1'
+
+def _build_preproc_joiners(main_wf, subject_iterator, preproc_signals, with_t1, with_flair, with_swi):
+    """Build JoinNodes to aggregate per-subject preprocessing outputs into dicts for the prediction workflow.
+    Returns a dict of joiners keyed by 'mask', 't1', 'flair', 'swi'."""
+    joiners = {}
+
+    mask_node, mask_field = preproc_signals['brain_mask']
+    preproc_joiner_mask = JoinNode(Function(input_names=['sub_ids', 'in_files'],
+                                            output_names=['files_dict'],
+                                            function=res_to_dict),
+                                   joinsource=subject_iterator,
+                                   joinfield=['sub_ids', 'in_files'],
+                                   name='preproc_joiner_mask')
+    main_wf.connect(subject_iterator, 'subject_id', preproc_joiner_mask, 'sub_ids')
+    main_wf.connect(mask_node, mask_field, preproc_joiner_mask, 'in_files')
+    joiners['mask'] = preproc_joiner_mask
+
+    if with_t1 and 't1' in preproc_signals:
+        t1_node, t1_field = preproc_signals['t1']
+        preproc_joiner_t1 = JoinNode(Function(input_names=['sub_ids', 'in_files'],
+                                              output_names=['files_dict'],
+                                              function=res_to_dict),
+                                     joinsource=subject_iterator,
+                                     joinfield=['sub_ids', 'in_files'],
+                                     name='preproc_joiner_t1')
+        main_wf.connect(subject_iterator, 'subject_id', preproc_joiner_t1, 'sub_ids')
+        main_wf.connect(t1_node, t1_field, preproc_joiner_t1, 'in_files')
+        joiners['t1'] = preproc_joiner_t1
+
+    if with_flair and 'flair' in preproc_signals:
+        flair_node, flair_field = preproc_signals['flair']
+        preproc_joiner_flair = JoinNode(Function(input_names=['sub_ids', 'in_files'],
+                                                 output_names=['files_dict'],
+                                                 function=res_to_dict),
+                                        joinsource=subject_iterator,
+                                        joinfield=['sub_ids', 'in_files'],
+                                        name='preproc_joiner_flair')
+        main_wf.connect(subject_iterator, 'subject_id', preproc_joiner_flair, 'sub_ids')
+        main_wf.connect(flair_node, flair_field, preproc_joiner_flair, 'in_files')
+        joiners['flair'] = preproc_joiner_flair
+
+    if with_swi and 'swi' in preproc_signals:
+        swi_node, swi_field = preproc_signals['swi']
+        preproc_joiner_swi = JoinNode(Function(input_names=['sub_ids', 'in_files'],
+                                               output_names=['files_dict'],
+                                               function=res_to_dict),
+                                      joinsource=subject_iterator,
+                                      joinfield=['sub_ids', 'in_files'],
+                                      name='preproc_joiner_swi')
+        main_wf.connect(subject_iterator, 'subject_id', preproc_joiner_swi, 'sub_ids')
+        main_wf.connect(swi_node, swi_field, preproc_joiner_swi, 'in_files')
+        joiners['swi'] = preproc_joiner_swi
+
+    return joiners
+
+
+def _connect_prediction_and_postproc(main_wf, subject_iterator, preproc_signals, joiners,
+                                     wf_post, segmentation_wf, with_t1, with_flair, with_swi, **kwargs):
+    """Connect the prediction workflow and postprocessing workflow using the preproc signal map.
+    Returns seg_getters dict."""
+    seg_getters = {}
+    for pred in kwargs['PREDICTION']:
+        pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers([pred])
+        if pred == 'PVS2':
+            pred = 'PVS'
+        lpred = pred.lower()
+
+        # Connection with prediction inputs
+        main_wf.connect(joiners['mask'], 'files_dict', segmentation_wf, f'predict_{lpred}.brainmask_files')
+        if pred_with_t1:
+            main_wf.connect(joiners['t1'], 'files_dict', segmentation_wf, f'predict_{lpred}.primary_image_file')
+            if pred_with_flair:
+                main_wf.connect(joiners['flair'], 'files_dict', segmentation_wf, f'predict_{lpred}.second_image_file')
+        if pred_with_swi:
+            main_wf.connect(joiners['swi'], 'files_dict', segmentation_wf, f'predict_{lpred}.primary_image_file')
+
+        # Overlay node connections: img_ref and fov_mask
+        if pred_with_swi:
+            if 'swi_img_ref' in preproc_signals:
+                # Live preproc with SWI+T1: use specific SWI preprocessing outputs
+                ref_node, ref_field = preproc_signals['swi_img_ref']
+                main_wf.connect(ref_node, ref_field, wf_post, f'{lpred}_overlay_node.img_ref')
+                fov_node, fov_field = preproc_signals['swi_fov_mask']
+                main_wf.connect(fov_node, fov_field, wf_post, f'{lpred}_overlay_node.fov_mask')
+            else:
+                # Grab preproc or SWI-only: use the swi and brain_mask signals
+                swi_node, swi_field = preproc_signals['swi']
+                main_wf.connect(swi_node, swi_field, wf_post, f'{lpred}_overlay_node.img_ref')
+                mask_node, mask_field = preproc_signals['brain_mask']
+                main_wf.connect(mask_node, mask_field, wf_post, f'{lpred}_overlay_node.fov_mask')
+        else:
+            mask_node, mask_field = preproc_signals['brain_mask']
+            main_wf.connect(mask_node, mask_field, wf_post, f'{lpred}_overlay_node.fov_mask')
+            if pred in ['WMH', 'LAC']:
+                flair_node, flair_field = preproc_signals['flair']
+                main_wf.connect(flair_node, flair_field, wf_post, f'{lpred}_overlay_node.img_ref')
+            else:
+                t1_node, t1_field = preproc_signals['t1']
+                main_wf.connect(t1_node, t1_field, wf_post, f'{lpred}_overlay_node.img_ref')
+
+        # Seg getter node
+        seg_getters[pred] = Node(Function(input_names=['sub_id', 'files_dict'],
+                                          output_names=['segmentation'],
+                                          function=dict_to_res),
+                                 name=f'seg_getter_{lpred}')
+        main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentations', seg_getters[pred], 'files_dict')
+        main_wf.connect(subject_iterator, 'subject_id', seg_getters[pred], 'sub_id')
+        main_wf.connect(seg_getters[pred], 'segmentation', wf_post, f'{lpred}_overlay_node.brainmask')
+        main_wf.connect(seg_getters[pred], 'segmentation', wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
+
+        # Brain seg connections (for cluster labelling and prediction metrics)
+        if pred_with_swi and with_t1:
+            if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
+                swi2t1_node, swi2t1_field = preproc_signals['swi2t1_transforms']
+                main_wf.connect(swi2t1_node, swi2t1_field, wf_post, 'seg_to_swi.transforms')
+                main_wf.connect(seg_getters[pred], 'segmentation', wf_post, 'seg_to_swi.reference_image')
+                seg_node, seg_field = preproc_signals['brain_seg']
+                main_wf.connect(seg_node, seg_field, wf_post, 'seg_to_swi.input_image')
+            elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
+                swi2t1_node, swi2t1_field = preproc_signals['swi2t1_transforms']
+                main_wf.connect(swi2t1_node, swi2t1_field, wf_post, 'seg_to_swi.transforms')
+                main_wf.connect(seg_getters[pred], 'segmentation', wf_post, 'seg_to_swi.reference_image')
+                seg_node, seg_field = preproc_signals['brain_seg']
+                main_wf.connect(seg_node, seg_field, wf_post, 'seg_to_swi.input_image')
+            else:
+                swi_mask_node, swi_mask_field = preproc_signals['brain_mask_swi']
+                main_wf.connect(swi_mask_node, swi_mask_field, wf_post, f'cluster_labelling_{lpred}.brain_seg')
+                main_wf.connect(swi_mask_node, swi_mask_field, wf_post, 'prediction_metrics_cmb.brain_seg')
+        else:
+            if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
+                seg_node, seg_field = preproc_signals['brain_seg']
+                main_wf.connect(seg_node, seg_field, wf_post, f'custom_{lpred}_parc.brain_seg')
+            elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
+                mask_node, mask_field = preproc_signals['brain_mask']
+                main_wf.connect(mask_node, mask_field, wf_post, f'cluster_labelling_{lpred}.brain_seg')
+                seg_node, seg_field = preproc_signals['brain_seg']
+                main_wf.connect(seg_node, seg_field, wf_post, f'prediction_metrics_{lpred}.brain_seg')
+            else:
+                mask_node, mask_field = preproc_signals['brain_mask']
+                main_wf.connect(mask_node, mask_field, wf_post, f'cluster_labelling_{lpred}.brain_seg')
+                main_wf.connect(mask_node, mask_field, wf_post, f'prediction_metrics_{lpred}.brain_seg')
+
+        # Merge all csv files
+        prediction_metrics_all = JoinNode(Join_Prediction_metrics(),
+                                          joinsource=subject_iterator,
+                                          joinfield=['csv_files', 'subject_id'],
+                                          name=f'prediction_metrics_{lpred}_all')
+        main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_csv',
+                        prediction_metrics_all, 'csv_files')
+        main_wf.connect(subject_iterator, 'subject_id',
+                        prediction_metrics_all, 'subject_id')
+
+    return seg_getters
+
+
+def _connect_pred_sinks(main_wf, seg_getters, wf_post, sink_node_subjects, sink_node_all, **kwargs):
+    """Connect prediction/postprocessing outputs to data sink nodes."""
+    with_t1, _, _ = set_wf_shapers(kwargs['PREDICTION'])
+    if kwargs['USE_T1']:
+        with_t1 = True
+
+    main_wf.connect(wf_post, 'summary_report.pdf_report', sink_node_subjects, 'report')
+
+    for pred in kwargs['PREDICTION']:
+        pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers([pred])
+        if pred == 'PVS2':
+            pred = 'PVS'
+        lpred = pred.lower()
+        if pred_with_swi:
+            space = '_swi-space'
+        else:
+            space = ''
+
+        prediction_metrics_all = main_wf.get_node(f'prediction_metrics_{lpred}_all')
+        main_wf.connect(seg_getters[pred], 'segmentation', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}')
+        main_wf.connect(wf_post, f'cluster_labelling_{lpred}.labelled_biomarkers', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@labelled')
+        main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@metrics')
+        main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_wide_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@metrics_wide')
+        main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_census_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@census')
+        main_wf.connect(prediction_metrics_all, 'prediction_metrics_csv', sink_node_all, f'segmentations.{lpred}_metrics{space}')
+        main_wf.connect(prediction_metrics_all, 'prediction_metrics_wide_csv', sink_node_all, f'segmentations.{lpred}_metrics{space}.@wide')
+        if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
+            main_wf.connect(wf_post, f'custom_{lpred}_parc.brain_seg', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@parc')
+            main_wf.connect(wf_post, f'custom_{lpred}_parc.region_dict_json', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@parc_dict')
+
+        if pred_with_swi and with_t1:
+            if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
+                main_wf.connect(wf_post, 'seg_to_swi.output_image', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@custom_parc')
+
+
 def generate_main_wf(**kwargs) -> Workflow:
     """
     Generate a full processing workflow, with prepoc, pred, and postproc.
@@ -215,135 +413,71 @@ def generate_main_wf(**kwargs) -> Workflow:
         qc_joiner.inputs.population_csv_file = prev_qc
 
     if not kwargs['PREP_SETTINGS']['preproc_only']:
-        # %% Then initialise the post proc and add the nodes to the main wf
-        # Preparing the dict to pass from preproc to predictors
-        preproc_joiner_mask = JoinNode(Function(input_names=['sub_ids', 'in_files'],
-                                                output_names=['files_dict'],
-                                                function=res_to_dict),
-                                       joinsource=subject_iterator,
-                                       joinfield=['sub_ids', 'in_files'],
-                                       name='preproc_joiner_mask')
-
-        main_wf.connect(subject_iterator, 'subject_id', preproc_joiner_mask, 'sub_ids')
-        main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', preproc_joiner_mask, 'in_files')
+        # %% Build the preproc signal map from live preprocessing outputs
+        preproc_signals = {
+            'brain_mask': (wf_preproc, 'mask_to_crop.resampled_image'),
+        }
         if with_t1:
-            preproc_joiner_t1 = JoinNode(Function(input_names=['sub_ids', 'in_files'],
-                                                  output_names=['files_dict'],
-                                                  function=res_to_dict),
-                                         joinsource=subject_iterator,
-                                         joinfield=['sub_ids', 'in_files'],
-                                         name='preproc_joiner_t1')
-
-            main_wf.connect(subject_iterator, 'subject_id', preproc_joiner_t1, 'sub_ids')
-            main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', preproc_joiner_t1, 'in_files')
+            preproc_signals['t1'] = (wf_preproc, 'img1_final_intensity_normalization.intensity_normalized')
         if with_flair:
-            preproc_joiner_flair = JoinNode(Function(input_names=['sub_ids', 'in_files'],
-                                                     output_names=['files_dict'],
-                                                     function=res_to_dict),
-                                            joinsource=subject_iterator,
-                                            joinfield=['sub_ids', 'in_files'],
-                                            name='preproc_joiner_flair')
-            main_wf.connect(subject_iterator, 'subject_id', preproc_joiner_flair, 'sub_ids')
-            main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', preproc_joiner_flair, 'in_files')
+            preproc_signals['flair'] = (wf_preproc, 'img2_final_intensity_normalization.intensity_normalized')
         if with_swi:
-            preproc_joiner_swi = JoinNode(Function(input_names=['sub_ids', 'in_files'],
-                                                   output_names=['files_dict'],
-                                                   function=res_to_dict),
-                                          joinsource=subject_iterator,
-                                          joinfield=['sub_ids', 'in_files'],
-                                          name='preproc_joiner_swi')
-            main_wf.connect(subject_iterator, 'subject_id', preproc_joiner_swi, 'sub_ids')
             if with_t1:
-                main_wf.connect(wf_preproc, 'cmb_preprocessing.swi_intensity_normalisation.intensity_normalized', preproc_joiner_swi, 'in_files')
+                preproc_signals['swi'] = (wf_preproc, 'cmb_preprocessing.swi_intensity_normalisation.intensity_normalized')
+                # SWI+T1 specific overlay references
+                preproc_signals['swi_img_ref'] = (wf_preproc, 'cmb_preprocessing.swi_intensity_normalisation.intensity_normalized')
+                preproc_signals['swi_fov_mask'] = (wf_preproc, 'cmb_preprocessing.mask_to_crop_swi.resampled_image')
             else:
-                main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', preproc_joiner_swi, 'in_files')
+                preproc_signals['swi'] = (wf_preproc, 'img1_final_intensity_normalization.intensity_normalized')
+
+        # Brain seg signal (depends on BRAIN_SEG type)
+        if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
+            preproc_signals['brain_seg'] = (wf_preproc, 'custom_parc.brain_parc')
+        elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
+            preproc_signals['brain_seg'] = (wf_preproc, 'seg_to_crop.resampled_image')
+
+        # SWI-to-T1 transform signals
+        if with_swi and with_t1:
+            if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp' or (kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None):
+                preproc_signals['swi2t1_transforms'] = (wf_preproc, 'cmb_preprocessing.swi_to_t1.forward_transforms')
+            else:
+                preproc_signals['brain_mask_swi'] = (wf_preproc, 'cmb_preprocessing.mask_to_crop_swi.resampled_image')
+
+        # QC signals (only from live preprocessing)
+        preproc_signals['crop_brain_img'] = (wf_preproc, 'preproc_qc_workflow.qc_crop_box.crop_brain_img')
+        preproc_signals['overlayed_brainmask_1'] = (wf_preproc, 'preproc_qc_workflow.qc_overlay_brainmask.overlayed_brainmask')
+        if with_swi and with_t1:
+            preproc_signals['overlayed_brainmask_2'] = (wf_preproc, 'preproc_qc_workflow.qc_overlay_brainmask_swi.overlayed_brainmask')
+        if with_flair and not kwargs['PREP_SETTINGS']['prereg_flair']:
+            preproc_signals['isocontour_slides_FLAIR_T1'] = (wf_preproc, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.qc_coreg')
+
+        # Build joiners, postproc, prediction, and connect everything
+        joiners = _build_preproc_joiners(main_wf, subject_iterator, preproc_signals, with_t1, with_flair, with_swi)
 
         wf_post = genWorkflowPost(**kwargs)
-        # main_wf.add_nodes([wf_preproc, wf_post])
 
-        # Set all the connections between preproc and postproc
+        # Connect QC signals to summary report
         main_wf.connect(subject_iterator, 'subject_id', wf_post, 'summary_report.subject_id')
-        main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_crop_box.crop_brain_img', wf_post, 'summary_report.crop_brain_img')
-        main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_overlay_brainmask.overlayed_brainmask', wf_post, 'summary_report.overlayed_brainmask_1')
-        if with_swi and with_t1:
-            main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_overlay_brainmask_swi.overlayed_brainmask', wf_post, 'summary_report.overlayed_brainmask_2')
-        if with_flair and not kwargs['PREP_SETTINGS']['prereg_flair']:
-            main_wf.connect(wf_preproc, 'preproc_qc_workflow.qc_coreg_FLAIR_T1.qc_coreg', wf_post, 'summary_report.isocontour_slides_FLAIR_T1')
-        main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', wf_post, 'summary_report.brainmask')
+        mask_node, mask_field = preproc_signals['brain_mask']
+        main_wf.connect(mask_node, mask_field, wf_post, 'summary_report.brainmask')
+        if 'crop_brain_img' in preproc_signals:
+            qc_node, qc_field = preproc_signals['crop_brain_img']
+            main_wf.connect(qc_node, qc_field, wf_post, 'summary_report.crop_brain_img')
+        if 'overlayed_brainmask_1' in preproc_signals:
+            qc_node, qc_field = preproc_signals['overlayed_brainmask_1']
+            main_wf.connect(qc_node, qc_field, wf_post, 'summary_report.overlayed_brainmask_1')
+        if 'overlayed_brainmask_2' in preproc_signals:
+            qc_node, qc_field = preproc_signals['overlayed_brainmask_2']
+            main_wf.connect(qc_node, qc_field, wf_post, 'summary_report.overlayed_brainmask_2')
+        if 'isocontour_slides_FLAIR_T1' in preproc_signals:
+            qc_node, qc_field = preproc_signals['isocontour_slides_FLAIR_T1']
+            main_wf.connect(qc_node, qc_field, wf_post, 'summary_report.isocontour_slides_FLAIR_T1')
 
-    # %% Then prediction workflow and all its connections, and other prediction-specific connections
+    # %% Then prediction workflow and all its connections
         segmentation_wf = genWorkflow_prediction(**kwargs)
-        seg_getters = {}
-        for pred in kwargs['PREDICTION']:
-            pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers([pred])
-            if pred == 'PVS2':
-                pred = 'PVS'
-            lpred = pred.lower()
-            # Connection with inputs
-            main_wf.connect(preproc_joiner_mask, 'files_dict', segmentation_wf, f'predict_{lpred}.brainmask_files')
-            if pred_with_t1:
-                main_wf.connect(preproc_joiner_t1, 'files_dict', segmentation_wf, f'predict_{lpred}.primary_image_file')
-                if pred_with_flair:
-                    main_wf.connect(preproc_joiner_flair, 'files_dict', segmentation_wf, f'predict_{lpred}.second_image_file')
-                #     main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__('predict_pvs').acq_types = ['t1', 'flair']
-                # else:
-                #     main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__('predict_pvs').acq_types = ['t1']
-            if pred_with_swi:
-                # main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__(f'predict_{lpred}').acq_types = ['swi']
-                main_wf.connect(preproc_joiner_swi, 'files_dict', segmentation_wf, f'predict_{lpred}.primary_image_file')
-                if with_t1:  # t1 used in the wf, not necessarily in the pred
-                    main_wf.connect(wf_preproc, 'cmb_preprocessing.swi_intensity_normalisation.intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
-                    main_wf.connect(wf_preproc, 'cmb_preprocessing.mask_to_crop_swi.resampled_image', wf_post, f'{lpred}_overlay_node.fov_mask')
-                else:
-                    main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
-                    main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', wf_post, f'{lpred}_overlay_node.fov_mask')
-            else:
-                main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', wf_post, f'{lpred}_overlay_node.fov_mask')
-                if pred in ['WMH', 'LAC']:  # Using FLAIR as background for WMH and LAC for the pred overlay node
-                    main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
-                else:
-                    main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
-
-            seg_getters[pred] = Node(Function(input_names=['sub_id', 'files_dict'],
-                                              output_names=['segmentation'],
-                                              function=dict_to_res),
-                                     name=f'seg_getter_{lpred}')
-            main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentations', seg_getters[pred], 'files_dict')
-            main_wf.connect(subject_iterator, 'subject_id', seg_getters[pred], 'sub_id')
-            main_wf.connect(seg_getters[pred], 'segmentation', wf_post, f'{lpred}_overlay_node.brainmask')
-            main_wf.connect(seg_getters[pred], 'segmentation', wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
-
-            if pred_with_swi and with_t1:
-                if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
-                    main_wf.connect(wf_preproc, 'cmb_preprocessing.swi_to_t1.forward_transforms', wf_post, 'seg_to_swi.transforms')
-                    main_wf.connect(seg_getters[pred], 'segmentation', wf_post, 'seg_to_swi.reference_image')
-                    main_wf.connect(wf_preproc, 'custom_parc.brain_parc', wf_post, 'seg_to_swi.input_image')
-                elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
-                    main_wf.connect(wf_preproc, 'cmb_preprocessing.swi_to_t1.forward_transforms', wf_post, 'seg_to_swi.transforms')
-                    main_wf.connect(seg_getters[pred], 'segmentation', wf_post, 'seg_to_swi.reference_image')
-                    main_wf.connect(wf_preproc, 'seg_to_crop.resampled_image', wf_post, 'seg_to_swi.input_image')
-                else:
-                    main_wf.connect(wf_preproc, 'cmb_preprocessing.mask_to_crop_swi.resampled_image', wf_post, f'cluster_labelling_{lpred}.brain_seg')
-                    main_wf.connect(wf_preproc, 'cmb_preprocessing.mask_to_crop_swi.resampled_image', wf_post, 'prediction_metrics_cmb.brain_seg')
-            else:
-                if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
-                    main_wf.connect(wf_preproc, 'custom_parc.brain_parc', wf_post, f'custom_{lpred}_parc.brain_seg')
-                elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
-                    main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', wf_post, f'cluster_labelling_{lpred}.brain_seg')
-                    main_wf.connect(wf_preproc, 'seg_to_crop.resampled_image', wf_post, f'prediction_metrics_{lpred}.brain_seg')
-                else:
-                    main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', wf_post, f'cluster_labelling_{lpred}.brain_seg')
-                    main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', wf_post, f'prediction_metrics_{lpred}.brain_seg')
-
-            # Merge all csv files
-            prediction_metrics_all = JoinNode(Join_Prediction_metrics(),
-                                              joinsource=subject_iterator,
-                                              joinfield=['csv_files', 'subject_id'],
-                                              name=f'prediction_metrics_{lpred}_all')
-            main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_csv',
-                            prediction_metrics_all, 'csv_files')
-            main_wf.connect(subject_iterator, 'subject_id',
-                            prediction_metrics_all, 'subject_id')
+        seg_getters = _connect_prediction_and_postproc(
+            main_wf, subject_iterator, preproc_signals, joiners,
+            wf_post, segmentation_wf, with_t1, with_flair, with_swi, **kwargs)
 
     # The workflow graph
     wf_graph = None
@@ -368,8 +502,7 @@ def generate_main_wf(**kwargs) -> Workflow:
     sink_node_all.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
     sink_node_all.inputs.container = 'results_summary'
 
-    # Connecting the sinks
-    # Preproc
+    # Connecting the preproc sinks
     if with_t1:
         img1 = 't1'
     elif with_swi and not with_t1:
@@ -438,35 +571,8 @@ def generate_main_wf(**kwargs) -> Workflow:
     if kwargs['PREP_SETTINGS']['preproc_only']:
         return main_wf  # ENDPOINT if just running the preprocessing
 
-    # Pred and postproc
-    main_wf.connect(wf_post, 'summary_report.pdf_report', sink_node_subjects, 'report')
-
-    for pred in kwargs['PREDICTION']:
-        pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers([pred])
-        if pred == 'PVS2':
-            pred = 'PVS'
-        lpred = pred.lower()
-        if pred_with_swi:
-            space = '_swi-space'
-        else:
-            space = ''
-
-        prediction_metrics_all = main_wf.get_node(f'prediction_metrics_{lpred}_all')
-        main_wf.connect(seg_getters[pred], 'segmentation', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}')
-        main_wf.connect(wf_post, f'cluster_labelling_{lpred}.labelled_biomarkers', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@labelled')
-        main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@metrics')
-        main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_wide_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@metrics_wide')
-        main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_census_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@census')
-        main_wf.connect(prediction_metrics_all, 'prediction_metrics_csv', sink_node_all, f'segmentations.{lpred}_metrics{space}')
-        main_wf.connect(prediction_metrics_all, 'prediction_metrics_wide_csv', sink_node_all, f'segmentations.{lpred}_metrics{space}.@wide')
-        if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
-            main_wf.connect(wf_post, f'custom_{lpred}_parc.brain_seg', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@parc')
-            main_wf.connect(wf_post, f'custom_{lpred}_parc.region_dict_json', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@parc_dict')
-
-        if pred_with_swi and with_t1:
-            # main_wf.connect(wf_post, 'swi_clust_to_t1.output_image', sink_node_subjects, f'segmentations.{lpred}_segmentation_t1-space')  # TODO at some point
-            if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
-                main_wf.connect(wf_post, 'seg_to_swi.output_image', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@custom_parc')
+    # Pred and postproc sinks
+    _connect_pred_sinks(main_wf, seg_getters, wf_post, sink_node_subjects, sink_node_all, **kwargs)
     return main_wf  # ENDPOINT with everything
 
 
@@ -573,176 +679,65 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
     preproc_grabber.inputs.template_args = template_args
     main_wf.connect(subject_iterator, 'subject_id', preproc_grabber, 'subject_id')
 
-    # Then initialise the post proc and summary sink node
+    # Build the preproc signal map from the preproc_grabber
+    preproc_signals = {
+        'brain_mask': (preproc_grabber, 'brain_mask'),
+    }
+    if with_t1:
+        preproc_signals['t1'] = (preproc_grabber, 't1_intensity_normalized')
+    if with_flair:
+        preproc_signals['flair'] = (preproc_grabber, 'flair_intensity_normalized')
+    if with_swi:
+        preproc_signals['swi'] = (preproc_grabber, 'swi_intensity_normalized')
+
+    # Brain seg signal
+    if 'synthseg' in kwargs['BRAIN_SEG'] or (kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None):
+        preproc_signals['brain_seg'] = (preproc_grabber, 'brain_seg')
+
+    # SWI-to-T1 transform signals
+    if with_swi and with_t1:
+        if 'synthseg' in kwargs['BRAIN_SEG'] or (kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None):
+            preproc_signals['swi2t1_transforms'] = (preproc_grabber, 'swi2t1_transforms')
+        else:
+            preproc_signals['brain_mask_swi'] = (preproc_grabber, 'brain_mask_swi')
+
+    # Build joiners, postproc, prediction, and connect everything
+    joiners = _build_preproc_joiners(main_wf, subject_iterator, preproc_signals, with_t1, with_flair, with_swi)
+
     wf_post = genWorkflowPost(**kwargs)
-    main_wf.add_nodes([wf_post])  # May not be needed after all
 
-    wf_graph = None
-    datasing_fields = []
-    if kwargs['SAVE_GRAPH']:
-        datasing_fields.append('wf_graph')
-
-    sink_node_all = Node(DataSink_CSV_and_PDF_safe(
-        infields=datasing_fields), name='sink_node_all')
-    sink_node_all.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
-    sink_node_all.inputs.container = 'results_summary'
-
-    # Set generic connections between preproc and postproc
+    # Connect basic signals to summary report (no QC signals in grab_preproc mode)
     main_wf.connect(subject_iterator, 'subject_id', wf_post, 'summary_report.subject_id')
     main_wf.connect(preproc_grabber, 'brain_mask', wf_post, 'summary_report.brainmask')
 
-    # Preparing the dict to pass from preproc results to predictors
-    preproc_joiner_mask = JoinNode(Function(input_names=['sub_ids', 'in_files'],
-                                            output_names=['files_dict'],
-                                            function=res_to_dict),
-                                   joinsource=subject_iterator,
-                                   joinfield=['sub_ids', 'in_files'],
-                                   name='preproc_joiner_mask')
-
-    main_wf.connect(subject_iterator, 'subject_id', preproc_joiner_mask, 'sub_ids')
-    main_wf.connect(preproc_grabber, 'brain_mask', preproc_joiner_mask, 'in_files')
-    if with_t1:
-        preproc_joiner_t1 = JoinNode(Function(input_names=['sub_ids', 'in_files'],
-                                              output_names=['files_dict'],
-                                              function=res_to_dict),
-                                     joinsource=subject_iterator,
-                                     joinfield=['sub_ids', 'in_files'],
-                                     name='preproc_joiner_t1')
-
-        main_wf.connect(subject_iterator, 'subject_id', preproc_joiner_t1, 'sub_ids')
-        main_wf.connect(preproc_grabber, 't1_intensity_normalized', preproc_joiner_t1, 'in_files')
-    if with_flair:
-        preproc_joiner_flair = JoinNode(Function(input_names=['sub_ids', 'in_files'],
-                                                 output_names=['files_dict'],
-                                                 function=res_to_dict),
-                                        joinsource=subject_iterator,
-                                        joinfield=['sub_ids', 'in_files'],
-                                        name='preproc_joiner_flair')
-        main_wf.connect(subject_iterator, 'subject_id', preproc_joiner_flair, 'sub_ids')
-        main_wf.connect(preproc_grabber, 'flair_intensity_normalized', preproc_joiner_flair, 'in_files')
-    if with_swi:
-        preproc_joiner_swi = JoinNode(Function(input_names=['sub_ids', 'in_files'],
-                                               output_names=['files_dict'],
-                                               function=res_to_dict),
-                                      joinsource=subject_iterator,
-                                      joinfield=['sub_ids', 'in_files'],
-                                      name='preproc_joiner_swi')
-        main_wf.connect(subject_iterator, 'subject_id', preproc_joiner_swi, 'sub_ids')
-        main_wf.connect(preproc_grabber, 'swi_intensity_normalized', preproc_joiner_swi, 'in_files')
-
-    # Then prediction nodes and their connections and post proc
     segmentation_wf = genWorkflow_prediction(**kwargs)
-    seg_getters = {}
-    for pred in kwargs['PREDICTION']:
-        pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers([pred])
-        if pred == 'PVS2':
-            pred = 'PVS'
-        lpred = pred.lower()
-        main_wf.connect(preproc_joiner_mask, 'files_dict', segmentation_wf, f'predict_{lpred}.brainmask_files')
-        if pred_with_t1:
-            main_wf.connect(preproc_joiner_t1, 'files_dict', segmentation_wf, f'predict_{lpred}.primary_image_file')
-            if pred_with_flair:
-                main_wf.connect(preproc_joiner_flair, 'files_dict', segmentation_wf, f'predict_{lpred}.second_image_file')
-            #     main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__('predict_pvs').acq_types = ['t1', 'flair']
-            # else:
-            #     main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__('predict_pvs').acq_types = ['t1']
-            if pred in ['WMH', 'LAC']:  # Using FLAIR as background for WMH and LAC for the pred overlay node
-                main_wf.connect(preproc_grabber, 'flair_intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
-            else:
-                main_wf.connect(preproc_grabber, 't1_intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
-        if pred_with_swi:
-            # main_wf.inputs.__getattribute__(segmentation_wf.name).__getattribute__(f'predict_{lpred}').acq_types = ['swi']
-            main_wf.connect(preproc_joiner_swi, 'files_dict', segmentation_wf, f'predict_{lpred}.primary_image_file')
-            main_wf.connect(preproc_grabber, 'swi_intensity_normalized', wf_post, f'{lpred}_overlay_node.img_ref')
-
-        seg_getters[pred] = Node(Function(input_names=['sub_id', 'files_dict'],
-                                          output_names=['segmentation'],
-                                          function=dict_to_res),
-                                 name=f'seg_getter_{lpred}')
-        main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentations', seg_getters[pred], 'files_dict')
-        main_wf.connect(subject_iterator, 'subject_id', seg_getters[pred], 'sub_id')
-        main_wf.connect(seg_getters[pred], 'segmentation', wf_post, f'{lpred}_overlay_node.brainmask')
-        main_wf.connect(seg_getters[pred], 'segmentation', wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
-
-        main_wf.connect(preproc_grabber, 'brain_mask', wf_post, f'{lpred}_overlay_node.fov_mask')
-
-        if pred_with_swi and with_t1:  # Case with registration steps
-            if 'synthseg' in kwargs['BRAIN_SEG'] or (kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None):
-                main_wf.connect(preproc_grabber, 'swi2t1_transforms',
-                                wf_post, 'seg_to_swi.transforms')
-                main_wf.connect(seg_getters[pred], 'segmentation',
-                                wf_post, 'seg_to_swi.reference_image')
-                main_wf.connect(preproc_grabber, 'brain_seg',
-                                wf_post, 'seg_to_swi.input_image')
-            else:
-                main_wf.connect(preproc_grabber, 'brain_mask_swi',
-                                wf_post, f'cluster_labelling_{lpred}.brain_seg')
-                main_wf.connect(preproc_grabber, 'brain_mask_swi',
-                                wf_post, 'prediction_metrics_cmb.brain_seg')
-        else:
-            if 'synthseg' in kwargs['BRAIN_SEG']:
-                main_wf.connect(preproc_grabber, 'brain_seg',  wf_post, f'custom_{lpred}_parc.brain_seg')
-            elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
-                main_wf.connect(preproc_grabber, 'brain_mask',  wf_post, f'cluster_labelling_{lpred}.brain_seg')
-                main_wf.connect(preproc_grabber, 'brain_seg', wf_post, f'prediction_metrics_{lpred}.brain_seg')
-            else:
-                main_wf.connect(preproc_grabber, 'brain_mask',  wf_post, f'cluster_labelling_{lpred}.brain_seg')
-                main_wf.connect(preproc_grabber, 'brain_mask',  wf_post, f'prediction_metrics_{lpred}.brain_seg')
-
-        # Merge all csv files
-        prediction_metrics_all = JoinNode(Join_Prediction_metrics(),
-                                          joinsource=subject_iterator,
-                                          joinfield=['csv_files', 'subject_id'],
-                                          name=f'prediction_metrics_{lpred}_all')
-        if pred_with_swi:
-            space = '_swi-space'
-        else:
-            space = ''
-        main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_csv', prediction_metrics_all, 'csv_files')
-        main_wf.connect(subject_iterator, 'subject_id', prediction_metrics_all, 'subject_id')
-        main_wf.connect(prediction_metrics_all, 'prediction_metrics_csv', sink_node_all, f'segmentations.{lpred}_metrics{space}')
-        main_wf.connect(prediction_metrics_all, 'prediction_metrics_wide_csv', sink_node_all, f'segmentations.{lpred}_metrics{space}.@wide')
+    seg_getters = _connect_prediction_and_postproc(
+        main_wf, subject_iterator, preproc_signals, joiners,
+        wf_post, segmentation_wf, with_t1, with_flair, with_swi, **kwargs)
 
     # The workflow graph
+    wf_graph = None
+    datasing_fields = []
     if kwargs['SAVE_GRAPH']:
         wf_graph = main_wf.write_graph(graph2use='colored', dotfilename='graph.svg', format='svg')
+        datasing_fields.append('wf_graph')
 
-    # Finally the data sinks
-    # Initializing the data sinks
+    # Data sinks
     sink_node_subjects = Node(DataSink_CSV_and_PDF_safe(), name='sink_node_subjects')
     sink_node_subjects.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
-    # Name substitutions in the results
     sink_node_subjects.inputs.substitutions = [
         ('_subject_id_', ''),
         ('_resampled_cropped_img_normalized', '_cropped_intensity_normed'),
         ('_resampled_defaced_cropped_img_normalized', '_defaced_cropped_intensity_normed'),
         ('flair_to_t1__Warped_defaced_img_normalized', 'flair_to_t1_defaced_cropped_intensity_normed')
     ]
-    main_wf.connect(wf_post, 'summary_report.pdf_report', sink_node_subjects, 'report')
+    sink_node_all = Node(DataSink_CSV_and_PDF_safe(
+        infields=datasing_fields), name='sink_node_all')
+    sink_node_all.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
+    sink_node_all.inputs.container = 'results_summary'
 
-    # Connecting the sinks
-    # Pred and postproc
-    for pred in kwargs['PREDICTION']:
-        if pred == 'PVS2':
-            pred = 'PVS'
-        if pred == 'CMB':
-            space = '_swi-space'
-        else:
-            space = ''
-        lpred = pred.lower()
-        main_wf.connect(seg_getters[pred], 'segmentation', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}')
-        main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@metrics')
-        main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_wide_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@metrics_wide')
-        main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_census_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@census')
-        main_wf.connect(wf_post, f'cluster_labelling_{lpred}.labelled_biomarkers', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@labeled')
-        if 'synthseg' in kwargs['BRAIN_SEG']:
-            main_wf.connect(wf_post, f'custom_{lpred}_parc.brain_seg', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@parc')
-            main_wf.connect(wf_post, f'custom_{lpred}_parc.region_dict_json', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@parc_dict')
-        if pred == 'CMB' and with_t1:
-            # main_wf.connect(wf_post, 'swi_clust_to_t1.output_image', sink_node_subjects, f'segmentations.cmb_segmentation_t1-space')  # not implemented yet
-            if 'synthseg' in kwargs['BRAIN_SEG']:
-                main_wf.connect(wf_post, 'seg_to_swi.output_image', sink_node_subjects, 'segmentations.cmb_segmentation_swi-space.@custom_parc')
+    _connect_pred_sinks(main_wf, seg_getters, wf_post, sink_node_subjects, sink_node_all, **kwargs)
 
-    if kwargs['SAVE_GRAPH']:
+    if wf_graph is not None:
         sink_node_all.inputs.wf_graph = wf_graph
     return main_wf
