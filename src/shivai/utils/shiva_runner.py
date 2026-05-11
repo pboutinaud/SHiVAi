@@ -3,9 +3,11 @@ Functions needed by the shiva.py script to run the pipeline
 """
 
 from shivai.workflows.main_workflow import generate_main_wf, generate_main_wf_grab_preproc
+from shivai.utils.misc import _export_workflow_compat
 from nipype import config
 import os
 import shutil
+import datetime
 
 
 def check_input_for_pred(wfargs):
@@ -29,7 +31,7 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
           anonymize, interpolation, percentile, threshold, threshold_pvs, threshold_wmh, threshold_cmb,
           threshold_lac, min_pvs_size, min_wmh_size, min_cmb_size, min_lac_size, final_dimensions,
           voxels_size, voxels_tolerance, aff_correc_thr, keep_all, debug, remove_intermediates, run_plugin, run_plugin_args,
-          brainmask_descriptor, wmh_descriptor, pvs_descriptor, pvs2_descriptor, cmb_descriptor, lac_descriptor, save_graph,
+          brainmask_descriptor, wmh_descriptor, pvs_descriptor, pvs2_descriptor, cmb_descriptor, lac_descriptor, save_graph, export_code,
           **kwargs):
     """
     Function that build and run the SHiVAi workflow using the input argument from the parser.
@@ -179,6 +181,12 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
         main_wf.config['execution'] = {'remove_unnecessary_outputs': 'False'}
     if debug:
         main_wf.config['execution']['stop_on_first_crash'] = 'True'
+
+    print('\tExporting workflow code for reproducibility...')
+
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    if export_code:
+        _export_workflow_compat(main_wf, os.path.join(out_dir, f'exported_main_workflow_{timestamp}.py'))
     main_wf.run(plugin=run_plugin, plugin_args=run_plugin_args)
 
     # Remove empty dir (I don't know how to prevent its creation)

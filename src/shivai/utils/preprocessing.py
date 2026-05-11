@@ -185,10 +185,10 @@ def threshold(img: nib.Nifti1Image,
             binarize (bool): make a binary mask
             open_iter (int): do a morphological opening using the given int for the radius
                 of the ball used as footprint. If 0 is given, skip this step.
-            clusterCheck (str): Can be 'top', 'size', or 'all'. Labels the clusters in the mask,
+            clusterCheck (str): Can be 'top', 'size', 'keep_all', or legacy 'all'. Labels the clusters in the mask,
                 then keep the one highest in the brain if 'top' was selected, or keep
                 the biggest cluster if 'size' was selected (but will raise an error if
-                it's not the one at the top). 'all' doesn't do any check.
+                it's not the one at the top). 'keep_all' doesn't do any cluster selection.
             minVol (int): Removes clusters with volume under the specified value. Should
                 be used if clusterCheck = 'top'
 
@@ -202,9 +202,11 @@ def threshold(img: nib.Nifti1Image,
         raise TypeError("Only Nifti images are supported")
     if not isinstance(thr, float):
         raise TypeError("'thr' must be a float")
-    if not clusterCheck in ('top', 'size', 'all'):
+    if clusterCheck == 'all':
+        clusterCheck = 'keep_all'
+    if not clusterCheck in ('top', 'size', 'keep_all'):
         raise ValueError(
-            f"Input for clusterCheck should be 'top', 'size' or 'all' but {clusterCheck} was given.")
+            f"Input for clusterCheck should be 'top', 'size' or 'keep_all' but {clusterCheck} was given.")
 
     array = img.get_fdata().squeeze()
     if sign == '+' and not binarize:
