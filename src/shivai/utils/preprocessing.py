@@ -139,7 +139,10 @@ def normalization(img: nib.Nifti1Image,
     array = np.nan_to_num(img.get_fdata())
     print(np.max(array))
     array[array < 0] = 0
+
     # calculate percentile
+    if 0 <= percentile < 1:
+        percentile *= 100
     if not brain_mask:
         value_percentile = np.percentile(array, percentile)
     else:
