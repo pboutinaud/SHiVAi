@@ -5,26 +5,21 @@
 # @author : Philippe Boutinaud - Fealinx
 
 import gc
-import os
-import time
 import json
-import importlib
+import importlib.util
 import sys
 import inspect
 
 import argparse
 from pathlib import Path
 
-
 import numpy as np
-import nibabel
-import tensorflow as tf
-import keras
+import nibabel as nib
 from shivai.utils.misc import md5
 
 
 def _load_image(filename):
-    data_nii = nibabel.load(filename)
+    data_nii = nib.load(filename)
     # load file and add dimension for the modality
     image = data_nii.get_fdata(dtype=np.float32)[..., np.newaxis]
     return image, data_nii.affine
@@ -87,11 +82,6 @@ def predict_parser():
         help="path for the output file (output of the inference from tensorflow model)")
 
     parser.add_argument(
-        "-g", "--gpu",
-        type=int,
-        help="GPU card ID; for CPU use -1")
-
-    parser.add_argument(
         '--use_cpu',
         default=0,
         type=int,
@@ -109,6 +99,8 @@ def predict_parser():
 
 
 def main():
+    import keras
+    import tensorflow as tf
     pred_parser = predict_parser()
     args = pred_parser.parse_args()
 
@@ -122,16 +114,8 @@ def main():
         if _VERBOSE:
             print("Trying to run inference on CPU")
     else:
-        if args.gpu is not None:
-            if args.gpu >= 0:
-                os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
-                if _VERBOSE:
-                    print(f"Trying to run inference on GPU {args.gpu}")
-            else:
-                raise ValueError("Trying to run the inference on CPU (--gpu is negative) but --use_cpu is 0 or not set")
-        else:
-            if _VERBOSE:
-                print(f"Trying to run inference on available GPU(s)")
+        if _VERBOSE:
+            print("Trying to run inference on available GPU(s)")
 
     # The tf model files for the predictors, the prediction will be averaged
     model_files = []  # type: list[Path]
@@ -142,19 +126,21 @@ def main():
     model_dir = Path(args.model)
 
     notfound = []
+    badmd5 = []
 
     keras_model = None
     if 'script' in meta_data:
         keras_model = model_dir / meta_data['script']['name']
         if not keras_model.exists():
-            notfound.append(keras_model)
+            notfound.append(str(keras_model))
         else:
             k_md5 = meta_data['script']['md5']
             k_hashmd5 = md5(keras_model)
             if k_hashmd5 != k_md5:
-                raise ValueError("Mismatch between expected file from the model descriptor and the actual model script")
+                badmd5.append(str(keras_model))
 
     savedModel = False  # Whether the model is a keras savedModel or an h5 file
+    h5_models = False
     for mfile in meta_data['files']:
         mfilename = Path(mfile['name'])
         if not (model_dir / mfilename).exists():
@@ -163,31 +149,40 @@ def main():
                 model_dir = model_dir.parent
         model_file = model_dir / mfilename
         if not model_file.exists():
-            raise ValueError(f'Model file {model_file} was not found.')
-        hashmd5 = md5(model_file)
-        if mfile["md5"] != hashmd5:
-            raise ValueError("Mismatch between expected file from the model descriptor and the actual model file")
-        savedModel = model_file.is_dir()
+            notfound.append(str(model_file))
+        else:
+            hashmd5 = md5(model_file)
+            if mfile["md5"] != hashmd5:
+                badmd5.append(str(model_file))
+            else:
+                savedModel = model_file.is_dir()
+                h5_models = model_file.suffix == '.h5'
         model_files.append(model_file)
 
-    if len(model_files) == 0:
-        raise ValueError('Found no model files, '
-                         'please supply or mount a folder '
-                         'containing h5 files with model weights.')
-    for model_file in model_files:
-        if not os.path.exists(model_file):
-            notfound.append(model_file)
     if notfound:
         raise ValueError('Some (or all) model files/folders were missing.\n'
                          'Please supply or mount a folder '
                          'containing the model files/folders with model weights.\n'
                          'Current problematic paths:\n\t' +
                          '\n\t'.join(notfound))
+    if badmd5:
+        raise ValueError("Mismatch between expected file from the model descriptor and the actual model file.\n"
+                         "Files in question:\n\t" +
+                         "\n\t".join(badmd5))
+    if h5_models:
+        raise NotImplementedError("Models in .h5 format are no longer supported. ")
+    if len(model_files) == 0:
+        raise ValueError('Found no model files, '
+                         'please supply or mount a folder '
+                         'containing the model files/folders with model weights.')
+
+    target = meta_data['target']
+    if target == "MOD":
+        # Specific case for modality classification
+        mod_labels = meta_data['modalities']
 
     if keras_model:
         # Execute keras_model to have access to its classes
-        # with open(keras_model) as kf:
-        #     exec(kf.read())  # doesn't work when calling the script...
         spec = importlib.util.spec_from_file_location('kmodel', keras_model)
         kmodel = importlib.util.module_from_spec(spec)
         sys.modules['kmodel'] = kmodel
@@ -249,12 +244,11 @@ def main():
     # Add a dimension for a batch of one image
     images = np.reshape(images, (1,) + images.shape)
 
-    chrono0 = time.time()
     # Load models & predict
     predictions = []
     for model_file in model_files:
         print(f"Loading predictor file: {model_file}")
-        tf.keras.backend.clear_session()
+        keras.backend.clear_session()
         gc.collect()
         try:
             if keras_model:
@@ -265,7 +259,7 @@ def main():
                 input_names = list(infer.structured_input_signature[1].keys())
                 input_name = input_names[0]
             else:
-                model = tf.keras.models.load_model(
+                model = keras.models.load_model(
                     model_file,
                     compile=False,
                     custom_objects={"tf": tf})
@@ -278,13 +272,12 @@ def main():
         if savedModel:
             result = infer(**{input_name: tf.constant(images, dtype=tf.float32)})
             output_names = list(result.keys())
-            predictions = result[output_names[0]].numpy()
+            prediction = result[output_names[0]].numpy()
         else:
             prediction = model.predict(
                 images,
                 batch_size=1
             )
-        # prediction = model(images, training=False)  # slightly (?) faster alternative
         if brainmask is not None:
             prediction *= brainmask
         predictions.append(prediction)
@@ -292,20 +285,28 @@ def main():
     # Average all predictions
     predictions = np.mean(predictions, axis=0)
 
-    chrono1 = (time.time() - chrono0) / 60.
     if _VERBOSE:
-        print(f'Inference time : {chrono1} sec.')
+        print('Inference done.')
 
-    # Threshold to remove near-zero voxels
+    # Output result
     pred = predictions[0]
-    pred[pred < 0.001] = 0
-
-    # Save prediction
-    nifti = nibabel.Nifti1Image(pred.astype('float32'), affine=affine)
-    nibabel.save(nifti, output_path)
-
-    if _VERBOSE:
-        print(f'\nINFO : Done with predictions -> {output_path}\n')
+    if target == "MOD":
+        # Modality classification: output a JSON with per-modality scores
+        pred = pred.squeeze()
+        res_dict = {mod: float(pred[j]) for j, mod in enumerate(mod_labels)}
+        out_json = str(output_path).replace('.nii.gz', '.json') if str(output_path).endswith('.nii.gz') else str(output_path) + '.json'
+        with open(out_json, 'w') as f:
+            json.dump(res_dict, f, indent=4)
+        if _VERBOSE:
+            print(f'\nINFO : Done with predictions -> {out_json}\n')
+    else:
+        # Threshold to remove near-zero voxels
+        pred[pred < 0.001] = 0
+        # Save prediction
+        nifti = nib.Nifti1Image(pred.astype('float32'), affine=affine)
+        nib.save(nifti, output_path)
+        if _VERBOSE:
+            print(f'\nINFO : Done with predictions -> {output_path}\n')
 
 
 if __name__ == "__main__":
