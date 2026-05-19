@@ -31,6 +31,19 @@ def shivaParser():
                         metavar='path/to/nipype_work_dir',
                         required=True)
 
+    parser.add_argument('--prediction',
+                        choices=['PVS', 'PVS2', 'WMH', 'CMB', 'LAC', 'all'],
+                        nargs='+',
+                        help=("Choice of the type of prediction (i.e. segmentation) you want to compute.\n"
+                              "A combination of multiple predictions (separated by a white space) can be given.\n"
+                              "- 'PVS' for the segmentation of perivascular spaces using only T1 scans\n"
+                              "- 'PVS2' for the segmentation of perivascular spaces using both T1 and FLAIR scans\n"
+                              "- 'WMH' for the segmentation of white matter hyperintensities (requires both T1 and FLAIR scans)\n"
+                              "- 'CMB' for the segmentation of cerebral microbleeds (requires SWI scans)\n"
+                              "- 'LAC' for the segmentation of cerebral lacunas (requires both T1 and FLAIR scans)\n"
+                              "- 'all' for doing 'PVS2', 'WMH', and 'CMB' segmentation (requires T1, FLAIR, and SWI scans)"),
+                        required=True)
+
     parser.add_argument('--input_type',
                         choices=['standard', 'BIDS', 'swomed'],  # , 'json'
                         help="Way to grab and manage nifti files : 'standard' (default) or 'BIDS'",
@@ -71,19 +84,6 @@ def shivaParser():
                                       'In the file, the syntax is the same as for --sub_list\n.'
                                       'If none of --sub_list, --sub_names, or --exclusion_list '
                                       'are used, all the participants in the input folder will be processed'))
-
-    parser.add_argument('--prediction',
-                        choices=['PVS', 'PVS2', 'WMH', 'CMB', 'LAC', 'all'],
-                        nargs='+',
-                        help=("Choice of the type of prediction (i.e. segmentation) you want to compute.\n"
-                              "A combination of multiple predictions (separated by a white space) can be given.\n"
-                              "- 'PVS' for the segmentation of perivascular spaces using only T1 scans\n"
-                              "- 'PVS2' for the segmentation of perivascular spaces using both T1 and FLAIR scans\n"
-                              "- 'WMH' for the segmentation of white matter hyperintensities (requires both T1 and FLAIR scans)\n"
-                              "- 'CMB' for the segmentation of cerebral microbleeds (requires SWI scans)\n"
-                              "- 'LAC' for the segmentation of cerebral lacunas (requires both T1 and FLAIR scans)\n"
-                              "- 'all' for doing 'PVS2', 'WMH', and 'CMB' segmentation (requires T1, FLAIR, and SWI scans)"),
-                        default=['PVS'])
 
     parser.add_argument('--replace_t1',
                         type=str,
