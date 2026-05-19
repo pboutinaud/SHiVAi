@@ -741,3 +741,273 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
     if wf_graph is not None:
         sink_node_all.inputs.wf_graph = wf_graph
     return main_wf
+
+
+def generate_main_wf_grab_postproc(**kwargs) -> Workflow:
+    """
+    Generate a postprocessing-only workflow, grabbing both preprocessed data and
+    prediction segmentations from previous results folders.
+    No preprocessing or prediction is run — only postprocessing (clustering,
+    metrics, report, sinks).
+    """
+    # %% Get the folders with the preprocessed and prediction data
+    preproc_res = kwargs['PREP_SETTINGS']['preproc_res']
+    # TODO: add a new kwarg for prediction results path, e.g.:
+    # pred_res = kwargs['PREP_SETTINGS']['pred_res']
+    pred_res = kwargs['PREP_SETTINGS']['pred_res']  # TODO: wire this from the argument parser
+
+    # %% Validate available subjects
+    available_preproc = os.listdir(os.path.join(preproc_res, 'qc_metrics'))
+    # TODO: also validate that prediction results exist for all subjects. Example:
+    # available_pred = os.listdir(os.path.join(pred_res, 'segmentations'))
+    # available_subjects = set(available_preproc) & set(available_pred)
+    missing_subj = sorted(list(set(kwargs['SUBJECT_LIST']) - set(available_preproc)))
+    if missing_subj:
+        miss_subj_file = os.path.join(kwargs['BASE_DIR'], 'missing_datasets.txt')
+        with open(miss_subj_file, 'w') as file:
+            for subID in missing_subj:
+                file.write(f"{subID}\n")
+        error_msg = (
+            '\nSome of the datasets from the input folder did not have corresponding preprocessed data in the input results folder '
+            f'({len(missing_subj)} out of {len(available_preproc)}). The IDs of the culprits have been written in a text file:'
+            f'\n{miss_subj_file}\n'
+            'To continue, you can:\n'
+            '   - Process the datasets which lack preprocessed data the normal way with the full shiva pipeline (to complete the preprocessed folder)\n'
+            '   - Remove the datasets from the subject list if you are providing one with --sub_list\n'
+            '   - Add the datasets to the exlusion list with --exclusion_list (if you are not using --sub_list). You can even provide the text file generated here as is.\n'
+        )
+        raise ValueError(error_msg)
+
+    # %% Setup
+    with_t1, with_flair, with_swi = set_wf_shapers(kwargs['PREDICTION'])
+    if kwargs['USE_T1']:
+        with_t1 = True
+
+    main_wf = Workflow('main_workflow')
+    main_wf.base_dir = kwargs['BASE_DIR']
+
+    subject_iterator = Node(
+        IdentityInterface(
+            fields=['subject_id'],
+            mandatory_inputs=True),
+        name="subject_iterator")
+    subject_iterator.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
+
+    # %% Preproc grabber (same as generate_main_wf_grab_preproc)
+    preproc_grabber = Node(DataGrabber(
+        infields=['subject_id'],
+        outfields=['t1_intensity_normalized',
+                   'flair_intensity_normalized',
+                   'swi_intensity_normalized',
+                   'brain_mask',
+                   'brain_seg',
+                   'swi2t1_transforms',
+                   'brain_mask_swi',
+                   ]),
+        name='preproc_grabber')
+    preproc_grabber.inputs.base_directory = preproc_res
+    preproc_grabber.inputs.template = '*/%s/*.nii.gz'
+    preproc_grabber.inputs.raise_on_empty = True
+    preproc_grabber.inputs.sort_filelist = True
+
+    field_template = {}
+    template_args = {}
+    if with_t1:
+        field_template['t1_intensity_normalized'] = 't1_preproc/%s/*_cropped_intensity_normed.nii.gz'
+        template_args['t1_intensity_normalized'] = [['subject_id']]
+        field_template['brain_mask'] = 't1_preproc/%s/brainmask_cropped.nii.gz'
+        template_args['brain_mask'] = [['subject_id']]
+        if with_flair:
+            field_template['flair_intensity_normalized'] = 'flair_preproc/%s/*_cropped_intensity_normed.nii.gz'
+            template_args['flair_intensity_normalized'] = [['subject_id']]
+    if with_swi:
+        field_template['swi_intensity_normalized'] = 'swi_preproc/%s/*_cropped_intensity_normed.nii.gz'
+        template_args['swi_intensity_normalized'] = [['subject_id']]
+        if not with_t1:
+            field_template['brain_mask'] = 'swi_preproc/%s/brainmask_cropped*.nii.gz'
+            template_args['brain_mask'] = [['subject_id']]
+        else:
+            if 'synthseg' in kwargs['BRAIN_SEG'] or (kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None):
+                field_template['swi2t1_transforms'] = 'swi_preproc/%s/swi_to_t1_0GenericAffine.mat'
+                template_args['swi2t1_transforms'] = [['subject_id']]
+            else:
+                field_template['brain_mask_swi'] = 'swi_preproc/%s/brainmask_cropped_swi-space.nii.gz'
+                template_args['brain_mask_swi'] = [['subject_id']]
+
+    if 'synthseg' in kwargs['BRAIN_SEG']:
+        field_template['brain_seg'] = 'synthseg/%s/derived_parc.nii.gz'
+        template_args['brain_seg'] = [['subject_id']]
+    elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
+        if with_t1:
+            field_template['brain_seg'] = 't1_preproc/%s/custom_seg_cropped.nii.gz'
+        elif with_swi and not with_t1:
+            field_template['brain_seg'] = 'swi_preproc/%s/custom_seg_cropped.nii.gz'
+        template_args['brain_seg'] = [['subject_id']]
+
+    preproc_grabber.inputs.field_template = field_template
+    preproc_grabber.inputs.template_args = template_args
+    main_wf.connect(subject_iterator, 'subject_id', preproc_grabber, 'subject_id')
+
+    # %% Prediction segmentation grabber
+    pred_outfields = []
+    for pred in kwargs['PREDICTION']:
+        if pred == 'PVS2':
+            pred = 'PVS'
+        pred_outfields.append(f'{pred.lower()}_segmentation')
+
+    pred_grabber = Node(DataGrabber(
+        infields=['subject_id'],
+        outfields=pred_outfields),
+        name='pred_grabber')
+    pred_grabber.inputs.base_directory = pred_res
+    pred_grabber.inputs.template = '*/%s/*.nii.gz'
+    pred_grabber.inputs.raise_on_empty = True
+    pred_grabber.inputs.sort_filelist = True
+
+    pred_field_template = {}
+    pred_template_args = {}
+    for pred in kwargs['PREDICTION']:
+        if pred == 'PVS2':
+            pred = 'PVS'
+        lpred = pred.lower()
+        pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers([pred])
+        if pred_with_swi:
+            space = '_swi-space'
+        else:
+            space = ''
+        # TODO: adjust the template pattern to match your prediction results folder structure
+        pred_field_template[f'{lpred}_segmentation'] = f'{lpred}_segmentation{space}/%s/*.nii.gz'
+        pred_template_args[f'{lpred}_segmentation'] = [['subject_id']]
+
+    pred_grabber.inputs.field_template = pred_field_template
+    pred_grabber.inputs.template_args = pred_template_args
+    main_wf.connect(subject_iterator, 'subject_id', pred_grabber, 'subject_id')
+
+    # %% Build the preproc signal map from the preproc_grabber
+    preproc_signals = {
+        'brain_mask': (preproc_grabber, 'brain_mask'),
+    }
+    if with_t1:
+        preproc_signals['t1'] = (preproc_grabber, 't1_intensity_normalized')
+    if with_flair:
+        preproc_signals['flair'] = (preproc_grabber, 'flair_intensity_normalized')
+    if with_swi:
+        preproc_signals['swi'] = (preproc_grabber, 'swi_intensity_normalized')
+
+    if 'synthseg' in kwargs['BRAIN_SEG'] or (kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None):
+        preproc_signals['brain_seg'] = (preproc_grabber, 'brain_seg')
+
+    if with_swi and with_t1:
+        if 'synthseg' in kwargs['BRAIN_SEG'] or (kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None):
+            preproc_signals['swi2t1_transforms'] = (preproc_grabber, 'swi2t1_transforms')
+        else:
+            preproc_signals['brain_mask_swi'] = (preproc_grabber, 'brain_mask_swi')
+
+    # %% Postprocessing workflow and connections
+    wf_post = genWorkflowPost(**kwargs)
+
+    main_wf.connect(subject_iterator, 'subject_id', wf_post, 'summary_report.subject_id')
+    main_wf.connect(preproc_grabber, 'brain_mask', wf_post, 'summary_report.brainmask')
+
+    # Connect grabbed segmentations directly to postproc (no prediction workflow, no joiners needed)
+    seg_getters = {}
+    for pred in kwargs['PREDICTION']:
+        pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers([pred])
+        if pred == 'PVS2':
+            pred = 'PVS'
+        lpred = pred.lower()
+
+        # Overlay node connections: img_ref and fov_mask (same logic as _connect_prediction_and_postproc)
+        if pred_with_swi:
+            swi_node, swi_field = preproc_signals['swi']
+            main_wf.connect(swi_node, swi_field, wf_post, f'{lpred}_overlay_node.img_ref')
+            mask_node, mask_field = preproc_signals['brain_mask']
+            main_wf.connect(mask_node, mask_field, wf_post, f'{lpred}_overlay_node.fov_mask')
+        else:
+            mask_node, mask_field = preproc_signals['brain_mask']
+            main_wf.connect(mask_node, mask_field, wf_post, f'{lpred}_overlay_node.fov_mask')
+            if pred in ['WMH', 'LAC']:
+                flair_node, flair_field = preproc_signals['flair']
+                main_wf.connect(flair_node, flair_field, wf_post, f'{lpred}_overlay_node.img_ref')
+            else:
+                t1_node, t1_field = preproc_signals['t1']
+                main_wf.connect(t1_node, t1_field, wf_post, f'{lpred}_overlay_node.img_ref')
+
+        # Connect the grabbed segmentation directly (no seg_getter indirection needed, but we
+        # keep the same seg_getters dict structure for compatibility with _connect_pred_sinks).
+        # Here the pred_grabber output is already per-subject (iterated), so we use an identity-like
+        # pass-through node to maintain the same interface.
+        seg_getters[pred] = Node(IdentityInterface(fields=['segmentation']),
+                                 name=f'seg_getter_{lpred}')
+        main_wf.connect(pred_grabber, f'{lpred}_segmentation', seg_getters[pred], 'segmentation')
+        main_wf.connect(seg_getters[pred], 'segmentation', wf_post, f'{lpred}_overlay_node.brainmask')
+        main_wf.connect(seg_getters[pred], 'segmentation', wf_post, f'cluster_labelling_{lpred}.biomarker_raw')
+
+        # Brain seg connections (for cluster labelling and prediction metrics)
+        if pred_with_swi and with_t1:
+            if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
+                swi2t1_node, swi2t1_field = preproc_signals['swi2t1_transforms']
+                main_wf.connect(swi2t1_node, swi2t1_field, wf_post, 'seg_to_swi.transforms')
+                main_wf.connect(seg_getters[pred], 'segmentation', wf_post, 'seg_to_swi.reference_image')
+                seg_node, seg_field = preproc_signals['brain_seg']
+                main_wf.connect(seg_node, seg_field, wf_post, 'seg_to_swi.input_image')
+            elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
+                swi2t1_node, swi2t1_field = preproc_signals['swi2t1_transforms']
+                main_wf.connect(swi2t1_node, swi2t1_field, wf_post, 'seg_to_swi.transforms')
+                main_wf.connect(seg_getters[pred], 'segmentation', wf_post, 'seg_to_swi.reference_image')
+                seg_node, seg_field = preproc_signals['brain_seg']
+                main_wf.connect(seg_node, seg_field, wf_post, 'seg_to_swi.input_image')
+            else:
+                swi_mask_node, swi_mask_field = preproc_signals['brain_mask_swi']
+                main_wf.connect(swi_mask_node, swi_mask_field, wf_post, f'cluster_labelling_{lpred}.brain_seg')
+                main_wf.connect(swi_mask_node, swi_mask_field, wf_post, 'prediction_metrics_cmb.brain_seg')
+        else:
+            if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
+                seg_node, seg_field = preproc_signals['brain_seg']
+                main_wf.connect(seg_node, seg_field, wf_post, f'custom_{lpred}_parc.brain_seg')
+            elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
+                mask_node, mask_field = preproc_signals['brain_mask']
+                main_wf.connect(mask_node, mask_field, wf_post, f'cluster_labelling_{lpred}.brain_seg')
+                seg_node, seg_field = preproc_signals['brain_seg']
+                main_wf.connect(seg_node, seg_field, wf_post, f'prediction_metrics_{lpred}.brain_seg')
+            else:
+                mask_node, mask_field = preproc_signals['brain_mask']
+                main_wf.connect(mask_node, mask_field, wf_post, f'cluster_labelling_{lpred}.brain_seg')
+                main_wf.connect(mask_node, mask_field, wf_post, f'prediction_metrics_{lpred}.brain_seg')
+
+        # Merge all csv files across subjects
+        prediction_metrics_all = JoinNode(Join_Prediction_metrics(),
+                                          joinsource=subject_iterator,
+                                          joinfield=['csv_files', 'subject_id'],
+                                          name=f'prediction_metrics_{lpred}_all')
+        main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_csv',
+                        prediction_metrics_all, 'csv_files')
+        main_wf.connect(subject_iterator, 'subject_id',
+                        prediction_metrics_all, 'subject_id')
+
+    # %% Workflow graph
+    wf_graph = None
+    datasing_fields = []
+    if kwargs['SAVE_GRAPH']:
+        wf_graph = main_wf.write_graph(graph2use='colored', dotfilename='graph.svg', format='svg')
+        datasing_fields.append('wf_graph')
+
+    # %% Data sinks
+    sink_node_subjects = Node(DataSink_CSV_and_PDF_safe(), name='sink_node_subjects')
+    sink_node_subjects.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
+    sink_node_subjects.inputs.substitutions = [
+        ('_subject_id_', ''),
+        ('_resampled_cropped_img_normalized', '_cropped_intensity_normed'),
+        ('_resampled_defaced_cropped_img_normalized', '_defaced_cropped_intensity_normed'),
+        ('flair_to_t1__Warped_defaced_img_normalized', 'flair_to_t1_defaced_cropped_intensity_normed')
+    ]
+    sink_node_all = Node(DataSink_CSV_and_PDF_safe(
+        infields=datasing_fields), name='sink_node_all')
+    sink_node_all.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
+    sink_node_all.inputs.container = 'results_summary'
+
+    _connect_pred_sinks(main_wf, seg_getters, wf_post, sink_node_subjects, sink_node_all, **kwargs)
+
+    if wf_graph is not None:
+        sink_node_all.inputs.wf_graph = wf_graph
+    return main_wf
