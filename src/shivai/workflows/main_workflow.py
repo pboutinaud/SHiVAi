@@ -875,7 +875,7 @@ def generate_main_wf_grab_postproc(**kwargs) -> Workflow:
             space = '_swi-space'
         else:
             space = ''
-        # TODO: adjust the template pattern to match your prediction results folder structure
+        # TODO: adjust the template pattern to match the prediction results folder structure
         pred_field_template[f'{lpred}_segmentation'] = f'{lpred}_segmentation{space}/%s/*.nii.gz'
         pred_template_args[f'{lpred}_segmentation'] = [['subject_id']]
 
