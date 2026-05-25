@@ -8,7 +8,6 @@ from skimage.measure import label
 from skimage.morphology import opening, binary_erosion, binary_dilation, ball, cube
 from itertools import permutations, product
 
-import nibabel.processing as nip
 import nibabel as nib
 from scipy import ndimage
 from nibabel.orientations import axcodes2ornt, io_orientation, ornt_transform
@@ -162,7 +161,7 @@ def normalization(img: nib.Nifti1Image,
     # Normalization information
     report, mode = histogram(array_normalized, percentile, bins=64)
 
-    img_nifti_normalized = nip.Nifti1Image(array_normalized.astype('f'), img.affine)
+    img_nifti_normalized = nib.Nifti1Image(array_normalized.astype('f'), img.affine)
 
     return img_nifti_normalized, report, mode
 
@@ -314,7 +313,7 @@ def threshold(img: nib.Nifti1Image,
                 cluster_mask = binary_dilation(cluster_mask, footprint=footprint)
             array *= cluster_mask
 
-    thresholded = nip.Nifti1Image(array.astype('f'), img.affine)
+    thresholded = nib.Nifti1Image(array.astype('f'), img.affine)
 
     return thresholded
 
@@ -458,7 +457,7 @@ def crop(roi_mask: nib.Nifti1Image,
     affine_out[:, 3] = affine_out[:, 3] + (cdg_xyz - halfs_xyz) + offset_padding
 
     # We write the result image
-    cropped = nip.Nifti1Image(array_out.astype('f'), affine_out)
+    cropped = nib.Nifti1Image(array_out.astype('f'), affine_out)
 
     return cropped, cdg_ijk, bbox1, bbox2
 
@@ -471,11 +470,11 @@ def reverse_crop(original_img: nib.Nifti1Image,
     Re-modifies the dimensions of the cropped 
     image in the original space
     """
-    conform_array = original_img.get_fdata()
+    conform_array = original_img.get_fdata().squeeze()
     array_apply_to = apply_to.get_fdata()
     reverse_crop_array = np.zeros_like(conform_array)
     reverse_crop_array[bbox1[0]:bbox2[0], bbox1[1]:bbox2[1], bbox1[2]:bbox2[2]] = array_apply_to
-    reverse_img = nip.Nifti1Image(reverse_crop_array.astype('f'), original_img.affine)
+    reverse_img = nib.Nifti1Image(reverse_crop_array.astype('f'), original_img.affine)
     return reverse_img
 
 
