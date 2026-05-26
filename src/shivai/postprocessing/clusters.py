@@ -1,0 +1,236 @@
+import numpy as np
+import nibabel as nib
+from skimage import measure
+from concurrent.futures import ThreadPoolExecutor
+from shivai.utils.misc import fisin
+import nibabel.processing as nip
+
+
+def get_clusters_and_filter_image(image, cluster_filter=0, brain=None, outside_ratio=0.25):
+    """
+    Compute clusters and filter out those of size "cluster_filter" and smaller.
+    Also removes clusters that are mostly outside of the brain segmentation mask
+    if a brain segmentation mask is provided (>25% of cluster voxels outside brain).
+
+    """
+
+    clusters, num_clusters = measure.label(image, return_num=True)
+    if num_clusters == 0:
+        return image, clusters, num_clusters, clusters, num_clusters
+
+    apply_filter = bool(cluster_filter) or brain is not None
+    if apply_filter:
+        clusnum, counts = np.unique(clusters[clusters > 0], return_counts=True)
+        to_remove = set(clusnum[counts <= cluster_filter]) if cluster_filter else set()
+
+        if brain is not None:
+            brain_mask = np.asarray(brain).astype(bool)
+            if brain_mask.shape != image.shape:
+                raise ValueError(
+                    f'Brain mask shape ({brain_mask.shape}) does not match image shape ({image.shape}).'
+                )
+            for clus_i in clusnum:
+                clus_mask = (clusters == clus_i)
+                clus_size = np.count_nonzero(clus_mask)
+                vox_out = np.count_nonzero(clus_mask & ~brain_mask)
+                if clus_size > 0 and vox_out > (outside_ratio * clus_size):
+                    to_remove.add(clus_i)
+
+        nums_left = [i for i in clusnum if i not in to_remove]
+
+        image_f = image.copy()
+        clusters_f = clusters.copy()
+        if to_remove:
+            to_remove_arr = np.array(sorted(to_remove), dtype=clusters.dtype)
+            remove_mask = fisin(clusters, to_remove_arr)
+            image_f[remove_mask] = 0
+            clusters_f[remove_mask] = 0
+        num_clusters_f = len(nums_left)
+
+        for new_i, old_i in enumerate(nums_left, start=1):
+            clusters_f[clusters == old_i] = new_i
+    else:  # filtered clusters are the same
+        image_f, clusters_f, num_clusters_f = image, clusters, num_clusters
+    return image_f, clusters, num_clusters, clusters_f, num_clusters_f
+
+
+def label_clusters(pred_vol, threshold, cluster_filter, brain_seg_vol=None, outside_ratio=0.25):
+    """Threshold and labelize the clusters from a prediction map.
+    Also removes clusters that are smaller than or equal to the "cluster_filter" size (in voxels) 
+    and those that are mostly outside of the brain segmentation mask.
+
+    Args:
+        pred_vol (np.ndarray): Prediction map from the AI model
+        brain_seg_vol (np.ndarray): Brain seg delimiting the brain
+        threshold (float): Value to threshold the prediction map
+        cluster_filter (int): size up to which (including) small clusters are removed
+        outside_ratio (float): ratio of voxels outside the brain seg mask above which a cluster is removed (default: 0.25)
+
+    Returns:
+        labelled_clusters (np.ndarray): Labelled clusters volume
+    """
+    if len(pred_vol.shape) > 3:
+        pred_vol = pred_vol.squeeze()
+    if brain_seg_vol is not None and len(brain_seg_vol.shape) > 3:
+        brain_seg_vol = brain_seg_vol.squeeze()
+    brain_mask = (brain_seg_vol > 0) if brain_seg_vol is not None else None
+    thresholded_img = (pred_vol > threshold).astype(int)
+    _, _, _, labelled_clusters, _ = get_clusters_and_filter_image(
+        thresholded_img,
+        cluster_filter=cluster_filter,
+        brain=brain_mask,
+        outside_ratio=outside_ratio
+    )
+    return labelled_clusters
+
+
+def cluster_registration(input_im: nib.Nifti1Image, ref_im: nib.Nifti1Image, transform_affine: np.ndarray) -> nib.Nifti1Image:
+    """Apply a linear registration to labelled clusters in a way that conserve all clusters 
+    /!\ Never worked /!\\
+        -> Use  resample_cluster_img instead
+
+    Args:
+        input_im (nib.Nifti1Image): Image containing labelled clusters (with integers as labels)
+        ref_im (nib.Nifti1Image): Image defining the arrival space
+        transform_affine (np.ndarray): Affine matrix (4x4) defining the linear transformation
+
+    Returns:
+        nib.Nifti1Image: _description_
+    """
+    input_vol = input_im.get_fdata().astype('int16')
+    input_affine = input_im.affine
+    ref_affine = ref_im.affine
+    pls2ras = np.diag([-1, -1, 1, 1])
+
+    # Combining the different affines
+    ref_affine_inv = np.linalg.inv(ref_affine)
+    transform_affine_inv = np.linalg.inv(pls2ras @ transform_affine @ pls2ras)  # ANTs affines must be inversed
+    full_affine = ref_affine_inv @ transform_affine_inv @ input_affine  # TODO: make this work T.T
+    # Getting the new coordinates for each voxel
+    ori_coord = np.argwhere(input_vol)
+    new_coord = nib.affines.apply_affine(full_affine, ori_coord)
+    new_coord = np.round(new_coord).astype(int).T  # rounding and reshaping the coordinate array for indexing
+    # Correcting points that got out of the image
+    new_coord[(new_coord < 0)] = 0
+    new_coord[0, (new_coord[0] >= ref_im.shape[0])] = ref_im.shape[0] - 1
+    new_coord[1, (new_coord[1] >= ref_im.shape[1])] = ref_im.shape[1] - 1
+    new_coord[2, (new_coord[2] >= ref_im.shape[2])] = ref_im.shape[2] - 1
+
+    clust_reg_vol = np.zeros(ref_im.shape, dtype='int16')
+    clust_reg_vol[tuple(new_coord)] = 1
+
+    clust_reg_im = nib.Nifti1Image(clust_reg_vol, affine=ref_affine)
+    return clust_reg_im
+
+
+def _resample_one_cluster(val, cluster_data, ori_vox_vol, source_affine, target_img, new_vox_vol, thresholds):
+    """Resample a single cluster label and find the best threshold to match its original volume."""
+    mask = cluster_data == val
+    mask_vol = np.sum(mask) * ori_vox_vol
+    resampled_mask = nip.resample_from_to(nib.Nifti1Image(mask.astype(float), source_affine), target_img)
+    resampled_mask_data = resampled_mask.get_fdata() / val  # Normalizing between 0 and 1 for thresholding
+    resampled_mask_data[resampled_mask_data < 0] = 0  # Removing negative values that can appear due to interpolation
+    prev_vol, prev_thr = None, None
+    ok_thr, ok_mask_vol = None, None
+    for thr in thresholds:
+        resampled_mask_data[resampled_mask_data < thr] = 0
+        new_mask_vol = np.sum(resampled_mask_data > 0) * new_vox_vol
+        if prev_vol is not None:
+            if new_mask_vol < mask_vol:
+                if new_mask_vol == 0:
+                    ok_thr = prev_thr
+                    ok_mask_vol = prev_vol
+                    break
+                ok_thr, ok_mask_vol = [(thr, new_mask_vol), (prev_thr, prev_vol)][np.argmin([abs(new_mask_vol - mask_vol), abs(prev_vol - mask_vol)])]
+                break
+        prev_vol = new_mask_vol
+        prev_thr = thr
+    return val, ok_thr, ok_mask_vol, resampled_mask_data
+
+
+def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Image, continuous: bool = False, transform_affine: np.ndarray = None, n_parallel: int = 8) -> nib.Nifti1Image:
+    """Resample a cluster mask to the space of a target image using nearest neighbor interpolation.
+
+    Args:
+        cluster_img (nib.Nifti1Image): Nifti image containing the clusters to be resampled
+        target_img (nib.Nifti1Image): Nifti image defining the target space for resampling
+        continuous (bool): Whether to use continuous interpolation (resample_from_to),
+            typically because the clusters have continuous values (default: False). If False,
+            cluster_img must contain integer labels. Will then use the "smart" resampling by
+            individually resampling each cluster (continuously) then trying different thresholds
+            to get the best match with the original cluster size (in mm^3) for each cluster. Will
+            be careful not to delete clusters during this process.
+            One special case is when the original and target voxel volumes are the same, in which 
+            case a simple nearest neighbor resampling is done without the smart thresholding process, 
+            to avoid interpolation issues.
+        transform_affine (np.ndarray, optional): 4x4 ANTs-style affine matrix (in LPS coordinates)
+            encoding the linear transformation between cluster_img and target_img spaces.
+            If None (default), the two images are assumed to be already aligned (their
+            NIfTI affines alone define the spatial correspondence). If provided, the transform
+            is composed into the source affine before resampling.
+        n_parallel (int): Number of parallel threads for resampling individual clusters
+            (default: 8). Set to 1 to disable parallelization.
+
+    Returns:
+        nib.Nifti1Image: Resampled cluster mask in the space of the target image
+    """
+    # Compute original voxel volume before any affine modification
+    ori_vox_vol = cluster_img.header.get_zooms()[0] * cluster_img.header.get_zooms()[1] * cluster_img.header.get_zooms()[2]
+
+    # Apply ANTs linear transform if given (compose into source affine)
+    if transform_affine is not None:
+        lps2ras = np.diag([-1, -1, 1, 1])
+        T_ras = lps2ras @ transform_affine @ lps2ras
+        composed_affine = np.linalg.inv(T_ras) @ cluster_img.affine
+        cluster_img = nib.Nifti1Image(np.asarray(cluster_img.dataobj), composed_affine)
+
+    if continuous:
+        return nip.resample_from_to(cluster_img, target_img)
+    new_vox_vol = target_img.header.get_zooms()[0] * target_img.header.get_zooms()[1] * target_img.header.get_zooms()[2]
+    if ori_vox_vol == new_vox_vol:
+        # if voxel volumes are the same, no need for the smart resampling, just do a nearest neighbor resampling to avoid interpolation issues
+        return nip.resample_from_to(cluster_img, target_img, order=0)
+    resampled_vol = np.zeros(target_img.shape, dtype=cluster_img.get_fdata().dtype)
+    cluster_data = cluster_img.get_fdata()
+    # Check and match the number of dim between resampled_vol (i.e. target_img) and cluster_data
+    if len(cluster_data.shape) < len(target_img.shape) and target_img.shape[-1] == 1:
+        cluster_data = np.expand_dims(cluster_data, axis=-1)
+    elif len(cluster_data.shape) > len(target_img.shape) and cluster_data.shape[-1] == 1:
+        cluster_data = np.squeeze(cluster_data, axis=-1)
+    else:
+        raise ValueError(f"Cluster image shape {cluster_data.shape} and target image shape {target_img.shape} are not compatible for resampling.")
+    # Check if the data is integer
+    if not np.all(np.isclose(cluster_data, cluster_data.astype(int), atol=1e-5)):
+        raise ValueError("Cluster image must contain integer labels for smart resampling.")
+    cluster_data = cluster_data.astype(int)
+    cluster_vals = np.unique(cluster_data)
+    # Thresholds to try for each cluster to find the best match with original size
+    thresholds = [0.05, 0.08, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6]  # very low thr are important for skinny clusters
+    vals_to_process = [v for v in cluster_vals if v != 0]
+    n_workers = min(n_parallel, len(vals_to_process)) if n_parallel > 1 else 1
+    if n_workers > 1:
+        with ThreadPoolExecutor(max_workers=n_workers) as executor:
+            futures = {
+                executor.submit(
+                    _resample_one_cluster, val, cluster_data, ori_vox_vol,
+                    cluster_img.affine, target_img, new_vox_vol, thresholds
+                ): val for val in vals_to_process
+            }
+            for future in futures:
+                val, ok_thr, ok_mask_vol, resampled_mask_data = future.result()
+                if ok_thr is not None and ok_mask_vol > 0:
+                    resampled_vol[resampled_mask_data >= ok_thr] = val
+                else:
+                    raise ValueError(f"Could not find a suitable threshold to resample cluster with label {val} without losing it. "
+                                     "Consider using continuous resampling or adjusting the thresholds.")
+    else:
+        for val in vals_to_process:
+            _, ok_thr, ok_mask_vol, resampled_mask_data = _resample_one_cluster(
+                val, cluster_data, ori_vox_vol, cluster_img.affine, target_img, new_vox_vol, thresholds
+            )
+            if ok_thr is not None and ok_mask_vol > 0:
+                resampled_vol[resampled_mask_data >= ok_thr] = val
+            else:
+                raise ValueError(f"Could not find a suitable threshold to resample cluster with label {val} without losing it. "
+                                 "Consider using continuous resampling or adjusting the thresholds.")
+    return nib.Nifti1Image(resampled_vol, target_img.affine)

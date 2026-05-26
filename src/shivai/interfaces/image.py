@@ -6,10 +6,10 @@ from shivai.postprocessing.custom_parc import seg_for_pvs, seg_for_wmh, seg_from
 from shivai.postprocessing.pvs import quantify_clusters
 from shivai.postprocessing.basalganglia import create_basalganglia_slice_mask
 from shivai.postprocessing.wmh import metrics_clusters_latventricles
+from shivai.postprocessing.clusters import label_clusters, cluster_registration, resample_cluster_img
 from shivai.utils.stats import prediction_metrics, get_mask_regions
 from shivai.utils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask, seg_cleaner, affine_check
 from shivai.utils.quality_control import create_edges, save_histogram, bounding_crop, overlay_brainmask
-from shivai.utils.misc import label_clusters, cluster_registration
 from shivai.interfaces.container import ContainerCommandLine, ContainerInputSpec
 from nipype.utils.filemanip import split_filename
 from nipype.interfaces.base import CommandLine, CommandLineInputSpec, isdefined
@@ -1354,7 +1354,12 @@ class Label_clusters_InputSpec(BaseInterfaceInputSpec):
     brain_seg = traits.File(exists=True,
                             desc=('Brain mask or brain segmentation delimiting the parts '
                                   'of the biomarker segmentation ("img" argument) to explore'),
-                            mandatory=True)
+                            mandatory=False)
+
+    binerize = traits.Bool(False,
+                           desc='Whether to binarize the biomarker segmentation before clustering. If False, will use the raw values to threshold the clusters (i.e. keeping only clusters with a mean value above "thr_cluster_val"). If True, will first binarize the biomarker segmentation with "thr_cluster_val" as threshold, and then keep only clusters with a size above "thr_cluster_size".',
+                           mandatory=False,
+                           usedefault=True)
 
     out_name = traits.Str('labelled_clusters.nii.gz',
                           mandatory=False,
@@ -1368,7 +1373,7 @@ class Label_clusters_OutputSpec(TraitedSpec):
 
 
 class Label_clusters(BaseInterface):
-    """Generates an image showing the brain mask and the crop-box overlayed on the original brain"""
+    """Clusters the biomarker segmentation and keeps only those inside of the brain, with a value above a given threshold and a size above a given threshold"""
     input_spec = Label_clusters_InputSpec
     output_spec = Label_clusters_OutputSpec
 
@@ -1376,14 +1381,19 @@ class Label_clusters(BaseInterface):
         biomarker_raw = self.inputs.biomarker_raw
         thr_cluster_val = self.inputs.thr_cluster_val
         thr_cluster_size = self.inputs.thr_cluster_size
-        brain_seg = self.inputs.brain_seg
         out_name = self.inputs.out_name
 
         biomarker_im = nib.load(biomarker_raw)
         biomarker_vol = biomarker_im.get_fdata()
-        brain_seg_vol = nib.load(brain_seg).get_fdata()
+        if isdefined(self.inputs.brain_seg):
+            brain_seg = self.inputs.brain_seg
+            brain_seg_vol = nib.load(brain_seg).get_fdata()
+        else:
+            brain_seg_vol = None
 
-        labelled_clusters = label_clusters(biomarker_vol, brain_seg_vol, thr_cluster_val, thr_cluster_size)
+        labelled_clusters = label_clusters(biomarker_vol, thr_cluster_val, thr_cluster_size, brain_seg_vol)
+        if self.inputs.binerize:
+            labelled_clusters = (labelled_clusters > 0).astype('int16')
         labelled_clusters_im = nib.Nifti1Image(labelled_clusters.astype('int16'), affine=biomarker_im.affine)
         nib.save(labelled_clusters_im, out_name)
         return runtime
@@ -1561,12 +1571,16 @@ class Labelled_Clusters_Registration_InputSpec(BaseInterfaceInputSpec):
     input_image = traits.File(exists=True,
                               desc='Biomarker clusters labelled with unique integers',
                               mandatory=True)
-    reference_image = traits.File(exists=True,
+    target_image = traits.File(exists=True,
                                   desc='Image defining the arriving space after the registration',
                                   mandatory=True)
     transform_affine = traits.File(exists=True,
                                    desc='Affine of the transformation from ANTs',
                                    mandatory=True)
+    inverse_affine = traits.Bool(False,
+                                 usedefault=True,
+                                 mandatory=False,
+                                 desc='If True, invert the ANTs affine before applying it')
     out_name = traits.Str('registered_clusters.nii.gz',
                           usedefault=True,
                           mandatory=False,
@@ -1585,15 +1599,20 @@ class Labelled_Clusters_Registration(BaseInterface):
 
     def _run_interface(self, runtime):
         input_im = nib.load(self.inputs.input_image)
-        ref_im = nib.load(self.inputs.reference_image)
+        target_im = nib.load(self.inputs.target_image)
         mat = loadmat(self.inputs.transform_affine)
         key_name = [k for k in mat if 'AffineTransform_' in k][0]  # AffineTransform_*_3_3
         transform_affine_raw = mat[key_name]
+        fixed_params = mat['fixed']
+        A = transform_affine_raw[:9].reshape((3, 3))
+        t = transform_affine_raw[9:12].squeeze()
+        c = fixed_params.squeeze()  # center of rotation
         transform_affine = np.eye(4)
-        transform_affine[:3, :3] = transform_affine_raw[:9].reshape((3, 3))
-        transform_affine[:3, 3] = transform_affine_raw[9:12].squeeze()
-        # TODO: Make cluster_registration work
-        clusters_reg_im = cluster_registration(input_im, ref_im, transform_affine)
+        transform_affine[:3, :3] = A
+        transform_affine[:3, 3] = t + c - A @ c
+        if self.inputs.inverse_affine:
+            transform_affine = np.linalg.inv(transform_affine)
+        clusters_reg_im = resample_cluster_img(input_im, target_im, transform_affine=transform_affine)
         nib.save(clusters_reg_im, self.inputs.out_name)
         return runtime
 
