@@ -251,12 +251,14 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
         composed_affine = np.linalg.inv(T_ras) @ cluster_img.affine
         cluster_img = nib.Nifti1Image(np.asarray(cluster_img.dataobj), composed_affine)
 
-    if continuous:
-        return nip.resample_from_to(cluster_img, target_img)
     new_vox_vol = target_img.header.get_zooms()[0] * target_img.header.get_zooms()[1] * target_img.header.get_zooms()[2]
     if ori_vox_vol == new_vox_vol:
         # if voxel volumes are the same, no need for the smart resampling, just do a nearest neighbor resampling to avoid interpolation issues
         return nip.resample_from_to(cluster_img, target_img, order=0)
+
+    if continuous:
+        return nip.resample_from_to(cluster_img, target_img)
+
     resampled_vol = np.zeros(target_img.shape, dtype=cluster_img.get_fdata().dtype)
     cluster_data = cluster_img.get_fdata()
 
@@ -274,7 +276,9 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
     cluster_data = cluster_data.astype(int)
     cluster_vals = list(np.unique(cluster_data))
     cluster_vals.remove(0)
+    ori_val = None
     if len(cluster_vals) == 1:  # if only one value, probably not clustered yet, so need call to label() fist
+        ori_val = cluster_vals[0]
         cluster_data = measure.label(cluster_data > 0)
         cluster_vals = list(np.unique(cluster_data))
     cluster_vals.remove(0)  # remove background
@@ -316,4 +320,6 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
             else:
                 raise ValueError(f"Could not find a suitable threshold to resample cluster with label {val} without losing it. "
                                  "Consider using continuous resampling or adjusting the thresholds.")
+        if ori_val is not None:
+            resampled_vol[resampled_vol > 0] = ori_val
     return nib.Nifti1Image(resampled_vol, target_img.affine)
