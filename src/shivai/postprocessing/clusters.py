@@ -123,7 +123,7 @@ def cluster_registration(input_im: nib.Nifti1Image, ref_im: nib.Nifti1Image, tra
     return clust_reg_im
 
 
-def _resample_one_cluster(val, cluster_data, ori_vox_vol, source_affine, target_img, new_vox_vol, thresholds):
+def _resample_one_cluster(val, cluster_data, ori_vox_vol, source_affine, target_img, new_vox_vol, thresh_fractions):
     """Resample a single cluster label and find the best threshold to match its original volume."""
     mask = cluster_data == val
     mask_vol = np.sum(mask) * ori_vox_vol
@@ -132,6 +132,7 @@ def _resample_one_cluster(val, cluster_data, ori_vox_vol, source_affine, target_
     resampled_mask_data[resampled_mask_data < 0] = 0  # Removing negative values that can appear due to interpolation
     prev_vol, prev_thr = None, None
     ok_thr, ok_mask_vol = None, None
+    thresholds = [frac * resampled_mask_data.max() for frac in thresh_fractions]
     for thr in thresholds:
         resampled_mask_data[resampled_mask_data < thr] = 0
         new_mask_vol = np.sum(resampled_mask_data > 0) * new_vox_vol
@@ -145,7 +146,7 @@ def _resample_one_cluster(val, cluster_data, ori_vox_vol, source_affine, target_
                 break
         prev_vol = new_mask_vol
         prev_thr = thr
-    return val, ok_thr, ok_mask_vol, resampled_mask_data
+    return val, ok_thr, ok_mask_vol, resampled_mask.get_fdata() / val
 
 
 def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Image, continuous: bool = False, transform_affine: np.ndarray = None, n_parallel: int = 8) -> nib.Nifti1Image:
@@ -205,7 +206,8 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
     cluster_data = cluster_data.astype(int)
     cluster_vals = np.unique(cluster_data)
     # Thresholds to try for each cluster to find the best match with original size
-    thresholds = [0.05, 0.08, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6]  # very low thr are important for skinny clusters
+    # These are fractions of the max value in the resampled cluster mask
+    thresh_frac = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     vals_to_process = [v for v in cluster_vals if v != 0]
     n_workers = min(n_parallel, len(vals_to_process)) if n_parallel > 1 else 1
     if n_workers > 1:
@@ -213,7 +215,7 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
             futures = {
                 executor.submit(
                     _resample_one_cluster, val, cluster_data, ori_vox_vol,
-                    cluster_img.affine, target_img, new_vox_vol, thresholds
+                    cluster_img.affine, target_img, new_vox_vol, thresh_frac
                 ): val for val in vals_to_process
             }
             for future in futures:
@@ -226,7 +228,7 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
     else:
         for val in vals_to_process:
             _, ok_thr, ok_mask_vol, resampled_mask_data = _resample_one_cluster(
-                val, cluster_data, ori_vox_vol, cluster_img.affine, target_img, new_vox_vol, thresholds
+                val, cluster_data, ori_vox_vol, cluster_img.affine, target_img, new_vox_vol, thresh_frac
             )
             if ok_thr is not None and ok_mask_vol > 0:
                 resampled_vol[resampled_mask_data >= ok_thr] = val
