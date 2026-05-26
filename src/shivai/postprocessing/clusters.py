@@ -123,19 +123,78 @@ def cluster_registration(input_im: nib.Nifti1Image, ref_im: nib.Nifti1Image, tra
     return clust_reg_im
 
 
-def _resample_one_cluster(val, cluster_data, ori_vox_vol, source_affine, target_img, new_vox_vol, thresh_fractions):
-    """Resample a single cluster label and find the best threshold to match its original volume."""
+def _resample_one_cluster(val, cluster_data, ori_vox_vol, source_affine, target_affine, target_shape, new_vox_vol, thresh_fractions, interp_order=3):
+    """Resample a single cluster label using bounding-box cropping for speed.
+
+    Instead of resampling the full volume, crops both source and target to the
+    cluster's bounding box region, dramatically reducing computation since
+    scipy.ndimage.affine_transform scales with output volume size.
+    """
+    _NDIM = 3
     mask = cluster_data == val
     mask_vol = np.sum(mask) * ori_vox_vol
-    resampled_mask = nip.resample_from_to(nib.Nifti1Image(mask.astype(float), source_affine), target_img)
-    resampled_mask_data = resampled_mask.get_fdata() / val  # Normalizing between 0 and 1 for thresholding
-    resampled_mask_data[resampled_mask_data < 0] = 0  # Removing negative values that can appear due to interpolation
+
+    # --- Crop source to cluster bounding box + padding ---
+    coords = np.argwhere(mask)
+    src_min = coords.min(axis=0)
+    src_max = coords.max(axis=0)
+    pad = interp_order + 1
+    src_min_pad = np.maximum(src_min - pad, 0)
+    src_max_pad = np.minimum(src_max + pad, np.array(cluster_data.shape) - 1)
+    slices_src = tuple(slice(lo, hi + 1) for lo, hi in zip(src_min_pad, src_max_pad))
+    cropped_mask = mask[slices_src].astype(float)
+
+    # Affine for cropped source: shift origin by src_min_pad voxels
+    offset_src = np.eye(4)
+    offset_src[:_NDIM, 3] = src_min_pad[:_NDIM]
+    cropped_src_affine = source_affine @ offset_src
+
+    # --- Compute target bounding box by mapping source bbox corners ---
+    src_to_tgt = np.linalg.inv(target_affine) @ source_affine
+    bbox_min = src_min[:_NDIM].astype(float)
+    bbox_max = src_max[:_NDIM].astype(float)
+    # Generate the 8 corners of the 3D source bounding box
+    idx = np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0], [0, 1, 1],
+                    [1, 0, 0], [1, 0, 1], [1, 1, 0], [1, 1, 1]], dtype=float)
+    corners_src = bbox_min + idx * (bbox_max - bbox_min)
+    corners_h = np.hstack([corners_src, np.ones((8, 1))])
+    corners_tgt = (src_to_tgt @ corners_h.T).T[:, :_NDIM]
+
+    tgt_min = np.floor(corners_tgt.min(axis=0)).astype(int) - pad
+    tgt_max = np.ceil(corners_tgt.max(axis=0)).astype(int) + pad
+    tgt_min = np.maximum(tgt_min, 0)
+    tgt_max = np.minimum(tgt_max, np.array(target_shape[:_NDIM]) - 1)
+
+    if np.any(tgt_min > tgt_max):
+        # Cluster projects entirely outside the target image
+        return val, None, None, None, tgt_min
+
+    sub_tgt_shape = tuple(tgt_max - tgt_min + 1)
+    if len(target_shape) > _NDIM:
+        sub_tgt_shape = sub_tgt_shape + target_shape[_NDIM:]
+
+    # Affine for cropped target: shift origin by tgt_min voxels
+    offset_tgt = np.eye(4)
+    offset_tgt[:_NDIM, 3] = tgt_min.astype(float)
+    sub_tgt_affine = target_affine @ offset_tgt
+
+    # --- Resample cropped source to cropped target ---
+    cropped_src_img = nib.Nifti1Image(cropped_mask, cropped_src_affine)
+    resampled_sub = nip.resample_from_to(cropped_src_img, (sub_tgt_shape, sub_tgt_affine))
+    raw_data = resampled_sub.get_fdata()
+    raw_data[raw_data < 0] = 0  # Remove negative interpolation artifacts
+
+    if raw_data.max() == 0:
+        return val, None, None, None, tgt_min
+
+    # --- Find best threshold to match original volume ---
+    working_data = raw_data.copy()
+    thresholds = [frac * working_data.max() for frac in thresh_fractions]
     prev_vol, prev_thr = None, None
     ok_thr, ok_mask_vol = None, None
-    thresholds = [frac * resampled_mask_data.max() for frac in thresh_fractions]
     for thr in thresholds:
-        resampled_mask_data[resampled_mask_data < thr] = 0
-        new_mask_vol = np.sum(resampled_mask_data > 0) * new_vox_vol
+        working_data[working_data < thr] = 0
+        new_mask_vol = np.sum(working_data > 0) * new_vox_vol
         if prev_vol is not None:
             if new_mask_vol < mask_vol:
                 if new_mask_vol == 0:
@@ -146,7 +205,7 @@ def _resample_one_cluster(val, cluster_data, ori_vox_vol, source_affine, target_
                 break
         prev_vol = new_mask_vol
         prev_thr = thr
-    return val, ok_thr, ok_mask_vol, resampled_mask.get_fdata() / val
+    return val, ok_thr, ok_mask_vol, raw_data, tgt_min
 
 
 def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Image, continuous: bool = False, transform_affine: np.ndarray = None, n_parallel: int = 8) -> nib.Nifti1Image:
@@ -198,7 +257,7 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
         cluster_data = np.expand_dims(cluster_data, axis=-1)
     elif len(cluster_data.shape) > len(target_img.shape) and cluster_data.shape[-1] == 1:
         cluster_data = np.squeeze(cluster_data, axis=-1)
-    else:
+    elif len(cluster_data.shape) != len(target_img.shape):
         raise ValueError(f"Cluster image shape {cluster_data.shape} and target image shape {target_img.shape} are not compatible for resampling.")
     # Check if the data is integer
     if not np.all(np.isclose(cluster_data, cluster_data.astype(int), atol=1e-5)):
@@ -215,23 +274,29 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
             futures = {
                 executor.submit(
                     _resample_one_cluster, val, cluster_data, ori_vox_vol,
-                    cluster_img.affine, target_img, new_vox_vol, thresh_frac
+                    cluster_img.affine, target_img.affine, target_img.shape, new_vox_vol, thresh_frac
                 ): val for val in vals_to_process
             }
             for future in futures:
-                val, ok_thr, ok_mask_vol, resampled_mask_data = future.result()
+                val, ok_thr, ok_mask_vol, sub_data, tgt_origin = future.result()
                 if ok_thr is not None and ok_mask_vol > 0:
-                    resampled_vol[resampled_mask_data >= ok_thr] = val
+                    slices = tuple(slice(tgt_origin[i], tgt_origin[i] + sub_data.shape[i]) for i in range(3))
+                    if len(resampled_vol.shape) > 3:
+                        slices += (slice(None),) * (len(resampled_vol.shape) - 3)
+                    resampled_vol[slices][sub_data >= ok_thr] = val
                 else:
                     raise ValueError(f"Could not find a suitable threshold to resample cluster with label {val} without losing it. "
                                      "Consider using continuous resampling or adjusting the thresholds.")
     else:
         for val in vals_to_process:
-            _, ok_thr, ok_mask_vol, resampled_mask_data = _resample_one_cluster(
-                val, cluster_data, ori_vox_vol, cluster_img.affine, target_img, new_vox_vol, thresh_frac
+            _, ok_thr, ok_mask_vol, sub_data, tgt_origin = _resample_one_cluster(
+                val, cluster_data, ori_vox_vol, cluster_img.affine, target_img.affine, target_img.shape, new_vox_vol, thresh_frac
             )
             if ok_thr is not None and ok_mask_vol > 0:
-                resampled_vol[resampled_mask_data >= ok_thr] = val
+                slices = tuple(slice(tgt_origin[i], tgt_origin[i] + sub_data.shape[i]) for i in range(3))
+                if len(resampled_vol.shape) > 3:
+                    slices += (slice(None),) * (len(resampled_vol.shape) - 3)
+                resampled_vol[slices][sub_data >= ok_thr] = val
             else:
                 raise ValueError(f"Could not find a suitable threshold to resample cluster with label {val} without losing it. "
                                  "Consider using continuous resampling or adjusting the thresholds.")
