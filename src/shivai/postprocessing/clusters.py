@@ -209,7 +209,14 @@ def _resample_one_cluster(val, cluster_data, ori_vox_vol, source_affine, target_
 
 
 def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Image, continuous: bool = False, transform_affine: np.ndarray = None, n_parallel: int = 8) -> nib.Nifti1Image:
-    """Resample a cluster mask to the space of a target image using nearest neighbor interpolation.
+    """Resample all the cluster masks from an image to the space of a target image.
+
+    If "continuous" is False, will try to preserve all clusters by resampling
+    each cluster separately with a smart thresholding process to find the best
+    threshold that preserves the original cluster size in mm^3 as much as possible
+    without losing it. If "continuous" is True, will do a simple continuous
+    resampling of the whole image, which may lead to some clusters being lost
+    if they become too small after resampling.
 
     Args:
         cluster_img (nib.Nifti1Image): Nifti image containing the clusters to be resampled
@@ -252,6 +259,7 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
         return nip.resample_from_to(cluster_img, target_img, order=0)
     resampled_vol = np.zeros(target_img.shape, dtype=cluster_img.get_fdata().dtype)
     cluster_data = cluster_img.get_fdata()
+
     # Check and match the number of dim between resampled_vol (i.e. target_img) and cluster_data
     if len(cluster_data.shape) < len(target_img.shape) and target_img.shape[-1] == 1:
         cluster_data = np.expand_dims(cluster_data, axis=-1)
@@ -259,15 +267,23 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
         cluster_data = np.squeeze(cluster_data, axis=-1)
     elif len(cluster_data.shape) != len(target_img.shape):
         raise ValueError(f"Cluster image shape {cluster_data.shape} and target image shape {target_img.shape} are not compatible for resampling.")
+
     # Check if the data is integer
     if not np.all(np.isclose(cluster_data, cluster_data.astype(int), atol=1e-5)):
         raise ValueError("Cluster image must contain integer labels for smart resampling.")
     cluster_data = cluster_data.astype(int)
-    cluster_vals = np.unique(cluster_data)
+    cluster_vals = list(np.unique(cluster_data))
+    cluster_vals.remove(0)
+    if len(cluster_vals) == 1:  # if only one value, probably not clustered yet, so need call to label() fist
+        cluster_data = measure.label(cluster_data > 0)
+        cluster_vals = list(np.unique(cluster_data))
+    cluster_vals.remove(0)  # remove background
+    # Order label values by cluster size (largest first) to try to preserve smaller clusters
+    vals_to_process = sorted(cluster_vals, key=lambda v: np.sum(cluster_data == v), reverse=True)
+
     # Thresholds to try for each cluster to find the best match with original size
     # These are fractions of the max value in the resampled cluster mask
     thresh_frac = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-    vals_to_process = [v for v in cluster_vals if v != 0]
     n_workers = min(n_parallel, len(vals_to_process)) if n_parallel > 1 else 1
     if n_workers > 1:
         with ThreadPoolExecutor(max_workers=n_workers) as executor:
