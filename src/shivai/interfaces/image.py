@@ -1572,11 +1572,12 @@ class Labelled_Clusters_Registration_InputSpec(BaseInterfaceInputSpec):
                               desc='Biomarker clusters labelled with unique integers',
                               mandatory=True)
     target_image = traits.File(exists=True,
-                                  desc='Image defining the arriving space after the registration',
-                                  mandatory=True)
+                               desc='Image defining the arriving space after the registration',
+                               mandatory=True)
     transform_affine = traits.File(exists=True,
-                                   desc='Affine of the transformation from ANTs',
-                                   mandatory=True)
+                                   desc='Affine of the transformation from ANTs. If not provided, '
+                                        'the resampling relies on the NIfTI affines alone.',
+                                   mandatory=False)
     inverse_affine = traits.Bool(False,
                                  usedefault=True,
                                  mandatory=False,
@@ -1600,18 +1601,21 @@ class Labelled_Clusters_Registration(BaseInterface):
     def _run_interface(self, runtime):
         input_im = nib.load(self.inputs.input_image)
         target_im = nib.load(self.inputs.target_image)
-        mat = loadmat(self.inputs.transform_affine)
-        key_name = [k for k in mat if 'AffineTransform_' in k][0]  # AffineTransform_*_3_3
-        transform_affine_raw = mat[key_name]
-        fixed_params = mat['fixed']
-        A = transform_affine_raw[:9].reshape((3, 3))
-        t = transform_affine_raw[9:12].squeeze()
-        c = fixed_params.squeeze()  # center of rotation
-        transform_affine = np.eye(4)
-        transform_affine[:3, :3] = A
-        transform_affine[:3, 3] = t + c - A @ c
-        if self.inputs.inverse_affine:
-            transform_affine = np.linalg.inv(transform_affine)
+        if isdefined(self.inputs.transform_affine):
+            mat = loadmat(self.inputs.transform_affine)
+            key_name = [k for k in mat if 'AffineTransform_' in k][0]  # AffineTransform_*_3_3
+            transform_affine_raw = mat[key_name]
+            fixed_params = mat['fixed']
+            A = transform_affine_raw[:9].reshape((3, 3))
+            t = transform_affine_raw[9:12].squeeze()
+            c = fixed_params.squeeze()  # center of rotation
+            transform_affine = np.eye(4)
+            transform_affine[:3, :3] = A
+            transform_affine[:3, 3] = t + c - A @ c
+            if self.inputs.inverse_affine:
+                transform_affine = np.linalg.inv(transform_affine)
+        else:
+            transform_affine = None
         clusters_reg_im = resample_cluster_img(input_im, target_im, transform_affine=transform_affine)
         nib.save(clusters_reg_im, self.inputs.out_name)
         return runtime
