@@ -24,7 +24,7 @@ from nipype.interfaces.utility import IdentityInterface, Function
 
 from shivai.workflows.preprocessing_shiva_masking import genWorkflow as genWorkflow_preproc_shiva_mask
 from shivai.workflows.predict_wf import genWorkflow as genWorkflow_prediction
-from shivai.interfaces.image import Label_clusters
+from shivai.interfaces.image import Label_clusters, Labelled_Clusters_Registration, Resample_from_to
 
 
 # ── Helper functions (used as nipype Function node targets) ──────────────────
@@ -144,7 +144,22 @@ def generate_dora_wf(**kwargs) -> Workflow:
     main_wf.connect(seg_getter_pvs, 'segmentation', cluster_labelling, 'biomarker_raw')
     main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', cluster_labelling, 'brain_seg')
 
-    # ── Save outputs (posterior + binary mask) ───────────────────────────────
+    # ── Register results back to native input space ──────────────────────────
+    # Labelled clusters → native space (preserves integer labels)
+    clusters_to_native = Node(Labelled_Clusters_Registration(), name='clusters_to_native')
+    clusters_to_native.inputs.out_name = 'pvs_clusters_native.nii.gz'
+
+    main_wf.connect(cluster_labelling, 'labelled_biomarkers', clusters_to_native, 'input_image')
+    main_wf.connect(wf_preproc, 'datagrabber.img1', clusters_to_native, 'target_image')
+
+    # Raw prediction (posterior) → native space (continuous resampling)
+    posterior_to_native = Node(Resample_from_to(), name='posterior_to_native')
+    posterior_to_native.inputs.out_name = 'pvs_posterior_native.nii.gz'
+
+    main_wf.connect(seg_getter_pvs, 'segmentation', posterior_to_native, 'moving_image')
+    main_wf.connect(wf_preproc, 'datagrabber.img1', posterior_to_native, 'fixed_image')
+
+    # ── Save outputs (posterior + binary mask in native space) ────────────────
     save_node = Node(
         Function(input_names=['raw_prediction', 'labelled_clusters', 'subject_id', 'output_dir'],
                  output_names=['posterior_path', 'mask_path'],
@@ -152,8 +167,8 @@ def generate_dora_wf(**kwargs) -> Workflow:
         name='save_outputs')
     save_node.inputs.output_dir = kwargs['OUTPUT_DIR']
 
-    main_wf.connect(seg_getter_pvs, 'segmentation', save_node, 'raw_prediction')
-    main_wf.connect(cluster_labelling, 'labelled_biomarkers', save_node, 'labelled_clusters')
+    main_wf.connect(posterior_to_native, 'resampled_image', save_node, 'raw_prediction')
+    main_wf.connect(clusters_to_native, 'output_image', save_node, 'labelled_clusters')
     main_wf.connect(subject_iterator, 'subject_id', save_node, 'subject_id')
 
     return main_wf
