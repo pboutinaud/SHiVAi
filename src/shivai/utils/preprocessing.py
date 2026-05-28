@@ -188,7 +188,7 @@ def threshold(img: nib.Nifti1Image,
                 then keep the one highest in the brain if 'top' was selected, or keep
                 the biggest cluster if 'size' was selected (but will raise an error if
                 it's not the one at the top). 'keep_all' doesn't do any cluster selection.
-            minVol (int): Removes clusters with volume under the specified value. Should
+            minVol (int): Removes clusters with volume (in mm^3) under the specified value. Should
                 be used if clusterCheck = 'top'
 
        Returns:
@@ -266,6 +266,8 @@ def threshold(img: nib.Nifti1Image,
             footprint = create_anisotropic_ellipsoid(radius_voxels)
             array = opening(array, footprint=footprint)
     if clusterCheck in ('top', 'size') or minVol:
+        curr_vox_vol = np.prod(voxel_size)
+        minNum = minVol / curr_vox_vol
         labeled_clusters = label(array)
         clst,  clst_cnt = np.unique(
             labeled_clusters[labeled_clusters > 0],
@@ -275,7 +277,9 @@ def threshold(img: nib.Nifti1Image,
         clst,  clst_cnt = clst[sort_ind],  clst_cnt[sort_ind]
         if clst.size > 1:
             if minVol:
-                clst = clst[clst_cnt > minVol]
+                clst = clst[clst_cnt > minNum]
+            if clst.size == 0:
+                raise ValueError(f'No cluster in the mask is bigger than the specified minVol ({minVol} mm^3). Check the data for that participant or decrease the minVol threshold.')
             if clusterCheck in ('top', 'size'):
                 maxInd = []
                 for c in clst:
