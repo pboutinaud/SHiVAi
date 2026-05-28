@@ -88,7 +88,7 @@ def genWorkflow(**kwargs) -> Workflow:
     binarize_premask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="binarize_premask")
     binarize_premask.inputs.binarize = True
     binarize_premask.inputs.open = 3  # morphological opening of clusters using a ball of radius 3
-    binarize_premask.inputs.minVol = 30000  # Get rif of potential small clusters
+    binarize_premask.inputs.minVol = 600000  # Half the volume of the average brain (mm^3)
     binarize_premask.inputs.clusterCheck = 'size'  # Select biggest cluster
     workflow.connect(conform_premask, 'resampled', binarize_premask, 'img')
 
