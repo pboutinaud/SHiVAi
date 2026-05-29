@@ -1574,6 +1574,11 @@ class Labelled_Clusters_Registration_InputSpec(BaseInterfaceInputSpec):
     target_image = traits.File(exists=True,
                                desc='Image defining the arriving space after the registration',
                                mandatory=True)
+    input_type = traits.Enum('map', 'pred', 'anat',
+                             usedefault=True,
+                             desc=('Type of input data.\n"map": labelled cluster map (binary mask or one integer per cluster)\n'
+                                   '"pred": continuous prediction map (e.g. posterior probabilities)\n '
+                                   '"anat": anatomical or other continuous image'))
     transform_affine = traits.File(exists=True,
                                    desc='Affine of the transformation from ANTs. If not provided, '
                                         'the resampling relies on the NIfTI affines alone.',
@@ -1616,7 +1621,7 @@ class Labelled_Clusters_Registration(BaseInterface):
                 transform_affine = np.linalg.inv(transform_affine)
         else:
             transform_affine = None
-        clusters_reg_im = resample_cluster_img(input_im, target_im, transform_affine=transform_affine)
+        clusters_reg_im = resample_cluster_img(input_im, target_im, input_type=self.inputs.input_type, transform_affine=transform_affine)
         nib.save(clusters_reg_im, self.inputs.out_name)
         return runtime
 

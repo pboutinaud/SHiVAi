@@ -1,9 +1,12 @@
+import logging
 import numpy as np
 import nibabel as nib
 from skimage import measure
 from concurrent.futures import ThreadPoolExecutor
 from shivai.utils.misc import fisin
 import nibabel.processing as nip
+
+logger = logging.getLogger(__name__)
 
 
 def get_clusters_and_filter_image(image, cluster_filter=0, brain=None, outside_ratio=0.25):
@@ -208,39 +211,60 @@ def _resample_one_cluster(val, cluster_data, ori_vox_vol, source_affine, target_
     return val, ok_thr, ok_mask_vol, raw_data, tgt_min
 
 
-def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Image, continuous: bool = False, transform_affine: np.ndarray = None, n_parallel: int = 8) -> nib.Nifti1Image:
+def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Image, input_type: str = 'map', transform_affine: np.ndarray = None, n_parallel: int = 8, threshold: float = 0.05, threshold_step: float = 0.05) -> nib.Nifti1Image:
     """Resample all the cluster masks from an image to the space of a target image.
 
-    If "continuous" is False, will try to preserve all clusters by resampling
-    each cluster separately with a smart thresholding process to find the best
-    threshold that preserves the original cluster size in mm^3 as much as possible
-    without losing it. If "continuous" is True, will do a simple continuous
-    resampling of the whole image, which may lead to some clusters being lost
-    if they become too small after resampling.
+    The resampling strategy is determined by the ``input_type`` argument:
+
+    - ``'map'`` (default) — **Labelled cluster maps**. Input must contain integer
+      labels (binary masks or one integer per cluster). Each cluster is resampled
+      individually with a smart thresholding process that preserves the original
+      cluster size in mm³ as much as possible without losing any cluster. When the
+      source and target voxel volumes are identical, a simple nearest-neighbour
+      resampling is used instead.
+    - ``'pred'`` — **Continuous prediction maps** (e.g. posterior probabilities in
+      [0, 1]). Applies the smart binary resampling (``input_type='map'``) at
+      multiple threshold levels, then reconstructs a continuous map. This
+      guarantees that thresholding the resampled map at any grid-point threshold
+      *T* gives a result very close to what you would get by thresholding the
+      original map at *T* and then applying the smart resampling. The threshold
+      grid is controlled by the ``threshold`` and ``threshold_step`` parameters.
+    - ``'anat'`` — **Anatomical / continuous images**. Performs a straightforward
+      continuous resampling (``nibabel.processing.resample_from_to``, order 3
+      spline). Suitable for anatomical images or any continuous data where
+      cluster preservation is not needed.
 
     Args:
-        cluster_img (nib.Nifti1Image): Nifti image containing the clusters to be resampled
-        target_img (nib.Nifti1Image): Nifti image defining the target space for resampling
-        continuous (bool): Whether to use continuous interpolation (resample_from_to),
-            typically because the clusters have continuous values (default: False). If False,
-            cluster_img must contain integer labels. Will then use the "smart" resampling by
-            individually resampling each cluster (continuously) then trying different thresholds
-            to get the best match with the original cluster size (in mm^3) for each cluster. Will
-            be careful not to delete clusters during this process.
-            One special case is when the original and target voxel volumes are the same, in which 
-            case a simple nearest neighbor resampling is done without the smart thresholding process, 
-            to avoid interpolation issues.
+        cluster_img (nib.Nifti1Image): Nifti image to be resampled.
+        target_img (nib.Nifti1Image): Nifti image defining the target space for resampling.
+        input_type (str): Type of input data — one of ``'map'``, ``'pred'``, or
+            ``'anat'``. See above for details.
         transform_affine (np.ndarray, optional): 4x4 ANTs-style affine matrix (in LPS coordinates)
             encoding the linear transformation between cluster_img and target_img spaces.
             If None (default), the two images are assumed to be already aligned (their
             NIfTI affines alone define the spatial correspondence). If provided, the transform
             is composed into the source affine before resampling.
         n_parallel (int): Number of parallel threads for resampling individual clusters
-            (default: 8). Set to 1 to disable parallelization.
+            (default: 8). Set to 1 to disable parallelization. Only used for
+            ``input_type='map'`` and ``input_type='pred'``.
+        threshold (float): Minimum threshold level for the ``'pred'`` mode (default: 0.05).
+            Ignored for other input types.
+        threshold_step (float): Step between threshold levels for the ``'pred'`` mode
+            (default: 0.05). With threshold=0.05 and threshold_step=0.05, levels will be
+            0.05, 0.10, ..., up to the maximum value in the data. Ignored for other
+            input types.
 
     Returns:
-        nib.Nifti1Image: Resampled cluster mask in the space of the target image
+        nib.Nifti1Image: Resampled image in the space of the target image.
+
+    Raises:
+        ValueError: If ``input_type`` is not one of ``'map'``, ``'pred'``, ``'anat'``.
     """
+    _VALID_INPUT_TYPES = ('map', 'pred', 'anat')
+    if input_type not in _VALID_INPUT_TYPES:
+        raise ValueError(
+            f"input_type must be one of {_VALID_INPUT_TYPES}, got {input_type!r}."
+        )
     # Compute original voxel volume before any affine modification
     ori_vox_vol = cluster_img.header.get_zooms()[0] * cluster_img.header.get_zooms()[1] * cluster_img.header.get_zooms()[2]
 
@@ -256,7 +280,45 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
         # if voxel volumes are the same, no need for the smart resampling, just do a nearest neighbor resampling to avoid interpolation issues
         return nip.resample_from_to(cluster_img, target_img, order=0)
 
-    if continuous:
+    if input_type == 'pred':
+        # Multi-threshold level-set smart resampling for continuous prediction maps.
+        # At each threshold level T_k, threshold the data into a binary mask and apply
+        # the smart cluster-preserving resampling (input_type='map'). Then reconstruct
+        # a continuous map by assigning voxels the midpoint value of the highest
+        # threshold level at which they survive. This ensures that
+        # (resampled > T_k) ≈ smart_resample((original > T_k)) for every grid-point T_k.
+        source_data = np.asarray(cluster_img.dataobj).astype(float)
+        max_val = source_data.max()
+        if max_val <= threshold:
+            # Nothing above the minimum threshold — return zeros
+            return nib.Nifti1Image(np.zeros(target_img.shape, dtype=np.float64), target_img.affine)
+        levels = np.arange(threshold, max_val + threshold_step / 2, threshold_step)
+        resampled_vol = np.zeros(target_img.shape, dtype=np.float64)
+        for t_k in levels:
+            # Threshold original data and create a binary NIfTI image
+            binary_data = (source_data > t_k).astype(np.int16)
+            if binary_data.max() == 0:
+                break  # No more voxels above this level — done
+            binary_img = nib.Nifti1Image(binary_data, cluster_img.affine)
+            try:
+                resampled_binary = resample_cluster_img(
+                    binary_img, target_img, input_type='map', n_parallel=n_parallel
+                )
+                mask = resampled_binary.get_fdata() > 0
+            except ValueError:
+                # Smart resampling could not preserve a cluster at this level.
+                # Voxels keep their value from previous (lower) levels.
+                logger.warning(
+                    f"Could not smart-resample at threshold {t_k:.3f}, skipping level."
+                )
+                continue
+            # Assign midpoint value; use np.maximum to keep the highest value
+            # when clusters overlap in target space
+            assign_val = t_k + threshold_step / 2
+            np.maximum(resampled_vol, mask * assign_val, out=resampled_vol)
+        return nib.Nifti1Image(resampled_vol, target_img.affine)
+
+    if input_type == 'anat':
         return nip.resample_from_to(cluster_img, target_img)
 
     resampled_vol = np.zeros(target_img.shape, dtype=cluster_img.get_fdata().dtype)
@@ -281,7 +343,7 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
         ori_val = cluster_vals[0]
         cluster_data = measure.label(cluster_data > 0)
         cluster_vals = list(np.unique(cluster_data))
-    cluster_vals.remove(0)  # remove background
+        cluster_vals.remove(0)  # remove background
     # Order label values by cluster size (largest first) to try to preserve smaller clusters
     vals_to_process = sorted(cluster_vals, key=lambda v: np.sum(cluster_data == v), reverse=True)
 

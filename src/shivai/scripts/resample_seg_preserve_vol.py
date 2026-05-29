@@ -68,12 +68,37 @@ def main():
         help='Invert the ANTs affine before applying it.',
     )
     parser.add_argument(
-        '--continuous',
-        action='store_true',
-        default=False,
+        '--input-type',
+        choices=['map', 'pred', 'anat'],
+        default='map',
         help=(
-            'Use continuous interpolation instead of the cluster-preserving '
-            'smart resampling (may lose small clusters).'
+            'Type of input data. '
+            '"map" (default): labelled cluster map (binary mask or one integer '
+            'per cluster) — uses smart per-cluster resampling that preserves '
+            'cluster volumes. '
+            '"pred": continuous prediction map (e.g. posterior probabilities) '
+            '— uses multi-threshold level-set smart resampling that preserves '
+            'clusters at all threshold levels. '
+            '"anat": anatomical or other continuous image — uses standard '
+            'spline interpolation (may lose small clusters).'
+        ),
+    )
+    parser.add_argument(
+        '--threshold',
+        type=float,
+        default=0.05,
+        help=(
+            'Minimum threshold level for the "pred" mode (default: 0.05). '
+            'Ignored for other input types.'
+        ),
+    )
+    parser.add_argument(
+        '--threshold-step',
+        type=float,
+        default=0.05,
+        help=(
+            'Step between threshold levels for the "pred" mode (default: 0.05). '
+            'Ignored for other input types.'
         ),
     )
     parser.add_argument(
@@ -98,9 +123,11 @@ def main():
     resampled_img = resample_cluster_img(
         cluster_img,
         target_img,
-        continuous=args.continuous,
+        input_type=args.input_type,
         transform_affine=transform_affine,
         n_parallel=args.n_parallel,
+        threshold=args.threshold,
+        threshold_step=args.threshold_step,
     )
 
     nib.save(resampled_img, args.output)
