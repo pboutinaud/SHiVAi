@@ -1,0 +1,47 @@
+# DORA – PVS Segmentation Challenge
+#
+# Build:
+#   1. Copy model weights into the build context:
+#        cp -r /scratch/nozais/test_shiva/modele_pred/ProductionModels_K3 weights
+#   2. Build the image:
+#        docker build -f Dockerfile.dora -t dora:latest .
+#
+# Run:
+#   docker run --rm --network none --gpus '"device=0"' \
+#       -v /path/to/subject/:/input/:ro \
+#       -v /path/to/output/:/output/ \
+#       dora:latest
+
+FROM tensorflow/tensorflow:2.17.0-gpu
+
+# System dependencies (cairo/pango for weasyprint, build tools for pip packages)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        libcairo2 \
+        libgdk-pixbuf2.0-0 \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+        libffi-dev \
+        libjpeg-dev \
+        libopenjp2-7-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install shivai from source
+COPY src /usr/local/src/shivai/src
+COPY pyproject.toml requirements.txt /usr/local/src/shivai/
+
+WORKDIR /usr/local/src/shivai
+RUN python -m pip install --no-cache-dir build && \
+    python -m pip install --no-cache-dir . && \
+    rm -rf /usr/local/src/shivai
+
+# Bake in model weights (brainmask + T1-PVS)
+COPY weights/ /opt/model/weights/
+
+# Entrypoint script
+WORKDIR /opt/model
+COPY run_inference.py /opt/model/
+
+ENTRYPOINT ["python", "/opt/model/run_inference.py", \
+            "--input",  "/input", \
+            "--output", "/output"]

@@ -1,23 +1,23 @@
 """
-Simplified DORA workflow for PVS detection from T1 images.
+Simplified DORA workflow for PVS detection from T1 or T2 images.
 
-Runs: T1 preprocessing (shiva brain masking) → PVS prediction → cluster labelling → output.
+Runs: preprocessing (shiva brain masking) → PVS prediction → cluster labelling
+      → register to native space → output.
 No statistics, no report, no QC aggregation.
 
 Designed to run inside a Docker container:
-    docker run --rm --network none --gpus '"device=0"' \
-        -v /path/to/subject/:/input/:ro \
-        -v /path/to/output/:/output/ \
+    docker run --rm --network none --gpus '"device=0"' \\
+        -v /path/to/subject/:/input/:ro \\
+        -v /path/to/output/:/output/ \\
         <image>:latest
 
 Input:  /input/<subject_id>_<modality>.nii.gz
-Output: /output/<subject_id>_pvs_posterior.nii.gz  (raw prediction probability map)
-        /output/<subject_id>_pvs_mask.nii.gz       (binarized thresholded prediction)
+Output: /output/<subject_id>_pvs_posterior.nii.gz  (float64, probability map in [0, 1])
+        /output/<subject_id>_pvs_mask.nii.gz       (uint8, binary mask: 0 = bg, 1 = PVS)
 """
 
-import os
-import glob
 import argparse
+from pathlib import Path
 
 from nipype.pipeline.engine import Workflow, Node, JoinNode
 from nipype.interfaces.utility import IdentityInterface, Function
@@ -40,26 +40,57 @@ def dict_to_res(sub_id, files_dict):
 
 
 def save_dora_outputs(raw_prediction, labelled_clusters, subject_id, output_dir):
-    """Save the raw prediction (posterior) and binarized mask to the output directory."""
+    """Save the raw prediction (posterior) and binarized mask to the output directory.
+
+    Output dtypes: posterior = float64, mask = uint8.
+    """
     import nibabel as nib
     import numpy as np
-    import os
-    import shutil
+    from pathlib import Path
 
-    os.makedirs(output_dir, exist_ok=True)
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
 
-    # Raw prediction → posterior
-    posterior_path = os.path.join(output_dir, f'{subject_id}_pvs_posterior.nii.gz')
-    shutil.copy2(raw_prediction, posterior_path)
+    # Raw prediction → posterior (float64)
+    pred_img = nib.load(raw_prediction)
+    posterior_data = pred_img.get_fdata().astype(np.float64)
+    posterior_img = nib.Nifti1Image(posterior_data, pred_img.affine, pred_img.header)
+    posterior_img.set_data_dtype(np.float64)
+    posterior_path = str(out / f'{subject_id}_pvs_posterior.nii.gz')
+    nib.save(posterior_img, posterior_path)
 
-    # Labelled clusters → binary mask
+    # Labelled clusters → binary mask (uint8)
     lab_img = nib.load(labelled_clusters)
     mask_data = (lab_img.get_fdata() > 0).astype(np.uint8)
     mask_img = nib.Nifti1Image(mask_data, lab_img.affine, lab_img.header)
-    mask_path = os.path.join(output_dir, f'{subject_id}_pvs_mask.nii.gz')
+    mask_img.set_data_dtype(np.uint8)
+    mask_path = str(out / f'{subject_id}_pvs_mask.nii.gz')
     nib.save(mask_img, mask_path)
 
     return posterior_path, mask_path
+
+
+def detect_modality(input_dir):
+    """Detect modality from the input NIfTI filename.
+
+    Expected format: <subject_id>_<modality>.nii.gz
+    Returns (subject_id, modality, is_t2).
+    """
+    nifti_files = sorted(Path(input_dir).glob('*.nii*'))
+    if not nifti_files:
+        raise FileNotFoundError(f'No .nii.gz nor .nii files found in {input_dir}')
+    if len(nifti_files) > 1:
+        raise ValueError(f'Expected exactly one NIfTI file in {input_dir}, found {len(nifti_files)}')
+
+    fname = nifti_files[0].name.replace('.nii.gz', '').replace('.nii', '')
+    parts = fname.split('_')
+    if len(parts) < 2:
+        raise ValueError(f'Cannot parse subject_id and modality from "{fname}". '
+                         'Expected format: <subject_id>_<modality>.nii.gz')
+    modality = parts[-1]
+    subject_id = '_'.join(parts[:-1])
+    is_t2 = modality.lower() in ('t2w', 't2', 't2star')
+    return subject_id, modality, is_t2
 
 
 # ── Workflow generator ───────────────────────────────────────────────────────
@@ -67,14 +98,15 @@ def save_dora_outputs(raw_prediction, labelled_clusters, subject_id, output_dir)
 def generate_dora_wf(**kwargs) -> Workflow:
     """
     Generate a simplified PVS-only workflow:
-    T1 preprocessing (shiva masking) → PVS prediction → cluster labelling → output files.
+    preprocessing (shiva masking) → PVS prediction → cluster labelling
+    → register to native space → output files.
 
-    Required kwargs (see ``build_kwargs`` for the full list):
+    Required kwargs:
         BASE_DIR, DATA_DIR, OUTPUT_DIR, SUBJECT_LIST,
-        PREDICTION=['PVS'], BRAIN_SEG='shiva',
-        BRAINMASK_DESCRIPTOR, PVS_DESCRIPTOR, MODELS_PATH,
+        PREDICTION, BRAIN_SEG, BRAINMASK_DESCRIPTOR, PVS_DESCRIPTOR, MODELS_PATH,
         IMAGE_SIZE, THRESHOLD_PVS, MIN_PVS_SIZE,
         + all kwargs consumed by the preprocessing and prediction generators.
+
     """
     # ── Main workflow ────────────────────────────────────────────────────────
     main_wf = Workflow('dora_workflow')
@@ -86,8 +118,16 @@ def generate_dora_wf(**kwargs) -> Workflow:
         name='subject_iterator')
     subject_iterator.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
-    # ── Preprocessing (shiva brain masking, T1 only) ─────────────────────────
+    # ── Preprocessing (shiva brain masking) ──────────────────────────────────
     wf_preproc = genWorkflow_preproc_shiva_mask(**kwargs, wf_name='dora_preprocessing')
+
+    # Skip defacing and QC (not needed for challenge, avoids quickshear dependency)
+    defacing_node = wf_preproc.get_node('defacing_img1')
+    conform_node = wf_preproc.get_node('conform')
+    crop_node = wf_preproc.get_node('crop')
+    qc_wf_node = wf_preproc.get_node('preproc_qc_workflow')
+    wf_preproc.remove_nodes([defacing_node, qc_wf_node])
+    wf_preproc.connect(conform_node, 'resampled', crop_node, 'apply_to')
 
     # Override the datagrabber for our flat input structure:
     #   /input/<subject_id>_<modality>.nii.gz
@@ -178,22 +218,27 @@ def generate_dora_wf(**kwargs) -> Workflow:
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='DORA: simplified PVS detection (T1 → preproc → prediction → output)')
+        description='DORA: simplified PVS detection (preproc → prediction → output)')
 
-    parser.add_argument('--input_dir', type=str, default='/input/',
+    parser.add_argument('--input', '--input_dir', type=str, default='/input/',
+                        dest='input_dir',
                         help='Directory containing <subject_id>_<modality>.nii.gz')
-    parser.add_argument('--output_dir', type=str, default='/output/',
+    parser.add_argument('--output', '--output_dir', type=str, default='/output/',
+                        dest='output_dir',
                         help='Directory for output files')
     parser.add_argument('--work_dir', type=str, default='/tmp/dora_work',
                         help='Nipype working directory')
 
     # Model paths
-    parser.add_argument('--models_path', type=str, required=True,
+    parser.add_argument('--models_path', type=str,
+                        default='/opt/model/weights',
                         help='Base path to the model files')
     parser.add_argument('--brainmask_descriptor', type=str, default=None,
-                        help='Brainmask model descriptor JSON (relative to models_path)')
+                        help='Brainmask model descriptor JSON '
+                             '(default: <models_path>/brainmask/model_info.json)')
     parser.add_argument('--pvs_descriptor', type=str, default=None,
-                        help='PVS model descriptor JSON (relative to models_path)')
+                        help='PVS model descriptor JSON '
+                             '(default: <models_path>/T1-PVS/model_info.json)')
 
     # Processing
     parser.add_argument('--threshold', type=float, default=0.5,
@@ -202,42 +247,32 @@ def parse_args():
                         help='Minimum PVS cluster size in voxels')
     parser.add_argument('--gpu', type=int, default=0,
                         help='GPU device index (-1 for CPU)')
-
-    # TODO: add any additional arguments as needed
     return parser.parse_args()
 
 
 def build_kwargs(args):
     """Build the kwargs dict expected by the workflow generators."""
 
-    # Discover subject IDs from input filenames: <subject_id>_<modality>.nii.gz
-    input_files = sorted(glob.glob(os.path.join(args.input_dir, '*.nii.gz')))
-    if not input_files:
-        raise FileNotFoundError(f'No .nii.gz files found in {args.input_dir}')
+    # Discover subject and modality from the input file(s)
+    subject_id, modality, is_t2 = detect_modality(args.input_dir)
+    print(f'Subject: {subject_id}, Modality: {modality}, T2-like: {is_t2}')
 
-    subject_list = []
-    for f in input_files:
-        basename = os.path.basename(f).replace('.nii.gz', '')
-        # subject_id = everything before the last underscore (modality follows)
-        parts = basename.split('_')
-        subject_id = '_'.join(parts[:-1]) if len(parts) > 1 else basename
-        if subject_id and subject_id not in subject_list:
-            subject_list.append(subject_id)
+    # Resolve model descriptor paths
+    models_path = Path(args.models_path)
+    brainmask_descriptor = (args.brainmask_descriptor
+                            or str(models_path / 'brainmask' / 'model_info.json'))
+    pvs_descriptor = (args.pvs_descriptor
+                      or str(models_path / 'T1-PVS' / 'model_info.json'))
 
-    if not subject_list:
-        raise ValueError(
-            'Could not extract subject IDs from input filenames. '
-            'Expected format: <subject_id>_<modality>.nii.gz')
-
-    os.makedirs(args.output_dir, exist_ok=True)
-    os.makedirs(args.work_dir, exist_ok=True)
+    Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+    Path(args.work_dir).mkdir(parents=True, exist_ok=True)
 
     return {
         # Directories
         'BASE_DIR': args.work_dir,
         'DATA_DIR': args.input_dir,
         'OUTPUT_DIR': args.output_dir,
-        'SUBJECT_LIST': subject_list,
+        'SUBJECT_LIST': [subject_id],
 
         # Prediction / segmentation
         'PREDICTION': ['PVS'],
@@ -245,9 +280,9 @@ def build_kwargs(args):
         'USE_T1': True,
 
         # Model paths
-        'MODELS_PATH': args.models_path,
-        'BRAINMASK_DESCRIPTOR': args.brainmask_descriptor,   # TODO: set sensible default
-        'PVS_DESCRIPTOR': args.pvs_descriptor,               # TODO: set sensible default
+        'MODELS_PATH': str(models_path),
+        'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
+        'PVS_DESCRIPTOR': pvs_descriptor,
 
         # Container settings (already inside a container → no nested containerisation)
         'CONTAINERIZE_NODES': False,
@@ -269,9 +304,9 @@ def build_kwargs(args):
         'MIN_PVS_SIZE': args.min_pvs_size,
 
         # GPU / performance
-        'GPU': args.gpu if args.gpu >= 0 else None,  # TODO: verify convention with predict_wf
-        'AI_THREADS': 8,        # TODO: make configurable if needed
-        'BATCH_SIZE': 20,       # TODO: make configurable if needed
+        'GPU': args.gpu if args.gpu >= 0 else None,
+        'AI_THREADS': 8,
+        'BATCH_SIZE': 20,
         'PRED_PLUGIN_ARGS': {},
         'REG_PLUGIN_ARGS': {},
 
@@ -285,13 +320,14 @@ def build_kwargs(args):
             'prereg_flair': False,
         },
 
-        # Acquisitions
+        # Acquisitions — T2w detection sets inverse normalization
         'ACQUISITIONS': {
             't1-like': None,
             'flair-like': None,
             'swi-like': None,
-            'inverse_t2': False,
+            'inverse_t2': is_t2,
         },
+
 
         # Misc
         'CUSTOM_LUT': None,
@@ -300,8 +336,6 @@ def build_kwargs(args):
         'SUB_WF': True,
         'DB': None,
         'SWI_FILE_NUM': None,
-
-        # TODO: add any further kwargs required by the workflow generators
     }
 
 
@@ -309,7 +343,6 @@ def main():
     args = parse_args()
     kwargs = build_kwargs(args)
     wf = generate_dora_wf(**kwargs)
-
     wf.run()
 
 
