@@ -24,7 +24,7 @@ from nipype.interfaces.utility import IdentityInterface, Function
 
 from shivai.workflows.preprocessing_shiva_masking import genWorkflow as genWorkflow_preproc_shiva_mask
 from shivai.workflows.predict_wf import genWorkflow as genWorkflow_prediction
-from shivai.interfaces.image import Label_clusters, Labelled_Clusters_Registration, Resample_from_to
+from shivai.interfaces.image import Label_clusters, Labelled_Clusters_Registration
 
 
 # ── Helper functions (used as nipype Function node targets) ──────────────────
@@ -193,11 +193,12 @@ def generate_dora_wf(**kwargs) -> Workflow:
     main_wf.connect(wf_preproc, 'datagrabber.img1', clusters_to_native, 'target_image')
 
     # Raw prediction (posterior) → native space (continuous resampling)
-    posterior_to_native = Node(Resample_from_to(), name='posterior_to_native')
+    posterior_to_native = Node(Labelled_Clusters_Registration(), name='posterior_to_native')
     posterior_to_native.inputs.out_name = 'pvs_posterior_native.nii.gz'
+    posterior_to_native.inputs.input_type = 'pred' 
 
-    main_wf.connect(seg_getter_pvs, 'segmentation', posterior_to_native, 'moving_image')
-    main_wf.connect(wf_preproc, 'datagrabber.img1', posterior_to_native, 'fixed_image')
+    main_wf.connect(seg_getter_pvs, 'segmentation', posterior_to_native, 'input_image')
+    main_wf.connect(wf_preproc, 'datagrabber.img1', posterior_to_native, 'target_image')
 
     # ── Save outputs (posterior + binary mask in native space) ────────────────
     save_node = Node(
