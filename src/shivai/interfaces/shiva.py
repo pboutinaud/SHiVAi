@@ -76,7 +76,7 @@ class PredictInputSpec(BaseInterfaceInputSpec):
                              mandatory=True)
 
     gpu_number = traits.Int(argstr='--gpu %d',
-                            desc='GPU to use if several GPUs are available.',
+                            desc='Force the use of a given GPU, given by its ID.',
                             mandatory=False)
 
     verbose = traits.Bool(True,
@@ -200,6 +200,10 @@ class Predict_Multi_InputSpec(BaseInterfaceInputSpec):
                          usedefault=True,
                          argstr='--use_cpu %d',
                          desc='Set to a positive integer to ignore GPUs and use CPUs instead. Limit the CPU usage by the given number')
+
+    gpu_number = traits.Int(argstr='--gpu %d',
+                            desc='Force the use of a given GPU, given by its ID',
+                            mandatory=False)
 
 
 class Predict_Multi_ContainedInputSpec(ContainerInputSpec, Predict_Multi_InputSpec):

@@ -5,6 +5,7 @@
 # @author : Philippe Boutinaud - Fealinx
 
 import gc
+import os
 import json
 import importlib.util
 import sys
@@ -82,6 +83,11 @@ def predict_parser():
         help="path for the output file (output of the inference from tensorflow model)")
 
     parser.add_argument(
+        "-g", "--gpu",
+        type=int,
+        help="Force the use of a given GPU, given by its ID")
+
+    parser.add_argument(
         '--use_cpu',
         default=0,
         type=int,
@@ -99,6 +105,7 @@ def predict_parser():
 
 
 def main():
+    # Importing keras and tensorflow here to avoid importing them when the script is imported as a module
     import keras
     import tensorflow as tf
     pred_parser = predict_parser()
@@ -114,8 +121,16 @@ def main():
         if _VERBOSE:
             print("Trying to run inference on CPU")
     else:
-        if _VERBOSE:
-            print("Trying to run inference on available GPU(s)")
+        if args.gpu is not None:
+            if args.gpu >= 0:
+                os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+                if _VERBOSE:
+                    print(f"Trying to run inference on GPU {args.gpu}")
+            else:
+                raise ValueError("Trying to run the inference on CPU (--gpu is negative) but --use_cpu is 0 or not set")
+        else:
+            if _VERBOSE:
+                print("Trying to run inference on available GPU(s)")
 
     # The tf model files for the predictors, the prediction will be averaged
     model_files = []  # type: list[Path]
