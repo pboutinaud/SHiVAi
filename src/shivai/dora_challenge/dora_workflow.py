@@ -19,12 +19,15 @@ Output: /output/<subject_id>_pvs_posterior.nii.gz  (float64, probability map in 
 import argparse
 from pathlib import Path
 
-from nipype.pipeline.engine import Workflow, Node, JoinNode
+from nipype.pipeline.engine import Workflow, Node
 from nipype.interfaces.utility import IdentityInterface, Function
+from nipype.interfaces.io import DataGrabber
 
-from shivai.workflows.preprocessing_shiva_masking import genWorkflow as genWorkflow_preproc_shiva_mask
-from shivai.workflows.predict_wf import genWorkflow as genWorkflow_prediction
-from shivai.interfaces.image import Label_clusters, Labelled_Clusters_Registration
+from shivai.interfaces.shiva import Predict
+from shivai.workflows.shiva_mask_wf import genWorkflow as gen_masking_wf
+from shivai.interfaces.image import (Threshold, Normalization, CorrectAffine,
+                                     Conform, Crop, Resample_from_to, Label_clusters, 
+                                     Labelled_Clusters_Registration)
 
 
 # ── Helper functions (used as nipype Function node targets) ──────────────────
@@ -119,61 +122,87 @@ def generate_dora_wf(**kwargs) -> Workflow:
     subject_iterator.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
     # ── Preprocessing (shiva brain masking) ──────────────────────────────────
-    wf_preproc = genWorkflow_preproc_shiva_mask(**kwargs, wf_name='dora_preprocessing')
-
-    # Skip defacing and QC (not needed for challenge, avoids quickshear dependency)
-    defacing_node = wf_preproc.get_node('defacing_img1')
-    conform_node = wf_preproc.get_node('conform')
-    crop_node = wf_preproc.get_node('crop')
-    qc_wf_node = wf_preproc.get_node('preproc_qc_workflow')
-    wf_preproc.remove_nodes([defacing_node, qc_wf_node])
-    wf_preproc.connect(conform_node, 'resampled', crop_node, 'apply_to')
-
-    # Override the datagrabber for our flat input structure:
-    #   /input/<subject_id>_<modality>.nii.gz
-    datagrabber = wf_preproc.get_node('datagrabber')
+    
+    datagrabber = Node(DataGrabber(infields=['subject_id'],
+        outfields=['img1']),
+        name='datagrabber')
     datagrabber.inputs.base_directory = kwargs['DATA_DIR']
     datagrabber.inputs.template = '*.nii.gz'
     datagrabber.inputs.field_template = {'img1': '%s_*.nii.gz'}
     datagrabber.inputs.template_args = {'img1': [['subject_id']]}
+    
+    correct_affine_img1 = Node(CorrectAffine(), name="correct_affine_img1")
+    correct_affine_img1.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
+    
+    main_wf.connect(subject_iterator, 'subject_id', datagrabber, 'subject_id')
+    main_wf.connect(datagrabber, 'img1', correct_affine_img1, 'img')
+    
+    conform = Node(Conform(),
+                   name="conform")
+    conform.inputs.dimensions = (256, 256, 256)
+    conform.inputs.voxel_size = kwargs['RESOLUTION']
+    conform.inputs.voxels_tolerance = kwargs['TOLERANCE']
+    conform.inputs.orientation = kwargs['ORIENTATION']
+    
+    main_wf.connect(correct_affine_img1, 'corrected_img', conform, 'img')
+    
+    mask_to_conform = Node(Resample_from_to(),
+                           name="mask_to_conform")
+    mask_to_conform.inputs.spline_order = 0
 
-    main_wf.connect(subject_iterator, 'subject_id', wf_preproc, 'datagrabber.subject_id')
+    main_wf.connect(conform, 'resampled', mask_to_conform, 'fixed_image')
+    
+    # Creating and incorporating the brain mask sub-wf
+    masking_wf = gen_masking_wf(**kwargs)
+    main_wf.add_nodes([masking_wf])
+    
+    main_wf.connect(correct_affine_img1, 'corrected_img', masking_wf, 'preconform.img')
+    main_wf.connect(conform, 'resampled', masking_wf, 'intensity_norm_with_premask.input_image')
+    main_wf.connect(masking_wf, 'proper_brain_mask.segmentation', mask_to_conform, 'moving_image')
+    
+    binarize_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="binarize_brain_mask")
+    binarize_brain_mask.inputs.binarize = True
+    binarize_brain_mask.inputs.minVol = 100  # Get rif of potential small clusters
+    binarize_brain_mask.inputs.clusterCheck = 'keep_all'  # Keep all clusters above minVol
 
-    # ── JoinNodes (aggregate per-subject outputs into dicts for prediction) ──
-    preproc_joiner_mask = JoinNode(
-        Function(input_names=['sub_ids', 'in_files'],
-                 output_names=['files_dict'],
-                 function=res_to_dict),
-        joinsource=subject_iterator,
-        joinfield=['sub_ids', 'in_files'],
-        name='preproc_joiner_mask')
-    main_wf.connect(subject_iterator, 'subject_id', preproc_joiner_mask, 'sub_ids')
-    main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', preproc_joiner_mask, 'in_files')
+    main_wf.connect(mask_to_conform, 'resampled_image', binarize_brain_mask, 'img')
+    
+    crop = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),
+                name="crop")
+    main_wf.connect(conform, 'resampled',
+                     crop, 'apply_to')
+    main_wf.connect(binarize_brain_mask, 'thresholded',
+                     crop, 'roi_mask')
+    
+    # Apply the cropping to the mask
+    mask_to_crop = Node(Resample_from_to(),
+                        name='mask_to_crop')
+    mask_to_crop.inputs.spline_order = 0  # should be equivalent to NearestNeighbor(?)
+    mask_to_crop.inputs.out_name = 'brainmask_cropped.nii.gz'
 
-    preproc_joiner_t1 = JoinNode(
-        Function(input_names=['sub_ids', 'in_files'],
-                 output_names=['files_dict'],
-                 function=res_to_dict),
-        joinsource=subject_iterator,
-        joinfield=['sub_ids', 'in_files'],
-        name='preproc_joiner_t1')
-    main_wf.connect(subject_iterator, 'subject_id', preproc_joiner_t1, 'sub_ids')
-    main_wf.connect(wf_preproc, 'img1_final_intensity_normalization.intensity_normalized',
-                    preproc_joiner_t1, 'in_files')
+    main_wf.connect(binarize_brain_mask, 'thresholded', mask_to_crop, 'moving_image')
+    main_wf.connect(crop, "cropped", mask_to_crop, 'fixed_image')
+
+    # Intensity normalize co-registered image for tensorflow (ENDPOINT 1)
+    img1_norm = Node(Normalization(percentile=kwargs['PERCENTILE']), name="img1_final_intensity_normalization")
+    if 'inverse_t2' in kwargs['ACQUISITIONS']:
+        img1_norm.inputs.inverse = kwargs['ACQUISITIONS']['inverse_t2']
+    main_wf.connect(crop, 'cropped',
+                    img1_norm, 'input_image')
+    main_wf.connect(mask_to_crop, 'resampled_image',
+                    img1_norm, 'brain_mask')
+
+
 
     # ── PVS prediction ───────────────────────────────────────────────────────
-    segmentation_wf = genWorkflow_prediction(**kwargs)
-    main_wf.connect(preproc_joiner_mask, 'files_dict', segmentation_wf, 'predict_pvs.brainmask_files')
-    main_wf.connect(preproc_joiner_t1, 'files_dict', segmentation_wf, 'predict_pvs.primary_image_file')
-
-    # Extract per-subject segmentation from prediction dict
-    seg_getter_pvs = Node(
-        Function(input_names=['sub_id', 'files_dict'],
-                 output_names=['segmentation'],
-                 function=dict_to_res),
-        name='seg_getter_pvs')
-    main_wf.connect(segmentation_wf, 'predict_pvs.segmentations', seg_getter_pvs, 'files_dict')
-    main_wf.connect(subject_iterator, 'subject_id', seg_getter_pvs, 'sub_id')
+    predict_node = Node(Predict(), name='predict_pvs')
+    predict_node.inputs.out_filename = 'pvs_map.nii.gz'
+    predict_node.inputs.model = kwargs['MODELS_PATH']
+    predict_node.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
+    predict_node.inputs.gpu_number = kwargs['GPU']
+    
+    main_wf.connect(img1_norm, 'intensity_normalized', predict_node, 't1')
+    
 
     # ── Cluster labelling (threshold + connected-component filtering) ────────
     cluster_labelling = Node(Label_clusters(), name='cluster_labelling_pvs')
@@ -181,8 +210,8 @@ def generate_dora_wf(**kwargs) -> Workflow:
     cluster_labelling.inputs.thr_cluster_size = kwargs['MIN_PVS_SIZE'] - 1
     cluster_labelling.inputs.out_name = 'pvs_labelled_clusters.nii.gz'
 
-    main_wf.connect(seg_getter_pvs, 'segmentation', cluster_labelling, 'biomarker_raw')
-    main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', cluster_labelling, 'brain_seg')
+    main_wf.connect(predict_node, 'segmentation', cluster_labelling, 'biomarker_raw')
+    main_wf.connect(mask_to_crop, 'resampled_image', cluster_labelling, 'brain_seg')
 
     # ── Register results back to native input space ──────────────────────────
     # Labelled clusters → native space (preserves integer labels)
@@ -190,15 +219,15 @@ def generate_dora_wf(**kwargs) -> Workflow:
     clusters_to_native.inputs.out_name = 'pvs_clusters_native.nii.gz'
 
     main_wf.connect(cluster_labelling, 'labelled_biomarkers', clusters_to_native, 'input_image')
-    main_wf.connect(wf_preproc, 'datagrabber.img1', clusters_to_native, 'target_image')
+    main_wf.connect(datagrabber, 'img1', clusters_to_native, 'target_image')
 
     # Raw prediction (posterior) → native space (continuous resampling)
     posterior_to_native = Node(Labelled_Clusters_Registration(), name='posterior_to_native')
     posterior_to_native.inputs.out_name = 'pvs_posterior_native.nii.gz'
-    posterior_to_native.inputs.input_type = 'pred' 
+    posterior_to_native.inputs.input_type = 'pred'
 
-    main_wf.connect(seg_getter_pvs, 'segmentation', posterior_to_native, 'input_image')
-    main_wf.connect(wf_preproc, 'datagrabber.img1', posterior_to_native, 'target_image')
+    main_wf.connect(predict_node, 'segmentation', posterior_to_native, 'input_image')
+    main_wf.connect(datagrabber, 'img1', posterior_to_native, 'target_image')
 
     # ── Save outputs (posterior + binary mask in native space) ────────────────
     save_node = Node(
@@ -208,7 +237,7 @@ def generate_dora_wf(**kwargs) -> Workflow:
         name='save_outputs')
     save_node.inputs.output_dir = kwargs['OUTPUT_DIR']
 
-    main_wf.connect(posterior_to_native, 'resampled_image', save_node, 'raw_prediction')
+    main_wf.connect(posterior_to_native, 'output_image', save_node, 'raw_prediction')
     main_wf.connect(clusters_to_native, 'output_image', save_node, 'labelled_clusters')
     main_wf.connect(subject_iterator, 'subject_id', save_node, 'subject_id')
 
