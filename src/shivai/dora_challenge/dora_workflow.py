@@ -217,27 +217,40 @@ def generate_dora_wf(**kwargs) -> Workflow:
 
 # ── CLI ──────────────────────────────────────────────────────────────────────
 
-def parse_args():
+class Args(argparse.Namespace):
+    """Typed namespace for CLI arguments."""
+    input_dir: Path
+    output_dir: Path
+    work_dir: Path
+    models_path: Path
+    brainmask_descriptor: Path | None
+    pvs_descriptor: Path | None
+    threshold: float
+    min_pvs_size: int
+    gpu: int
+
+
+def parse_args() -> Args:
     parser = argparse.ArgumentParser(
         description='DORA: simplified PVS detection (preproc → prediction → output)')
 
-    parser.add_argument('--input', '--input_dir', type=str, default='/input/',
+    parser.add_argument('--input', '--input_dir', type=Path, default='/input/',
                         dest='input_dir',
                         help='Directory containing <subject_id>_<modality>.nii.gz')
-    parser.add_argument('--output', '--output_dir', type=str, default='/output/',
+    parser.add_argument('--output', '--output_dir', type=Path, default='/output/',
                         dest='output_dir',
                         help='Directory for output files')
-    parser.add_argument('--work_dir', type=str, default='/tmp/dora_work',
+    parser.add_argument('--work_dir', type=Path, default='/tmp/dora_work',
                         help='Nipype working directory')
 
     # Model paths
-    parser.add_argument('--models_path', type=str,
+    parser.add_argument('--models_path', type=Path,
                         default='/opt/model/weights',
                         help='Base path to the model files')
-    parser.add_argument('--brainmask_descriptor', type=str, default=None,
+    parser.add_argument('--brainmask_descriptor', type=Path, default=None,
                         help='Brainmask model descriptor JSON '
                              '(default: <models_path>/brainmask/model_info.json)')
-    parser.add_argument('--pvs_descriptor', type=str, default=None,
+    parser.add_argument('--pvs_descriptor', type=Path, default=None,
                         help='PVS model descriptor JSON '
                              '(default: <models_path>/T1-PVS/model_info.json)')
 
@@ -248,12 +261,15 @@ def parse_args():
                         help='Minimum PVS cluster size in voxels')
     parser.add_argument('--gpu', type=int, default=0,
                         help='GPU device index (-1 for CPU)')
-    return parser.parse_args()
+    return parser.parse_args(namespace=Args())
 
 
-def build_kwargs(args):
+def build_kwargs(args: Args):
     """Build the kwargs dict expected by the workflow generators."""
 
+    for arg in args.__dict__:
+        if isinstance(args.__dict__[arg], Path):
+            args.__dict__[arg] = str(args.__dict__[arg].resolve())
     # Discover subject and modality from the input file(s)
     subject_id, modality, is_t2 = detect_modality(args.input_dir)
     print(f'Subject: {subject_id}, Modality: {modality}, T2-like: {is_t2}')
@@ -261,29 +277,29 @@ def build_kwargs(args):
     # Resolve model descriptor paths
     models_path = Path(args.models_path)
     brainmask_descriptor = (args.brainmask_descriptor
-                            or str(models_path / 'brainmask' / 'model_info.json'))
+                            or models_path / 'brainmask' / 'model_info.json')
     pvs_descriptor = (args.pvs_descriptor
-                      or str(models_path / 'T1-PVS' / 'model_info.json'))
+                      or models_path / 'T1-PVS' / 'model_info.json')
 
-    Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-    Path(args.work_dir).mkdir(parents=True, exist_ok=True)
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    args.work_dir.mkdir(parents=True, exist_ok=True)
 
     return {
         # Directories
-        'BASE_DIR': args.work_dir,
-        'DATA_DIR': args.input_dir,
-        'OUTPUT_DIR': args.output_dir,
+        'BASE_DIR': str(args.work_dir),
+        'DATA_DIR': str(args.input_dir),
+        'OUTPUT_DIR': str(args.output_dir),
         'SUBJECT_LIST': [subject_id],
 
         # Prediction / segmentation
         'PREDICTION': ['PVS'],
-        'BRAIN_SEG': 'shiva',
+        'BRAIN_SEG': 'shiva_gpu',
         'USE_T1': True,
 
         # Model paths
         'MODELS_PATH': str(models_path),
-        'BRAINMASK_DESCRIPTOR': brainmask_descriptor,
-        'PVS_DESCRIPTOR': pvs_descriptor,
+        'BRAINMASK_DESCRIPTOR': str(brainmask_descriptor),
+        'PVS_DESCRIPTOR': str(pvs_descriptor),
 
         # Container settings (already inside a container → no nested containerisation)
         'CONTAINERIZE_NODES': False,
