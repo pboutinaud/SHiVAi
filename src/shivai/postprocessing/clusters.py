@@ -126,7 +126,7 @@ def cluster_registration(input_im: nib.Nifti1Image, ref_im: nib.Nifti1Image, tra
     return clust_reg_im
 
 
-def _resample_one_cluster(val, cluster_data, ori_vox_vol, source_affine, target_affine, target_shape, new_vox_vol, thresh_fractions, interp_order=3):
+def _resample_one_cluster(val, cluster_data, ori_vox_vol, source_affine, target_affine, target_shape, new_vox_vol, thresh_fractions, interp_order=3, rel_tolerance=0.5):
     """Resample a single cluster label using bounding-box cropping for speed.
 
     Instead of resampling the full volume, crops both source and target to the
@@ -192,7 +192,7 @@ def _resample_one_cluster(val, cluster_data, ori_vox_vol, source_affine, target_
 
     # --- Find best threshold to match original volume ---
     working_data = raw_data.copy()
-    thresholds = [frac * working_data.max() for frac in thresh_fractions]
+    thresholds = [frac * raw_data.max() for frac in thresh_fractions]
     prev_vol, prev_thr = None, None
     ok_thr, ok_mask_vol = None, None
     for thr in thresholds:
@@ -208,6 +208,13 @@ def _resample_one_cluster(val, cluster_data, ori_vox_vol, source_affine, target_
                 break
         prev_vol = new_mask_vol
         prev_thr = thr
+    if ok_thr is None:
+        ok_thr = raw_data.max()
+        ok_mask_vol = np.sum(raw_data == ok_thr) * new_vox_vol
+        if np.abs(mask_vol-ok_mask_vol)/mask_vol > rel_tolerance:
+            # If even the best threshold is too far from the original volume, consider that we lost the cluster 
+            ok_thr = None
+            ok_mask_vol = None
     return val, ok_thr, ok_mask_vol, raw_data, tgt_min
 
 
