@@ -222,7 +222,7 @@ def get_clusters_and_filter_image(image, cluster_filter=0, brain=None, outside_r
     return image_f, clusters, num_clusters, clusters_f, num_clusters_f
 
 
-def label_clusters(pred_vol, brain_seg_vol, threshold, cluster_filter, outside_ratio=0.25):
+def label_clusters(pred_vol, threshold, cluster_filter, brain_seg_vol=None, outside_ratio=0.25):
     """Threshold and labelize the clusters from a prediction map.
     Also removes clusters that are smaller than or equal to the "cluster_filter" size (in voxels) 
     and those that are mostly outside of the brain segmentation mask.
@@ -239,9 +239,9 @@ def label_clusters(pred_vol, brain_seg_vol, threshold, cluster_filter, outside_r
     """
     if len(pred_vol.shape) > 3:
         pred_vol = pred_vol.squeeze()
-    if len(brain_seg_vol.shape) > 3:
+    if brain_seg_vol is not None and len(brain_seg_vol.shape) > 3:
         brain_seg_vol = brain_seg_vol.squeeze()
-    brain_mask = (brain_seg_vol > 0)
+    brain_mask = (brain_seg_vol > 0) if brain_seg_vol is not None else None
     thresholded_img = (pred_vol > threshold).astype(int)
     _, _, _, labelled_clusters, _ = get_clusters_and_filter_image(
         thresholded_img,

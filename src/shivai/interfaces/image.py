@@ -1354,7 +1354,12 @@ class Label_clusters_InputSpec(BaseInterfaceInputSpec):
     brain_seg = traits.File(exists=True,
                             desc=('Brain mask or brain segmentation delimiting the parts '
                                   'of the biomarker segmentation ("img" argument) to explore'),
-                            mandatory=True)
+                            mandatory=False)
+
+    binerize = traits.Bool(False,
+                           desc='Whether to binarize the biomarker segmentation before clustering. If False, will use the raw values to threshold the clusters (i.e. keeping only clusters with a mean value above "thr_cluster_val"). If True, will first binarize the biomarker segmentation with "thr_cluster_val" as threshold, and then keep only clusters with a size above "thr_cluster_size".',
+                           mandatory=False,
+                           usedefault=True)
 
     out_name = traits.Str('labelled_clusters.nii.gz',
                           mandatory=False,
@@ -1368,7 +1373,7 @@ class Label_clusters_OutputSpec(TraitedSpec):
 
 
 class Label_clusters(BaseInterface):
-    """Generates an image showing the brain mask and the crop-box overlayed on the original brain"""
+    """Clusters the biomarker segmentation and keeps only those inside of the brain, with a value above a given threshold and a size above a given threshold"""
     input_spec = Label_clusters_InputSpec
     output_spec = Label_clusters_OutputSpec
 
@@ -1376,14 +1381,19 @@ class Label_clusters(BaseInterface):
         biomarker_raw = self.inputs.biomarker_raw
         thr_cluster_val = self.inputs.thr_cluster_val
         thr_cluster_size = self.inputs.thr_cluster_size
-        brain_seg = self.inputs.brain_seg
         out_name = self.inputs.out_name
 
         biomarker_im = nib.load(biomarker_raw)
         biomarker_vol = biomarker_im.get_fdata()
-        brain_seg_vol = nib.load(brain_seg).get_fdata()
+        if isdefined(self.inputs.brain_seg):
+            brain_seg = self.inputs.brain_seg
+            brain_seg_vol = nib.load(brain_seg).get_fdata()
+        else:
+            brain_seg_vol = None
 
-        labelled_clusters = label_clusters(biomarker_vol, brain_seg_vol, thr_cluster_val, thr_cluster_size)
+        labelled_clusters = label_clusters(biomarker_vol, thr_cluster_val, thr_cluster_size, brain_seg_vol)
+        if self.inputs.binerize:
+            labelled_clusters = (labelled_clusters > 0).astype('int16')
         labelled_clusters_im = nib.Nifti1Image(labelled_clusters.astype('int16'), affine=biomarker_im.affine)
         nib.save(labelled_clusters_im, out_name)
         return runtime
