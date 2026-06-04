@@ -26,7 +26,7 @@ from nipype.interfaces.io import DataGrabber
 from shivai.interfaces.shiva import Predict
 from shivai.workflows.shiva_mask_wf import genWorkflow as gen_masking_wf
 from shivai.interfaces.image import (Threshold, Normalization, CorrectAffine,
-                                     Conform, Crop, Resample_from_to, Label_clusters, 
+                                     Conform, Crop, Resample_from_to, Label_clusters,
                                      Labelled_Clusters_Registration)
 
 
@@ -122,58 +122,60 @@ def generate_dora_wf(**kwargs) -> Workflow:
     subject_iterator.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
     # ── Preprocessing (shiva brain masking) ──────────────────────────────────
-    
+
     datagrabber = Node(DataGrabber(infields=['subject_id'],
-        outfields=['img1']),
-        name='datagrabber')
+                                   outfields=['img1']),
+                       name='datagrabber')
     datagrabber.inputs.base_directory = kwargs['DATA_DIR']
+    datagrabber.inputs.raise_on_empty = True
+    datagrabber.inputs.sort_filelist = True
     datagrabber.inputs.template = '*.nii.gz'
     datagrabber.inputs.field_template = {'img1': '%s_*.nii.gz'}
     datagrabber.inputs.template_args = {'img1': [['subject_id']]}
-    
+
     correct_affine_img1 = Node(CorrectAffine(), name="correct_affine_img1")
     correct_affine_img1.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
-    
+
     main_wf.connect(subject_iterator, 'subject_id', datagrabber, 'subject_id')
     main_wf.connect(datagrabber, 'img1', correct_affine_img1, 'img')
-    
+
     conform = Node(Conform(),
                    name="conform")
     conform.inputs.dimensions = (256, 256, 256)
     conform.inputs.voxel_size = kwargs['RESOLUTION']
     conform.inputs.voxels_tolerance = kwargs['TOLERANCE']
     conform.inputs.orientation = kwargs['ORIENTATION']
-    
+
     main_wf.connect(correct_affine_img1, 'corrected_img', conform, 'img')
-    
+
     mask_to_conform = Node(Resample_from_to(),
                            name="mask_to_conform")
     mask_to_conform.inputs.spline_order = 0
 
     main_wf.connect(conform, 'resampled', mask_to_conform, 'fixed_image')
-    
+
     # Creating and incorporating the brain mask sub-wf
     masking_wf = gen_masking_wf(**kwargs)
     main_wf.add_nodes([masking_wf])
-    
+
     main_wf.connect(correct_affine_img1, 'corrected_img', masking_wf, 'preconform.img')
     main_wf.connect(conform, 'resampled', masking_wf, 'intensity_norm_with_premask.input_image')
     main_wf.connect(masking_wf, 'proper_brain_mask.segmentation', mask_to_conform, 'moving_image')
-    
+
     binarize_brain_mask = Node(Threshold(threshold=kwargs['THRESHOLD']), name="binarize_brain_mask")
     binarize_brain_mask.inputs.binarize = True
     binarize_brain_mask.inputs.minVol = 100  # Get rif of potential small clusters
     binarize_brain_mask.inputs.clusterCheck = 'keep_all'  # Keep all clusters above minVol
 
     main_wf.connect(mask_to_conform, 'resampled_image', binarize_brain_mask, 'img')
-    
+
     crop = Node(Crop(final_dimensions=kwargs['IMAGE_SIZE']),
                 name="crop")
     main_wf.connect(conform, 'resampled',
-                     crop, 'apply_to')
+                    crop, 'apply_to')
     main_wf.connect(binarize_brain_mask, 'thresholded',
-                     crop, 'roi_mask')
-    
+                    crop, 'roi_mask')
+
     # Apply the cropping to the mask
     mask_to_crop = Node(Resample_from_to(),
                         name='mask_to_crop')
@@ -192,17 +194,14 @@ def generate_dora_wf(**kwargs) -> Workflow:
     main_wf.connect(mask_to_crop, 'resampled_image',
                     img1_norm, 'brain_mask')
 
-
-
     # ── PVS prediction ───────────────────────────────────────────────────────
     predict_node = Node(Predict(), name='predict_pvs')
     predict_node.inputs.out_filename = 'pvs_map.nii.gz'
     predict_node.inputs.model = kwargs['MODELS_PATH']
-    predict_node.inputs.descriptor = kwargs['BRAINMASK_DESCRIPTOR']
+    predict_node.inputs.descriptor = kwargs['PVS_DESCRIPTOR']
     predict_node.inputs.gpu_number = kwargs['GPU']
-    
+
     main_wf.connect(img1_norm, 'intensity_normalized', predict_node, 't1')
-    
 
     # ── Cluster labelling (threshold + connected-component filtering) ────────
     cluster_labelling = Node(Label_clusters(), name='cluster_labelling_pvs')
@@ -288,7 +287,7 @@ def parse_args() -> Args:
                         help='PVS prediction threshold')
     parser.add_argument('--min_pvs_size', type=int, default=5,
                         help='Minimum PVS cluster size in voxels')
-    parser.add_argument('--gpu', type=int, default=0,
+    parser.add_argument('--gpu', type=int, default=None,
                         help='GPU device index (-1 for CPU)')
     return parser.parse_args(namespace=Args())
 
@@ -298,7 +297,7 @@ def build_kwargs(args: Args):
 
     for arg in args.__dict__:
         if isinstance(args.__dict__[arg], Path):
-            args.__dict__[arg] = str(args.__dict__[arg].resolve())
+            args.__dict__[arg] = args.__dict__[arg].resolve()
     # Discover subject and modality from the input file(s)
     subject_id, modality, is_t2 = detect_modality(args.input_dir)
     print(f'Subject: {subject_id}, Modality: {modality}, T2-like: {is_t2}')
@@ -350,7 +349,7 @@ def build_kwargs(args: Args):
         'MIN_PVS_SIZE': args.min_pvs_size,
 
         # GPU / performance
-        'GPU': args.gpu if args.gpu >= 0 else None,
+        'GPU': args.gpu if args.gpu is not None and args.gpu >= 0 else None,
         'AI_THREADS': 8,
         'BATCH_SIZE': 20,
         'PRED_PLUGIN_ARGS': {},
