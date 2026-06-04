@@ -687,7 +687,7 @@ class Crop(BaseInterface):
             self.inputs.final_dimensions,
             cdg_ijk,
             self.inputs.default,
-            safety_marger=5)
+            safety_margin=5)
 
         # TODO: rewrite this using np.savetxt and change reader where needed
         cdg_ijk = cdg_ijk[0], cdg_ijk[1], cdg_ijk[2]

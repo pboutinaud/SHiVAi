@@ -323,7 +323,7 @@ def crop(roi_mask: nib.Nifti1Image,
          dimensions: Tuple[int, int, int],
          cdg_ijk: np.ndarray = None,
          default: str = 'ijk',
-         safety_marger: int = 5
+         safety_margin: int = 5
          ) -> Tuple[nib.Nifti1Image,
                     Tuple[int, int, int],
                     Tuple[int, int, int],
@@ -342,7 +342,7 @@ def crop(roi_mask: nib.Nifti1Image,
         dimensions (Tuple[int, int, int], optional): volume dimensions.
                                                      Defaults to (256 , 256 , 256).
         cdg_ijk: arbitrary crop center ijk coordinates
-        safety_marger (int): added deviation from the top of the image if the brain mask is offset
+        safety_margin (int): added deviation from the top of the image if the brain mask is offset
 
     Returns:
         nib.Nifti1Image: preprocessed image
@@ -405,12 +405,16 @@ def crop(roi_mask: nib.Nifti1Image,
     print(f"bbox1: {bbox1}")
     print(f"bbox2: {bbox2}")
     print(f"cdg_ijk: {cdg_ijk}")
+
+    # Clamp bbox for internal array indexing, but keep unclamped values for output
     offset_ijk = abs(bbox1) * abs(np.uint8(bbox1 < 0))
-    bbox1[bbox1 < 0] = 0
+    bbox1_clamped = bbox1.copy()
+    bbox1_clamped[bbox1_clamped < 0] = 0
+    bbox2_clamped = bbox2.copy()
     for i in range(3):
-        if bbox2[i] > apply_to.shape[i]:
-            bbox2[i] = apply_to.shape[i]
-    span = bbox2 - bbox1
+        if bbox2_clamped[i] > apply_to.shape[i]:
+            bbox2_clamped[i] = apply_to.shape[i]
+    span = bbox2_clamped - bbox1_clamped
     print(f"span: {span}")
     print(f"offset: {offset_ijk}")
 
@@ -418,12 +422,14 @@ def crop(roi_mask: nib.Nifti1Image,
         vec = np.sum(roi_mask.get_fdata().astype(bool), axis=(0, 1))
         top_mask_slice_index = np.where(np.squeeze(vec != 0))[0].tolist()[-1]
 
-        if bbox2[2] <= top_mask_slice_index:
+        if bbox2_clamped[2] <= top_mask_slice_index:
 
             # we are too low, we nned to move the crop box up
             # (because brain mask is wrong and includes stuff in the neck and shoulders)
 
-            delta = top_mask_slice_index - bbox2[2] + safety_marger
+            delta = top_mask_slice_index - bbox2_clamped[2] + safety_margin
+            bbox1_clamped[2] = bbox1_clamped[2] + delta
+            bbox2_clamped[2] = bbox2_clamped[2] + delta
             bbox1[2] = bbox1[2] + delta
             bbox2[2] = bbox2[2] + delta
             cdg_ijk[2] = cdg_ijk[2] + delta
@@ -433,14 +439,14 @@ def crop(roi_mask: nib.Nifti1Image,
     array_out[offset_ijk[0]:offset_ijk[0] + span[0],
               offset_ijk[1]:offset_ijk[1] + span[1],
               offset_ijk[2]:offset_ijk[2] + span[2]] = apply_to.get_fdata()[
-        bbox1[0]:bbox2[0],
-        bbox1[1]:bbox2[1],
-        bbox1[2]:bbox2[2]]
+        bbox1_clamped[0]:bbox2_clamped[0],
+        bbox1_clamped[1]:bbox2_clamped[1],
+        bbox1_clamped[2]:bbox2_clamped[2]]
 
     # We correct the coordinates, so first we have to convert ijk to xyz for
     # half block size and centroid
     cdg_xyz = apply_to.affine @ np.append(cdg_ijk, 1)
-    halfs_xyz = apply_to.affine @ np.append(cdg_ijk - bbox1, 1)
+    halfs_xyz = apply_to.affine @ np.append(cdg_ijk - bbox1_clamped, 1)
     padding_xyz = apply_to.affine @ np.append(tuple(offset_ijk), 1)
     offset_padding = apply_to.affine[:, 3] - padding_xyz
     print(f"padding: {padding_xyz}")
@@ -459,6 +465,7 @@ def crop(roi_mask: nib.Nifti1Image,
     # We write the result image
     cropped = nib.Nifti1Image(array_out.astype('f'), affine_out)
 
+    # Return unclamped bbox so reverse_crop can compute the correct overlap
     return cropped, cdg_ijk, bbox1, bbox2
 
 
@@ -467,13 +474,32 @@ def reverse_crop(original_img: nib.Nifti1Image,
                  bbox1: Tuple[int, int, int],
                  bbox2: Tuple[int, int, int]):
     """
-    Re-modifies the dimensions of the cropped 
-    image in the original space
+    Re-modifies the dimensions of the cropped
+    image in the original space.
+    Handles bbox values that may extend outside the original volume
+    (negative bbox1 or bbox2 exceeding volume shape) by computing
+    the valid overlap.
     """
     conform_array = original_img.get_fdata().squeeze()
     array_apply_to = apply_to.get_fdata()
     reverse_crop_array = np.zeros_like(conform_array)
-    reverse_crop_array[bbox1[0]:bbox2[0], bbox1[1]:bbox2[1], bbox1[2]:bbox2[2]] = array_apply_to
+
+    # Compute valid overlap between the bbox range and the original volume
+    orig_slices = []
+    crop_slices = []
+    for i in range(3):
+        orig_start = max(0, bbox1[i])
+        orig_end = min(conform_array.shape[i], bbox2[i])
+        if orig_start >= orig_end:
+            # No overlap on this axis, return empty volume
+            return nib.Nifti1Image(reverse_crop_array.astype('f'), original_img.affine)
+        # Corresponding region in the cropped array
+        crop_start = orig_start - bbox1[i]
+        crop_end = crop_start + (orig_end - orig_start)
+        orig_slices.append(slice(orig_start, orig_end))
+        crop_slices.append(slice(crop_start, crop_end))
+
+    reverse_crop_array[tuple(orig_slices)] = array_apply_to[tuple(crop_slices)]
     reverse_img = nib.Nifti1Image(reverse_crop_array.astype('f'), original_img.affine)
     return reverse_img
 
