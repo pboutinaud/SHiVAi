@@ -239,7 +239,8 @@ def main():
                     inIm = nib.load(img2_files[sub_list.index(sub)])
                     input_images[j, ..., 1] = inIm.get_fdata(dtype=np.float32)
             if savedModel:
-                result = infer(**{input_name: tf.constant(input_images, dtype=tf.float32)})
+                expected_dtype = infer.structured_input_signature[1][input_name].dtype
+                result = infer(**{input_name: tf.constant(input_images, dtype=expected_dtype)})
                 output_names = list(result.keys())
                 predictions = result[output_names[0]].numpy()
             else:

@@ -276,7 +276,8 @@ def main():
             print('INFO : Predicting fold :', model_file.stem)
 
         if savedModel:
-            result = infer(**{input_name: tf.constant(images, dtype=tf.float32)})
+            expected_dtype = infer.structured_input_signature[1][input_name].dtype
+            result = infer(**{input_name: tf.constant(images, dtype=expected_dtype)})
             output_names = list(result.keys())
             predictions = result[output_names[0]].numpy()
         else:
@@ -310,3 +311,44 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# %% Snippet to use when manually testing in order to release the GPU memory between calls
+
+
+# def load_and_predict(model_file, images, keras_model=None, savedModel=False):
+#     import keras
+#     import tensorflow as tf
+#     if keras_model:
+#         spec = importlib.util.spec_from_file_location('kmodel', keras_model)
+#         kmodel = importlib.util.module_from_spec(spec)
+#         sys.modules['kmodel'] = kmodel
+#         globals()['kmodel'] = kmodel
+#         spec.loader.exec_module(kmodel)
+#         detected_classes = [c for c in dir(kmodel) if inspect.isclass(eval(f'kmodel.{c}'))]
+#         for modl_class in detected_classes:
+#             exec(f'{modl_class} = kmodel.{modl_class}')
+#         model = keras.saving.load_model(model_file, custom_objects=None, compile=False)
+#         prediction = model.predict(
+#             images,
+#             batch_size=1
+#         )
+#     elif savedModel:
+#         model = tf.saved_model.load(model_file)  # type: tf._UserObject
+#         # print(model.signatures)
+#         infer = model.signatures["serving_default"]
+#         input_names = list(infer.structured_input_signature[1].keys())
+#         input_name = input_names[0]
+#         expected_dtype = infer.structured_input_signature[1][input_name].dtype
+#         result = infer(**{input_name: tf.constant(images, dtype=expected_dtype)})
+#         output_names = list(result.keys())
+#         prediction = result[output_names[0]].numpy()
+#     else:
+#         raise NotImplementedError("Only keras models and savedModel are supported in this snippet for now")
+#     return prediction
+
+
+# def test():
+#     import multiprocessing
+#     with multiprocessing.Pool(1) as pool:
+#         prediction = pool.apply(load_and_predict, (model_file, images, keras_model, savedModel))
+# GPU memory is fully released when the subprocess exits
