@@ -330,7 +330,7 @@ def crop(roi_mask: nib.Nifti1Image,
          dimensions: Tuple[int, int, int],
          cdg_ijk: np.ndarray = None,
          default: str = 'ijk',
-         safety_marger: int = 5
+         safety_margin: int = 5
          ) -> Tuple[nib.Nifti1Image,
                     Tuple[int, int, int],
                     Tuple[int, int, int],
@@ -349,7 +349,7 @@ def crop(roi_mask: nib.Nifti1Image,
         dimensions (Tuple[int, int, int], optional): volume dimensions.
                                                      Defaults to (256 , 256 , 256).
         cdg_ijk: arbitrary crop center ijk coordinates
-        safety_marger (int): added deviation from the top of the image if the brain mask is offset
+        safety_margin (int): added deviation from the top of the image if the brain mask is offset
 
     Returns:
         nib.Nifti1Image: preprocessed image
@@ -430,7 +430,7 @@ def crop(roi_mask: nib.Nifti1Image,
             # we are too low, we nned to move the crop box up
             # (because brain mask is wrong and includes stuff in the neck and shoulders)
 
-            delta = top_mask_slice_index - bbox2[2] + safety_marger
+            delta = top_mask_slice_index - bbox2[2] + safety_margin
             bbox1[2] = bbox1[2] + delta
             bbox2[2] = bbox2[2] + delta
             cdg_ijk[2] = cdg_ijk[2] + delta
