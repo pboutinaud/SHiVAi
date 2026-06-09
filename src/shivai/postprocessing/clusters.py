@@ -88,45 +88,6 @@ def label_clusters(pred_vol, threshold, cluster_filter, brain_seg_vol=None, outs
     return labelled_clusters
 
 
-def cluster_registration(input_im: nib.Nifti1Image, ref_im: nib.Nifti1Image, transform_affine: np.ndarray) -> nib.Nifti1Image:
-    """Apply a linear registration to labelled clusters in a way that conserve all clusters 
-    /!\ Never worked /!\\
-        -> Use  resample_cluster_img instead
-
-    Args:
-        input_im (nib.Nifti1Image): Image containing labelled clusters (with integers as labels)
-        ref_im (nib.Nifti1Image): Image defining the arrival space
-        transform_affine (np.ndarray): Affine matrix (4x4) defining the linear transformation
-
-    Returns:
-        nib.Nifti1Image: _description_
-    """
-    input_vol = input_im.get_fdata().astype('int16')
-    input_affine = input_im.affine
-    ref_affine = ref_im.affine
-    pls2ras = np.diag([-1, -1, 1, 1])
-
-    # Combining the different affines
-    ref_affine_inv = np.linalg.inv(ref_affine)
-    transform_affine_inv = np.linalg.inv(pls2ras @ transform_affine @ pls2ras)  # ANTs affines must be inversed
-    full_affine = ref_affine_inv @ transform_affine_inv @ input_affine  # TODO: make this work T.T
-    # Getting the new coordinates for each voxel
-    ori_coord = np.argwhere(input_vol)
-    new_coord = nib.affines.apply_affine(full_affine, ori_coord)
-    new_coord = np.round(new_coord).astype(int).T  # rounding and reshaping the coordinate array for indexing
-    # Correcting points that got out of the image
-    new_coord[(new_coord < 0)] = 0
-    new_coord[0, (new_coord[0] >= ref_im.shape[0])] = ref_im.shape[0] - 1
-    new_coord[1, (new_coord[1] >= ref_im.shape[1])] = ref_im.shape[1] - 1
-    new_coord[2, (new_coord[2] >= ref_im.shape[2])] = ref_im.shape[2] - 1
-
-    clust_reg_vol = np.zeros(ref_im.shape, dtype='int16')
-    clust_reg_vol[tuple(new_coord)] = 1
-
-    clust_reg_im = nib.Nifti1Image(clust_reg_vol, affine=ref_affine)
-    return clust_reg_im
-
-
 def anisotropic_prefilter(vol, voxel_size_ori, voxel_size_target, safety_factor=0.5, verbose=False):
     """
     Anisotropic Gaussian pre-filter before resampling back to another space with strong isotropic differences.
@@ -180,6 +141,16 @@ def _resample_one_cluster(val, cluster_data, ori_vox_zooms, source_affine, targe
     scipy.ndimage.affine_transform scales with output volume size.
     """
     _NDIM = 3
+
+    # Reorder target voxel sizes to match source data axis orientation.
+    src_ornt = nib.io_orientation(source_affine)
+    tgt_ornt = nib.io_orientation(target_affine)
+    aligned_tgt_zooms = np.zeros(_NDIM)
+    for src_ax in range(_NDIM):
+        spatial_ax = int(src_ornt[src_ax, 0])
+        tgt_ax = int(np.where(tgt_ornt[:, 0] == spatial_ax)[0][0])
+        aligned_tgt_zooms[src_ax] = new_vox_zooms[tgt_ax]
+
     new_vox_vol = np.prod(new_vox_zooms)
     ori_vox_vol = np.prod(ori_vox_zooms)
     mask = cluster_data == val
@@ -194,7 +165,8 @@ def _resample_one_cluster(val, cluster_data, ori_vox_zooms, source_affine, targe
     src_max_pad = np.minimum(src_max + pad, np.array(cluster_data.shape) - 1)
     slices_src = tuple(slice(lo, hi + 1) for lo, hi in zip(src_min_pad, src_max_pad))
     cropped_mask = mask[slices_src].astype(float)
-    cropped_mask = anisotropic_prefilter(cropped_mask, ori_vox_zooms, new_vox_zooms)
+    if interp_order > 1:
+        cropped_mask = anisotropic_prefilter(cropped_mask, ori_vox_zooms, aligned_tgt_zooms)
 
     # Affine for cropped source: shift origin by src_min_pad voxels
     offset_src = np.eye(4)

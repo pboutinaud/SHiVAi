@@ -6,7 +6,7 @@ from shivai.postprocessing.custom_parc import seg_for_pvs, seg_for_wmh, seg_from
 from shivai.postprocessing.pvs import quantify_clusters
 from shivai.postprocessing.basalganglia import create_basalganglia_slice_mask
 from shivai.postprocessing.wmh import metrics_clusters_latventricles
-from shivai.postprocessing.clusters import label_clusters, cluster_registration, resample_cluster_img
+from shivai.postprocessing.clusters import label_clusters, resample_cluster_img
 from shivai.utils.stats import prediction_metrics, get_mask_regions
 from shivai.utils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask, seg_cleaner, affine_check
 from shivai.utils.quality_control import create_edges, save_histogram, bounding_crop, overlay_brainmask
