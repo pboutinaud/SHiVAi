@@ -7,6 +7,7 @@
 import gc
 import json
 import importlib.util
+import os
 import sys
 import inspect
 
@@ -106,6 +107,11 @@ def predict_parser():
               'Note however that some model may not be compatible with CPUs, which will lead to a crash.')
     )
 
+    parser.add_argument(
+        "-g", "--gpu",
+        type=int,
+        help="Force the use of a given GPU, given by its ID")
+
     return parser
 
 
@@ -196,6 +202,12 @@ def main():
         tf.config.set_visible_devices([], 'GPU')
         tf.config.threading.set_intra_op_parallelism_threads(args.use_cpu)
         tf.config.threading.set_inter_op_parallelism_threads(args.use_cpu)
+    else:
+        if args.gpu is not None:
+            if args.gpu >= 0:
+                os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+            else:
+                raise ValueError('GPU ID must be a positive integer (or 0). For CPU usage, use --use_cpu with the number of threads to use.')
 
     affine_dict = {}
     tmp_files = {}  # type: dict[str, Path]
