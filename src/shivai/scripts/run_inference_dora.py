@@ -8,14 +8,14 @@ contains exactly two files:
     <subject_id>_pvs_mask.nii.gz        (uint8, 0 = background, 1 = PVS)
 
 Usage (inside container):
-    python /opt/model/run_inference.py --input /input --output /output
+    python /opt/model/run_inference_dora.py --input /input --output /output
 """
 
 import sys
 import shutil
 from pathlib import Path
 
-from shivai.dora_challenge.dora_workflow import generate_dora_wf, detect_modality
+from shivai.workflows.dora_workflow import generate_dora_wf, detect_modality
 
 
 def main():
@@ -48,7 +48,7 @@ def main():
         'SUBJECT_LIST': [subject_id],
 
         'PREDICTION': ['PVS'],
-        'BRAIN_SEG': 'shiva',
+        'BRAIN_SEG': 'shiva_gpu',
         'USE_T1': True,
 
         'MODELS_PATH': str(models_path),
@@ -69,7 +69,7 @@ def main():
         'INTERPOLATION': 'WelchWindowedSinc',
 
         'THRESHOLD_PVS': 0.5,
-        'MIN_PVS_SIZE': 5,
+        'MIN_PVS_SIZE': 1,
 
         'GPU': 0,
         'AI_THREADS': 8,

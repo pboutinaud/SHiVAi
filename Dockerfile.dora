@@ -1,8 +1,8 @@
 # DORA – PVS Segmentation Challenge
 #
 # Build:
-#   1. Copy model weights into the build context:
-#        cp -r /scratch/nozais/test_shiva/modele_pred/ProductionModels_K3 weights
+#   1. Copy the weights directory to the local "weights/" directory
+#        COPY weights/ /opt/model/weights/ -> COPY /path/to/weights/ /opt/model/weights/
 #   2. Build the image:
 #        docker build -f Dockerfile.dora -t dora:latest .
 #
@@ -27,8 +27,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # Install shivai from source
-COPY src /usr/local/src/shivai/src
-COPY pyproject.toml requirements.txt /usr/local/src/shivai/
+COPY ../src /usr/local/src/shivai/src
+COPY ../pyproject.toml ../requirements.txt /usr/local/src/shivai/
 
 WORKDIR /usr/local/src/shivai
 RUN python -m pip install --no-cache-dir build && \
@@ -40,8 +40,8 @@ COPY weights/ /opt/model/weights/
 
 # Entrypoint script
 WORKDIR /opt/model
-COPY run_inference.py /opt/model/
+COPY src/shivai/scripts/run_inference_dora.py /opt/model/
 
-ENTRYPOINT ["python", "/opt/model/run_inference.py", \
+ENTRYPOINT ["python", "/opt/model/run_inference_dora.py", \
             "--input",  "/input", \
             "--output", "/output"]
