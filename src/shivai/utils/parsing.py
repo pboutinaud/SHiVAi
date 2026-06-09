@@ -9,16 +9,23 @@ from shivai import __version__
 
 
 def shivaParser():
-    DESCRIPTION = """SHIVA pipeline for deep-learning imaging biomarkers computation. Performs resampling and coregistration
-                of a set of structural NIfTI head image, followed by intensity normalization, and cropping centered on the brain.
-                A nipype workflow is used to preprocess a lot of images at the same time.
-                The segmentation from the wmh, cmb and pvs models are generated depending on the inputs. A Report is generated.
+    DESCRIPTION = """
+SHIVA pipeline for deep-learning imaging biomarkers computation. Performs resampling and coregistration
+of a set of structural NIfTI head image, followed by intensity normalization, and cropping centered on the brain.
+A nipype workflow is used to preprocess a lot of images at the same time.
+The segmentation from the wmh, cmb and pvs models are generated depending on the inputs. A Report is generated.
 
-                Input data can be staged in BIDS or a simplified file arborescence, or described with a JSON file (for the 3D Slicer extension).
-                
-                Shivai version: """ + __version__
+Input data can be staged in BIDS or a simplified file arborescence, or described with a JSON file (for the 3D Slicer extension).
 
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+Usage examples:
+\tshiva --in /path/to/input/folder --out /path/to/output/folder --prediction PVS --config /path/to/config.yml
+\tshiva --in /path/to/input/folder --out /path/to/output/folder --prediction PVS2 WMH --sub_names sub-001 sub-002 --config /path/to/config.yml --brain_seg synthseg
+\tshiva --in /path/to/input/folder --out /path/to/output/folder --prediction all --sub_list /path/to/sub_list.txt --config /path/to/config.yml --replace_t1 t2 --inverse_t2 --containerized_nodes --run_plugin SLURM
+
+Shivai version: """ + __version__
+
+    parser = argparse.ArgumentParser(description=DESCRIPTION,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument('--in', dest='in_dir',
                         help='Folder path with files, BIDS structure folder path or JSON formatted extract of the Slicer plugin',
