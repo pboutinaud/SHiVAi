@@ -103,9 +103,8 @@ def anisotropic_prefilter(vol, voxel_size_ori, voxel_size_target, safety_factor=
     voxel_size_target : array-like
         Voxel size in target space, one value per axis.
     safety_factor : float
-        Scales the sigma. 0.5 means the cluster needs to be ~1 native voxel
-        wide to survive. Increase toward 1.0 for stronger smoothing if ringing
-        persists, decrease toward 0.25 to preserve more detail.
+        Scales the sigma. 0.5 means the cluster needs to be ~1 native (=target) voxel
+        wide to survive.
 
     Returns
     -------
@@ -132,7 +131,6 @@ def anisotropic_prefilter(vol, voxel_size_ori, voxel_size_target, safety_factor=
 
     return ndimage.gaussian_filter(vol.astype(float), sigma=sigmas)
 
-
 def _resample_one_cluster(val, cluster_data, ori_vox_zooms, source_affine, target_affine, target_shape, new_vox_zooms, thresh_fractions, interp_order=3, rel_tolerance=0.5):
     """Resample a single cluster label using bounding-box cropping for speed.
 
@@ -141,15 +139,6 @@ def _resample_one_cluster(val, cluster_data, ori_vox_zooms, source_affine, targe
     scipy.ndimage.affine_transform scales with output volume size.
     """
     _NDIM = 3
-
-    # Reorder target voxel sizes to match source data axis orientation.
-    src_ornt = nib.io_orientation(source_affine)
-    tgt_ornt = nib.io_orientation(target_affine)
-    aligned_tgt_zooms = np.zeros(_NDIM)
-    for src_ax in range(_NDIM):
-        spatial_ax = int(src_ornt[src_ax, 0])
-        tgt_ax = int(np.where(tgt_ornt[:, 0] == spatial_ax)[0][0])
-        aligned_tgt_zooms[src_ax] = new_vox_zooms[tgt_ax]
 
     new_vox_vol = np.prod(new_vox_zooms)
     ori_vox_vol = np.prod(ori_vox_zooms)
@@ -166,7 +155,7 @@ def _resample_one_cluster(val, cluster_data, ori_vox_zooms, source_affine, targe
     slices_src = tuple(slice(lo, hi + 1) for lo, hi in zip(src_min_pad, src_max_pad))
     cropped_mask = mask[slices_src].astype(float)
     if interp_order > 1:
-        cropped_mask = anisotropic_prefilter(cropped_mask, ori_vox_zooms, aligned_tgt_zooms)
+        cropped_mask = anisotropic_prefilter(cropped_mask, ori_vox_zooms, new_vox_zooms)
 
     # Affine for cropped source: shift origin by src_min_pad voxels
     offset_src = np.eye(4)
@@ -221,8 +210,8 @@ def _resample_one_cluster(val, cluster_data, ori_vox_zooms, source_affine, targe
     # centroid, which is more robust than "largest" when resampling to very
     # coarse voxels (ringing blobs can exceed the true cluster in size).
     if interp_order > 1:
-        binerized = raw_data > 0
-        labeled_sub, n_sub = measure.label(binerized, return_num=True)
+        binerized = raw_data > 1e-5
+        labeled_sub, n_sub = measure.label(binerized, connectivity=1, return_num=True)
         if n_sub > 1:
             best_label = 1
             best_dist = np.inf
@@ -314,6 +303,7 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
         ValueError: If ``input_type`` is not one of ``'map'``, ``'pred'``, ``'anat'``.
     """
     _VALID_INPUT_TYPES = ('map', 'pred', 'anat')
+    _NDIM = 3
     if input_type not in _VALID_INPUT_TYPES:
         raise ValueError(
             f"input_type must be one of {_VALID_INPUT_TYPES}, got {input_type!r}."
@@ -333,7 +323,18 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
         cluster_img = nib.Nifti1Image(np.asarray(cluster_img.dataobj), composed_affine)
 
     new_vox_zooms = target_img.header.get_zooms()
-    if ori_vox_zooms == new_vox_zooms:
+
+    # Reorder target voxel sizes to match source data axis orientation.
+    src_ornt = nib.io_orientation(cluster_img.affine)
+    tgt_ornt = nib.io_orientation(target_img.affine)
+    aligned_tgt_zooms = np.zeros(_NDIM)
+    for src_ax in range(_NDIM):
+        spatial_ax = int(src_ornt[src_ax, 0])
+        tgt_ax = int(np.where(tgt_ornt[:, 0] == spatial_ax)[0][0])
+        aligned_tgt_zooms[src_ax] = new_vox_zooms[tgt_ax]
+    aligned_tgt_zooms = tuple(aligned_tgt_zooms)
+
+    if ori_vox_zooms == aligned_tgt_zooms:
         # if voxel sizes are the same, no need for the smart resampling, just do a nearest neighbor resampling to avoid interpolation issues
         return nip.resample_from_to(cluster_img, target_img, order=0)
 
@@ -407,14 +408,14 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
 
     # Thresholds to try for each cluster to find the best match with original size
     # These are fractions of the max value in the resampled cluster mask
-    thresh_frac = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99]
+    thresh_frac = np.arange(0.2, 1.0, 0.03)
     n_workers = min(n_parallel, len(vals_to_process)) if n_parallel > 1 else 1
     if n_workers > 1:
         with ThreadPoolExecutor(max_workers=n_workers) as executor:
             futures = {
                 executor.submit(
                     _resample_one_cluster, val, cluster_data, ori_vox_zooms,
-                    cluster_img.affine, target_img.affine, target_img.shape, new_vox_zooms, thresh_frac
+                    cluster_img.affine, target_img.affine, target_img.shape, aligned_tgt_zooms, thresh_frac
                 ): val for val in vals_to_process
             }
             for future in futures:
@@ -430,7 +431,7 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
     else:
         for val in vals_to_process:
             _, ok_thr, ok_mask_vol, sub_data, tgt_origin = _resample_one_cluster(
-                val, cluster_data, ori_vox_zooms, cluster_img.affine, target_img.affine, target_img.shape, new_vox_zooms, thresh_frac
+                val, cluster_data, ori_vox_zooms, cluster_img.affine, target_img.affine, target_img.shape, aligned_tgt_zooms, thresh_frac
             )
             if ok_thr is not None and ok_mask_vol > 0:
                 slices = tuple(slice(tgt_origin[i], tgt_origin[i] + sub_data.shape[i]) for i in range(3))
