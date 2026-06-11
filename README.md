@@ -10,17 +10,24 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 <br clear="right"/>
 
-## What's New in v0.5.8 (2026-04-13)
+**cCSVD biomarkers detected with SHiVAi:**
+
+![Gif Image](https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/Images/SHIVA_BrainTools_small2.gif)
+
+
+## Important recent changes: 
+
+### What's New in v0.5.9 (2026-06-11)
+
+- New models where added for PVS segmentation (v4) that fix a critical issue when the input images were skull-stripped prior the Shivai pipeline. These new model require version v0.5.9 of Shivai to run.
+- A missing argument (`--inverse_t2`) has been added to the `shiva_contained` command line (and `run_shiva.py` script) for running Shivai inside a container, allowing the use of T2w images as a remplacement in the absence of T1w images (use the `--replace_t1 t2 --inverse_t2` arguments to do so).
+
+### What's New in v0.5.8 (2026-04-13)
 
 - Added basal ganglia + thalamus to deep WM for WMH statistics, and their periventricular voxels to the periventricular WM
 - Full support for Docker containerization, and update of the step-by-step README files linked to each case ([fully containerized](step_by_step/README.md) and [mixed](step_by_step_mixed_approach/README.md) approaches)
 
 > See the full [CHANGELOG](CHANGELOG.md) for all versions.
-
-
-**cCSVD biomarkers detected with SHiVAi:**
-
-![Gif Image](https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/Images/SHIVA_BrainTools_small2.gif)
 
 ## Intellectual property & Licencing
 
@@ -93,7 +100,7 @@ SHiVAi relies on the access to brain masks in order to crop the input volumes to
 1. You will need to have **Apptainer** installed (previously known as **Singularity**):
 <https://apptainer.org/docs/user/main/quick_start.html>
 
-2. Download the Apptainer image (.sif file) from [https://cloud.efixia.com/sharing/IXDf3trdV](https://cloud.efixia.com/sharing/IXDf3trdV) (it may take a while, the image weighs about 4GB).
+2. Download the Apptainer image (.sif file) from [https://cloud.efixia.com/sharing/3SUiEVXxQ](https://cloud.efixia.com/sharing/3SUiEVXxQ) (it may take a while, the image weighs about 4GB).
     Let's assume you saved it in `/myHome/myProject/shivai.sif`
 
 3. From the Shivai repository (where you are reading this), navigate to the [apptainer folder](apptainer/) and download [run_shiva.py](apptainer/run_shiva.py) and [config_example.yml](apptainer/config_example.yml)
