@@ -19,7 +19,7 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 ### What's New in v0.5.9 (2026-06-11)
 
-- New models where added for PVS segmentation (v4) that fix a critical issue when the input images were skull-stripped prior the Shivai pipeline. These new model require version v0.5.9 of Shivai to run.
+- New models where added for PVS segmentation (v4) that fix a critical issue (strong under-segmentation) when the input images were skull-stripped prior the Shivai pipeline. These new model require version v0.5.9 of Shivai to run.
 - A missing argument (`--inverse_t2`) has been added to the `shiva_contained` command line (and `run_shiva.py` script) for running Shivai inside a container, allowing the use of T2w images as a remplacement in the absence of T1w images (use the `--replace_t1 t2 --inverse_t2` arguments to do so).
 
 ### What's New in v0.5.8 (2026-04-13)
