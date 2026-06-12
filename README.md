@@ -440,6 +440,24 @@ Example of `BIDS` structure folders:
         │       ├── sub-51_T1_raw.nii.gz
         ·       └── sub-21_seg.nii.gz
 ```
+Or, with different sessions per subjects:
+
+```txt
+    .
+    ├── dataset_description.json
+    └── rawdata
+        ├── sub-21
+        │   ├── ses-01
+        │   │   └── anat
+        │   │       ├── sub-21_ses-01_FLAIR_raw.nii.gz
+        │   │       ├── sub-21_ses-01_T1_raw.nii.gz
+        │   │       └── sub-21_ses-01_seg.nii.gz
+        │   └── ses-02
+        │       └── anat
+        │           ├── sub-21_ses-02_FLAIR_raw.nii.gz
+        │           ├── sub-21_ses-02_T1_raw.nii.gz
+        │           └── sub-21_ses-02_seg.nii.gz
+```
 
 Example of `standard` structure folders (the important parts are the name of the subject folder, e.g. "sub-21", and the name of the sub folders, e.g. "flair" or "t1", with only one nifti file per folder):
 
@@ -459,6 +477,27 @@ Example of `standard` structure folders (the important parts are the name of the
     │   │   └── sub-51_T1_raw.nii.gz
     │   └── seg
     ·       └── sub-51_brainparc.nii.gz
+```
+
+Or, with different sessions per subjects:
+```txt
+    .
+    ├── sub-21
+    │   ├── sess-01
+    │   │   ├── flair
+    │   │   │   └── sub-21_FLAIR_raw.nii.gz
+    │   │   ├── t1
+    │   │   │   └── sub-21_T1_raw.nii.gz
+    │   │   └── seg
+    │   │       └── sub-21_brainparc.nii.gz
+    │   ├──  sess-02
+    │   │   ├── flair
+    │   │   │   └── sub-21_FLAIR_raw.nii.gz
+    │   │   ├── t1
+    │   │   │   └── sub-21_T1_raw.nii.gz
+    │   │   └── seg
+    │   │       └── sub-21_brainparc.nii.gz
+
 ```
 
 In the case of DICOM files (the individual names of each files do not matter here):
