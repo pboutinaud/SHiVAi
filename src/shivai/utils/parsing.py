@@ -5,6 +5,7 @@ import yaml
 import json
 import xml.etree.ElementTree as ET
 import pandas as pd
+from pathlib import Path
 from shivai import __version__
 
 
@@ -558,7 +559,6 @@ def set_args_and_check(inParser):
     if args.file_type == 'dicom' and args.input_type == 'BIDS':
         raise inParser.error('BIDS data structure not compatible with DICOM input')
 
-    # Checks and parsing of subjects
     subject_list = os.listdir(args.in_dir)
     if args.sub_list is None and args.sub_names is None:
         if args.exclusion_list:
@@ -570,13 +570,75 @@ def set_args_and_check(inParser):
             args.sub_list = parse_sub_list_file(args.sub_list)
         elif args.sub_names:
             args.sub_list = args.sub_names
-        subs_not_in_dir = set(args.sub_list) - set(subject_list)
+        sub_list_no_sess = [sub.split('/')[0] for sub in args.sub_list]  # in case there is a session depth, we check the subject IDs without the session part
+        subs_not_in_dir = set(sub_list_no_sess) - set(subject_list)
         if len(subs_not_in_dir) == len(args.sub_list):
             raise inParser.error('None of the participant IDs given in the sub_list file was found in the input directory.\n'
                                  f'Participant IDs given: {args.sub_list}\n'
                                  f'Participant available: {subject_list}')
         elif len(subs_not_in_dir) > 0:
             raise inParser.error(f'Some participants where not found in the input directory: {sorted(list(subs_not_in_dir))}')
+
+    # Checks and parsing of subjects, detetion of potential "session" depth
+    has_session = False
+    if args.input_type != 'swomed':
+        if args.input_type == 'BIDS':
+            expected_folders = ['anat']
+        elif args.input_type == 'standard':
+            expected_folders = ['t1', 'flair', 'swi', 'seg','t2','t2s']
+        first_subject = args.sub_list[0]
+        if '/' in first_subject:
+            has_session = True
+        else:
+            first_subject_path = Path(args.in_dir) / first_subject
+            # Find the deepest expected folders and check their depth
+            # We should have sub_dir/expected_folder or subdir/session_dir/expected_folder
+            dir_found = None
+            for expected_folder in expected_folders:
+                dir_found = [*first_subject_path.glob(f'{expected_folder}'), 
+                             *first_subject_path.glob(f'*/{expected_folder}')]
+                dir_found = [d for d in dir_found if d.is_dir()]
+                if dir_found:
+                    break
+            if not dir_found:
+                raise inParser.error(f'None of the expected folders were found in the input directory. Expected folders are: {expected_folders}.\n'
+                                    f'Please check the input directory structure and the "--input_type" argument.\n'
+                                    f'Example of expected structure for "standard" input type: sub-01/t1, sub-01/flair, sub-01/swi, etc.\n'
+                                    f'Example of expected structure for "BIDS" input type: sub-01/anat/sub-01_T1w.nii.gz, sub-01/anat/sub-01_FLAIR.nii.gz, etc.')
+            dir_found = dir_found[0]
+            rel_parts = dir_found.relative_to(first_subject_path).parts
+            if len(rel_parts) == 2:
+                has_session = True
+                print(f'Input directory has a session depth: {rel_parts[0]} is considered as a session folder.')
+            elif len(rel_parts) == 1:
+                print('Input directory does not have a session depth.')
+            else:
+                raise inParser.error(f'The expected folders were found at a depth superior to 2 folders inside the subject folder, which is not expected. Please check the input directory structure and the "--input_type" argument.\n'
+                                    f'Example of expected structure for "standard" input type: sub-01/t1, sub-01/flair, sub-01/swi, etc.\n'
+                                    f'Example of expected structure for "BIDS" input type: sub-01/anat/sub-01_T1w.nii.gz, sub-01/anat/sub-01_FLAIR.nii.gz, etc.')
+
+    # Replacing sub_list by the combination of subject name and session name if there is a session depth
+    if has_session:
+        new_sub_list = []
+        for sub in args.sub_list:
+            if '/' in sub:
+                new_sub_list.append(sub)
+                continue
+            sub_path = Path(args.in_dir) / sub
+            # Find all the session folders based on wether they contain "expected_folders"
+            session_dirs = [d for d in sub_path.iterdir() if d.is_dir() and any((d / expected_folder).exists() for expected_folder in expected_folders)]
+            if not session_dirs:
+                raise inParser.error(f'No session folder was found for subject {sub} while a session depth was detected in the input directory. Please check the input directory structure and the "--input_type" argument.\n'
+                                     f'Example of expected structure for "standard" input type: sub-01/t1, sub-01/flair, sub-01/swi, etc.\n'
+                                     f'Example of expected structure for "BIDS" input type: sub-01/anat/sub-01_T1w.nii.gz, sub-01/anat/sub-01_FLAIR.nii.gz, etc.')
+            for session_dir in session_dirs:
+                new_sub_list.append(f'{sub}/{session_dir.name}')
+        new_sub_list = sorted(set(new_sub_list))  # just in case
+        args.sub_list = new_sub_list
+
+    # Re-applying potential subject selection / filters
+    if args.exclusion_list and has_session:  # check for exclusion containing the session
+        args.sub_list = sorted(list(set(args.sub_list) - set(args.exclusion_list)))
 
     # Check the SWOMed direct input paths
     if args.swomed_parc is not None and not os.path.exists(args.swomed_parc):
