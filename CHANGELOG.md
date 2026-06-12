@@ -2,6 +2,28 @@
 
 All notable changes to the SHiVAi project will be documented in this file.
 
+## [v0.5.9] - 2026-06-09
+
+### Added
+
+- Workflow code export system for easier debug (using the `--export_code` argument)
+- `--inverse_t2` option in `run_shiva` for fully containerized SHiVAi calls
+- Additional CLI help usage examples
+
+### Fixed
+
+- Cluster filtering/labeling now supports optional brain segmentation volume and outside-voxel ratio handling
+- `label_clusters` behavior when brain segmentation volume is not provided
+- Input tensor dtype consistency across prediction functions
+
+### Changed
+
+- Removed default prediction choice from the CLI
+- Restored the ability to force a specific GPU for prediction
+- Updated prediction scripts to handle the v4 models
+- Updated `binarize_premask` `minVol` threshold to half the average brain volume and clarified threshold parameter description
+- Refactored Dockerfile package installation and cleanup steps
+
 ## [v0.5.8] - 2026-04-13
 
 ### Added

@@ -115,6 +115,10 @@ def singParser():
                               '(Note that part of the labels may keep the "swi" notation instead of the image type you '
                               'specified)'))
 
+    parser.add_argument('--inverse_t2',
+                        action='store_true',
+                        help=('If set, the T2 image intensities will be inverted during preprocessing. Assumes that "replace_t1" is set to a T2-weighted image.'))
+
     parser.add_argument('--use_t1',
                         action='store_true',
                         help=('Can be used when predicting CMBs only (so only expecting SWI acquisitions) while T1 acquisitions '
@@ -268,7 +272,7 @@ def main():
 
     # Resolve container runtime
     if args.container_runtime is None:
-        args.container_runtime = yaml_content.get('container_runtime', 'singularity')
+        args.container_runtime = yaml_content.get('container_runtime', 'apptainer')
 
     # Select container images based on runtime
     if args.container_runtime in ['apptainer', 'singularity']:
@@ -300,6 +304,7 @@ def main():
                        'run_plugin',
                        'run_plugin_args']
     opt_args1_bool_names = ['use_t1',
+                            'inverse_t2',
                             'keep_all',
                             'debug',
                             'remove_intermediates',
