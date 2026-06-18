@@ -1066,7 +1066,7 @@ class Segmentation_Cleaner(BaseInterface):
     output_spec = Segmentation_Cleaner_OutputSpec
 
     def _run_interface(self, runtime):
-        if self.inputs.seg_type == 'synthseg':
+        if self.inputs.seg_type in ['synthseg', 'freesurfer']:
             ignore_list = [24]  # CSF
         seg_im = nib.load(self.inputs.input_seg)
         seg_vol = seg_im.get_fdata().astype('int16')
@@ -1357,7 +1357,7 @@ class Label_clusters_InputSpec(BaseInterfaceInputSpec):
                             mandatory=False)
 
     binerize = traits.Bool(False,
-                           desc='Whether to binarize the biomarker segmentation before clustering. If False, will use the raw values to threshold the clusters (i.e. keeping only clusters with a mean value above "thr_cluster_val"). If True, will first binarize the biomarker segmentation with "thr_cluster_val" as threshold, and then keep only clusters with a size above "thr_cluster_size".',
+                           desc='If True, will binarize the biomarker cluster after labelling, filtering and thresholding.',
                            mandatory=False,
                            usedefault=True)
 
