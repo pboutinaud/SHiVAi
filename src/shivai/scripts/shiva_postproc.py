@@ -22,12 +22,12 @@ def main():
     ·       └── sub-51_brainparc.nii.gz
     
     """
-    
+
     usage = """
     Usage examples:
     
     shiva_postproc --indir /path/to/input --outdir /path/to/output --segtype synthseg --pred PVS
-    shiva_postproc --indir /path/to/input --outdir /path/to/output --segtype synthseg --pred WMH -cvt 0.5 -cst 10 
+    shiva_postproc --indir /path/to/input --outdir /path/to/output --segtype synthseg --pred WMH -cvt 0.5 -cst 10 --sub_names sub-001 sub-002 
     shiva_postproc --indir /path/to/input --outdir /path/to/output --segtype custom --custom_lut /path/to/custom_lut.txt --pred CMB
     """
 
@@ -68,7 +68,7 @@ def main():
     parser.add_argument('--cluster_val_thr', '-cvt', type=float, default=0.5, help='Threshold value for cluster labelling (default: 0.5)')
     parser.add_argument('--cluster_size_thr', '-cst', type=int, default=1, help='Minimum cluster size (in voxels, in the cluster image space) for labelling (default: 1)')
     parser.add_argument('--run_plugin', '-rp', type=str, default='MultiProc', help='Nipype plugin to use for running the workflow (default: MultiProc, can be set to "SLURM" for cluster execution)')
-    parser.add_argument('--run_plugin_args', 
+    parser.add_argument('--run_plugin_args',
                         type=str,
                         help=('Configuration file (.yml) for the plugin used by Nipype to run the workflow.\n'
                               'It will be imported as a dictionary and given plugin_args '
@@ -106,7 +106,7 @@ def main():
         run_plugin_args = {'sbatch_args': '--cpus-per-task=8'}
     else:
         run_plugin_args = {}
-    
+
     if args.run_plugin_args:
         args.run_plugin_args = parse_plugin_args(args.run_plugin_args)
         run_plugin_args = args.run_plugin_args
@@ -114,8 +114,9 @@ def main():
     workflow = genWorkflow(**kwargs)
     if args.debug:
         workflow.config['execution']['stop_on_first_crash'] = 'True'
-    
+
     workflow.run(plugin=args.run_plugin, plugin_args=run_plugin_args)
+
 
 if __name__ == '__main__':
     main()

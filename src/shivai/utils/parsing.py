@@ -18,14 +18,15 @@ The segmentation from the wmh, cmb and pvs models are generated depending on the
 
 Input data can be staged in BIDS or a simplified file arborescence, or described with a JSON file (for the 3D Slicer extension).
 
+Shivai version: """ + __version__
+    USAGE = """
 Usage examples:
 \tshiva --in /path/to/input/folder --out /path/to/output/folder --prediction PVS --config /path/to/config.yml
 \tshiva --in /path/to/input/folder --out /path/to/output/folder --prediction PVS2 WMH --sub_names sub-001 sub-002 --config /path/to/config.yml --brain_seg synthseg
 \tshiva --in /path/to/input/folder --out /path/to/output/folder --prediction all --sub_list /path/to/sub_list.txt --config /path/to/config.yml --replace_t1 t2 --inverse_t2 --containerized_nodes --run_plugin SLURM
+    """
 
-Shivai version: """ + __version__
-
-    parser = argparse.ArgumentParser(description=DESCRIPTION,
+    parser = argparse.ArgumentParser(description=DESCRIPTION, epilog=USAGE,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument('--in', dest='in_dir',
