@@ -275,6 +275,12 @@ Usage examples:
                             'need to run their processing separatly.'
                         ))
 
+    parser.add_argument('--enable_affine_reset',
+                        action='store_true',
+                        help=('If selected, the affine correction will be applied to the input images before any other processing. '
+                              'This is useful when the input images have a wrong affine matrix (e.g. from a DICOM to NIfTI conversion). '
+                              'However, it means the final predictions will not be aligned with the native space (with bad affine)'))
+
     parser.add_argument('--save_graph',
                         action='store_true',
                         help='If selected, the workflow graph will be saved as a .svg file in the output folder. Requires Graphviz to be installed.')
@@ -549,7 +555,7 @@ def set_args_and_check(inParser):
 
     if args.file_type == 'dicom' and args.input_type == 'BIDS':
         raise inParser.error('BIDS data structure not compatible with DICOM input')
-    
+
     args = parse_sub_list(inParser, args)
 
     # Check the SWOMed direct input paths
@@ -741,6 +747,7 @@ def set_args_and_check(inParser):
                 raise ValueError(err_msg)
     return args
 
+
 def parse_sub_list_file(filename):
     list_path = os.path.abspath(filename)
     sub_list = []
@@ -759,8 +766,9 @@ def parse_sub_list_file(filename):
         sub_list += [s.strip() for s in subs if s]
     return sub_list
 
+
 def parse_sub_list(inParser, args):
-    
+
     subject_list = os.listdir(args.in_dir)
     if args.sub_list is None and args.sub_names is None:
         if args.exclusion_list:
@@ -783,13 +791,13 @@ def parse_sub_list(inParser, args):
 
     # Checks and parsing of subjects, detetion of potential "session" depth
     has_session = False
-    if not hasattr(args, 'input_type'): # in case parse_sub_list is called for another parser 
+    if not hasattr(args, 'input_type'):  # in case parse_sub_list is called for another parser
         args.input_type = 'standard'
-    if  args.input_type != 'swomed':
+    if args.input_type != 'swomed':
         if args.input_type == 'BIDS':
             expected_folders = ['anat']
         elif args.input_type == 'standard':
-            expected_folders = ['t1', 'flair', 'swi', 'seg','t2','t2s']
+            expected_folders = ['t1', 'flair', 'swi', 'seg', 't2', 't2s']
         first_subject = args.sub_list[0]
         if '/' in first_subject:
             has_session = True
@@ -799,16 +807,16 @@ def parse_sub_list(inParser, args):
             # We should have sub_dir/expected_folder or subdir/session_dir/expected_folder
             dir_found = None
             for expected_folder in expected_folders:
-                dir_found = [*first_subject_path.glob(f'{expected_folder}'), 
+                dir_found = [*first_subject_path.glob(f'{expected_folder}'),
                              *first_subject_path.glob(f'*/{expected_folder}')]
                 dir_found = [d for d in dir_found if d.is_dir()]
                 if dir_found:
                     break
             if not dir_found:
                 raise inParser.error(f'None of the expected folders were found in the input directory. Expected folders are: {expected_folders}.\n'
-                                    f'Please check the input directory structure and the "--input_type" argument.\n'
-                                    f'Example of expected structure for "standard" input type: sub-01/t1, sub-01/flair, sub-01/swi, etc.\n'
-                                    f'Example of expected structure for "BIDS" input type: sub-01/anat/sub-01_T1w.nii.gz, sub-01/anat/sub-01_FLAIR.nii.gz, etc.')
+                                     f'Please check the input directory structure and the "--input_type" argument.\n'
+                                     f'Example of expected structure for "standard" input type: sub-01/t1, sub-01/flair, sub-01/swi, etc.\n'
+                                     f'Example of expected structure for "BIDS" input type: sub-01/anat/sub-01_T1w.nii.gz, sub-01/anat/sub-01_FLAIR.nii.gz, etc.')
             dir_found = dir_found[0]
             rel_parts = dir_found.relative_to(first_subject_path).parts
             if len(rel_parts) == 2:
@@ -818,8 +826,8 @@ def parse_sub_list(inParser, args):
                 print('Input directory does not have a session depth.')
             else:
                 raise inParser.error(f'The expected folders were found at a depth superior to 2 folders inside the subject folder, which is not expected. Please check the input directory structure and the "--input_type" argument.\n'
-                                    f'Example of expected structure for "standard" input type: sub-01/t1, sub-01/flair, sub-01/swi, etc.\n'
-                                    f'Example of expected structure for "BIDS" input type: sub-01/anat/sub-01_T1w.nii.gz, sub-01/anat/sub-01_FLAIR.nii.gz, etc.')
+                                     f'Example of expected structure for "standard" input type: sub-01/t1, sub-01/flair, sub-01/swi, etc.\n'
+                                     f'Example of expected structure for "BIDS" input type: sub-01/anat/sub-01_T1w.nii.gz, sub-01/anat/sub-01_FLAIR.nii.gz, etc.')
 
     # Replacing sub_list by the combination of subject name and session name if there is a session depth
     if has_session:
@@ -845,11 +853,12 @@ def parse_sub_list(inParser, args):
         args.sub_list = sorted(list(set(args.sub_list) - set(args.exclusion_list)))
     return args
 
+
 def parse_plugin_args(plugin_args_str):
     if os.path.isfile(plugin_args_str):
-            with open(plugin_args_str, 'r') as file:
-                yaml_content = yaml.safe_load(file)
-            plugin_args_str = yaml_content
+        with open(plugin_args_str, 'r') as file:
+            yaml_content = yaml.safe_load(file)
+        plugin_args_str = yaml_content
     else:
         try:
             plugin_args_str = json.loads(plugin_args_str)

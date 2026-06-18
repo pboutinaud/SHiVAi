@@ -68,6 +68,7 @@ def genWorkflow(**kwargs) -> Workflow:
     datagrabber.inputs.template = '%s/%s/*.nii*'
 
     correct_affine_img1 = Node(CorrectAffine(), name="correct_affine_img1")
+    correct_affine_img1.inputs.reset_bad_affine = kwargs['PREP_SETTINGS']['affine_reset']
     correct_affine_img1.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
     workflow.connect(datagrabber, 'img1', correct_affine_img1, 'img')
 

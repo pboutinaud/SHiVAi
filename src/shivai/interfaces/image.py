@@ -238,6 +238,15 @@ class CorrectAffineInputSpec(BaseInterfaceInputSpec):
                                         mandatory=False,
                                         desc=('Threshold for detecting bad affine (rotation matrix not close enough to a proper rotation). ')
                                         )
+    
+    reset_bad_affine = traits.Bool(False,
+                                   usedefault=True,
+                                   mandatory=False,
+                                   desc=('If True, the affine correction will be applied to the input images before any other processing. '
+                                         'This is useful when the input images have a wrong affine matrix (e.g. from a DICOM to NIfTI conversion). '
+                                         'However, it means the final predictions will not be aligned with the native space (with bad affine). '
+                                         'If False, a bad affine will raise an error.')
+                                   )
 
 
 class CorrectAffineOutputSpec(TraitedSpec):
@@ -283,7 +292,11 @@ class CorrectAffine(BaseInterface):
 
         affine_bad, img = affine_check(img, ori_vox_size, self.inputs.correction_threshold)
         if affine_bad:
-            simplified_affine_centered = img.affine.copy()
+            if self.inputs.reset_bad_affine:
+                simplified_affine_centered = img.affine.copy()
+            else:
+                raise RuntimeError(f'The affine of the image {fname} is corrupted and cannot be corrected. '
+                                   f'Please check the image or use the --reset_bad_affine option to correct it automatically.')
         setattr(self, 'corrected_affine', simplified_affine_centered)
         setattr(self, 'original_affine', original_affine if simplified_affine_centered is not None else None)
         _, base, _ = split_filename(fname)
