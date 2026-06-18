@@ -8,15 +8,24 @@ import os
 from nipype.pipeline import Workflow, Node
 from nipype.interfaces.io import DataGrabber
 from shivai.interfaces.datasink import DataSink_CSV_and_PDF_safe
-from shivai.interfaces.image import (Threshold, Normalization, CorrectAffine,
-                                     Conform, Crop, Resample_from_to,
+from nipype.interfaces.utility import IdentityInterface
+from shivai.interfaces.image import (CorrectAffine, Resample_from_to,
                                      Parc_from_Synthseg, Segmentation_Cleaner,
                                      Regionwise_Prediction_metrics,
-                                     Brain_Seg_for_biomarker,Label_clusters)
+                                     Brain_Seg_for_biomarker, Label_clusters)
+
 
 def genWorkflow(**kwargs) -> Workflow:
     workflow = Workflow(name="shiva_postproc_wf")
     workflow.base_dir = kwargs['BASE_DIR']
+
+    subject_iterator = Node(
+        IdentityInterface(
+            fields=['subject_id'],
+            mandatory_inputs=True),
+        name="subject_iterator")
+    subject_iterator.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
+
     datagrabber = Node(DataGrabber(
         infields=['subject_id'],
         outfields=['pred', 'seg']),
@@ -29,36 +38,40 @@ def genWorkflow(**kwargs) -> Workflow:
                                          'seg': '%s/seg/*.nii.gz'}
     datagrabber.inputs.template_args = {'pred': [['subject_id']],
                                         'seg': [['subject_id']]}
-    
+
+    workflow.connect(subject_iterator, 'subject_id', datagrabber, 'subject_id')
+
     correct_pred = Node(CorrectAffine(), name="correct_pred")
     workflow.connect(datagrabber, 'pred', correct_pred, 'img')
-    
+
     correct_seg = Node(CorrectAffine(), name="correct_seg")
     workflow.connect(datagrabber, 'seg', correct_seg, 'img')
-    
+
     seg_to_pred_resample = Node(Resample_from_to(), name="seg_to_pred_resample")
     seg_to_pred_resample.inputs.spline_order = 0
     seg_to_pred_resample.inputs.out_name = 'seg_to_pred_resampled.nii.gz'
-    
+
     workflow.connect(correct_seg, 'corrected_img', seg_to_pred_resample, 'moving_image')
     workflow.connect(correct_pred, 'corrected_img', seg_to_pred_resample, 'fixed_image')
-    
+
     segtype = kwargs['BRAIN_SEG']  # Type: str
     pred = kwargs['PREDICTION']  # Type: str
     lpred = pred.lower()
-    
+
     # Est-ce que la segmentation donnée pour filtrer est correctment appliquée si l'on donne un parcelisation?
     cluster_labelling = Node(Label_clusters(),
-                                     name=f'cluster_labelling_{lpred}')
+                             name=f'cluster_labelling_{lpred}')
     cluster_labelling.inputs.thr_cluster_val = kwargs['THRESHOLD']
     cluster_labelling.inputs.thr_cluster_size = kwargs['MIN_SIZE'] - 1  # "- 1 because thr removes up to given value"
     cluster_labelling.inputs.out_name = f'labelled_{lpred}.nii.gz'
-    
+
+    workflow.connect(correct_pred, 'corrected_img', cluster_labelling, 'biomarker_raw')
+
     prediction_metrics = Node(Regionwise_Prediction_metrics(),
-                                      name=f"prediction_metrics_{lpred}")
+                              name=f"prediction_metrics_{lpred}")
     prediction_metrics.inputs.biomarker_type = lpred
     prediction_metrics.inputs.brain_seg_type = segtype
-    
+
     # workflow.connect(prediction_metrics, 'biomarker_stats_csv', summary_report, f'{lpred}_metrics_csv')
     # workflow.connect(prediction_metrics, 'biomarker_census_csv', summary_report, f'{lpred}_census_csv')
     sink_node = Node(DataSink_CSV_and_PDF_safe(), name='sink_node')
@@ -67,7 +80,7 @@ def genWorkflow(**kwargs) -> Workflow:
         ('_subject_id_', ''),
     ]
     # if segtype in ['synthseg', 'freesurfer', 'custom', 'brain_mask']:
-    
+
     if segtype in ['synthseg', 'freesurfer']:
         seg_cleaning = Node(Segmentation_Cleaner(), name='seg_cleaning')
         shiva_parc = Node(Parc_from_Synthseg(), name='shiva_parc')
@@ -78,22 +91,25 @@ def genWorkflow(**kwargs) -> Workflow:
         workflow.connect(shiva_parc, 'brain_parc', custom_parc, 'brain_seg')
         workflow.connect(custom_parc, 'brain_seg', cluster_labelling, 'brain_seg')
         workflow.connect(custom_parc, 'region_dict', prediction_metrics, 'region_dict')
-        
+        workflow.connect(custom_parc, 'brain_seg', prediction_metrics, 'brain_seg')
+
         workflow.connect(shiva_parc, 'brain_parc', sink_node, f'{lpred}_segmentation.@shiva_brain_seg')
         workflow.connect(custom_parc, 'brain_seg', sink_node, f'{lpred}_segmentation.@custom_brain_seg')
         workflow.connect(custom_parc, 'region_dict_json', sink_node, f'{lpred}_segmentation.@region_dict_json')
     elif segtype == 'custom':
         prediction_metrics.inputs.region_dict = kwargs['CUSTOM_LUT']
         workflow.connect(seg_to_pred_resample, 'resampled_image', cluster_labelling, 'brain_seg')
+        workflow.connect(seg_to_pred_resample, 'resampled_image', prediction_metrics, 'brain_seg')
     else:
         prediction_metrics.inputs.region_list = ['Whole brain']
         workflow.connect(seg_to_pred_resample, 'resampled_image', cluster_labelling, 'brain_seg')
-    
-    workflow.connect(cluster_labelling, 'labelled_biomarkers', prediction_metrics, 'brain_seg')
-    
-    workflow.connect(cluster_labelling,'labelled_biomarkers', sink_node, f'{lpred}_segmentation.@labelled')
-    workflow.connect(prediction_metrics,'biomarker_stats_csv', sink_node, f'{lpred}_segmentation.@metrics')
-    workflow.connect(prediction_metrics,'biomarker_stats_wide_csv', sink_node, f'{lpred}_segmentation.@metrics_wide')
-    workflow.connect(prediction_metrics,'biomarker_census_csv', sink_node, f'{lpred}_segmentation.@census')
+        workflow.connect(seg_to_pred_resample, 'resampled_image', prediction_metrics, 'brain_seg')
+
+    workflow.connect(cluster_labelling, 'labelled_biomarkers', prediction_metrics, 'labelled_clusters')
+
+    workflow.connect(cluster_labelling, 'labelled_biomarkers', sink_node, f'{lpred}_segmentation.@labelled')
+    workflow.connect(prediction_metrics, 'biomarker_stats_csv', sink_node, f'{lpred}_segmentation.@metrics')
+    workflow.connect(prediction_metrics, 'biomarker_stats_wide_csv', sink_node, f'{lpred}_segmentation.@metrics_wide')
+    workflow.connect(prediction_metrics, 'biomarker_census_csv', sink_node, f'{lpred}_segmentation.@census')
 
     return workflow
