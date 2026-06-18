@@ -23,7 +23,7 @@ def main():
     
     """
 
-    usage = """
+    _USAGE = """
     Usage examples:
     
     shiva_postproc --indir /path/to/input --outdir /path/to/output --segtype synthseg --pred PVS
@@ -31,7 +31,7 @@ def main():
     shiva_postproc --indir /path/to/input --outdir /path/to/output --segtype custom --custom_lut /path/to/custom_lut.txt --pred CMB
     """
 
-    parser = argparse.ArgumentParser(description=_DESCRIPTION, epilog=usage, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=_DESCRIPTION, epilog=_USAGE, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--indir', '-i', dest='in_dir', type=Path, required=True, help='Path to the input directory')
     parser.add_argument('--outdir', '-o', type=Path, required=True, help='Path to the output directory')
     parser.add_argument('--segtype', '-s', type=str, choices=['synthseg', 'freesurfer', 'brain_mask', 'custom'], required=True, help='Type of segmentation used')
