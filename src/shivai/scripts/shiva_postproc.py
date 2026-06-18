@@ -1,5 +1,4 @@
 import argparse
-import os
 from pathlib import Path
 from shivai.workflows.shiva_postproc_wf import genWorkflow
 from shivai.utils.parsing import parse_LUT, parse_sub_list, parse_plugin_args
