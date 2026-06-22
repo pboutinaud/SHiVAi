@@ -154,7 +154,7 @@ def _connect_prediction_and_postproc(main_wf, subject_iterator, preproc_images, 
     Returns seg_getters dict."""
     seg_getters = {}
     for pred in kwargs['PREDICTION']:
-        pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers([pred])
+        pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers({'PREDICTION':[pred]})
         if pred == 'PVS2':
             pred = 'PVS'
         lpred = pred.lower()
@@ -261,16 +261,14 @@ def _connect_prediction_and_postproc(main_wf, subject_iterator, preproc_images, 
 
 def _connect_pred_sinks(main_wf, seg_getters, wf_post, sink_node_subjects, sink_node_all, **kwargs):
     """Connect prediction/postprocessing outputs to data sink nodes."""
-    with_t1, with_flair, _ = set_wf_shapers(kwargs['PREDICTION'])
-    if kwargs['USE_T1']:
-        with_t1 = True
+    with_t1, with_flair, _ = set_wf_shapers(kwargs)
 
     main_wf.connect(wf_post, 'summary_report.pdf_report', sink_node_subjects, 'report')
-    
+
     t1_acq, flair_acq, swi_acq = get_img_acquisitions(kwargs)
 
     for pred in kwargs['PREDICTION']:
-        pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers([pred])
+        pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers({'PREDICTION':[pred]})
         if pred == 'PVS2':
             pred = 'PVS'
         lpred = pred.lower()
@@ -309,10 +307,7 @@ def generate_main_wf(**kwargs) -> Workflow:
     """
     # %% Initializing the general data
     # Set the booleans to shape the main workflow
-    with_t1, with_flair, with_swi = set_wf_shapers(kwargs['PREDICTION'])
-
-    if kwargs['USE_T1']:  # Override the default with_t1 deduced from the predictions
-        with_t1 = True
+    with_t1, with_flair, with_swi = set_wf_shapers(kwargs)
 
     # Declaration of the main workflow, it is modular and will contain smaller workflows
     main_wf = Workflow('main_workflow')
@@ -618,9 +613,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
         raise ValueError(error_msg)
 
     # Set the booleans to shape the main workflow
-    with_t1, with_flair, with_swi = set_wf_shapers(kwargs['PREDICTION'])
-    if kwargs['USE_T1']:  # Override the default with_t1 deduced from the predictions
-        with_t1 = True
+    with_t1, with_flair, with_swi = set_wf_shapers(kwargs)
 
     # Declaration of the main workflow, it is modular and will contain smaller workflows
     main_wf = Workflow('main_workflow')
@@ -648,7 +641,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
                    'img1',
                    'img2',
                    'img3',
-                   'seg', # Not used for now, just for compatibily with update_wf_grabber
+                   'seg',  # Not used for now, just for compatibily with update_wf_grabber
                    'flair-to-t1'
                    ]),
         name='preproc_grabber')
@@ -707,7 +700,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
     preproc_images = {
         'brain_mask': (preproc_grabber, 'brain_mask'),
     }
-    
+
     if with_t1:
         preproc_images['t1'] = (preproc_grabber, 't1_intensity_normalized')
         preproc_images['t1-native'] = (preproc_grabber, 'img1')
@@ -812,10 +805,8 @@ def generate_main_wf_grab_postproc(**kwargs) -> Workflow:
         raise ValueError(error_msg)
 
     # %% Setup
-    with_t1, with_flair, with_swi = set_wf_shapers(kwargs['PREDICTION'])
+    with_t1, with_flair, with_swi = set_wf_shapers(kwargs)
     t1_acq, flair_acq, swi_acq = get_img_acquisitions(kwargs)
-    if kwargs['USE_T1']:
-        with_t1 = True
 
     main_wf = Workflow('main_workflow')
     main_wf.base_dir = kwargs['BASE_DIR']
@@ -907,7 +898,7 @@ def generate_main_wf_grab_postproc(**kwargs) -> Workflow:
         if pred == 'PVS2':
             pred = 'PVS'
         lpred = pred.lower()
-        pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers([pred])
+        pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers({'PREDICTION':[pred]})
         if pred_with_swi:
             space = f'_{swi_acq}-space'
         else:
@@ -949,7 +940,7 @@ def generate_main_wf_grab_postproc(**kwargs) -> Workflow:
     # Connect grabbed segmentations directly to postproc (no prediction workflow, no joiners needed)
     seg_getters = {}
     for pred in kwargs['PREDICTION']:
-        pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers([pred])
+        pred_with_t1, pred_with_flair, pred_with_swi = set_wf_shapers({'PREDICTION':[pred]})
         if pred == 'PVS2':
             pred = 'PVS'
         lpred = pred.lower()

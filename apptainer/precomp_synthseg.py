@@ -79,15 +79,18 @@ class SynthSeg(CommandLine):
         return outputs
 
 
-def set_wf_shapers(predictions):
+def set_wf_shapers(kwargs : dict):
     """
     Set with_t1, with_flair, and with_swi with the corresponding value depending on the
     segmentations (predictions) that will be done.
     The tree boolean variables are used to shape the main and postproc workflows
     (e.g. if doing PVS and CMB, the wf will use T1 and SWI)
     """
+    predictions = kwargs['PREDICTION']
     # Setting up the different cases to build the workflows (should clarify things up)
     if any(pred in predictions for pred in ['PVS', 'PVS2', 'WMH', 'LAC']):  # all which requires T1
+        with_t1 = True
+    elif kwargs.get('USE_T1', False):
         with_t1 = True
     else:
         with_t1 = False
@@ -316,10 +319,7 @@ def main():
     else:
         args.run_plugin_args = {}
 
-    with_t1, with_flair, with_swi = set_wf_shapers(args.prediction)
-
-    if args.use_t1:  # Override default with_t1 value
-        with_t1 = True
+    with_t1, with_flair, with_swi = set_wf_shapers({'PREDICTION': args.prediction, 'USE_T1': args.use_t1})
 
     if with_t1:
         if args.replace_t1:

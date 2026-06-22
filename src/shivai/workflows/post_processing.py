@@ -68,9 +68,7 @@ def genWorkflow(**kwargs) -> Workflow:
         workflow
     """
     # Setting up the different cases to build the workflows (should clarify things)
-    with_t1, with_flair, with_swi = set_wf_shapers(kwargs['PREDICTION'])
-    if kwargs['USE_T1']:  # Override the default with_t1 deduced from the predictions
-        with_t1 = True
+    with_t1, with_flair, with_swi = set_wf_shapers(kwargs)
 
     # Setting the different acqisitions per prediction
     t1_acq, flair_acq, swi_acq = get_img_acquisitions(kwargs)
