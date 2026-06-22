@@ -131,6 +131,7 @@ def anisotropic_prefilter(vol, voxel_size_ori, voxel_size_target, safety_factor=
 
     return ndimage.gaussian_filter(vol.astype(float), sigma=sigmas)
 
+
 def _resample_one_cluster(val, cluster_data, ori_vox_zooms, source_affine, target_affine, target_shape, new_vox_zooms, thresh_fractions, interp_order=3, rel_tolerance=0.5):
     """Resample a single cluster label using bounding-box cropping for speed.
 
@@ -253,7 +254,32 @@ def _resample_one_cluster(val, cluster_data, ori_vox_zooms, source_affine, targe
     return val, ok_thr, ok_mask_vol, raw_data, tgt_min
 
 
-def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Image, input_type: str = 'map', transform_affine: np.ndarray = None, n_parallel: int = 8, threshold: float = 0.05, threshold_step: float = 0.05) -> nib.Nifti1Image:
+def _fsl_scaled_voxel_mat(img: nib.Nifti1Image) -> np.ndarray:
+    """Build the voxel-to-FSL-scaled-mm matrix for an image (FLIRT convention).
+
+    FLIRT affines do not operate in NIfTI world (mm) coordinates but in FSL's
+    "scaled voxel" coordinates: voxel indices multiplied by the voxel sizes,
+    with the first (x) axis flipped when the image's affine has a positive
+    determinant (so that FSL always works in a left-handed/radiological frame).
+
+    Args:
+        img (nib.Nifti1Image): Image whose scaled-voxel matrix is needed.
+
+    Returns:
+        np.ndarray: 4x4 matrix mapping voxel coordinates to FSL scaled-mm coordinates.
+    """
+    zooms = np.asarray(img.header.get_zooms()[:3], dtype=float)
+    scale = np.diag(np.append(zooms, 1.0))
+    if np.linalg.det(img.affine) > 0:
+        nx = img.shape[0]
+        flip = np.eye(4)
+        flip[0, 0] = -1.0
+        flip[0, 3] = (nx - 1) * zooms[0]
+        return flip @ scale
+    return scale
+
+
+def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Image, input_type: str = 'map', transform_affine: np.ndarray = None, affine_type: str = 'ants', n_parallel: int = 8, threshold: float = 0.05, threshold_step: float = 0.05) -> nib.Nifti1Image:
     """Resample all the cluster masks from an image to the space of a target image.
 
     The resampling strategy is determined by the ``input_type`` argument:
@@ -281,11 +307,21 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
         target_img (nib.Nifti1Image): Nifti image defining the target space for resampling.
         input_type (str): Type of input data — one of ``'map'``, ``'pred'``, or
             ``'anat'``. See above for details.
-        transform_affine (np.ndarray, optional): 4x4 ANTs-style affine matrix (in LPS coordinates)
-            encoding the linear transformation between cluster_img and target_img spaces.
-            If None (default), the two images are assumed to be already aligned (their
-            NIfTI affines alone define the spatial correspondence). If provided, the transform
-            is composed into the source affine before resampling.
+        transform_affine (np.ndarray, optional): 4x4 affine matrix encoding the linear
+            transformation between cluster_img and target_img spaces. Its convention is
+            given by ``affine_type``. If None (default), the two images are assumed to be
+            already aligned (their NIfTI affines alone define the spatial correspondence).
+            If provided, the transform is composed into the source affine before resampling.
+        affine_type (str): Convention of ``transform_affine`` — one of ``'ants'`` or
+            ``'fsl'`` (default: ``'ants'``).
+            ``'ants'``: ANTs/ITK-style affine in LPS world coordinates mapping the target
+            (fixed) space to the cluster (moving) space.
+            ``'fsl'``: FSL FLIRT-style affine in scaled-voxel coordinates mapping the
+            cluster (input/moving) space to the target (reference) space. The image
+            geometries (voxel sizes and shapes) of ``cluster_img`` and ``target_img`` are
+            used to convert it to world coordinates, so they must match the images that
+            were given to FLIRT as ``-in`` (cluster_img) and ``-ref`` (target_img).
+            Ignored when ``transform_affine`` is None.
         n_parallel (int): Number of parallel threads for resampling individual clusters
             (default: 8). Set to 1 to disable parallelization. Only used for
             ``input_type='map'`` and ``input_type='pred'``.
@@ -300,13 +336,19 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
         nib.Nifti1Image: Resampled image in the space of the target image.
 
     Raises:
-        ValueError: If ``input_type`` is not one of ``'map'``, ``'pred'``, ``'anat'``.
+        ValueError: If ``input_type`` is not one of ``'map'``, ``'pred'``, ``'anat'``,
+            or if ``affine_type`` is not one of ``'ants'``, ``'fsl'``.
     """
     _VALID_INPUT_TYPES = ('map', 'pred', 'anat')
+    _VALID_AFFINE_TYPES = ('ants', 'fsl')
     _NDIM = 3
     if input_type not in _VALID_INPUT_TYPES:
         raise ValueError(
             f"input_type must be one of {_VALID_INPUT_TYPES}, got {input_type!r}."
+        )
+    if affine_type not in _VALID_AFFINE_TYPES:
+        raise ValueError(
+            f"affine_type must be one of {_VALID_AFFINE_TYPES}, got {affine_type!r}."
         )
 
     # Harmonizing dimensions by squeezing singleton dimensions
@@ -315,11 +357,21 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
     # Compute original voxel volume before any affine modification
     ori_vox_zooms = cluster_img.header.get_zooms()
 
-    # Apply ANTs linear transform if given (compose into source affine)
+    # Apply the linear transform if given (compose into source affine)
     if transform_affine is not None:
-        lps2ras = np.diag([-1, -1, 1, 1])
-        T_ras = lps2ras @ transform_affine @ lps2ras
-        composed_affine = np.linalg.inv(T_ras) @ cluster_img.affine
+        if affine_type == 'ants':
+            # ANTs/ITK affine is in LPS world coords and maps target (fixed) -> cluster
+            # (moving). Convert it to RAS, then push the cluster voxels into target world.
+            lps2ras = ras2lps = np.diag([-1, -1, 1, 1])
+            T_ras = lps2ras @ transform_affine @ ras2lps
+            composed_affine = np.linalg.inv(T_ras) @ cluster_img.affine
+        else:  # 'fsl'
+            # FLIRT affine is in scaled-voxel coords and maps cluster (input) -> target
+            # (reference). Compose: cluster voxel -> cluster FSL -> (FLIRT) -> target FSL
+            # -> target voxel -> target world.
+            src_fsl = _fsl_scaled_voxel_mat(cluster_img)
+            ref_fsl = _fsl_scaled_voxel_mat(target_img)
+            composed_affine = target_img.affine @ np.linalg.inv(ref_fsl) @ transform_affine @ src_fsl
         cluster_img = nib.Nifti1Image(np.asarray(cluster_img.dataobj), composed_affine)
 
     new_vox_zooms = target_img.header.get_zooms()

@@ -239,6 +239,15 @@ class CorrectAffineInputSpec(BaseInterfaceInputSpec):
                                         desc=('Threshold for detecting bad affine (rotation matrix not close enough to a proper rotation). ')
                                         )
 
+    reset_bad_affine = traits.Bool(False,
+                                   usedefault=True,
+                                   mandatory=False,
+                                   desc=('If True, the affine correction will be applied to the input images before any other processing. '
+                                         'This is useful when the input images have a wrong affine matrix (e.g. from a DICOM to NIfTI conversion). '
+                                         'However, it means the final predictions will not be aligned with the native space (with bad affine). '
+                                         'If False, a bad affine will raise an error.')
+                                   )
+
 
 class CorrectAffineOutputSpec(TraitedSpec):
     """Output class
@@ -1580,13 +1589,21 @@ class Labelled_Clusters_Registration_InputSpec(BaseInterfaceInputSpec):
                                    '"pred": continuous prediction map (e.g. posterior probabilities)\n '
                                    '"anat": anatomical or other continuous image'))
     transform_affine = traits.File(exists=True,
-                                   desc='Affine of the transformation from ANTs. If not provided, '
+                                   desc='Affine of the transformation. If not provided, '
                                         'the resampling relies on the NIfTI affines alone.',
                                    mandatory=False)
+    affine_type = traits.Enum('ants', 'fsl',
+                              usedefault=True,
+                              mandatory=False,
+                              desc=('Convention of "transform_affine".\n'
+                                    '"ants": ANTs/ITK .mat affine (LPS world coords), mapping '
+                                    'target_image (fixed) to input_image (moving).\n'
+                                    '"fsl": FSL FLIRT affine (plain-text 4x4, scaled-voxel coords), '
+                                    'mapping input_image (-in/moving) to target_image (-ref/reference).'))
     inverse_affine = traits.Bool(False,
                                  usedefault=True,
                                  mandatory=False,
-                                 desc='If True, invert the ANTs affine before applying it')
+                                 desc='If True, invert the affine before applying it')
     out_name = traits.Str('registered_clusters.nii.gz',
                           usedefault=True,
                           mandatory=False,
@@ -1607,21 +1624,24 @@ class Labelled_Clusters_Registration(BaseInterface):
         input_im = nib.load(self.inputs.input_image)
         target_im = nib.load(self.inputs.target_image)
         if isdefined(self.inputs.transform_affine):
-            mat = loadmat(self.inputs.transform_affine)
-            key_name = [k for k in mat if 'AffineTransform_' in k][0]  # AffineTransform_*_3_3
-            transform_affine_raw = mat[key_name]
-            fixed_params = mat['fixed']
-            A = transform_affine_raw[:9].reshape((3, 3))
-            t = transform_affine_raw[9:12].squeeze()
-            c = fixed_params.squeeze()  # center of rotation
-            transform_affine = np.eye(4)
-            transform_affine[:3, :3] = A
-            transform_affine[:3, 3] = t + c - A @ c
+            if self.inputs.affine_type == 'ants':
+                mat = loadmat(self.inputs.transform_affine)
+                key_name = [k for k in mat if 'AffineTransform_' in k][0]  # AffineTransform_*_3_3
+                transform_affine_raw = mat[key_name]
+                fixed_params = mat['fixed']
+                A = transform_affine_raw[:9].reshape((3, 3))
+                t = transform_affine_raw[9:12].squeeze()
+                c = fixed_params.squeeze()  # center of rotation
+                transform_affine = np.eye(4)
+                transform_affine[:3, :3] = A
+                transform_affine[:3, 3] = t + c - A @ c
+            else:  # 'fsl': FLIRT affine is a plain-text 4x4 matrix
+                transform_affine = np.loadtxt(self.inputs.transform_affine)
             if self.inputs.inverse_affine:
                 transform_affine = np.linalg.inv(transform_affine)
         else:
             transform_affine = None
-        clusters_reg_im = resample_cluster_img(input_im, target_im, input_type=self.inputs.input_type, transform_affine=transform_affine)
+        clusters_reg_im = resample_cluster_img(input_im, target_im, input_type=self.inputs.input_type, transform_affine=transform_affine, affine_type=self.inputs.affine_type)
         nib.save(clusters_reg_im, self.inputs.out_name)
         return runtime
 
