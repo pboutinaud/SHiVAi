@@ -90,6 +90,40 @@ def set_wf_shapers(predictions):
         with_swi = False
     return with_t1, with_flair, with_swi
 
+def get_img_acquisitions(kwargs):
+    with_t1, with_flair, with_swi = set_wf_shapers(kwargs['PREDICTION'])
+    if kwargs['ACQUISITIONS']['t1-like'] and with_t1:
+        t1_acq = kwargs['ACQUISITIONS']['t1-like']
+    elif with_t1:
+        t1_acq = 't1'
+    else:
+        t1_acq = None
+    if kwargs['ACQUISITIONS']['flair-like'] and with_flair:
+        flair_acq = kwargs['ACQUISITIONS']['flair-like']
+    elif with_flair:
+        flair_acq = 'flair'
+    else:
+        flair_acq = None
+    if kwargs['ACQUISITIONS']['swi-like'] and with_swi:
+        swi_acq = kwargs['ACQUISITIONS']['swi-like']
+    elif with_swi:
+        swi_acq = 'swi'
+    else:
+        swi_acq = None
+    return t1_acq, flair_acq, swi_acq
+
+def get_aquisitions_mapping(kwargs):
+    t1_acq, flair_acq, swi_acq = get_img_acquisitions(kwargs)
+    acq_mapping = []
+    if t1_acq:
+        acq_mapping.append(('img1', t1_acq))
+    if flair_acq:
+        acq_mapping.append(('img2', flair_acq))
+    if swi_acq and t1_acq: 
+        acq_mapping.append(('img3', swi_acq))
+    elif swi_acq and not t1_acq:
+        acq_mapping.append(('img1', swi_acq))
+    return acq_mapping
 
 def as_list(arg_in):
     return [arg_in]
