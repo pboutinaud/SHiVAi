@@ -94,6 +94,12 @@ def set_wf_shapers(predictions):
 def as_list(arg_in):
     return [arg_in]
 
+def get_first_item(arg_in: list|tuple|str):
+    if isinstance(arg_in, list) or isinstance(arg_in, tuple):
+        return arg_in[0]
+    else:
+        return arg_in
+
 
 def file_selector(inArg, fileNum):
     if isinstance(inArg, list) or isinstance(inArg, tuple):

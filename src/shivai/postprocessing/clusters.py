@@ -132,7 +132,7 @@ def anisotropic_prefilter(vol, voxel_size_ori, voxel_size_target, safety_factor=
     return ndimage.gaussian_filter(vol.astype(float), sigma=sigmas)
 
 
-def _resample_one_cluster(val, cluster_data, ori_vox_zooms, source_affine, target_affine, target_shape, new_vox_zooms, thresh_fractions, interp_order=3, rel_tolerance=0.5):
+def _resample_one_cluster(val, cluster_data, ori_vox_zooms, source_affine, target_affine, target_shape, new_vox_zooms, thresh_fractions, interp_order=3, rel_tolerance=1.0):
     """Resample a single cluster label using bounding-box cropping for speed.
 
     Instead of resampling the full volume, crops both source and target to the
@@ -219,6 +219,7 @@ def _resample_one_cluster(val, cluster_data, ori_vox_zooms, source_affine, targe
             for lbl in range(1, n_sub + 1):
                 comp_centroid = np.argwhere(labeled_sub == lbl).mean(axis=0)
                 dist = np.linalg.norm(comp_centroid - tgt_centroid)
+                print(f"Label {lbl} (weighted size: {np.sum(raw_data[labeled_sub == lbl])}): centroid = {comp_centroid}, distance = {dist}")
                 if dist < best_dist:
                     best_dist = dist
                     best_label = lbl
@@ -279,7 +280,7 @@ def _fsl_scaled_voxel_mat(img: nib.Nifti1Image) -> np.ndarray:
     return scale
 
 
-def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Image, input_type: str = 'map', transform_affine: np.ndarray = None, affine_type: str = 'ants', n_parallel: int = 8, threshold: float = 0.05, threshold_step: float = 0.05) -> nib.Nifti1Image:
+def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Image, input_type: str = 'map', transform_affine: np.ndarray = None, affine_type: str = 'ants', n_parallel: int = 8, threshold: float = 0.05, threshold_step: float = 0.05, accept_loss: bool = True) -> nib.Nifti1Image:
     """Resample all the cluster masks from an image to the space of a target image.
 
     The resampling strategy is determined by the ``input_type`` argument:
@@ -331,6 +332,8 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
             (default: 0.05). With threshold=0.05 and threshold_step=0.05, levels will be
             0.05, 0.10, ..., up to the maximum value in the data. Ignored for other
             input types.
+        accept_loss (bool): Whether to accept some loss of cluster volume during resampling
+            (default: True). If False, raises an error when significant volume loss is detected.
 
     Returns:
         nib.Nifti1Image: Resampled image in the space of the target image.
@@ -412,7 +415,7 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
             binary_img = nib.Nifti1Image(binary_data, cluster_img.affine)
             try:
                 resampled_binary = resample_cluster_img(
-                    binary_img, target_img, input_type='map', n_parallel=n_parallel
+                    binary_img, target_img, input_type='map', n_parallel=n_parallel, accept_loss=accept_loss
                 )
                 mask = resampled_binary.get_fdata() > 0
             except ValueError:
@@ -478,8 +481,12 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
                         slices += (slice(None),) * (len(resampled_vol.shape) - 3)
                     resampled_vol[slices][sub_data >= ok_thr] = val
                 else:
-                    raise ValueError(f"Could not find a suitable threshold to resample cluster with label {val} without losing it. "
-                                     "Consider using continuous resampling or adjusting the thresholds.")
+                    if accept_loss:
+                        logger.warning(f"Could not find a suitable threshold to resample cluster with label {val} without losing it. "
+                                       "Cluster will be lost in the resampled image. Consider using continuous resampling or adjusting the thresholds.")
+                    else:
+                        raise ValueError(f"Could not find a suitable threshold to resample cluster with label {val} without losing it. "
+                                        "Consider using continuous resampling or adjusting the thresholds.")
     else:
         for val in vals_to_process:
             _, ok_thr, ok_mask_vol, sub_data, tgt_origin = _resample_one_cluster(
@@ -491,8 +498,12 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
                     slices += (slice(None),) * (len(resampled_vol.shape) - 3)
                 resampled_vol[slices][sub_data >= ok_thr] = val
             else:
-                raise ValueError(f"Could not find a suitable threshold to resample cluster with label {val} without losing it. "
-                                 "Consider using continuous resampling or adjusting the thresholds.")
+                if accept_loss:
+                    logger.warning(f"Could not find a suitable threshold to resample cluster with label {val} without losing it. "
+                                   "Cluster will be lost in the resampled image. Consider using continuous resampling or adjusting the thresholds.")
+                else:
+                    raise ValueError(f"Could not find a suitable threshold to resample cluster with label {val} without losing it. "
+                                    "Consider using continuous resampling or adjusting the thresholds.")
         if ori_val is not None:
             resampled_vol[resampled_vol > 0] = ori_val
     return nib.Nifti1Image(resampled_vol, target_img.affine)
