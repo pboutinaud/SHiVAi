@@ -219,7 +219,6 @@ def _resample_one_cluster(val, cluster_data, ori_vox_zooms, source_affine, targe
             for lbl in range(1, n_sub + 1):
                 comp_centroid = np.argwhere(labeled_sub == lbl).mean(axis=0)
                 dist = np.linalg.norm(comp_centroid - tgt_centroid)
-                print(f"Label {lbl} (weighted size: {np.sum(raw_data[labeled_sub == lbl])}): centroid = {comp_centroid}, distance = {dist}")
                 if dist < best_dist:
                     best_dist = dist
                     best_label = lbl
@@ -486,7 +485,7 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
                                        "Cluster will be lost in the resampled image. Consider using continuous resampling or adjusting the thresholds.")
                     else:
                         raise ValueError(f"Could not find a suitable threshold to resample cluster with label {val} without losing it. "
-                                        "Consider using continuous resampling or adjusting the thresholds.")
+                                         "Consider using continuous resampling or adjusting the thresholds.")
     else:
         for val in vals_to_process:
             _, ok_thr, ok_mask_vol, sub_data, tgt_origin = _resample_one_cluster(
@@ -503,7 +502,7 @@ def resample_cluster_img(cluster_img: nib.Nifti1Image, target_img: nib.Nifti1Ima
                                    "Cluster will be lost in the resampled image. Consider using continuous resampling or adjusting the thresholds.")
                 else:
                     raise ValueError(f"Could not find a suitable threshold to resample cluster with label {val} without losing it. "
-                                    "Consider using continuous resampling or adjusting the thresholds.")
+                                     "Consider using continuous resampling or adjusting the thresholds.")
         if ori_val is not None:
             resampled_vol[resampled_vol > 0] = ori_val
     return nib.Nifti1Image(resampled_vol, target_img.affine)
