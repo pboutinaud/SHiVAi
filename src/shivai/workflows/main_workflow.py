@@ -24,39 +24,47 @@ from shivai.interfaces.datasink import DataSink_CSV_and_PDF_safe
 import os
 
 
-def update_wf_grabber(wf, acquisitions, datatype, kwargs, grabber_name='datagrabber'):
+def update_wf_grabber(wf, acquisitions, datatype, kwargs, grabber_name='datagrabber', datadir = ''):
     """
     Updates (mutate) the workflow datagrabber to work with the different types on input
         wf: workflow with the datagrabber
         acquisitions example: [('img1', 't1'), ('img2', 'flair')]
         datatype ('nifti' or 'dicom')
         custom_seg (bool): wether there is a custom segmentation (brain mask or brain parc) available
+        grabber_name (str): If the datagrabber node has a different name than 'datagrabber', specify it here.
+            Typically used in generate_main_wf_grab_preproc.
+        datadir (str): If the datagrabber node has a different data directory than kwargs['DATA_DIR'], specify it here.
+            Typically used in generate_main_wf_grab_preproc.
     """
     files = '' if datatype == 'dicom' else '*.nii*'  # no files for dcm, just the whole folder
     datagrabber = wf.get_node(grabber_name)
+    if not datagrabber.inputs.field_template:
+        datagrabber.inputs.field_template = {}
+    if not datagrabber.inputs.template_args:
+        datagrabber.inputs.template_args = {}
     data_struct = kwargs['PREP_SETTINGS']['input_type']
     if data_struct in ['standard', 'json']:
         # e.g: {'img1': '%s/t1/%s_T1_raw.nii.gz'}
-        datagrabber.inputs.field_template = {acq[0]: f'%s/{acq[1]}/{files}' for acq in acquisitions}
-        datagrabber.inputs.template_args = {acq[0]: [['subject_id']] for acq in acquisitions}
+        datagrabber.inputs.field_template.update({acq[0]: os.path.join(datadir, f'%s/{acq[1]}/{files}') for acq in acquisitions})
+        datagrabber.inputs.template_args.update({acq[0]: [['subject_id']] for acq in acquisitions})
         if kwargs['BRAIN_SEG'] == 'custom':
-            datagrabber.inputs.field_template['seg'] = f'%s/seg/*.nii*'  # We expect a nifti here, as dicom is unlikely
+            datagrabber.inputs.field_template['seg'] = os.path.join(datadir, '%s/seg/*.nii*')  # We expect a nifti here, as dicom is unlikely
             datagrabber.inputs.template_args['seg'] = [['subject_id']]
         if kwargs['BRAIN_SEG'] == 'fs_precomp':
-            datagrabber.inputs.field_template['seg'] = f'%s/seg/aparc+aseg.*'  # We expect nii or mgz here
+            datagrabber.inputs.field_template['seg'] = os.path.join(datadir, '%s/seg/aparc+aseg.*')  # We expect nii or mgz here
             datagrabber.inputs.template_args['seg'] = [['subject_id']]
 
     if data_struct == 'BIDS':
         if datatype == 'dicom':
             raise ValueError('BIDS data structure not compatible with DICOM input')
         # e.g: {'img1': '%s/anat/%s_T1_raw.nii.gz}
-        datagrabber.inputs.field_template = {acq[0]: f'%s/anat/%s_{acq[1].upper()}*.nii*' for acq in acquisitions}
-        datagrabber.inputs.template_args = {acq[0]: [['subject_id', 'subject_id']] for acq in acquisitions}
+        datagrabber.inputs.field_template.update({acq[0]: os.path.join(datadir, f'%s/anat/%s_{acq[1].upper()}*.nii*') for acq in acquisitions})
+        datagrabber.inputs.template_args.update({acq[0]: [['subject_id', 'subject_id']] for acq in acquisitions})
         if kwargs['BRAIN_SEG'] == 'custom':  # TODO: Correct this for proper bids format. It should actually be in the "derived" folder...
-            datagrabber.inputs.field_template['seg'] = '%s/anat/%s_*seg*.nii*'
+            datagrabber.inputs.field_template['seg'] = os.path.join(datadir, '%s/anat/%s_*seg*.nii*')
             datagrabber.inputs.template_args['seg'] = [['subject_id', 'subject_id']]
         if kwargs['BRAIN_SEG'] == 'fs_precomp':
-            datagrabber.inputs.field_template['seg'] = '%s/anat/*aparc+aseg.*'
+            datagrabber.inputs.field_template['seg'] = os.path.join(datadir, '%s/anat/*aparc+aseg.*')
             datagrabber.inputs.template_args['seg'] = [['subject_id']]
 
     if data_struct == 'swomed':
@@ -691,11 +699,11 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
     preproc_grabber.inputs.template_args = template_args
 
     acquisitions = get_aquisitions_mapping(kwargs)
+    main_wf.connect(subject_iterator, 'subject_id', preproc_grabber, 'subject_id')
     file_type = kwargs['PREP_SETTINGS']['file_type']
     if file_type == 'dicom':
         raise NotImplementedError('Grabbing preprocessed data from DICOM files is not currently implemented re-using preprocessed images')
-    update_wf_grabber(main_wf, acquisitions, file_type, kwargs, grabber_name='preproc_grabber')
-    main_wf.connect(subject_iterator, 'subject_id', preproc_grabber, 'subject_id')
+    update_wf_grabber(main_wf, acquisitions, file_type, kwargs, grabber_name='preproc_grabber', datadir=kwargs['DATA_DIR'])
 
     # Build the preproc image map from the preproc_grabber
     preproc_images = {
