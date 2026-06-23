@@ -1,7 +1,7 @@
 """
 Main workflow generator, with conditional piping (wf shape depends on the prediction types)
 """
-from shivai.utils.misc import get_aquisitions_mapping, set_wf_shapers, get_img_acquisitions  # , as_list
+from shivai.utils.misc import get_aquisitions_mapping, get_first_item, set_wf_shapers, get_img_acquisitions  # , as_list
 from shivai.workflows.post_processing import genWorkflow as genWorkflowPost
 from shivai.workflows.preprocessing import genWorkflow as genWorkflowPreproc
 from shivai.workflows.dual_preprocessing import graft_img2_preproc
@@ -225,7 +225,7 @@ def _connect_prediction_and_postproc(main_wf, subject_iterator, preproc_images, 
             ref_node_trans, ref_field_trans = preproc_images['swi-to-t1']
             main_wf.connect(ref_node_swi, ref_field_swi, wf_post, 'cmb_to_native.target_image')
             main_wf.connect(ref_node_t1, ref_field_t1, wf_post, 'cmb_to_native_t1.target_image')
-            main_wf.connect(ref_node_trans, ref_field_trans, wf_post, 'cmb_to_native.transform_affine')
+            main_wf.connect(ref_node_trans, (ref_field_trans, get_first_item), wf_post, 'cmb_to_native_t1.transform_affine')
         else:
             if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
                 seg_node, seg_field = preproc_images['brain_seg']
@@ -245,6 +245,7 @@ def _connect_prediction_and_postproc(main_wf, subject_iterator, preproc_images, 
                 ref_node_flair, ref_field_flair = preproc_images['flair-native']
                 ref_node_trans, ref_field_trans = preproc_images['flair-to-t1']
                 main_wf.connect(ref_node_flair, ref_field_flair, wf_post, f'{lpred}_to_flair-native.target_image')
+                main_wf.connect(ref_node_trans, (ref_field_trans, get_first_item), wf_post, f'{lpred}_to_flair-native.transform_affine')
 
         # Merge all csv files
         prediction_metrics_all = JoinNode(Join_Prediction_metrics(),
@@ -427,7 +428,7 @@ def generate_main_wf(**kwargs) -> Workflow:
                 preproc_images['flair-to-t1'] = (wf_preproc, 'flair_to_t1.forward_transforms')
         if with_swi:
             if with_t1:
-                preproc_images['swi-native'] = (wf_preproc, 'correct_affine_swi.correct_affine_swi.corrected_img')
+                preproc_images['swi-native'] = (wf_preproc, 'cmb_preprocessing.correct_affine_swi.corrected_img')
                 preproc_images['swi-to-t1'] = (wf_preproc, 'cmb_preprocessing.swi_to_t1.forward_transforms')
                 preproc_images['swi'] = (wf_preproc, 'cmb_preprocessing.swi_intensity_normalisation.intensity_normalized')
                 # SWI+T1 specific overlay references

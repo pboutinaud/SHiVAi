@@ -203,7 +203,7 @@ def genWorkflow(**kwargs) -> Workflow:
                 prediction_metrics.inputs.brain_seg_type = 'brain_mask'
                 prediction_metrics.inputs.region_list = ['Whole brain']
             workflow.connect(cluster_labelling, 'labelled_biomarkers', prediction_metrics, 'labelled_clusters')
-            main_img = t1_acq if not with_swi else swi_acq  # Because the "else" means we are either in case with swi xor with t1
+            main_img = t1_acq if not pred == 'CMB' else swi_acq
             clust_to_native = Node(Labelled_Clusters_Registration(), name=f'{lpred}_to_native')
             clust_to_native.inputs.out_name = f'labelled_{lpred}_{main_img}-native-space.nii.gz'
             workflow.connect(cluster_labelling, 'labelled_biomarkers', clust_to_native, 'input_image')
