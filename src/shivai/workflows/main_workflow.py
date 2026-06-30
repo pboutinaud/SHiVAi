@@ -80,6 +80,14 @@ def update_wf_grabber(wf, acquisitions, datatype, kwargs, grabber_name='datagrab
 
     if datatype == 'dicom':
         graft_dcm2nii(wf, **kwargs)
+    
+    # Clean up the datagrabber inputs to remove any empty fields (e.g. if no flair is provided)
+    nok_fields = datagrabber.inputs.field_template.keys() ^ datagrabber.inputs.template_args.keys()
+    for field in nok_fields:
+        if field in datagrabber.inputs.field_template:
+            del datagrabber.inputs.field_template[field]
+        if field in datagrabber.inputs.template_args:
+            del datagrabber.inputs.template_args[field]
 
 
 def res_to_dict(sub_ids, in_files):
