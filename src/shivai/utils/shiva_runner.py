@@ -2,7 +2,7 @@
 Functions needed by the shiva.py script to run the pipeline
 """
 
-from shivai.workflows.main_workflow import generate_main_wf, generate_main_wf_grab_preproc
+from shivai.workflows.main_workflow import generate_main_wf, generate_main_wf_grab_preproc, generate_main_wf_rerun_postproc
 from shivai.utils.misc import _export_workflow_compat
 from nipype import config
 import os
@@ -24,8 +24,8 @@ def check_input_for_pred(wfargs):
 
 
 def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, brain_seg, ss_qc, ss_vol, ai_threads, batch_size,
-          node_plugin_args, prev_qc, preproc_results, replace_t1, inverse_t2, replace_flair, replace_swi, swi_file_num,
-          db_name, custom_LUT, preproc_only, use_cpu, swomed_parc, swomed_ssvol, swomed_ssqc, swomed_t1, swomed_flair,
+          node_plugin_args, prev_qc, preproc_only, use_prev_preproc, postproc_only, prev_results, replace_t1, inverse_t2, replace_flair, replace_swi, swi_file_num,
+          db_name, custom_LUT,  use_cpu, swomed_parc, swomed_ssvol, swomed_ssqc, swomed_t1, swomed_flair,
           swomed_swi, use_t1, container_image, synthseg_image, containerized_nodes, container_runtime,
           local_synthseg, prereg_flair, enable_affine_reset,
           anonymize, interpolation, percentile, threshold, threshold_pvs, threshold_wmh, threshold_cmb,
@@ -101,7 +101,8 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
         'input_type': input_type,
         'file_type': file_type,
         'prev_qc': prev_qc,
-        'preproc_res': preproc_results,
+        'prev_res': prev_results,
+        'preproc_res': os.path.join(prev_results, 'shiva_preproc') if prev_results else None,
         'swomed_input': in_path_dict,
         'preproc_only': preproc_only,
         'affine_reset': enable_affine_reset,
@@ -172,10 +173,12 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
     print(f'Working directory set to: {out_dir}')
 
     # Run the workflow
-    if preproc_results is None:
+    if prev_results is None:
         main_wf = generate_main_wf(**wfargs)
-    else:
+    elif prev_results is not None and use_prev_preproc:
         main_wf = generate_main_wf_grab_preproc(**wfargs)
+    elif prev_results is not None and postproc_only:
+        main_wf = generate_main_wf_rerun_postproc(**wfargs)
 
     if keep_all:
         config.enable_provenance()

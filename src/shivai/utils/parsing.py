@@ -173,11 +173,6 @@ Usage examples:
                               '- FSL style .xml file\n'
                               '- FreeSurfer style .txt file'))
 
-    parser.add_argument('--preproc_only',
-                        action='store_true',
-                        help=('If used, only the preprocessing steps will be run (usefull for training new data for example).\n'
-                              'This option still needs the "--prediction" argument to know what type of input will be given\n'
-                              'for the preprocessing.'))
 
     parser.add_argument('--use_cpu',
                         action='store_true',
@@ -265,8 +260,23 @@ Usage examples:
                         help=('CSV file from a previous QC with the metrics computed on other participants '
                               'preprocessing. This data will be used to estimate outliers and thus help detect '
                               'participants that may have a faulty preprocessing'))
+    
+    sub_workflows = parser.add_mutually_exclusive_group()
+    sub_workflows.add_argument('--preproc_only',
+                                action='store_true',
+                                help=('If used, only the preprocessing steps will be run (usefull for training new data for example).\n'
+                                      'This option still needs the "--prediction" argument to know what type of input will be given\n'
+                                      'for the preprocessing.'))
+    sub_workflows.add_argument('--use_prev_preproc',
+                                action='store_true',
+                                help=('If selected, the preprocessing steps will be skipped and the data from a previous shiva run will be used. '
+                                      'This requires the --prev_results argument to be provided.'))
+    sub_workflows.add_argument('--postproc_only',
+                                action='store_true',
+                                help=('If selected, only the postprocessing steps will be run, using preprocessed data and previous segmentation results. '
+                                      'This requires the --prev_results argument to be provided.'))
 
-    parser.add_argument('--preproc_results',
+    parser.add_argument('--prev_results',
                         type=str,
                         help=(
                             'Path to the results folder of a previous shiva run, containing all the preprocessed data.\n'
@@ -720,31 +730,37 @@ def set_args_and_check(inParser):
         args.prediction = [args.prediction]
 
     # Check the preprocessing files input when given
-    # setattr(args, 'preproc_results', None)  # TODO: remove when preproc_results updated
-    if args.preproc_results is not None:
-        args.preproc_results = os.path.abspath(args.preproc_results)
-        if not os.path.exists(args.preproc_results):
+    if args.prev_results is not None:
+        args.prev_results = os.path.abspath(args.prev_results)
+        if not os.path.exists(args.prev_results):
             raise ValueError(
-                f'The folder containing the results from the previous processing was not found: {args.preproc_results}'
+                f'The folder containing the results from the previous processing was not found: {args.prev_results}'
             )
-        dir_list = os.listdir(args.preproc_results)
-        dir_name = os.path.basename(args.preproc_results)
-        err_msg = (
-            'The folder containing the results  from the previous processing should either be the "shiva_preproc" '
-            f'folder or the folder containing the "shiva_preproc" folder, but it is not the case: {args.preproc_results}'
+        
+        if 'shiva_preproc' not in os.listdir(args.prev_results):
+            # We expect the shiva_preproc folder to always be in the results folder, it's kind of a defining trait
+            # Searching in all the subfolders of the 'shiva_preproc'
+            found = False
+            for root, dirs, files in os.walk(args.prev_results):
+                if 'shiva_preproc' in dirs:
+                    args.prev_results = root
+                    found = True
+                    break
+            if not found:
+                raise ValueError(
+                    'The folder containing the results  from the previous processing should contain the "shiva_preproc" '
+                    f'folder or the folder containing the "shiva_preproc" folder, but it is not the case: {args.prev_results}'
+                )
+    if args.use_prev_preproc and not args.prev_results:
+        raise ValueError(
+            'The "--use_prev_preproc" option was selected but the "--prev_results" argument was not given. '
+            'Please provide the path to the results folder of a previous shiva run, containing all the preprocessed data.'
         )
-        if not dir_name == 'shiva_preproc':
-            if 'shiva_preproc' in dir_list:
-                args.preproc_results = os.path.join(args.preproc_results, 'shiva_preproc')
-            elif 'results' in dir_list:
-                args.preproc_results = os.path.join(args.preproc_results, 'results')
-                dir_list2 = os.listdir(args.preproc_results)
-                if 'shiva_preproc' in dir_list2:
-                    args.preproc_results = os.path.join(args.preproc_results, 'shiva_preproc')
-                else:
-                    raise ValueError(err_msg)
-            else:
-                raise ValueError(err_msg)
+    if args.postproc_only and not args.prev_results:
+        raise ValueError(
+            'The "--postproc_only" option was selected but the "--prev_results" argument was not given. '
+            'Please provide the path to the results folder of a previous shiva run, containing all the preprocessed data.'
+        )
     return args
 
 

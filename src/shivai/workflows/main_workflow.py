@@ -786,7 +786,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
     return main_wf
 
 
-def generate_main_wf_grab_postproc(**kwargs) -> Workflow:
+def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
     """
     Generate a postprocessing-only workflow, grabbing both preprocessed data and
     prediction segmentations from previous results folders.
@@ -795,6 +795,7 @@ def generate_main_wf_grab_postproc(**kwargs) -> Workflow:
     """
     # %% Get the folders with the preprocessed and prediction data
     preproc_res = kwargs['PREP_SETTINGS']['preproc_res']
+    
     # TODO: add a new kwarg for prediction results path, e.g.:
     # pred_res = kwargs['PREP_SETTINGS']['pred_res']
     pred_res = kwargs['PREP_SETTINGS']['pred_res']  # TODO: wire this from the argument parser
