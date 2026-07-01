@@ -264,8 +264,8 @@ def _connect_postproc(main_wf, seg_getters, subject_iterator, wf_post, preproc_i
                 mask_node, mask_field = preproc_images['brain_mask']
                 main_wf.connect(mask_node, mask_field, wf_post, f'cluster_labelling_{lpred}.brain_seg')
                 main_wf.connect(mask_node, mask_field, wf_post, f'prediction_metrics_{lpred}.brain_seg')
-            ref_node_t1, ref_field_t1 = preproc_images['t1-native']
-            main_wf.connect(ref_node_t1, ref_field_t1, wf_post, f'{lpred}_to_native.target_image')
+            ref_node_mig1, ref_field_img1 = preproc_images['t1-native'] if with_t1 else preproc_images['swi-native']
+            main_wf.connect(ref_node_mig1, ref_field_img1, wf_post, f'{lpred}_to_native.target_image')
             if with_flair and not kwargs['PREP_SETTINGS']['prereg_flair']:
                 ref_node_flair, ref_field_flair = preproc_images['flair-native']
                 ref_node_trans, ref_field_trans = preproc_images['flair-to-t1']
@@ -503,7 +503,7 @@ def generate_main_wf(**kwargs) -> Workflow:
     # %% Then prediction workflow and all its connections
         segmentation_wf = genWorkflow_prediction(**kwargs)
         seg_getters = _connect_prediction(main_wf, subject_iterator, joiners, segmentation_wf, **kwargs)
-        _connect_postproc(main_wf, seg_getters, main_wf, subject_iterator, wf_post, preproc_images, with_t1, with_flair, with_swi, **kwargs)
+        _connect_postproc(main_wf, seg_getters, subject_iterator, wf_post, preproc_images, with_t1, with_flair, with_swi, **kwargs)
 
     # The workflow graph
     wf_graph = None
@@ -753,7 +753,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
     segmentation_wf = genWorkflow_prediction(**kwargs)
 
     seg_getters = _connect_prediction(main_wf, subject_iterator, joiners, segmentation_wf, **kwargs)
-    _connect_postproc(main_wf, seg_getters, main_wf, subject_iterator, wf_post, preproc_images, with_t1, with_flair, with_swi, **kwargs)
+    _connect_postproc(main_wf, seg_getters, subject_iterator, wf_post, preproc_images, with_t1, with_flair, with_swi, **kwargs)
 
     # The workflow graph
     wf_graph = None
