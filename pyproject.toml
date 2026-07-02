@@ -44,11 +44,13 @@ TF = ["tensorflow==2.17.0", "keras==3.6.0"]
 
 [project.scripts]
 shiva = "shivai.scripts.shiva:main"
+shivai = "shivai.scripts.shiva:main"
 shiva_predict = "shivai.scripts.predict:main"
 shiva_predict_multi = "shivai.scripts.predict_multi:main"
 shiva_contained = "shivai.scripts.run_shiva:main"
 shiva_prep_json = "shivai.scripts.prep_json:main"
 shiva_resample = "shivai.scripts.resample_seg_preserve_vol:main"
+shiva_postproc = "shivai.scripts.shiva_postproc:main"
 
 [tool.setuptools.dynamic]
 version = { attr = "shivai.__version__" }

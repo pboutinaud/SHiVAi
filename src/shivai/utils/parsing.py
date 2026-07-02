@@ -5,6 +5,7 @@ import yaml
 import json
 import xml.etree.ElementTree as ET
 import pandas as pd
+from pathlib import Path
 from shivai import __version__
 
 
@@ -17,14 +18,15 @@ The segmentation from the wmh, cmb and pvs models are generated depending on the
 
 Input data can be staged in BIDS or a simplified file arborescence, or described with a JSON file (for the 3D Slicer extension).
 
+Shivai version: """ + __version__
+    USAGE = """
 Usage examples:
 \tshiva --in /path/to/input/folder --out /path/to/output/folder --prediction PVS --config /path/to/config.yml
 \tshiva --in /path/to/input/folder --out /path/to/output/folder --prediction PVS2 WMH --sub_names sub-001 sub-002 --config /path/to/config.yml --brain_seg synthseg
 \tshiva --in /path/to/input/folder --out /path/to/output/folder --prediction all --sub_list /path/to/sub_list.txt --config /path/to/config.yml --replace_t1 t2 --inverse_t2 --containerized_nodes --run_plugin SLURM
+    """
 
-Shivai version: """ + __version__
-
-    parser = argparse.ArgumentParser(description=DESCRIPTION,
+    parser = argparse.ArgumentParser(description=DESCRIPTION, epilog=USAGE,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
 
     parser.add_argument('--in', dest='in_dir',
@@ -171,11 +173,6 @@ Shivai version: """ + __version__
                               '- FSL style .xml file\n'
                               '- FreeSurfer style .txt file'))
 
-    parser.add_argument('--preproc_only',
-                        action='store_true',
-                        help=('If used, only the preprocessing steps will be run (usefull for training new data for example).\n'
-                              'This option still needs the "--prediction" argument to know what type of input will be given\n'
-                              'for the preprocessing.'))
 
     parser.add_argument('--use_cpu',
                         action='store_true',
@@ -232,7 +229,8 @@ Shivai version: """ + __version__
                         default='Linear',
                         help=('Type of plugin used by Nipype to run the workflow.\n'
                               '(see https://nipype.readthedocs.io/en/0.11.0/users/plugins.html '
-                              'for more details )'))
+                              'for more details ). Default is "Linear" (i.e. sequential execution). '
+                              'Can be set to "SLURM" for cluster execution.'))
 
     parser.add_argument('--run_plugin_args',  # hidden feature: you can also give a json string '{"arg1": val1, ...}'
                         type=str,
@@ -262,8 +260,23 @@ Shivai version: """ + __version__
                         help=('CSV file from a previous QC with the metrics computed on other participants '
                               'preprocessing. This data will be used to estimate outliers and thus help detect '
                               'participants that may have a faulty preprocessing'))
+    
+    sub_workflows = parser.add_mutually_exclusive_group()
+    sub_workflows.add_argument('--preproc_only',
+                                action='store_true',
+                                help=('If used, only the preprocessing steps will be run (usefull for training new data for example).\n'
+                                      'This option still needs the "--prediction" argument to know what type of input will be given\n'
+                                      'for the preprocessing.'))
+    sub_workflows.add_argument('--use_prev_preproc',
+                                action='store_true',
+                                help=('If selected, the preprocessing steps will be skipped and the data from a previous shiva run will be used. '
+                                      'This requires the --prev_results argument to be provided.'))
+    sub_workflows.add_argument('--postproc_only',
+                                action='store_true',
+                                help=('If selected, only the postprocessing steps will be run, using preprocessed data and previous segmentation results. '
+                                      'This requires the --prev_results argument to be provided.'))
 
-    parser.add_argument('--preproc_results',
+    parser.add_argument('--prev_results',
                         type=str,
                         help=(
                             'Path to the results folder of a previous shiva run, containing all the preprocessed data.\n'
@@ -271,6 +284,12 @@ Shivai version: """ + __version__
                             'are available in the results folder. If you have subjects with missing preprocessed data, you will '
                             'need to run their processing separatly.'
                         ))
+
+    parser.add_argument('--enable_affine_reset',
+                        action='store_true',
+                        help=('If selected, the affine correction will be applied to the input images before any other processing. '
+                              'This is useful when the input images have a wrong affine matrix (e.g. from a DICOM to NIfTI conversion). '
+                              'However, it means the final predictions will not be aligned with the native space (with bad affine)'))
 
     parser.add_argument('--save_graph',
                         action='store_true',
@@ -528,24 +547,6 @@ def parse_LUT(inLUT):  # TODO: tester avec de vraies LUT
 
 def set_args_and_check(inParser):
 
-    def parse_sub_list_file(filename):
-        list_path = os.path.abspath(filename)
-        sub_list = []
-        sep_chars = [' ', ';', '|']
-        if not os.path.exists(list_path):
-            raise ValueError(f'The participant list file was not found at the given location: {list_path}')
-        with open(list_path) as f:
-            lines = f.readlines()
-        for line in lines:
-            line_s = line.strip('\n')
-            # replacing potential separators with commas
-            for sep in sep_chars:
-                if sep in line_s:
-                    line_s = line_s.replace(sep, ',')
-            subs = line_s.split(',')
-            sub_list += [s.strip() for s in subs if s]
-        return sub_list
-
     args = inParser.parse_args()
     args.in_dir = os.path.abspath(args.in_dir)
     args.out_dir = os.path.abspath(args.out_dir)
@@ -565,25 +566,7 @@ def set_args_and_check(inParser):
     if args.file_type == 'dicom' and args.input_type == 'BIDS':
         raise inParser.error('BIDS data structure not compatible with DICOM input')
 
-    # Checks and parsing of subjects
-    subject_list = os.listdir(args.in_dir)
-    if args.sub_list is None and args.sub_names is None:
-        if args.exclusion_list:
-            args.exclusion_list = parse_sub_list_file(args.exclusion_list)
-            subject_list = sorted(list(set(subject_list) - set(args.exclusion_list)))
-        args.sub_list = subject_list
-    else:
-        if args.sub_list:
-            args.sub_list = parse_sub_list_file(args.sub_list)
-        elif args.sub_names:
-            args.sub_list = args.sub_names
-        subs_not_in_dir = set(args.sub_list) - set(subject_list)
-        if len(subs_not_in_dir) == len(args.sub_list):
-            raise inParser.error('None of the participant IDs given in the sub_list file was found in the input directory.\n'
-                                 f'Participant IDs given: {args.sub_list}\n'
-                                 f'Participant available: {subject_list}')
-        elif len(subs_not_in_dir) > 0:
-            raise inParser.error(f'Some participants where not found in the input directory: {sorted(list(subs_not_in_dir))}')
+    args = parse_sub_list(inParser, args)
 
     # Check the SWOMed direct input paths
     if args.swomed_parc is not None and not os.path.exists(args.swomed_parc):
@@ -722,16 +705,7 @@ def set_args_and_check(inParser):
 
     # Parse the plugin arguments
     if args.run_plugin_args:
-        if os.path.isfile(args.run_plugin_args):
-            with open(args.run_plugin_args, 'r') as file:
-                yaml_content = yaml.safe_load(file)
-            args.run_plugin_args = yaml_content
-        else:
-            try:
-                args.run_plugin_args = json.loads(args.run_plugin_args)
-            except json.JSONDecodeError:
-                raise ValueError('The "--run_plugin_args" argument was not recognised as a file path (file not existing) '
-                                 f'nor a json string (bad formatting possibly). Input string: {args.run_plugin_args}')
+        args.run_plugin_args = parse_plugin_args(args.run_plugin_args)
     else:
         args.run_plugin_args = {}
     args.run_plugin_args['max_jobs'] = args.max_jobs
@@ -756,29 +730,155 @@ def set_args_and_check(inParser):
         args.prediction = [args.prediction]
 
     # Check the preprocessing files input when given
-    # setattr(args, 'preproc_results', None)  # TODO: remove when preproc_results updated
-    if args.preproc_results is not None:
-        args.preproc_results = os.path.abspath(args.preproc_results)
-        if not os.path.exists(args.preproc_results):
+    if args.prev_results is not None:
+        args.prev_results = os.path.abspath(args.prev_results)
+        if not os.path.exists(args.prev_results):
             raise ValueError(
-                f'The folder containing the results from the previous processing was not found: {args.preproc_results}'
+                f'The folder containing the results from the previous processing was not found: {args.prev_results}'
             )
-        dir_list = os.listdir(args.preproc_results)
-        dir_name = os.path.basename(args.preproc_results)
-        err_msg = (
-            'The folder containing the results  from the previous processing should either be the "shiva_preproc" '
-            f'folder or the folder containing the "shiva_preproc" folder, but it is not the case: {args.preproc_results}'
+        
+        if 'shiva_preproc' not in os.listdir(args.prev_results):
+            # We expect the shiva_preproc folder to always be in the results folder, it's kind of a defining trait
+            # Searching in all the subfolders of the 'shiva_preproc'
+            found = False
+            for root, dirs, files in os.walk(args.prev_results):
+                if 'shiva_preproc' in dirs:
+                    args.prev_results = root
+                    found = True
+                    break
+            if not found:
+                raise ValueError(
+                    'The folder containing the results  from the previous processing should contain the "shiva_preproc" '
+                    f'folder or the folder containing the "shiva_preproc" folder, but it is not the case: {args.prev_results}'
+                )
+    if args.use_prev_preproc and not args.prev_results:
+        raise ValueError(
+            'The "--use_prev_preproc" option was selected but the "--prev_results" argument was not given. '
+            'Please provide the path to the results folder of a previous shiva run, containing all the preprocessed data.'
         )
-        if not dir_name == 'shiva_preproc':
-            if 'shiva_preproc' in dir_list:
-                args.preproc_results = os.path.join(args.preproc_results, 'shiva_preproc')
-            elif 'results' in dir_list:
-                args.preproc_results = os.path.join(args.preproc_results, 'results')
-                dir_list2 = os.listdir(args.preproc_results)
-                if 'shiva_preproc' in dir_list2:
-                    args.preproc_results = os.path.join(args.preproc_results, 'shiva_preproc')
-                else:
-                    raise ValueError(err_msg)
-            else:
-                raise ValueError(err_msg)
+    if args.postproc_only and not args.prev_results:
+        raise ValueError(
+            'The "--postproc_only" option was selected but the "--prev_results" argument was not given. '
+            'Please provide the path to the results folder of a previous shiva run, containing all the preprocessed data.'
+        )
     return args
+
+
+def parse_sub_list_file(filename):
+    list_path = os.path.abspath(filename)
+    sub_list = []
+    sep_chars = [' ', ';', '|']
+    if not os.path.exists(list_path):
+        raise ValueError(f'The participant list file was not found at the given location: {list_path}')
+    with open(list_path) as f:
+        lines = f.readlines()
+    for line in lines:
+        line_s = line.strip('\n')
+        # replacing potential separators with commas
+        for sep in sep_chars:
+            if sep in line_s:
+                line_s = line_s.replace(sep, ',')
+        subs = line_s.split(',')
+        sub_list += [s.strip() for s in subs if s]
+    return sub_list
+
+
+def parse_sub_list(inParser, args):
+
+    subject_list = os.listdir(args.in_dir)
+    if args.sub_list is None and args.sub_names is None:
+        if args.exclusion_list:
+            args.exclusion_list = parse_sub_list_file(args.exclusion_list)
+            subject_list = sorted(list(set(subject_list) - set(args.exclusion_list)))
+        args.sub_list = subject_list
+    else:
+        if args.sub_list:
+            args.sub_list = parse_sub_list_file(args.sub_list)
+        elif args.sub_names:
+            args.sub_list = args.sub_names
+        sub_list_no_sess = [sub.split('/')[0] for sub in args.sub_list]  # in case there is a session depth, we check the subject IDs without the session part
+        subs_not_in_dir = set(sub_list_no_sess) - set(subject_list)
+        if len(subs_not_in_dir) == len(args.sub_list):
+            raise inParser.error('None of the participant IDs given in the sub_list file was found in the input directory.\n'
+                                 f'Participant IDs given: {args.sub_list}\n'
+                                 f'Participant available: {subject_list}')
+        elif len(subs_not_in_dir) > 0:
+            raise inParser.error(f'Some participants where not found in the input directory: {sorted(list(subs_not_in_dir))}')
+
+    # Checks and parsing of subjects, detetion of potential "session" depth
+    has_session = False
+    if not hasattr(args, 'input_type'):  # in case parse_sub_list is called for another parser
+        args.input_type = 'standard'
+    if args.input_type != 'swomed':
+        if args.input_type == 'BIDS':
+            expected_folders = ['anat']
+        elif args.input_type == 'standard':
+            expected_folders = ['t1', 'flair', 'swi', 'seg', 't2', 't2s']
+        first_subject = args.sub_list[0]
+        if '/' in first_subject:
+            has_session = True
+        else:
+            first_subject_path = Path(args.in_dir) / first_subject
+            # Find the deepest expected folders and check their depth
+            # We should have sub_dir/expected_folder or subdir/session_dir/expected_folder
+            dir_found = None
+            for expected_folder in expected_folders:
+                dir_found = [*first_subject_path.glob(f'{expected_folder}'),
+                             *first_subject_path.glob(f'*/{expected_folder}')]
+                dir_found = [d for d in dir_found if d.is_dir()]
+                if dir_found:
+                    break
+            if not dir_found:
+                raise inParser.error(f'None of the expected folders were found in the input directory. Expected folders are: {expected_folders}.\n'
+                                     f'Please check the input directory structure and the "--input_type" argument.\n'
+                                     f'Example of expected structure for "standard" input type: sub-01/t1, sub-01/flair, sub-01/swi, etc.\n'
+                                     f'Example of expected structure for "BIDS" input type: sub-01/anat/sub-01_T1w.nii.gz, sub-01/anat/sub-01_FLAIR.nii.gz, etc.')
+            dir_found = dir_found[0]
+            rel_parts = dir_found.relative_to(first_subject_path).parts
+            if len(rel_parts) == 2:
+                has_session = True
+                print(f'Input directory has a session depth: {rel_parts[0]} is considered as a session folder.')
+            elif len(rel_parts) == 1:
+                print('Input directory does not have a session depth.')
+            else:
+                raise inParser.error(f'The expected folders were found at a depth superior to 2 folders inside the subject folder, which is not expected. Please check the input directory structure and the "--input_type" argument.\n'
+                                     f'Example of expected structure for "standard" input type: sub-01/t1, sub-01/flair, sub-01/swi, etc.\n'
+                                     f'Example of expected structure for "BIDS" input type: sub-01/anat/sub-01_T1w.nii.gz, sub-01/anat/sub-01_FLAIR.nii.gz, etc.')
+
+    # Replacing sub_list by the combination of subject name and session name if there is a session depth
+    if has_session:
+        new_sub_list = []
+        for sub in args.sub_list:
+            if '/' in sub:
+                new_sub_list.append(sub)
+                continue
+            sub_path = Path(args.in_dir) / sub
+            # Find all the session folders based on wether they contain "expected_folders"
+            session_dirs = [d for d in sub_path.iterdir() if d.is_dir() and any((d / expected_folder).exists() for expected_folder in expected_folders)]
+            if not session_dirs:
+                raise inParser.error(f'No session folder was found for subject {sub} while a session depth was detected in the input directory. Please check the input directory structure and the "--input_type" argument.\n'
+                                     f'Example of expected structure for "standard" input type: sub-01/t1, sub-01/flair, sub-01/swi, etc.\n'
+                                     f'Example of expected structure for "BIDS" input type: sub-01/anat/sub-01_T1w.nii.gz, sub-01/anat/sub-01_FLAIR.nii.gz, etc.')
+            for session_dir in session_dirs:
+                new_sub_list.append(f'{sub}/{session_dir.name}')
+        new_sub_list = sorted(set(new_sub_list))  # just in case
+        args.sub_list = new_sub_list
+
+    # Re-applying potential subject selection / filters
+    if args.exclusion_list and has_session:  # check for exclusion containing the session
+        args.sub_list = sorted(list(set(args.sub_list) - set(args.exclusion_list)))
+    return args
+
+
+def parse_plugin_args(plugin_args_str):
+    if os.path.isfile(plugin_args_str):
+        with open(plugin_args_str, 'r') as file:
+            yaml_content = yaml.safe_load(file)
+        plugin_args_str = yaml_content
+    else:
+        try:
+            plugin_args_str = json.loads(plugin_args_str)
+        except json.JSONDecodeError:
+            raise ValueError('The "--run_plugin_args" argument was not recognised as a file path (file not existing) '
+                             f'nor a json string (bad formatting possibly). Input string: {plugin_args_str}')
+    return plugin_args_str

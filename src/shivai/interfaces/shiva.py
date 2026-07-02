@@ -1,6 +1,7 @@
 """Interfaces for SHIVA project deep learning segmentation and prediction tools."""
 import os
 import glob
+import shlex
 
 from shivai.utils.misc import md5
 
@@ -27,6 +28,11 @@ from nipype.interfaces.quickshear import (Quickshear,
 from nipype.interfaces.dcm2nii import (Dcm2niix,
                                        Dcm2niixInputSpec,
                                        Dcm2niixOutputSpec)
+
+
+def _shell_join(items):
+    """Join values as shell-safe tokens preserving whitespace inside values."""
+    return ' '.join(shlex.quote(str(item)) for item in items)
 
 
 class PredictInputSpec(BaseInterfaceInputSpec):
@@ -229,9 +235,9 @@ class Predict_Multi(CommandLine):
             sub_list = list(self.inputs.primary_image_file.keys())
             file_list = [value[sub] for sub in sub_list]  # Making sure all file lists have the same order
             if argstr.count('%s') == 2:
-                return spec.argstr % (' '.join(sub_list), ' '.join(file_list))
+                return spec.argstr % (_shell_join(sub_list), _shell_join(file_list))
             else:
-                return spec.argstr % (' '.join(file_list))
+                return spec.argstr % (_shell_join(file_list))
         return super(Predict_Multi, self)._format_arg(name, spec, value)
 
     def _list_outputs(self):
@@ -258,9 +264,9 @@ class Predict_Multi_Contained(ContainerCommandLine):
             sub_list = list(self.inputs.primary_image_file.keys())
             file_list = [value[sub] for sub in sub_list]  # Making sure all file lists have the same order
             if argstr.count('%s') == 2:
-                return spec.argstr % (' '.join(sub_list), ' '.join(file_list))
+                return spec.argstr % (_shell_join(sub_list), _shell_join(file_list))
             else:
-                return spec.argstr % (' '.join(file_list))
+                return spec.argstr % (_shell_join(file_list))
         return super(Predict_Multi_Contained, self)._container_format_arg(name, spec, value)
 
     def _list_outputs(self):

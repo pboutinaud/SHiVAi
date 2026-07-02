@@ -33,21 +33,29 @@ def singParser():
     parser.add_argument("-db", "--db_name",
                         help='Name of the data-base the input scans originate from. It is only to add this detail in the report')
 
-    preproc_args = parser.add_mutually_exclusive_group()
-    preproc_args.add_argument('--preproc_only',
-                              action='store_true',
-                              help=('If used, only the preprocessing steps will be run (usefull for training new data for example).\n'
-                                    'This option still needs the "--prediction" argument to know what type of input will be given\n'
-                                    'for the preprocessing.'))
+    sub_workflows = parser.add_mutually_exclusive_group()
+    sub_workflows.add_argument('--preproc_only',
+                                action='store_true',
+                                help=('If used, only the preprocessing steps will be run (usefull for training new data for example).\n'
+                                      'This option still needs the "--prediction" argument to know what type of input will be given\n'
+                                      'for the preprocessing.'))
+    sub_workflows.add_argument('--use_prev_preproc',
+                                action='store_true',
+                                help=('If selected, the preprocessing steps will be skipped and the data from a previous shiva run will be used. '
+                                      'This requires the --prev_results argument to be provided.'))
+    sub_workflows.add_argument('--postproc_only',
+                                action='store_true',
+                                help=('If selected, only the postprocessing steps will be run, using preprocessed data and previous segmentation results. '
+                                      'This requires the --prev_results argument to be provided.'))
 
-    preproc_args.add_argument("-pr", '--preproc_results',
-                              type=str,
-                              help=(
-                                  'Path to the results folder of a previous shiva run, containing all the preprocessed data.\n'
-                                  'Requires that all the subjects from the current subject list (as per the content of --in or --sub_list) '
-                                  'are available in the results folder. If you have subjects with missing preprocessed data, you will '
-                                  'need to run their processing separatly.'
-                              ))
+    parser.add_argument('--prev_results',
+                        type=str,
+                        help=(
+                            'Path to the results folder of a previous shiva run, containing all the preprocessed data.\n'
+                            'Requires that all the subjects from the current subject list (as per the content of --in or --sub_list) '
+                            'are available in the results folder. If you have subjects with missing preprocessed data, you will '
+                            'need to run their processing separatly.'
+                        ))
 
     parser.add_argument("-c", "--config",
                         help='yaml file for configuration of workflow',
@@ -324,7 +332,7 @@ def main():
         opt_args1.append(f"--sub_names {' '.join(args.sub_names)}")
 
     # Synthseg precomputation
-    if 'synthseg' in args.brain_seg and not args.preproc_results:
+    if 'synthseg' in args.brain_seg and not args.prev_results:
         args_ss = []
         gpu_ss = True
         if args.brain_seg == 'synthseg_cpu':
@@ -361,16 +369,20 @@ def main():
         opt_args2.append('--preproc_only')
     if args.use_cpu:
         opt_args2.append('--use_cpu')
+    if args.use_prev_preproc:
+        opt_args2.append('--use_prev_preproc')
+    if args.postproc_only:
+        opt_args2.append('--postproc_only')
 
     preproc = None
-    if args.preproc_results:
-        if str(args.out_dir) in args.preproc_results:
-            path_end = os.path.relpath(args.preproc_results, args.out_dir)
+    if args.prev_results:
+        if str(args.out_dir) in args.prev_results:
+            path_end = os.path.relpath(args.prev_results, args.out_dir)
             mounted_path = os.path.join('/mnt/data/output', path_end)
-            opt_args2.append(f"--preproc_results {mounted_path}")
+            opt_args2.append(f"--prev_results {mounted_path}")
         else:
-            preproc = f"{args.preproc_results}:/mnt/preproc:rw"
-            opt_args2.append("--preproc_results /mnt/preproc")
+            preproc = f"{args.prev_results}:/mnt/preproc:rw"
+            opt_args2.append("--prev_results /mnt/preproc")
 
     bind_lut = None
     if 'synthseg' in args.brain_seg:

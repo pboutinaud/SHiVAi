@@ -138,7 +138,10 @@ def normalization(img: nib.Nifti1Image,
     array = np.nan_to_num(img.get_fdata())
     print(np.max(array))
     array[array < 0] = 0
+
     # calculate percentile
+    if 0 <= percentile < 1:
+        percentile *= 100
     if not brain_mask:
         value_percentile = np.percentile(array, percentile)
     else:
@@ -434,6 +437,7 @@ def crop(roi_mask: nib.Nifti1Image,
             delta = top_mask_slice_index - bbox2_clamped[2] + safety_margin
             bbox1_clamped[2] = bbox1_clamped[2] + delta
             bbox2_clamped[2] = bbox2_clamped[2] + delta
+
             bbox1[2] = bbox1[2] + delta
             bbox2[2] = bbox2[2] + delta
             cdg_ijk[2] = cdg_ijk[2] + delta
@@ -662,12 +666,35 @@ def affine_check(img: nib.Nifti1Image, ori_vox_size: np.ndarray, correction_thr:
     # sform = img.get_sform()
     affine = img.get_qform()
 
+    # Check whether the world origin (0, 0, 0) maps inside the image volume.
+    # Kept as a local value for downstream logic.
+    bad_affine = False
+    try:
+        origin_ijk = nib.affines.apply_affine(np.linalg.inv(affine), np.array([0.0, 0.0, 0.0]))
+        origin_outside_volume = bool(np.any(origin_ijk < 0) or np.any(origin_ijk >= np.array(img.shape[:3])))
+    except np.linalg.LinAlgError:
+        origin_outside_volume = True
+        bad_affine = True
+    
+    if origin_outside_volume:
+        warnings.warn(
+            "BAD AFFINE:\n"
+            "The image's affine is corrupted (not encoding a proper rotation).\n"
+            "The world origin (0, 0, 0) does not map inside the image volume.\n"
+            "To avoid problems during registration, a new affine will be created using the center of mass as origin.\n"
+            "This will misalign the masks (brain masks and cSVD biomarkers) compared to the raw images but will not "
+            "be a problem if you use the intensity normalized images from the img_preproc folder of the results."
+        )
+
     # Set the sform to the qform to avoid issues with ANTs and Nibabel not agreeing on which one to use
     img = nib.Nifti1Image(img.get_fdata().astype('f'), affine)
     corrected = False
     rot, trans = nib.affines.to_matvec(affine)
     rot_norm = rot.dot(np.diag(1/ori_vox_size))  # putting the rotation in isotropic space
     deviation = np.abs(rot_norm.dot(rot_norm.T) - np.eye(3)).max()
+    
+    if deviation >= correction_thr:
+        bad_affine = True
 
     if mild_thr <= deviation < correction_thr:
         U, S, Vt = np.linalg.svd(rot_norm)
@@ -685,7 +712,7 @@ def affine_check(img: nib.Nifti1Image, ori_vox_size: np.ndarray, correction_thr:
             "Spatial alignment, oblique orientation, and translation are preserved."
         )
         img = nib.Nifti1Image(img.get_fdata().astype('f'), corrected_affine)
-    elif deviation >= correction_thr:
+    elif bad_affine or origin_outside_volume:
         corrected = True
         # Severely corrupted: discard the rotation entirely and rebuild from scratch.
         warnings.warn(
@@ -698,14 +725,20 @@ def affine_check(img: nib.Nifti1Image, ori_vox_size: np.ndarray, correction_thr:
         )
         vol = img.get_fdata()
         cdg_ijk = np.round(ndimage.center_of_mass(vol))
+        if bad_affine:
         # Use io_orientation to correctly determine the dominant world axis AND sign for every
         # voxel axis, not just the first one (previously only L/R was preserved via pixdim[0],
         # causing A/P and S/I flips on oblique acquisitions).
-        ornt = io_orientation(img.affine)
-        simplified_rot = np.zeros((3, 3))
-        for vox_ax, (world_ax, sign) in enumerate(ornt):
-            simplified_rot[int(world_ax), vox_ax] = sign * ori_vox_size[vox_ax]
-        trans_centered = -simplified_rot.dot(cdg_ijk)
-        simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
-        img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
+            ornt = io_orientation(img.affine)
+            simplified_rot = np.zeros((3, 3))
+            for vox_ax, (world_ax, sign) in enumerate(ornt):
+                simplified_rot[int(world_ax), vox_ax] = sign * ori_vox_size[vox_ax]
+            trans_centered = -simplified_rot.dot(cdg_ijk)
+            simplified_affine_centered = nib.affines.from_matvec(simplified_rot, trans_centered)
+            img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
+        else:
+            # If the affine is valid but the origin is outside the volume, we can keep the rotation
+            # and just recenter the translation to the center of mass.
+            simplified_affine_centered = nib.affines.from_matvec(rot, -rot.dot(cdg_ijk))
+            img = nib.Nifti1Image(vol.astype('f'), simplified_affine_centered)
     return corrected, img

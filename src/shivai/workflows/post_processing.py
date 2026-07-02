@@ -27,6 +27,15 @@
         (prediction_metrics_lac, 'img')
         (prediction_metrics_lac, 'brain_seg') can be brainmask or synthseg
 
+    *_to_native.output_image -> sink
+    ({lpred}_to_native, 'target_image')
+    if CMB with T1
+        (cmb_to_native, 'target_image')
+        (cmb_to_native_t1, 'target_image')
+        (cmb_to_native_t1, 'transform_affine')
+    if with_flair:
+        ({lpred}_to_flair-native, 'target_image')
+        ({lpred}_to_flair-native, 'transform_affine')
    """
 import os
 
@@ -36,11 +45,11 @@ from nipype.interfaces import ants
 from shivai.interfaces.post import SummaryReport
 from shivai.interfaces.image import (Regionwise_Prediction_metrics,
                                      Brain_Seg_for_biomarker,
-                                     Label_clusters,
+                                     Label_clusters, Labelled_Clusters_Registration,
                                      Brainmask_Overlay)
 from shivai.interfaces.shiva import (AntsApplyTransforms_Contained)
 from shivai.utils.container_config import configure_container_node
-from shivai.utils.misc import set_wf_shapers
+from shivai.utils.misc import get_img_acquisitions, set_wf_shapers
 
 
 dummy_args = {"SUBJECT_LIST": ['BIOMIST::SUBJECT_LIST'],
@@ -59,23 +68,10 @@ def genWorkflow(**kwargs) -> Workflow:
         workflow
     """
     # Setting up the different cases to build the workflows (should clarify things)
-    with_t1, with_flair, with_swi = set_wf_shapers(kwargs['PREDICTION'])
-    if kwargs['USE_T1']:  # Override the default with_t1 deduced from the predictions
-        with_t1 = True
+    with_t1, with_flair, with_swi = set_wf_shapers(kwargs)
 
     # Setting the different acqisitions per prediction
-    if kwargs['ACQUISITIONS']['t1-like']:
-        t1_acq = kwargs['ACQUISITIONS']['t1-like']
-    else:
-        t1_acq = 't1'
-    if kwargs['ACQUISITIONS']['flair-like']:
-        flair_acq = kwargs['ACQUISITIONS']['flair-like']
-    else:
-        flair_acq = 'flair'
-    if kwargs['ACQUISITIONS']['swi-like']:
-        swi_acq = kwargs['ACQUISITIONS']['swi-like']
-    else:
-        swi_acq = 'swi'
+    t1_acq, flair_acq, swi_acq = get_img_acquisitions(kwargs)
 
     if 'synthseg' in kwargs['BRAIN_SEG']:
         segtype = 'synthseg'
@@ -102,7 +98,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
             prediction_metrics = Node(Regionwise_Prediction_metrics(),
                                       name="prediction_metrics_cmb")
-            prediction_metrics.inputs.biomarker_type = 'cmb_swi-space'
+            prediction_metrics.inputs.biomarker_type = f'cmb_{swi_acq}-space'
 
             if segtype in ['synthseg', 'freesurfer']:
                 prediction_metrics.inputs.brain_seg_type = segtype
@@ -122,12 +118,12 @@ def genWorkflow(**kwargs) -> Workflow:
                     seg_to_swi = Node(ants.ApplyTransforms(), name="seg_to_swi")  # Register custom parc to swi space
                 seg_to_swi.inputs.float = True
                 seg_to_swi.inputs.interpolation = 'NearestNeighbor'
-                seg_to_swi.inputs.out_postfix = '_swi-space'
+                seg_to_swi.inputs.out_postfix = f'_{swi_acq}-space'
                 seg_to_swi.inputs.invert_transform_flags = [True]  # original transform is swi to t1
 
                 custom_cmb_parc = Node(Brain_Seg_for_biomarker(), name='custom_cmb_parc')
                 custom_cmb_parc.inputs.custom_parc = 'mars'
-                custom_cmb_parc.inputs.out_file = 'Brain_Seg_for_CMB_swi-space.nii.gz'
+                custom_cmb_parc.inputs.out_file = f'Brain_Seg_for_CMB_{swi_acq}-space.nii.gz'
 
                 workflow.connect(seg_to_swi, 'output_image', custom_cmb_parc, 'brain_seg')
                 # seg_to_swi also needs external connection for 'reference_image', 'transforms' and 'input_image'
@@ -155,7 +151,7 @@ def genWorkflow(**kwargs) -> Workflow:
                     seg_to_swi = Node(ants.ApplyTransforms(), name="seg_to_swi")  # Register custom parc to swi space
                 seg_to_swi.inputs.float = True
                 seg_to_swi.inputs.interpolation = 'NearestNeighbor'
-                seg_to_swi.inputs.out_postfix = '_swi-space'
+                seg_to_swi.inputs.out_postfix = f'_{swi_acq}-space'
                 seg_to_swi.inputs.invert_transform_flags = [True]  # original transform is swi to t1
 
                 # External connection for seg_to_swi.input_image (from seg_to_crop.resampled)
@@ -167,6 +163,14 @@ def genWorkflow(**kwargs) -> Workflow:
                 prediction_metrics.inputs.region_list = ['Whole brain']
 
             workflow.connect(cluster_labelling_cmb, 'labelled_biomarkers', prediction_metrics, 'labelled_clusters')
+            
+            cmb_to_native = Node(Labelled_Clusters_Registration(), name='cmb_to_native')
+            cmb_to_native.inputs.out_name = f'labelled_cmb_{swi_acq}-native-space.nii.gz'
+            workflow.connect(cluster_labelling_cmb, 'labelled_biomarkers', cmb_to_native, 'input_image')
+            
+            cmb_to_native_t1 = Node(Labelled_Clusters_Registration(), name="cmb_to_native_t1")
+            cmb_to_native_t1.inputs.out_name = f'labelled_cmb_{t1_acq}-native-space.nii.gz'
+            workflow.connect(cluster_labelling_cmb, 'labelled_biomarkers', cmb_to_native_t1, 'input_image')
         else:
             if pred == 'PVS2':
                 pred = 'PVS'
@@ -199,6 +203,15 @@ def genWorkflow(**kwargs) -> Workflow:
                 prediction_metrics.inputs.brain_seg_type = 'brain_mask'
                 prediction_metrics.inputs.region_list = ['Whole brain']
             workflow.connect(cluster_labelling, 'labelled_biomarkers', prediction_metrics, 'labelled_clusters')
+            main_img = t1_acq if not pred == 'CMB' else swi_acq
+            clust_to_native = Node(Labelled_Clusters_Registration(), name=f'{lpred}_to_native')
+            clust_to_native.inputs.out_name = f'labelled_{lpred}_{main_img}-native-space.nii.gz'
+            workflow.connect(cluster_labelling, 'labelled_biomarkers', clust_to_native, 'input_image')
+            if with_flair and not kwargs['PREP_SETTINGS']['prereg_flair']:
+                clust_to_flair_native = Node(Labelled_Clusters_Registration(), name=f'{lpred}_to_flair-native')
+                clust_to_flair_native.inputs.out_name = f'labelled_{lpred}_{flair_acq}-native-space.nii.gz'
+                clust_to_flair_native.inputs.inverse_affine = True  # We only have the flair-to-t1 transform readily available
+                workflow.connect(cluster_labelling, 'labelled_biomarkers', clust_to_flair_native, 'input_image')
 
         # Adding nodes for theoverlay of predictions on the brain
         pred_overlay = Node(Brainmask_Overlay(),  # Needs to be connected with the prediction and the main image externally
