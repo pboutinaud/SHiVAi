@@ -28,28 +28,28 @@ def predict_parser():
     parser.add_argument(
         "--subjects",
         type=str,
-        help="List of the subjects name of the files given to --img1_files (must be in the same order)",
+        help="List of the subjects name of the files given to --img1_files (must be in the same order). Not needed if a JSON file is given to --img1_files",
         nargs='+',
-        required=True)
+        required=False)
 
     parser.add_argument(
         "--img1_files",
         type=Path,
-        help="List of the primary image files used by the model (separated by a space)",
+        help="List of the primary image files used by the model (separated by a space), or a JSON file containing the {subject: file_path} dictionary",
         nargs='+',
         required=True)
 
     parser.add_argument(
         "--img2_files",
         type=Path,
-        help="List of the secondary image files used by the model (separated by a space). Only used in multi-modal predictions",
+        help="List of the secondary image files used by the model (separated by a space), or a JSON file containing the {subject: file_path} dictionary. Only used in multi-modal predictions",
         nargs='*',
         required=False)
 
     parser.add_argument(
         "--mask_files",
         type=Path,
-        help="List of the brain mask files (optional)",
+        help="List of the brain mask files (optional), or a JSON file containing the {subject: file_path} dictionary",
         nargs='*',
         required=False)
 
@@ -120,6 +120,19 @@ def main():
     import tensorflow as tf
     pred_parser = predict_parser()
     args = pred_parser.parse_args()
+    if args.img1_files[0].suffix == '.json':
+        with open(args.img1_files[0], 'r') as f:
+            img1_files_json = json.load(f)
+        args.subjects = list(img1_files_json.keys())
+        args.img1_files = [Path(img1_files_json[sub]) for sub in args.subjects]
+        if args.img2_files is not None and args.img2_files[0].suffix == '.json':
+            with open(args.img2_files[0], 'r') as f:
+                img2_files_json = json.load(f)
+            args.img2_files = [Path(img2_files_json[sub]) for sub in args.subjects]
+        if args.mask_files is not None and args.mask_files[0].suffix == '.json':
+            with open(args.mask_files[0], 'r') as f:
+                mask_files_json = json.load(f)
+            args.mask_files = [Path(mask_files_json[sub]) for sub in args.subjects]
     model_dir = args.model_dir  # type: Path
     descriptor = args.descriptor  # type: Path
     # Obtaining the absolute path to all the model files

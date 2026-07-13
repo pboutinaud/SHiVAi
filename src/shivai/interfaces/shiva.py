@@ -2,6 +2,7 @@
 import os
 import glob
 import shlex
+import json
 
 from shivai.utils.misc import md5
 
@@ -148,7 +149,8 @@ class Predict_Multi_InputSpec(BaseInterfaceInputSpec):
     """ Input parameter for the Predict_Multi interface """
     primary_image_file = traits.Dict(key_trait=traits.String,
                                      value_trait=traits.File,
-                                     argstr='--subjects %s --img1_files %s',
+                                    #  argstr='--subjects %s --img1_files %s',
+                                     argstr='--img1_files %s',
                                      desc=('Dict containing {sub_id: file_path} for all subjects, for the '
                                            'main aquisition image file.'),
                                      mandatory=True)
@@ -231,13 +233,13 @@ class Predict_Multi(CommandLine):
 
     def _format_arg(self, name, spec, value):
         if spec.is_trait_type(traits.Dict):
-            argstr = spec.argstr
-            sub_list = list(self.inputs.primary_image_file.keys())
-            file_list = [value[sub] for sub in sub_list]  # Making sure all file lists have the same order
-            if argstr.count('%s') == 2:
-                return spec.argstr % (_shell_join(sub_list), _shell_join(file_list))
-            else:
-                return spec.argstr % (_shell_join(file_list))
+            # Export the dict as a JSON file to be read by the shiva_predict_multi script
+            # Useful when the dict content is too long to be passed as a command line argument
+            wdir = os.getcwd()
+            fname = os.path.join(wdir, f'{name}.json')
+            with open(fname, 'w') as f:
+                json.dump(value, f)
+            return spec.argstr % fname
         return super(Predict_Multi, self)._format_arg(name, spec, value)
 
     def _list_outputs(self):
@@ -260,13 +262,13 @@ class Predict_Multi_Contained(ContainerCommandLine):
 
     def _format_arg(self, name, spec, value):
         if spec.is_trait_type(traits.Dict):
-            argstr = spec.argstr
-            sub_list = list(self.inputs.primary_image_file.keys())
-            file_list = [value[sub] for sub in sub_list]  # Making sure all file lists have the same order
-            if argstr.count('%s') == 2:
-                return spec.argstr % (_shell_join(sub_list), _shell_join(file_list))
-            else:
-                return spec.argstr % (_shell_join(file_list))
+            # Export the dict as a JSON file to be read by the shiva_predict_multi script
+            # Useful when the dict content is too long to be passed as a command line argument
+            wdir = os.getcwd()
+            fname = os.path.join(wdir, f'{name}.json')
+            with open(fname, 'w') as f:
+                json.dump(value, f)
+            return spec.argstr % fname
         return super(Predict_Multi_Contained, self)._container_format_arg(name, spec, value)
 
     def _list_outputs(self):
