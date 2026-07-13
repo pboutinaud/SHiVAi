@@ -8,6 +8,7 @@ from shivai.postprocessing.basalganglia import create_basalganglia_slice_mask
 from shivai.postprocessing.wmh import metrics_clusters_latventricles
 from shivai.postprocessing.clusters import label_clusters, resample_cluster_img
 from shivai.utils.stats import prediction_metrics, get_mask_regions
+from shivai.utils.misc import fisin
 from shivai.utils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask, seg_cleaner, affine_check
 from shivai.utils.quality_control import create_edges, save_histogram, bounding_crop, overlay_brainmask
 from shivai.interfaces.container import ContainerCommandLine, ContainerInputSpec
@@ -1081,12 +1082,15 @@ class Segmentation_Cleaner(BaseInterface):
     def _run_interface(self, runtime):
         if self.inputs.seg_type in ['synthseg', 'freesurfer']:
             ignore_list = [24]  # CSF
+        else:
+            ignore_list = None
         seg_im = nib.load(self.inputs.input_seg)
         seg_vol = seg_im.get_fdata().astype('int16')
         cleaned_vol, sunk_islands_vol = seg_cleaner(seg_vol,
                                                     self.inputs.max_island_size,
                                                     ignore_list)
-
+        if ignore_list is not None:
+            cleaned_vol[fisin(cleaned_vol, ignore_list)] = 0
         cleaned_im = nib.Nifti1Image(cleaned_vol, affine=seg_im.affine)
         outname = 'cleaned_' + os.path.basename(self.inputs.input_seg)
         nib.save(cleaned_im, outname)
