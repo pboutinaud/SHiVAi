@@ -176,7 +176,7 @@ def _connect_prediction(main_wf, subject_iterator, joiners, segmentation_wf, **k
         lpred = pred.lower()
 
         # Connection with prediction inputs
-        main_wf.connect(joiners['mask'], 'files_dict', segmentation_wf, f'predict_{lpred}.brainmask_files')
+        # main_wf.connect(joiners['mask'], 'files_dict', segmentation_wf, f'predict_{lpred}.brainmask_files')
         if pred_with_t1:
             main_wf.connect(joiners['t1'], 'files_dict', segmentation_wf, f'predict_{lpred}.primary_image_file')
             if pred_with_flair:
