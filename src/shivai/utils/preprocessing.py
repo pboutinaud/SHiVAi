@@ -664,7 +664,9 @@ def affine_check(img: nib.Nifti1Image, ori_vox_size: np.ndarray, correction_thr:
         (affine_was_bad, corrected_img): bool flag and the image (affine replaced if bad)
     """
     # sform = img.get_sform()
-    affine = img.get_qform()
+    # affine = img.get_qform()
+    # Use the affine directly, as sform/qform may not be set correctly (i.e. qform may be and identity matrix). This is the most reliable way to get the actual affine used for voxel-to-world mapping.
+    affine = img.affine
 
     # Check whether the world origin (0, 0, 0) maps inside the image volume.
     # Kept as a local value for downstream logic.
@@ -675,7 +677,7 @@ def affine_check(img: nib.Nifti1Image, ori_vox_size: np.ndarray, correction_thr:
     except np.linalg.LinAlgError:
         origin_outside_volume = True
         bad_affine = True
-    
+
     if origin_outside_volume:
         warnings.warn(
             "BAD AFFINE:\n"
@@ -692,7 +694,7 @@ def affine_check(img: nib.Nifti1Image, ori_vox_size: np.ndarray, correction_thr:
     rot, trans = nib.affines.to_matvec(affine)
     rot_norm = rot.dot(np.diag(1/ori_vox_size))  # putting the rotation in isotropic space
     deviation = np.abs(rot_norm.dot(rot_norm.T) - np.eye(3)).max()
-    
+
     if deviation >= correction_thr:
         bad_affine = True
 
@@ -726,9 +728,9 @@ def affine_check(img: nib.Nifti1Image, ori_vox_size: np.ndarray, correction_thr:
         vol = img.get_fdata()
         cdg_ijk = np.round(ndimage.center_of_mass(vol))
         if bad_affine:
-        # Use io_orientation to correctly determine the dominant world axis AND sign for every
-        # voxel axis, not just the first one (previously only L/R was preserved via pixdim[0],
-        # causing A/P and S/I flips on oblique acquisitions).
+            # Use io_orientation to correctly determine the dominant world axis AND sign for every
+            # voxel axis, not just the first one (previously only L/R was preserved via pixdim[0],
+            # causing A/P and S/I flips on oblique acquisitions).
             ornt = io_orientation(img.affine)
             simplified_rot = np.zeros((3, 3))
             for vox_ax, (world_ax, sign) in enumerate(ornt):
