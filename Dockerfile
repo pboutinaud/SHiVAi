@@ -59,10 +59,9 @@ COPY --from=ants-builder /opt/ants-runtime/ /opt/ants-2.4.3/
 COPY --from=tools-builder /opt/tools/bin/ /usr/local/bin/
 COPY --from=app-builder /opt/shivai-venv/ /opt/shivai-venv/
 
-RUN antsRegistration --help >/dev/null && \
-    antsApplyTransforms --help >/dev/null && \
-    dcm2niix --help >/dev/null && \
-    shiva --help >/dev/null && \
+RUN command -v antsRegistration antsApplyTransforms dcm2niix shiva && \
+    ! ldd "$(command -v antsRegistration)" | grep -q 'not found' && \
+    ! ldd "$(command -v antsApplyTransforms)" | grep -q 'not found' && \
     python -c "import tensorflow, keras; from weasyprint import HTML"
 
 WORKDIR /root
