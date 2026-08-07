@@ -1,0 +1,26 @@
+name: Docker Image CI - Manual
+
+on:
+  workflow_dispatch:
+  release:
+    types: [released]
+
+jobs:
+  build:
+    if: ${{ github.repository == 'pboutinaud/SHiVAi' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "action=${{ github.event.action }}"
+      - run: echo "repo=${{ github.repository }}"
+      
+      # - uses: actions/checkout@v4
+
+      # - uses: mr-smithers-excellent/docker-build-push@v7
+      #   name: Build & push Docker image
+      #   with:
+      #     image: vnozais/shivai
+      #     # addLatest: true
+      #     registry: https://docker.com
+      #     dockerfile: Dockerfile
+      #     username: ${{ secrets.DOCKER_USERNAME_VN }}
+      #     password: ${{ secrets.DOCKER_PASSWORD_VN }}
