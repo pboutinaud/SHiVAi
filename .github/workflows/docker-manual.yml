@@ -2,16 +2,21 @@ name: Docker Image CI - Manual
 
 on:
   workflow_dispatch:
-  release:
-    types: [released]
+    inputs:
+      tag:
+        description: "Tag à builder"
+        required: true
 
 jobs:
   build:
-    if: ${{ github.repository == 'pboutinaud/SHiVAi' }}
     runs-on: ubuntu-latest
+
     steps:
-      - run: echo "action=${{ github.event.action }}"
-      - run: echo "repo=${{ github.repository }}"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - run: git describe --tags
       
       # - uses: actions/checkout@v4
 
