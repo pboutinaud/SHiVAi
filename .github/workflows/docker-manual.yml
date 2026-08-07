@@ -6,6 +6,11 @@ on:
       tag:
         description: "Tag à builder"
         required: true
+      latest:
+        description: "Ajouter le tag latest ?"
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   build:
@@ -16,16 +21,12 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
 
-      - run: git describe --tags
-      
-      # - uses: actions/checkout@v4
-
-      # - uses: mr-smithers-excellent/docker-build-push@v7
-      #   name: Build & push Docker image
-      #   with:
-      #     image: vnozais/shivai
-      #     # addLatest: true
-      #     registry: https://docker.com
-      #     dockerfile: Dockerfile
-      #     username: ${{ secrets.DOCKER_USERNAME_VN }}
-      #     password: ${{ secrets.DOCKER_PASSWORD_VN }}
+      - uses: mr-smithers-excellent/docker-build-push@v7
+        name: Build & push Docker image
+        with:
+          image: vnozais/shivai
+          addLatest: ${{ inputs.latest }}
+          registry: https://docker.com
+          dockerfile: Dockerfile
+          username: ${{ secrets.DOCKER_USERNAME_VN }}
+          password: ${{ secrets.DOCKER_PASSWORD_VN }}
