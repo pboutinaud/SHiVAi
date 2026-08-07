@@ -1,0 +1,32 @@
+name: Docker Image CI - Nightly
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  build:
+    if: ${{ github.repository == 'pboutinaud/SHiVAi' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Determine nightly tag
+        id: tag
+        shell: bash
+        run: echo "value=$(git describe --tags --abbrev=0)-nightly" >> "$GITHUB_OUTPUT"
+
+      - uses: mr-smithers-excellent/docker-build-push@v7
+        name: Build & push Docker image
+        with:
+          image: vnozais/shivai
+          tags: ${{ steps.tag.outputs.value }}
+          registry: docker.io
+          dockerfile: Dockerfile
+          username: ${{ secrets.DOCKER_USERNAME_VN }}
+          password: ${{ secrets.DOCKER_PASSWORD_VN }}
