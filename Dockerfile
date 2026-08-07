@@ -51,7 +51,7 @@ ENV PATH=/opt/shivai-venv/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/loc
     LD_LIBRARY_PATH=/opt/ants-2.4.3/lib
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libcairo2 libgdk-pixbuf2.0-0 graphviz fontconfig shared-mime-info \
+    libcairo2 libgdk-pixbuf2.0-0 graphviz fontconfig shared-mime-info weasyprint \
     libpango-1.0-0 libpangoft2-1.0-0 libffi8 libopenjp2-7 && \
     rm -rf /var/lib/apt/lists/*
 
