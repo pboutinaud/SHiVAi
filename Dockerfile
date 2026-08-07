@@ -52,7 +52,7 @@ ENV PATH=/opt/shivai-venv/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/loc
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libcairo2 libgdk-pixbuf2.0-0 graphviz fontconfig shared-mime-info \
-    libpango-1.0-0 libpangoft2-1.0-0 libffi8 libjpeg62-turbo libopenjp2-7 && \
+    libpango-1.0-0 libpangoft2-1.0-0 libffi8 libopenjp2-7 && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=ants-builder /opt/ants-runtime/ /opt/ants-2.4.3/
