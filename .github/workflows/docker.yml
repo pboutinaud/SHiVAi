@@ -16,8 +16,8 @@ jobs:
       name: Build & push Docker image
       with:
         image: vnozais/shivai
-        # addLatest: true
-        registry: https://docker.com
+        addLatest: true
+        registry: docker.io
         dockerfile: Dockerfile
         username: ${{ secrets.DOCKER_USERNAME_VN }}
         password: ${{ secrets.DOCKER_PASSWORD_VN }}
