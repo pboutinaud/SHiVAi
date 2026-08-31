@@ -627,7 +627,8 @@ class Join_Prediction_metrics(BaseInterface):
         metrics_col.remove('Region')
         all_sub_metrics_wide = all_sub_metrics.pivot_table(index=['sub_id'],
                                                            columns=['Region'],
-                                                           values=metrics_col,)
+                                                           values=metrics_col,
+                                                           dropna=False)
         all_sub_metrics_wide.columns = [f'{s2} - {s1}' for (s1, s2) in all_sub_metrics_wide.columns.tolist()]
         all_sub_metrics_wide.reset_index(inplace=True)
         all_sub_metrics_wide.set_index('sub_id', inplace=True)
