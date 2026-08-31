@@ -291,13 +291,15 @@ def main():
             with open(outname.replace('.nii.gz', '.json'), 'w') as f:
                 json.dump(res_dict, f, indent=4)
         else:
-            pred_list = [nib.load(tmp_files[f'{sub}_{fold}']).get_fdata(dtype='float32') for fold in range(len(model_files))]
+            pred_list = [nib.load(tmp_files[f'{sub}_{fold}']).get_fdata(dtype='float32').squeeze() for fold in range(len(model_files))]
             mean_pred = np.mean(pred_list, axis=0)
             if args.mask_files is not None:
                 brainmask = nib.load(args.mask_files[sub_list.index(sub)]).get_fdata().astype(bool)
                 mean_pred *= brainmask
             mean_pred_im = nib.Nifti1Image(mean_pred.astype('float32'),  affine=affine_dict[sub])
+            stacked_pred_im = nib.Nifti1Image(np.stack(pred_list, axis=-1).astype('float32'), affine=affine_dict[sub])
             nib.save(mean_pred_im, outname)
+            nib.save(stacked_pred_im, outname.replace('.nii.gz', '_stacked.nii.gz'))
             for fold in range(len(model_files)):
                 tmp_files[f'{sub}_{fold}'].unlink()
 
