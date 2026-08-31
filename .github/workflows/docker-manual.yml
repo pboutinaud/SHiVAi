@@ -21,12 +21,24 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
 
+      - name: Determine Docker tags
+        id: docker_tags
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+          ADD_LATEST: ${{ inputs.latest }}
+        run: |
+          tags="$TAG"
+          if [[ "$ADD_LATEST" == "true" ]]; then
+            tags+=",latest"
+          fi
+          printf 'value=%s\n' "$tags" >> "$GITHUB_OUTPUT"
+
       - uses: mr-smithers-excellent/docker-build-push@v7
         name: Build & push Docker image
         with:
           image: vnozais/shivai
-          tags: ${{ inputs.tag }}
-          addLatest: ${{ inputs.latest }}
+          tags: ${{ steps.docker_tags.outputs.value }}
           registry: docker.io
           dockerfile: Dockerfile
           username: ${{ secrets.DOCKER_USERNAME_VN }}
