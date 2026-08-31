@@ -319,8 +319,8 @@ def threshold(img: nib.Nifti1Image,
                 footprint = create_anisotropic_ellipsoid(radius_voxels)
                 cluster_mask = binary_dilation(cluster_mask, footprint=footprint)
             array *= cluster_mask
-
-    thresholded = nib.Nifti1Image(array.astype('f'), img.affine)
+    outtype = np.uint8 if binarize else np.float32
+    thresholded = nib.Nifti1Image(array.astype(outtype), img.affine)
 
     return thresholded
 
