@@ -417,7 +417,7 @@ class Resample_from_to(BaseInterface):
         resampled = nip.resample_from_to(in_img,
                                          ref_img,
                                          self.inputs.spline_order)
-
+        resampled.set_data_dtype(in_img.get_data_dtype())
         nib.save(resampled, self.outname)
         return runtime
 
@@ -512,6 +512,14 @@ class Normalization(BaseInterface):
             self.outname = base + '_img_normalized_inv.nii.gz'
         else:
             self.outname = base + '_img_normalized.nii.gz'
+
+        # Optimizing file size by saving as int16 with a scale factor
+        scale = 1.0 / 32767.0  # scale 0-1 floats into 0-32767 integer range
+        data_int16 = np.round(img_normalized.get_fdata() / scale).astype(np.int16)
+
+        img_normalized = nib.Nifti1Image(data_int16, img.affine)
+        img_normalized.header.set_slope_inter(scale, 0)
+
         nib.save(img_normalized, self.outname)
 
         return runtime
