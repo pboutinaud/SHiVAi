@@ -663,10 +663,14 @@ def affine_check(img: nib.Nifti1Image, ori_vox_size: np.ndarray, correction_thr:
     Returns:
         (affine_was_bad, corrected_img): bool flag and the image (affine replaced if bad)
     """
-    # sform = img.get_sform()
-    # affine = img.get_qform()
-    # Use the affine directly, as sform/qform may not be set correctly (i.e. qform may be and identity matrix). This is the most reliable way to get the actual affine used for voxel-to-world mapping.
-    affine = img.affine
+    sform = img.get_sform()
+    qform = img.get_qform()
+    if not (np.allclose(qform, np.eye(4)) or np.allclose(qform, np.zeros((4, 4)))):
+        # Use the qform if it is set and not trivial (identity or zero matrix)
+        affine = qform
+    else:
+        # Use the affine directly as a fallback when the qform is not set or trivial.
+        affine = img.affine
 
     # Check whether the world origin (0, 0, 0) maps inside the image volume.
     # Kept as a local value for downstream logic.
