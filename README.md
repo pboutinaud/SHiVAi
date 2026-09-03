@@ -51,6 +51,11 @@ The Shivai pipeline and all the repository content is provided under the GNU Aff
   - [Running SHiVAi from an Apptainer container](#running-shivai-from-an-apptainer-container)
   - [Running SHiVAi from a Docker container](#running-shivai-from-a-docker-container)
   - [Running SHIVAI from direct package commands (recommended)](#running-shivai-from-direct-package-commands-recommended)
+    - [Partial (re-)run of Shivai](#partial-re-run-of-shivai)
+        - [Running the preprocessing only](#running-the-preprocessing-only)
+        - [Re-running the post-processing](#re-running-the-post-processing)
+        - [Re-running the prediction and post-processing](#re-running-the-prediction-and-post-processing)
+        - [Running the post-processing on custom data](#running-the-post-processing-on-custom-data)
 - [Results](#results)
 - [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai)
 - [Additional info](#additional-info)
@@ -332,6 +337,94 @@ Using SLURM to parallelize the processes (use `--run_plugin SLURM` in the argume
     ```
 
     Here, the configuration file (`/myHome/myProject/myConfig.yml`) is absolutly necessary as it holds the path to the Apptainer image.
+
+### Partial (re-)run of Shivai
+
+The following options are useful when an earlier SHiVAi run completed only part of the workflow, or when you want to recompute a later stage with different parameters. `--preproc_only`, `--use_prev_preproc`, and `--postproc_only` are mutually exclusive.
+
+For the two reuse modes, `--prev_results` must point to the `results` directory from an earlier run, which contains `shiva_preproc`. A parent directory is also accepted when it contains that `results` directory. The subject IDs selected from `--in`, `--sub_list`, or `--sub_names` must all be available in the earlier preprocessing results. Reusing preprocessing is currently supported for NIfTI inputs only, not DICOM inputs.
+
+#### Running the preprocessing only
+
+Use `--preproc_only` to prepare images, brain masks or parcellations, and preprocessing QC without running the biomarker prediction or post-processing workflows. The preprocessed files are written under `results/shiva_preproc` and can later be supplied with `--prev_results`.
+
+The prediction choice still determines which acquisitions and preprocessing paths are required. A model configuration is also still required because SHiVAi validates the descriptors for the selected predictions.
+
+```bash
+shiva --in /myHome/myProject/MyDataset \
+    --out /myHome/myProject/shiva_preproc_run \
+    --input_type standard \
+    --prediction PVS2 WMH \
+    --brain_seg synthseg \
+    --config /myHome/myProject/myConfig.yml \
+    --preproc_only
+```
+
+#### Re-running the post-processing
+
+Use `--postproc_only` to recompute cluster labelling, region-wise metrics, summaries, and reports from the preprocessing and raw prediction maps of an earlier run. No preprocessing and no model inference are performed. This is appropriate after changing post-processing settings such as a biomarker threshold or minimum cluster size.
+
+The selected predictions must already be present in the earlier `results/segmentations` directory. For PVS2, the preserved PVS segmentation is reused. Keep the same prediction, brain-segmentation, acquisition-replacement, and subject-selection settings as the source run so SHiVAi can locate the expected files. The command still requires valid descriptors for the selected predictions; use the same configuration file as the original run. Write to a new output directory to keep the source results intact.
+
+```bash
+shiva --in /myHome/myProject/MyDataset \
+    --out /myHome/myProject/shiva_reprocessed \
+    --prediction PVS2 WMH \
+    --brain_seg synthseg \
+    --config /myHome/myProject/myConfig.yml \
+    --postproc_only \
+    --prev_results /myHome/myProject/shiva_previous_run/results
+```
+
+#### Re-running the prediction and post-processing
+
+Use `--use_prev_preproc` to skip preprocessing while running a new prediction and its post-processing. It reuses the earlier `results/shiva_preproc` files, then generates new segmentations, metrics, and reports. This is useful after changing a model, prediction threshold, batch size, or cluster-size setting.
+
+The input dataset is still required to select the subjects and to retrieve the native images needed by the workflow. The selected subjects must have matching preprocessing outputs in `--prev_results`; if any are missing, SHiVAi writes `missing_datasets.txt` in the new output directory and stops. Use the same preprocessing-related options as the source run, especially `--prediction`, `--brain_seg`, and any `--replace_*` options.
+
+```bash
+shiva --in /myHome/myProject/MyDataset \
+    --out /myHome/myProject/shiva_new_predictions \
+    --prediction PVS2 WMH \
+    --brain_seg synthseg \
+    --config /myHome/myProject/myConfig.yml \
+    --use_prev_preproc \
+    --prev_results /myHome/myProject/shiva_preproc_run/results
+```
+
+#### Running the post-processing on custom data
+
+Use the separate `shiva_postproc` command to compute SHiVAi-style cluster and region-wise statistics for a prediction mask produced outside SHiVAi. It corrects the affine headers, resamples the supplied segmentation to the prediction-mask space, labels clusters, and writes the labelled image, census, and metric CSV files under the chosen output directory. It does not run preprocessing, AI inference, or report generation.
+
+Organize one prediction and one brain mask or parcellation for each subject as follows; `.nii` and `.nii.gz` files are accepted and their filenames are otherwise unrestricted:
+
+```txt
+/myHome/myProject/custom_postproc_input
+├── sub-001
+│   ├── pred
+│   │   └── prediction_mask.nii.gz
+│   └── seg
+│       └── brain_segmentation.nii.gz
+└── sub-002
+    ├── pred
+    │   └── prediction_mask.nii.gz
+    └── seg
+        └── brain_segmentation.nii.gz
+```
+
+Set `--segtype` to `synthseg`, `freesurfer`, `brain_mask`, or `custom`. A custom parcellation requires `--custom_lut`; use `brain_mask` for a simple mask. The cluster-value threshold defaults to `0.5` and the minimum cluster size defaults to `1` voxel.
+
+```bash
+shiva_postproc --indir /myHome/myProject/custom_postproc_input \
+    --outdir /myHome/myProject/custom_postproc_results \
+    --segtype custom \
+    --custom_lut /myHome/myProject/custom_lut.tsv \
+    --pred WMH \
+    --cluster_val_thr 0.5 \
+    --cluster_size_thr 3
+```
+
+You can also check this command's help by callong `shiva_postproc --help`. 
 
 ## Results
 
