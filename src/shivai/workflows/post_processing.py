@@ -102,7 +102,6 @@ def genWorkflow(**kwargs) -> Workflow:
 
             if segtype in ['synthseg', 'freesurfer']:
                 prediction_metrics.inputs.brain_seg_type = segtype
-                container_runtime = kwargs.get('CONTAINER_RUNTIME')
                 if kwargs['CONTAINERIZE_NODES']:
                     seg_to_swi = Node(AntsApplyTransforms_Contained(), name="seg_to_swi")
                     bind_list = [
@@ -113,13 +112,21 @@ def genWorkflow(**kwargs) -> Workflow:
                         bind_list.append(
                             (preproc_dir, preproc_dir, 'ro')
                         )
-                    configure_container_node(seg_to_swi, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
+                    configure_container_node(seg_to_swi, kwargs.get('CONTAINER_RUNTIME'), kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
+                    maskNoCSF_to_swi = Node(AntsApplyTransforms_Contained(), name="maskNoCSF_to_swi")
+                    configure_container_node(maskNoCSF_to_swi, kwargs.get('CONTAINER_RUNTIME'), kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
                 else:
                     seg_to_swi = Node(ants.ApplyTransforms(), name="seg_to_swi")  # Register custom parc to swi space
+                    maskNoCSF_to_swi = Node(ants.ApplyTransforms(), name="maskNoCSF_to_swi") # Register brain mask without CSF to SWI space
                 seg_to_swi.inputs.float = True
                 seg_to_swi.inputs.interpolation = 'NearestNeighbor'
                 seg_to_swi.inputs.out_postfix = f'_{swi_acq}-space'
                 seg_to_swi.inputs.invert_transform_flags = [True]  # original transform is swi to t1
+
+                maskNoCSF_to_swi.inputs.float = True
+                maskNoCSF_to_swi.inputs.interpolation = 'NearestNeighbor'
+                maskNoCSF_to_swi.inputs.out_postfix = f'_{swi_acq}-space'
+                maskNoCSF_to_swi.inputs.invert_transform_flags = [True]  # original transform is swi to t1
 
                 custom_cmb_parc = Node(Brain_Seg_for_biomarker(), name='custom_cmb_parc')
                 custom_cmb_parc.inputs.custom_parc = 'mars'
@@ -127,15 +134,15 @@ def genWorkflow(**kwargs) -> Workflow:
 
                 workflow.connect(seg_to_swi, 'output_image', custom_cmb_parc, 'brain_seg')
                 # seg_to_swi also needs external connection for 'reference_image', 'transforms' and 'input_image'
+                # and maskNoCSF_to_swi.input_image (from custom_parc.brain_mask)
                 workflow.connect(custom_cmb_parc, 'brain_seg', prediction_metrics, 'brain_seg')
                 workflow.connect(custom_cmb_parc, 'region_dict', prediction_metrics, 'region_dict')
-                workflow.connect(custom_cmb_parc, 'brain_seg', cluster_labelling_cmb, 'brain_seg')
-
+                
+                workflow.connect(maskNoCSF_to_swi, 'output_image', cluster_labelling_cmb, 'brain_seg')
             elif segtype == 'custom' and kwargs['CUSTOM_LUT'] is not None:
                 prediction_metrics.inputs.brain_seg_type = segtype
                 prediction_metrics.inputs.region_dict = kwargs['CUSTOM_LUT']
 
-                container_runtime = kwargs.get('CONTAINER_RUNTIME')
                 if kwargs['CONTAINERIZE_NODES']:
                     seg_to_swi = Node(AntsApplyTransforms_Contained(), name="seg_to_swi")
                     bind_list = [
@@ -146,7 +153,7 @@ def genWorkflow(**kwargs) -> Workflow:
                         bind_list.append(
                             (preproc_dir, preproc_dir, 'ro')
                         )
-                    configure_container_node(seg_to_swi, container_runtime, kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
+                    configure_container_node(seg_to_swi, kwargs.get('CONTAINER_RUNTIME'), kwargs['CONTAINER_IMAGE'], bind_list, gpu=False)
                 else:
                     seg_to_swi = Node(ants.ApplyTransforms(), name="seg_to_swi")  # Register custom parc to swi space
                 seg_to_swi.inputs.float = True
@@ -191,7 +198,7 @@ def genWorkflow(**kwargs) -> Workflow:
                     custom_parc.inputs.custom_parc = lpred
                 else:
                     custom_parc.inputs.custom_parc = 'mars'
-                workflow.connect(custom_parc, 'brain_seg', cluster_labelling, 'brain_seg')
+                # workflow.connect(custom_parc, 'brain_mask', cluster_labelling, 'brain_seg') Done in _connect_postproc()
                 workflow.connect(custom_parc, 'brain_seg', prediction_metrics, 'brain_seg')
                 workflow.connect(custom_parc, 'region_dict', prediction_metrics, 'region_dict')
             elif segtype == 'custom':

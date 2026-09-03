@@ -89,11 +89,12 @@ def genWorkflow(**kwargs) -> Workflow:
         workflow.connect(seg_to_pred_resample, 'resampled_image', seg_cleaning, 'input_seg')
         workflow.connect(seg_cleaning, 'ouput_seg', shiva_parc, 'brain_seg')
         workflow.connect(shiva_parc, 'brain_parc', custom_parc, 'brain_seg')
-        workflow.connect(custom_parc, 'brain_seg', cluster_labelling, 'brain_seg')
+        workflow.connect(shiva_parc, 'brain_mask', cluster_labelling, 'brain_seg')
         workflow.connect(custom_parc, 'region_dict', prediction_metrics, 'region_dict')
         workflow.connect(custom_parc, 'brain_seg', prediction_metrics, 'brain_seg')
 
         workflow.connect(shiva_parc, 'brain_parc', sink_node, f'{lpred}_segmentation.@shiva_brain_seg')
+        workflow.connect(shiva_parc, 'brain_mask', sink_node, f'{lpred}_segmentation.@shiva_brain_maskNoCSF')
         workflow.connect(custom_parc, 'brain_seg', sink_node, f'{lpred}_segmentation.@custom_brain_seg')
         workflow.connect(custom_parc, 'region_dict_json', sink_node, f'{lpred}_segmentation.@region_dict_json')
     elif segtype == 'custom':

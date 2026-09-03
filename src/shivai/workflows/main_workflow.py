@@ -235,6 +235,11 @@ def _connect_postproc(main_wf, seg_getters, subject_iterator, wf_post, preproc_i
                 main_wf.connect(seg_getters[pred], 'segmentation', wf_post, 'seg_to_swi.reference_image')
                 seg_node, seg_field = preproc_images['brain_seg']
                 main_wf.connect(seg_node, seg_field, wf_post, 'seg_to_swi.input_image')
+                
+                mask_node, mask_field = preproc_images['brain_mask_noCSF']
+                main_wf.connect(swi2t1_node, swi2t1_field, wf_post, 'maskNoCSF_to_swi.transforms')
+                main_wf.connect(seg_getters[pred], 'segmentation', wf_post, 'maskNoCSF_to_swi.reference_image')
+                main_wf.connect(mask_node, mask_field, wf_post, 'maskNoCSF_to_swi.input_image')
             elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
                 swi2t1_node, swi2t1_field = preproc_images['swi-to-t1']
                 main_wf.connect(swi2t1_node, swi2t1_field, wf_post, 'seg_to_swi.transforms')
@@ -255,6 +260,8 @@ def _connect_postproc(main_wf, seg_getters, subject_iterator, wf_post, preproc_i
             if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
                 seg_node, seg_field = preproc_images['brain_seg']
                 main_wf.connect(seg_node, seg_field, wf_post, f'custom_{lpred}_parc.brain_seg')
+                mask_node, mask_field = preproc_images['brain_mask_noCSF']
+                main_wf.connect(mask_node, mask_field, wf_post, f'cluster_labelling_{lpred}.brain_seg')
             elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
                 mask_node, mask_field = preproc_images['brain_mask']
                 main_wf.connect(mask_node, mask_field, wf_post, f'cluster_labelling_{lpred}.brain_seg')
@@ -467,6 +474,7 @@ def generate_main_wf(**kwargs) -> Workflow:
         # Brain seg image (depends on BRAIN_SEG type)
         if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
             preproc_images['brain_seg'] = (wf_preproc, 'custom_parc.brain_parc')
+            preproc_images['brain_mask_noCSF'] = (wf_preproc, 'custom_parc.brain_mask')
         elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
             preproc_images['brain_seg'] = (wf_preproc, 'seg_to_crop.resampled_image')
 
@@ -543,6 +551,7 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(wf_preproc, 'seg_cleaning.sunk_islands', sink_node_subjects, 'shiva_preproc.synthseg.@removed')
         main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', sink_node_subjects, 'shiva_preproc.synthseg.@cropped')
         main_wf.connect(wf_preproc, 'custom_parc.brain_parc', sink_node_subjects, 'shiva_preproc.synthseg.@custom')
+        main_wf.connect(wf_preproc, 'custom_parc.brain_mask', sink_node_subjects, 'shiva_preproc.synthseg.@brain_mask_noCSF')
         if kwargs['PREP_SETTINGS']['input_type'] == 'swomed':
             main_wf.connect(wf_preproc, 'datagrabber.synthseg_vol', sink_node_subjects, 'shiva_preproc.synthseg.@vol')
             main_wf.connect(wf_preproc, 'datagrabber.synthseg_qc', sink_node_subjects, 'shiva_preproc.synthseg.@qc')
@@ -562,6 +571,7 @@ def generate_main_wf(**kwargs) -> Workflow:
         main_wf.connect(wf_preproc, 'seg_cleaning.sunk_islands', sink_node_subjects, 'shiva_preproc.freesurfer.@removed')
         main_wf.connect(wf_preproc, 'mask_to_crop.resampled_image', sink_node_subjects, 'shiva_preproc.freesurfer.@cropped')
         main_wf.connect(wf_preproc, 'custom_parc.brain_parc', sink_node_subjects, 'shiva_preproc.freesurfer.@custom')
+        main_wf.connect(wf_preproc, 'custom_parc.brain_mask', sink_node_subjects, 'shiva_preproc.freesurfer.@brain_mask_noCSF')
     elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
         main_wf.connect(wf_preproc, 'seg_to_crop.resampled_image', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@seg')
     main_wf.connect(wf_preproc, 'crop.bbox1_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@bb1')
@@ -655,6 +665,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
                    'swi_to_t1_transforms',
                    'brain_mask',
                    'brain_seg',
+                   'brain_mask_noCSF',
                    'swi-to-t1',  # for CMB when whith_t1 and brain parc
                    'brain_mask_swi',  # for CMB when whith_t1 without brain parc
                    'img1',
@@ -698,6 +709,13 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
     if 'synthseg' in kwargs['BRAIN_SEG']:
         field_template['brain_seg'] = 'synthseg/%s/derived_parc.nii.gz'
         template_args['brain_seg'] = [['subject_id']]
+        field_template['brain_mask_noCSF'] = 'synthseg/%s/brainmask_no_csf.nii.gz'
+        template_args['brain_mask_noCSF'] = [['subject_id']]
+    elif kwargs['BRAIN_SEG'] == 'fs_precomp':
+        field_template['brain_seg'] = 'shiva_preproc/freesurfer/%s/derived_parc.nii.gz'
+        template_args['brain_seg'] = [['subject_id']]
+        field_template['brain_mask_noCSF'] = 'shiva_preproc/freesurfer/%s/brainmask_no_csf.nii.gz'
+        template_args['brain_mask_noCSF'] = [['subject_id']]
     elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
         if with_t1:
             field_template['brain_seg'] = 't1_preproc/%s/custom_seg_cropped.nii.gz'
@@ -740,6 +758,8 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
     # Brain seg image
     if 'synthseg' in kwargs['BRAIN_SEG'] or (kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None):
         preproc_images['brain_seg'] = (preproc_grabber, 'brain_seg')
+        if 'synthseg' in kwargs['BRAIN_SEG']:
+            preproc_images['brain_mask_noCSF'] = (preproc_grabber, 'brain_mask_noCSF')
 
     # Build joiners, postproc, prediction, and connect everything
     joiners = _build_preproc_joiners(main_wf, subject_iterator, preproc_images, with_t1, with_flair, with_swi)
@@ -843,6 +863,7 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
                    'swi_intensity_normalized',
                    'brain_mask',
                    'brain_seg',
+                   'brain_mask_noCSF',
                    'swi-to-t1',
                    'flair-to-t1',
                    'brain_mask_swi',
@@ -875,6 +896,10 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
 
     if 'synthseg' in kwargs['BRAIN_SEG']:
         field_template['brain_seg'] = 'shiva_preproc/synthseg/%s/derived_parc.nii.gz'
+        field_template['brain_mask_noCSF'] = 'shiva_preproc/synthseg/%s/brainmask_no_csf.nii.gz'
+    elif kwargs['BRAIN_SEG'] == 'fs_precomp':
+        field_template['brain_seg'] = 'shiva_preproc/freesurfer/%s/derived_parc.nii.gz'
+        field_template['brain_mask_noCSF'] = 'shiva_preproc/freesurfer/%s/brainmask_no_csf.nii.gz'
     elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
         if with_t1:
             field_template['brain_seg'] = 'shiva_preproc/t1_preproc/%s/custom_seg_cropped.nii.gz'
@@ -946,6 +971,8 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
 
     if 'synthseg' in kwargs['BRAIN_SEG'] or (kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None):
         preproc_images['brain_seg'] = (prev_res_grabber, 'brain_seg')
+        if 'synthseg' in kwargs['BRAIN_SEG']:
+            preproc_images['brain_mask_noCSF'] = (prev_res_grabber, 'brain_mask_noCSF')
 
     # %% Postprocessing workflow and connections
     wf_post = genWorkflowPost(**kwargs)

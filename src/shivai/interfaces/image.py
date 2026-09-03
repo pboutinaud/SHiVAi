@@ -1097,8 +1097,8 @@ class Segmentation_Cleaner(BaseInterface):
         cleaned_vol, sunk_islands_vol = seg_cleaner(seg_vol,
                                                     self.inputs.max_island_size,
                                                     ignore_list)
-        if ignore_list is not None:
-            cleaned_vol[fisin(cleaned_vol, ignore_list)] = 0
+        # if ignore_list is not None:
+        #     cleaned_vol[fisin(cleaned_vol, ignore_list)] = 0
         cleaned_im = nib.Nifti1Image(cleaned_vol, affine=seg_im.affine)
         outname = 'cleaned_' + os.path.basename(self.inputs.input_seg)
         nib.save(cleaned_im, outname)
@@ -1368,12 +1368,10 @@ class Label_clusters_InputSpec(BaseInterfaceInputSpec):
                                 desc='Nifti file of the biomarker segmentation directly from the AI model',
                                 mandatory=True)
 
-    thr_cluster_val = traits.Float(exists=True,
-                                   desc='Value to threshold segmentation image',
+    thr_cluster_val = traits.Float(desc='Value to threshold segmentation image',
                                    mandatory=True)
 
-    thr_cluster_size = traits.Int(exists=True,
-                                  desc='Value to threshold segmentation image',
+    thr_cluster_size = traits.Int(desc='Value to threshold segmentation image',
                                   )
 
     brain_seg = traits.File(exists=True,
@@ -1735,7 +1733,8 @@ class Parc_from_Synthseg_InputSpec(BaseInterfaceInputSpec):
 class Parc_from_Synthseg_OutputSpec(TraitedSpec):
     brain_parc = traits.File(exists=True,
                              desc='Brain parcellation with lobar gm and wm, juxtacortical/deep/perivascular wm, and more')
-
+    brain_mask = traits.File(exists=True,
+                            desc='Brain mask without outer CSF (keeps ventricular CSF in the mask), used for cluster cleaning (FP)')
 
 class Parc_from_Synthseg(BaseInterface):
     '''
@@ -1749,12 +1748,18 @@ class Parc_from_Synthseg(BaseInterface):
         seg_vol = seg_im.get_fdata().astype(int)
         custom_parc = lobar_and_wm_segmentation(seg_vol)
         custom_parc_im = nib.Nifti1Image(custom_parc, seg_im.affine)
+        brainmask_no_csf = seg_vol.copy()
+        brainmask_no_csf[brainmask_no_csf == 24] = 0
+        brainmask_no_csf[brainmask_no_csf > 0] = 1
+        brainmask_no_csf_im = nib.Nifti1Image(brainmask_no_csf.astype(np.uint8), seg_im.affine)
+        nib.save(brainmask_no_csf_im, 'brainmask_no_csf.nii.gz')
         nib.save(custom_parc_im, 'derived_parc.nii.gz')
         return runtime
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs['brain_parc'] = op.abspath('derived_parc.nii.gz')
+        outputs['brain_mask'] = op.abspath('brainmask_no_csf.nii.gz')
         return outputs
 
 
