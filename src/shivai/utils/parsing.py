@@ -50,7 +50,8 @@ Usage examples:
                               "- 'WMH' for the segmentation of white matter hyperintensities (requires both T1 and FLAIR scans)\n"
                               "- 'CMB' for the segmentation of cerebral microbleeds (requires SWI scans)\n"
                               "- 'LAC' for the segmentation of cerebral lacunas (requires both T1 and FLAIR scans)\n"
-                              "- 'all' for doing 'PVS2', 'WMH', and 'CMB' segmentation (requires T1, FLAIR, and SWI scans)"),
+                              "- 'all' for doing 'PVS2', 'WMH', 'CMB' and 'LAC' segmentation (requires T1, FLAIR, and SWI scans). "
+                              "Using 'all PVS' replace the PVS2 prediction with the PVS prediction (it does not do both PVS2 + PVS prediction)."),
                         required=True)
 
     parser.add_argument('--input_type',

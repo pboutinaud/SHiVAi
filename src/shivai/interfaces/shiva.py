@@ -224,6 +224,9 @@ class Predict_Multi_OutputSpec(TraitedSpec):
     segmentations = traits.Dict(key_trait=traits.String,
                                 value_trait=traits.File,
                                 desc='The segmentation images')
+    prediction_foldwise = traits.Dict(key_trait=traits.String,
+                                     value_trait=traits.File,
+                                     desc='The raw fold-wise prediction images')
 
 
 class Predict_Multi(CommandLine):
@@ -246,7 +249,9 @@ class Predict_Multi(CommandLine):
         outputs = self.output_spec().get()
         sub_list = list(self.inputs.primary_image_file.keys())
         outnames = [self.inputs.foutname.format(sub=sub) for sub in sub_list]
+        outnames_foldwise = [self.inputs.foutname.format(sub=sub).replace('.nii.gz', '_by_fold.nii.gz') for sub in sub_list]
         outputs['segmentations'] = {sub: os.path.abspath(file) for sub, file in zip(sub_list, outnames)}
+        outputs['prediction_foldwise'] = {sub: os.path.abspath(file) for sub, file in zip(sub_list, outnames_foldwise)}
 
         return outputs
 
@@ -276,6 +281,8 @@ class Predict_Multi_Contained(ContainerCommandLine):
         sub_list = list(self.inputs.primary_image_file.keys())
         outnames = [self.inputs.foutname.format(sub=sub) for sub in sub_list]
         outputs['segmentations'] = {sub: os.path.abspath(file) for sub, file in zip(sub_list, outnames)}
+        outnames_foldwise = [self.inputs.foutname.format(sub=sub).replace('.nii.gz', '_by_fold.nii.gz') for sub in sub_list]
+        outputs['prediction_foldwise'] = {sub: os.path.abspath(file) for sub, file in zip(sub_list, outnames_foldwise)}
         return outputs
 
 
@@ -553,10 +560,12 @@ class Shivai_InputSpec(CommandLineInputSpec):
                              "all PVS",
                              "PVS WMH", "PVS CMB", "PVS LAC",
                              "PVS WMH CMB", "PVS WMH LAC",
+                             "PVS WMH CMB LAC",
                              "WMH CMB", "WMH LAC",
                              "CMB LAC",
                              "PVS2 WMH", "PVS2 CMB", "PVS2 LAC",
                              "PVS2 WMH CMB", "PVS2 WMH LAC",
+                             "PVS2 WMH CMB LAC",
                              argstr="--prediction %s",
                              desc='Prediction to run ("PVS", "PVS2", "WMH", "CMB", "LAC", "all")',
                              usedefault=True,
@@ -711,10 +720,10 @@ class Shivai(CommandLine):
             'wmh_labelled_map': f'segmentations/wmh_segmentation/{subject_id}/labelled_wmh.nii.gz',
             'cmb_labelled_map': f'segmentations/cmb_segmentation*/{subject_id}/labelled_cmb.nii.gz',
             'lac_labelled_map': f'segmentations/lac_segmentation/{subject_id}/labelled_lac.nii.gz',
-            'pvs_raw_map': f'segmentations/pvs_segmentation/{subject_id}/pvs_map.nii.gz',
-            'wmh_raw_map': f'segmentations/wmh_segmentation/{subject_id}/wmh_map.nii.gz',
-            'cmb_raw_map': f'segmentations/cmb_segmentation*/{subject_id}/cmb_map.nii.gz',
-            'lac_raw_map': f'segmentations/lac_segmentation/{subject_id}/lac_map.nii.gz',
+            'pvs_raw_map': f'segmentations/pvs_segmentation/{subject_id}/*pvs_map.nii.gz',
+            'wmh_raw_map': f'segmentations/wmh_segmentation/{subject_id}/*wmh_map.nii.gz',
+            'cmb_raw_map': f'segmentations/cmb_segmentation*/{subject_id}/*cmb_map.nii.gz',
+            'lac_raw_map': f'segmentations/lac_segmentation/{subject_id}/*lac_map.nii.gz',
             'summary_report': f'report/{subject_id}/Shiva_report.pdf',
             'converted_t1': f'shiva_preproc/t1_preproc/{subject_id}/converted_*.nii.gz',
             'converted_flair': f'shiva_preproc/flair_preproc/{subject_id}/converted_*.nii.gz',
