@@ -288,7 +288,7 @@ def main():
             pred_list = [tmp_files[f'{sub}_{fold}'] for fold in range(len(model_files))]
             mean_pred = np.mean(pred_list, axis=0)
             res_dict = {mod: float(mean_pred[j]) for j, mod in enumerate(modalities)}
-            with open(outname.replace('.nii.gz', '.json'), 'w') as f:
+            with open(str(outname).replace('.nii.gz', '.json'), 'w') as f:
                 json.dump(res_dict, f, indent=4)
         else:
             pred_list = [nib.load(tmp_files[f'{sub}_{fold}']).get_fdata(dtype='float32').squeeze() for fold in range(len(model_files))]
@@ -299,7 +299,7 @@ def main():
             mean_pred_im = nib.Nifti1Image(mean_pred.astype('float32'),  affine=affine_dict[sub])
             stacked_pred_im = nib.Nifti1Image(np.stack(pred_list, axis=-1).astype('float32'), affine=affine_dict[sub])
             nib.save(mean_pred_im, outname)
-            nib.save(stacked_pred_im, outname.replace('.nii.gz', '_by_fold.nii.gz'))
+            nib.save(stacked_pred_im, str(outname).replace('.nii.gz', '_by_fold.nii.gz'))
             for fold in range(len(model_files)):
                 tmp_files[f'{sub}_{fold}'].unlink()
 
