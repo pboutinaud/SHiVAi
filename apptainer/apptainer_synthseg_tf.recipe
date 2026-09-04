@@ -21,10 +21,12 @@ Stage: build
     export DEBIAN_FRONTEND=noninteractive
     # Remove stale NVIDIA apt sources, install system deps and Python
     rm -f /etc/apt/sources.list.d/cuda*.list /etc/apt/sources.list.d/nvidia-ml.list
-    apt-get update && apt-get -y install python3 python3-pip wget unzip
+    apt-get update && apt-get -y install python3 python3-pip python3-setuptools wget unzip
     ln -sf /usr/bin/python3 /usr/local/bin/python
     pip3 install --upgrade 'pip<22'
     # Install TF 2.4.0 and standalone keras 2.4.0 (SynthSeg uses 'import keras' directly)
+    # termcolor 1.1.0 is yanked on PyPI but required by TF 2.4.0; an exact pin permits it.
+    pip install termcolor==1.1.0
     pip install tensorflow==2.4.0 keras==2.4.0
     # TF 2.4.0 was compiled for CUDA 11.0 (libcusolver.so.10) but CUDA 11.2 ships
     # libcusolver.so.11; they are ABI-compatible, so a symlink fixes the lookup.

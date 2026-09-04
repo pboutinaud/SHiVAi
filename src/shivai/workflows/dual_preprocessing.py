@@ -32,15 +32,16 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
     datagrabber = workflow.get_node('datagrabber')
 
     # Correct affine if necessary
-    correct_flair = Node(CorrectAffine(),
-                         name='correct_flair')
-    correct_flair.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
+    correct_affine_flair = Node(CorrectAffine(),
+                                name='correct_affine_flair')
+    correct_affine_flair.inputs.reset_bad_affine = kwargs['PREP_SETTINGS']['affine_reset']
+    correct_affine_flair.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
     crop = workflow.get_node('crop')
     img1_norm = workflow.get_node('img1_final_intensity_normalization')
     mask_to_crop = workflow.get_node('mask_to_crop')
 
     workflow.connect(datagrabber, 'img2',
-                     correct_flair, 'img')
+                     correct_affine_flair, 'img')
 
     # # write mask to flair in conformed space  # TODO: add it back maybe
     # if kwargs['CONTAINERIZE_NODES']:
@@ -81,7 +82,7 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
         flair_to_t1cropped = Node(Resample_from_to(), name='flair_to_t1cropped')
         flair_to_t1cropped.inputs.spline_order = 0
         flair_to_t1cropped.inputs.out_suffix = '_cropped'
-        workflow.connect(correct_flair, 'corrected_img', flair_to_t1cropped, 'moving_image')
+        workflow.connect(correct_affine_flair, 'corrected_img', flair_to_t1cropped, 'moving_image')
         workflow.connect(crop, 'cropped', flair_to_t1cropped, 'fixed_image')
         workflow.connect(flair_to_t1cropped, 'resampled_image', defacing_flair, 'in_file')
     else:
@@ -118,7 +119,7 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
         flair_to_t1.inputs.initial_moving_transform_com = 1
         flair_to_t1.inputs.use_histogram_matching = False
 
-        workflow.connect(correct_flair, 'corrected_img',
+        workflow.connect(correct_affine_flair, 'corrected_img',
                          flair_to_t1, 'moving_image')
 
         workflow.connect(crop, 'cropped',

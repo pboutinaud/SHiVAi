@@ -97,7 +97,7 @@ def json_maker(target, modalities, root_dir: Path, model_files: List[Path], vers
 
 def main():
 
-    targets = ['PVS', 'WMH', 'CMB', 'LAC', 'brain_mask']
+    targets = ['PVS', 'WMH', 'CMB', 'LAC', 'brain_mask', 'MOD']
     modalities = ['t1', 'flair', 'swi', 't2', 't2s']
 
     parser = my_parser(targets, modalities)

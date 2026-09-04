@@ -1,6 +1,8 @@
 """Interfaces for SHIVA project deep learning segmentation and prediction tools."""
 import os
 import glob
+import shlex
+import json
 
 from shivai.utils.misc import md5
 
@@ -27,6 +29,11 @@ from nipype.interfaces.quickshear import (Quickshear,
 from nipype.interfaces.dcm2nii import (Dcm2niix,
                                        Dcm2niixInputSpec,
                                        Dcm2niixOutputSpec)
+
+
+def _shell_join(items):
+    """Join values as shell-safe tokens preserving whitespace inside values."""
+    return ' '.join(shlex.quote(str(item)) for item in items)
 
 
 class PredictInputSpec(BaseInterfaceInputSpec):
@@ -142,7 +149,8 @@ class Predict_Multi_InputSpec(BaseInterfaceInputSpec):
     """ Input parameter for the Predict_Multi interface """
     primary_image_file = traits.Dict(key_trait=traits.String,
                                      value_trait=traits.File,
-                                     argstr='--subjects %s --img1_files %s',
+                                    #  argstr='--subjects %s --img1_files %s',
+                                     argstr='--img1_files %s',
                                      desc=('Dict containing {sub_id: file_path} for all subjects, for the '
                                            'main aquisition image file.'),
                                      mandatory=True)
@@ -216,6 +224,9 @@ class Predict_Multi_OutputSpec(TraitedSpec):
     segmentations = traits.Dict(key_trait=traits.String,
                                 value_trait=traits.File,
                                 desc='The segmentation images')
+    prediction_foldwise = traits.Dict(key_trait=traits.String,
+                                     value_trait=traits.File,
+                                     desc='The raw fold-wise prediction images')
 
 
 class Predict_Multi(CommandLine):
@@ -225,20 +236,22 @@ class Predict_Multi(CommandLine):
 
     def _format_arg(self, name, spec, value):
         if spec.is_trait_type(traits.Dict):
-            argstr = spec.argstr
-            sub_list = list(self.inputs.primary_image_file.keys())
-            file_list = [value[sub] for sub in sub_list]  # Making sure all file lists have the same order
-            if argstr.count('%s') == 2:
-                return spec.argstr % (' '.join(sub_list), ' '.join(file_list))
-            else:
-                return spec.argstr % (' '.join(file_list))
+            # Export the dict as a JSON file to be read by the shiva_predict_multi script
+            # Useful when the dict content is too long to be passed as a command line argument
+            wdir = os.getcwd()
+            fname = os.path.join(wdir, f'{name}.json')
+            with open(fname, 'w') as f:
+                json.dump(value, f)
+            return spec.argstr % fname
         return super(Predict_Multi, self)._format_arg(name, spec, value)
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
         sub_list = list(self.inputs.primary_image_file.keys())
         outnames = [self.inputs.foutname.format(sub=sub) for sub in sub_list]
+        outnames_foldwise = [self.inputs.foutname.format(sub=sub).replace('.nii.gz', '_by_fold.nii.gz') for sub in sub_list]
         outputs['segmentations'] = {sub: os.path.abspath(file) for sub, file in zip(sub_list, outnames)}
+        outputs['prediction_foldwise'] = {sub: os.path.abspath(file) for sub, file in zip(sub_list, outnames_foldwise)}
 
         return outputs
 
@@ -254,13 +267,13 @@ class Predict_Multi_Contained(ContainerCommandLine):
 
     def _format_arg(self, name, spec, value):
         if spec.is_trait_type(traits.Dict):
-            argstr = spec.argstr
-            sub_list = list(self.inputs.primary_image_file.keys())
-            file_list = [value[sub] for sub in sub_list]  # Making sure all file lists have the same order
-            if argstr.count('%s') == 2:
-                return spec.argstr % (' '.join(sub_list), ' '.join(file_list))
-            else:
-                return spec.argstr % (' '.join(file_list))
+            # Export the dict as a JSON file to be read by the shiva_predict_multi script
+            # Useful when the dict content is too long to be passed as a command line argument
+            wdir = os.getcwd()
+            fname = os.path.join(wdir, f'{name}.json')
+            with open(fname, 'w') as f:
+                json.dump(value, f)
+            return spec.argstr % fname
         return super(Predict_Multi_Contained, self)._container_format_arg(name, spec, value)
 
     def _list_outputs(self):
@@ -268,6 +281,8 @@ class Predict_Multi_Contained(ContainerCommandLine):
         sub_list = list(self.inputs.primary_image_file.keys())
         outnames = [self.inputs.foutname.format(sub=sub) for sub in sub_list]
         outputs['segmentations'] = {sub: os.path.abspath(file) for sub, file in zip(sub_list, outnames)}
+        outnames_foldwise = [self.inputs.foutname.format(sub=sub).replace('.nii.gz', '_by_fold.nii.gz') for sub in sub_list]
+        outputs['prediction_foldwise'] = {sub: os.path.abspath(file) for sub, file in zip(sub_list, outnames_foldwise)}
         return outputs
 
 
@@ -545,10 +560,12 @@ class Shivai_InputSpec(CommandLineInputSpec):
                              "all PVS",
                              "PVS WMH", "PVS CMB", "PVS LAC",
                              "PVS WMH CMB", "PVS WMH LAC",
+                             "PVS WMH CMB LAC",
                              "WMH CMB", "WMH LAC",
                              "CMB LAC",
                              "PVS2 WMH", "PVS2 CMB", "PVS2 LAC",
                              "PVS2 WMH CMB", "PVS2 WMH LAC",
+                             "PVS2 WMH CMB LAC",
                              argstr="--prediction %s",
                              desc='Prediction to run ("PVS", "PVS2", "WMH", "CMB", "LAC", "all")',
                              usedefault=True,
@@ -703,10 +720,10 @@ class Shivai(CommandLine):
             'wmh_labelled_map': f'segmentations/wmh_segmentation/{subject_id}/labelled_wmh.nii.gz',
             'cmb_labelled_map': f'segmentations/cmb_segmentation*/{subject_id}/labelled_cmb.nii.gz',
             'lac_labelled_map': f'segmentations/lac_segmentation/{subject_id}/labelled_lac.nii.gz',
-            'pvs_raw_map': f'segmentations/pvs_segmentation/{subject_id}/pvs_map.nii.gz',
-            'wmh_raw_map': f'segmentations/wmh_segmentation/{subject_id}/wmh_map.nii.gz',
-            'cmb_raw_map': f'segmentations/cmb_segmentation*/{subject_id}/cmb_map.nii.gz',
-            'lac_raw_map': f'segmentations/lac_segmentation/{subject_id}/lac_map.nii.gz',
+            'pvs_raw_map': f'segmentations/pvs_segmentation/{subject_id}/*pvs_map.nii.gz',
+            'wmh_raw_map': f'segmentations/wmh_segmentation/{subject_id}/*wmh_map.nii.gz',
+            'cmb_raw_map': f'segmentations/cmb_segmentation*/{subject_id}/*cmb_map.nii.gz',
+            'lac_raw_map': f'segmentations/lac_segmentation/{subject_id}/*lac_map.nii.gz',
             'summary_report': f'report/{subject_id}/Shiva_report.pdf',
             'converted_t1': f'shiva_preproc/t1_preproc/{subject_id}/converted_*.nii.gz',
             'converted_flair': f'shiva_preproc/flair_preproc/{subject_id}/converted_*.nii.gz',

@@ -627,7 +627,8 @@ class Join_Prediction_metrics(BaseInterface):
         metrics_col.remove('Region')
         all_sub_metrics_wide = all_sub_metrics.pivot_table(index=['sub_id'],
                                                            columns=['Region'],
-                                                           values=metrics_col,)
+                                                           values=metrics_col,
+                                                           dropna=False)
         all_sub_metrics_wide.columns = [f'{s2} - {s1}' for (s1, s2) in all_sub_metrics_wide.columns.tolist()]
         all_sub_metrics_wide.reset_index(inplace=True)
         all_sub_metrics_wide.set_index('sub_id', inplace=True)
@@ -761,7 +762,7 @@ class Join_QC_metrics_OutputSpec(TraitedSpec):
                               desc='json file containing the subjects with bad qc and their bad metrics')
 
     qc_plot_png = traits.File(exists=True,
-                              desc='svg file displaying the qc values for each metric and each subject')
+                              desc='png file displaying the qc values for each metric and each subject')
 
     csv_pop_file = traits.File(exists=False,
                                desc='optional csv file with the new metrics concatenated to the population metrics')
@@ -814,7 +815,7 @@ class Join_QC_metrics(BaseInterface):
 
         bad_subjects = {}  # Will contain the subjects with outlier qc metrics
         pop_bad_subjects = {}  # Will contain the subjects with outlier qc metrics from the population csv
-        qc_plot_png = 'qc_metrics_plot.svg'
+        qc_plot_png = 'qc_metrics_plot.png'
         plot_per_row = 4
         n_rows = 1 + (len(all_sub_metrics.columns) - 1)//plot_per_row
         n_cols = min(len(all_sub_metrics.columns), plot_per_row)

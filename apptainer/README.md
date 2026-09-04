@@ -35,6 +35,12 @@ There are also similar options for **Mac** users (check the dedicated section fr
 
 4. Run the command line as [described in the main readme](../README.md/#running-shivai-from-a-container)
 
+## Docker image
+
+Docker images can now be pulled from Docker Hub. Visit [https://hub.docker.com/u/vnozais](https://hub.docker.com/u/vnozais) to see them.
+
+To install them locally, you can simply do a `docker pull vnozais/shivai` (or with a tag to the available version you are intersted in).
+
 ## Synthseg Apptainer image
 
 To create the Synthseg container, you first need to download the Synthseg models from the [MIT using this link](https://mitprod-my.sharepoint.com/:u:/g/personal/bbillot_mit_edu/Ebqxo6YgUmBJkOML0m8NSXgBrhaHG7iqClFXRXPinS6FGw?e=DzKf1p). If the link doesn't work, refer to the one given directly on the [Synthseg repository here](https://github.com/BBillot/SynthSeg/tree/master?tab=readme-ov-file#installation), and check the [issues page](https://github.com/BBillot/SynthSeg/issues) where other people may have faced the same problem.
@@ -50,6 +56,14 @@ Then follow the same procedure as for the Shivai pipeline explained above, with:
 Then add the path to the `synthseg.sif` image to the yaml config file in the dedicated place.
 
 ## Synthseg Docker image
+
+### Pulling the image from Docker Hub
+
+```bash
+docker pull vnozais/synthseg_shivai
+```
+
+### Building the image yourself
 
 First navigate to the the [apptainer](.) folder of the project (containing the [Sythseg dockerfile](./synthseg.Dockerfile)) and follow the same directions from the [Synthseg Apptainer image](#synthseg-apptainer-image) section regarding the `synthseg_models.zip` file needed before building the image.
 

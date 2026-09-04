@@ -39,6 +39,7 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
 
     # CorrectAffine must be connected to the datagrabber from the other workflow
     correct_affine_swi = Node(CorrectAffine(), name="correct_affine_swi")
+    correct_affine_swi.inputs.reset_bad_affine = kwargs['PREP_SETTINGS']['affine_reset']
     correct_affine_swi.inputs.correction_threshold = kwargs['AFFINE_CORREC_THRESHOLD']
 
     conform_swi = Node(Conform(),

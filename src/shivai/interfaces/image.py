@@ -8,6 +8,7 @@ from shivai.postprocessing.basalganglia import create_basalganglia_slice_mask
 from shivai.postprocessing.wmh import metrics_clusters_latventricles
 from shivai.postprocessing.clusters import label_clusters, resample_cluster_img
 from shivai.utils.stats import prediction_metrics, get_mask_regions
+from shivai.utils.misc import fisin
 from shivai.utils.preprocessing import normalization, crop, threshold, reverse_crop, make_offset, apply_mask, seg_cleaner, affine_check
 from shivai.utils.quality_control import create_edges, save_histogram, bounding_crop, overlay_brainmask
 from shivai.interfaces.container import ContainerCommandLine, ContainerInputSpec
@@ -292,7 +293,11 @@ class CorrectAffine(BaseInterface):
 
         affine_bad, img = affine_check(img, ori_vox_size, self.inputs.correction_threshold)
         if affine_bad:
-            simplified_affine_centered = img.affine.copy()
+            if self.inputs.reset_bad_affine:
+                simplified_affine_centered = img.affine.copy()
+            else:
+                raise RuntimeError(f'The affine of the image {fname} is corrupted and cannot be corrected. '
+                                   f'Please check the image or use the --reset_bad_affine option to correct it automatically.')
         setattr(self, 'corrected_affine', simplified_affine_centered)
         setattr(self, 'original_affine', original_affine if simplified_affine_centered is not None else None)
         _, base, _ = split_filename(fname)
@@ -412,7 +417,7 @@ class Resample_from_to(BaseInterface):
         resampled = nip.resample_from_to(in_img,
                                          ref_img,
                                          self.inputs.spline_order)
-
+        resampled.set_data_dtype(in_img.get_data_dtype())
         nib.save(resampled, self.outname)
         return runtime
 
@@ -507,6 +512,14 @@ class Normalization(BaseInterface):
             self.outname = base + '_img_normalized_inv.nii.gz'
         else:
             self.outname = base + '_img_normalized.nii.gz'
+
+        # Optimizing file size by saving as int16 with a scale factor
+        scale = 1.0 / 32767.0  # scale 0-1 floats into 0-32767 integer range
+        data_int16 = np.round(img_normalized.get_fdata() / scale).astype(np.int16)
+
+        img_normalized = nib.Nifti1Image(data_int16, img.affine)
+        img_normalized.header.set_slope_inter(scale, 0)
+
         nib.save(img_normalized, self.outname)
 
         return runtime
@@ -1075,14 +1088,17 @@ class Segmentation_Cleaner(BaseInterface):
     output_spec = Segmentation_Cleaner_OutputSpec
 
     def _run_interface(self, runtime):
-        if self.inputs.seg_type == 'synthseg':
+        if self.inputs.seg_type in ['synthseg', 'freesurfer']:
             ignore_list = [24]  # CSF
+        else:
+            ignore_list = None
         seg_im = nib.load(self.inputs.input_seg)
         seg_vol = seg_im.get_fdata().astype('int16')
         cleaned_vol, sunk_islands_vol = seg_cleaner(seg_vol,
                                                     self.inputs.max_island_size,
                                                     ignore_list)
-
+        # if ignore_list is not None:
+        #     cleaned_vol[fisin(cleaned_vol, ignore_list)] = 0
         cleaned_im = nib.Nifti1Image(cleaned_vol, affine=seg_im.affine)
         outname = 'cleaned_' + os.path.basename(self.inputs.input_seg)
         nib.save(cleaned_im, outname)
@@ -1352,12 +1368,10 @@ class Label_clusters_InputSpec(BaseInterfaceInputSpec):
                                 desc='Nifti file of the biomarker segmentation directly from the AI model',
                                 mandatory=True)
 
-    thr_cluster_val = traits.Float(exists=True,
-                                   desc='Value to threshold segmentation image',
+    thr_cluster_val = traits.Float(desc='Value to threshold segmentation image',
                                    mandatory=True)
 
-    thr_cluster_size = traits.Int(exists=True,
-                                  desc='Value to threshold segmentation image',
+    thr_cluster_size = traits.Int(desc='Value to threshold segmentation image',
                                   )
 
     brain_seg = traits.File(exists=True,
@@ -1366,7 +1380,7 @@ class Label_clusters_InputSpec(BaseInterfaceInputSpec):
                             mandatory=False)
 
     binerize = traits.Bool(False,
-                           desc='Whether to binarize the biomarker segmentation before clustering. If False, will use the raw values to threshold the clusters (i.e. keeping only clusters with a mean value above "thr_cluster_val"). If True, will first binarize the biomarker segmentation with "thr_cluster_val" as threshold, and then keep only clusters with a size above "thr_cluster_size".',
+                           desc='If True, will binarize the biomarker cluster after labelling, filtering and thresholding.',
                            mandatory=False,
                            usedefault=True)
 
@@ -1719,7 +1733,8 @@ class Parc_from_Synthseg_InputSpec(BaseInterfaceInputSpec):
 class Parc_from_Synthseg_OutputSpec(TraitedSpec):
     brain_parc = traits.File(exists=True,
                              desc='Brain parcellation with lobar gm and wm, juxtacortical/deep/perivascular wm, and more')
-
+    brain_mask = traits.File(exists=True,
+                            desc='Brain mask without outer CSF (keeps ventricular CSF in the mask), used for cluster cleaning (FP)')
 
 class Parc_from_Synthseg(BaseInterface):
     '''
@@ -1733,12 +1748,18 @@ class Parc_from_Synthseg(BaseInterface):
         seg_vol = seg_im.get_fdata().astype(int)
         custom_parc = lobar_and_wm_segmentation(seg_vol)
         custom_parc_im = nib.Nifti1Image(custom_parc, seg_im.affine)
+        brainmask_no_csf = seg_vol.copy()
+        brainmask_no_csf[brainmask_no_csf == 24] = 0
+        brainmask_no_csf[brainmask_no_csf > 0] = 1
+        brainmask_no_csf_im = nib.Nifti1Image(brainmask_no_csf.astype(np.uint8), seg_im.affine)
+        nib.save(brainmask_no_csf_im, 'brainmask_no_csf.nii.gz')
         nib.save(custom_parc_im, 'derived_parc.nii.gz')
         return runtime
 
     def _list_outputs(self):
         outputs = self.output_spec().get()
         outputs['brain_parc'] = op.abspath('derived_parc.nii.gz')
+        outputs['brain_mask'] = op.abspath('brainmask_no_csf.nii.gz')
         return outputs
 
 

@@ -27,7 +27,7 @@ For reproducible statistic analysis, we also require a brain parcellation.
 
 **Here we need to make a distinction between two cases:**
 
-- If you have access to a Freesurfer-type parcellation of the brain (from the Freesurfer pipeline or Synthseg) for your dataset, or not. We will assume here that you have one and that it already is in the same space as the T1w image (or SWI image if you are running CMB segmentation alone). The parcellation **must** have a name of the form `*aparc+aseg.[nii | nii.gz | mgz]` to be properly recognized (e.g. aparc+aseg.mgz or sub-01_aparc+aseg.nii.gz would work).
+- If you have access to a Freesurfer-type parcellation of the brain (from the Freesurfer pipeline or Synthseg) for your dataset, or not. We will assume here that you have one and that it already is in the same space as the T1w image (or SWI image if you are running CMB segmentation alone). The parcellation **must** have a name of the form `*aparc+aseg.[nii | nii.gz | mgz]` to be properly recognized (e.g. aparc+aseg.mgz or sub-01_aparc+aseg.nii.gz would work). To use this parcellation, you will need to use the `--brain_seg fs_precomp` argument in the `shiva` command line ([see examples below](#Example-command)).
 
 - If you don't have such parcellation on hand, you can:
   - Download, install, and run Freesurfer on your dataset (see the [Freesurfer website](https://surfer.nmr.mgh.harvard.edu/) for more info).
@@ -279,7 +279,7 @@ As explained in the [Requirements - Data section](#data), if you are providing a
 > Notes:\
 > To run Shivai using a scheduler to optimise parallelization and ressources usage, you will need manually split your dataset and feed it to the scheduler with independant calls to `run_shiva.py` with your dataset batches / unitary dataset. Check the `--sub_names` and `--sub_list` arguments (using `python run_shiva.py --help`) to send specific datasets from your input folder to Shivai.
 
-**Example command:**
+### Example command:
 
 1. With available parcellation
 
@@ -293,7 +293,7 @@ python run_shiva.py \
   --config ~/myShivaiProject/config.yml
 ```
 
-1. Using our Synthseg integration
+2. Using our Synthseg integration
 
 ```bash
 python run_shiva.py \

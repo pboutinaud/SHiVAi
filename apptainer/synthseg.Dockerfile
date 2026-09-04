@@ -17,13 +17,15 @@ deb http://snapshot.ubuntu.com/ubuntu/20230401T000000Z bionic-updates main restr
 deb http://snapshot.ubuntu.com/ubuntu/20230401T000000Z bionic-security main restricted universe multiverse\n' \
         > /etc/apt/sources.list && \
     apt-get -o Acquire::Check-Valid-Until=false update && \
-    apt-get -y --no-install-recommends install python3 python3-pip wget unzip && \
+    apt-get -y --no-install-recommends install python3 python3-pip python3-setuptools wget unzip && \
     rm -rf /var/lib/apt/lists/* && \
     ln -sf /usr/bin/python3 /usr/local/bin/python
 
 RUN pip3 install --no-cache-dir --upgrade 'pip<22'
 # Install TF 2.4.0 and standalone keras 2.4.0 (SynthSeg uses 'import keras' directly)
-RUN pip install --no-cache-dir tensorflow==2.4.0 keras==2.4.0
+# termcolor 1.1.0 is yanked on PyPI but required by TF 2.4.0; an exact pin permits it.
+RUN pip install --no-cache-dir termcolor==1.1.0 && \
+    pip install --no-cache-dir tensorflow==2.4.0 keras==2.4.0
 # TF 2.4.0 was compiled for CUDA 11.0 (libcusolver.so.10) but CUDA 11.2 ships
 # libcusolver.so.11; they are ABI-compatible, so a symlink fixes the lookup.
 RUN ln -s /usr/local/cuda/lib64/libcusolver.so.11 /usr/local/cuda/lib64/libcusolver.so.10
