@@ -126,12 +126,16 @@ Shivai was mostly developped to run with Apptainer, but we also provide Dockerfi
 
 1. Install Docker and be sure to have root access (needed to build and run the images)
 
-2. After cloning or downloading the Shivai project, navigate to the Shivai repository (where you are reading this), i.e. the folder containing the [Dockerfile](./Dockerfile), and run:
+2. Get the Docker image
 
-```bash
-docker build --rm -t myId/shivai:latest -t myId/shivai:x.x.x .
-```
-> Replace `myId` by your username or something equivalent, and `x.x.x` by the actual version of Shivai.
+    a. `docker pull vnozais/shivai`
+
+    b. Or, manually: after cloning or downloading the Shivai project, navigate to the Shivai repository (where you are reading this), i.e. the folder containing the [Dockerfile](./Dockerfile), and run:
+
+    ```bash
+    docker build --rm -t myId/shivai:latest -t myId/shivai:x.x.x .
+    ```
+    > Replace `myId` by your username or something equivalent, and `x.x.x` by the actual version of Shivai.
 
 1. If you want to use the Synthseg parcelation system, you will also need a separate Docker image for Synthseg. To build it, follow the [related section](./apptainer/README.md#synthseg-docker-image) in the container-related readme.
 

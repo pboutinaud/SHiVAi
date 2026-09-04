@@ -2,6 +2,44 @@
 
 All notable changes to the SHiVAi project will be documented in this file.
 
+## [v0.6.0] - 2026-09-03
+
+### Added
+
+- Post-processing rerun pipeline: ability to re-run post-processing based on previous run results
+- Session/visit management support in input parsing
+- Cluster resampling back to native space/resolution with volume preservation
+- `shivai` command alias for `shiva`
+- `shiva_resample` command for manual cluster resampling
+- `shiva_postproc` command for running the Shivai post-processing logic on arbitrary data
+- Stacked per-fold prediction maps saved alongside mean predictions in NIfTI format (only in intermediate results for now)
+- Nightly and manually triggered Docker image CI workflows
+
+### Fixed
+
+- Percentile calculation in normalization function to ensure valid range
+- Output processing in prediction functions for modality classification
+- Image loading and error handling in prediction functions
+- Argument formatting in Predict_Multi functions for shell-safe token joining
+- Retention of empty metric groups when generating wide prediction metrics
+- Affine selection in affine checks by prioritizing qform metadata
+
+### Changed
+
+- Refactored workflow management for better control of the connections of the modular options
+- Better workflow reuse patterns in `generate_main_wf_grab_preproc`
+- Improved error handling and output processing in prediction workflow
+- Argument parsing for `--preproc_results`, now use `--prev_results`, in addition to `--use_prev_preproc` or `--postproc_only`
+- Main brain mask now retains CSF, while a separate no-CSF mask is used to remove false-positive clusters
+- Normalized images are stored as scaled int16 data to reduce file size
+- Stacked prediction filenames use the `_by_fold` suffix for clarity
+- Prediction-script arguments are passed through JSON to avoid command-line length limits
+- Prediction runs no longer apply masking before post-processing
+- Threshold output dtype now follows the `binarize` setting
+- Docker images and recipes updated for PDF reporting, TensorFlow compatibility, and ANTs command validation
+- Docker image tagging and registry publishing are configured through the Docker CI workflow
+- README documentation for partial and rerun pipeline options
+
 ## [v0.5.9] - 2026-06-09
 
 ### Added

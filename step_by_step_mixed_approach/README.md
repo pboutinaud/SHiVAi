@@ -76,6 +76,13 @@ Let's assume you saved it as `~/myShivaiProject/shivai.sif`.
 
 #### Docker image
 
+You can now simply pull it from Docker Hub:
+
+```bash
+docker pull vnozais/shivai
+```
+(or with a tag to the available version you are intersted in).
+
 1. Download the whole [SHiVAi source code, including the Dockerfile file](..). Let's assume it is saved in `~/myShivaiProject/Shivai_source/`.
 2. Open a terminal, navigate to `~/myShivaiProject/Shivai_source/` and run:
   ```bash
