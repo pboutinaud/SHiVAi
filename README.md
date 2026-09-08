@@ -14,8 +14,7 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 ![Gif Image](https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/Images/SHIVA_BrainTools_small2.gif)
 
-
-## Important recent changes: 
+## Important recent changes
 
 ### What's New in v0.5.9 (2026-06-11)
 
@@ -51,6 +50,7 @@ The Shivai pipeline and all the repository content is provided under the GNU Aff
   - [Running SHiVAi from an Apptainer container](#running-shivai-from-an-apptainer-container)
   - [Running SHiVAi from a Docker container](#running-shivai-from-a-docker-container)
   - [Running SHIVAI from direct package commands (recommended)](#running-shivai-from-direct-package-commands-recommended)
+    - [Full SHiVAi process](#full-shivai-process)
     - [Partial (re-)run of Shivai](#partial-re-run-of-shivai)
         - [Running the preprocessing only](#running-the-preprocessing-only)
         - [Re-running the post-processing](#re-running-the-post-processing)
@@ -177,7 +177,7 @@ Next, see [Running SHiVAi from direct package commands (recommended)](#running-s
 
 ### Mixed approach (recommended)
 
-For this approach, you will need to both install the shivai package and download the Apptainer image. First, like in [Traditional python install](#traditional-python-install), create a dedicated Python 3.11 environment, clone or download shivai, and, from the project's directory (and within the new virtual environment), run:
+For this approach, you will need to both install the shivai package and download the Apptainer image. First, like in [Traditional python install](#traditional-python-install), create a dedicated Python 3.11 environment, clone or download shivai in a new directory called 'shivai' (necessary when building an apptainer image), and, from the project's directory (and within the new virtual environment), run:
 
 ```bash
 python -m pip install .
@@ -318,6 +318,8 @@ To see the detailed help for this command, you can call:
 shiva -h
 ```
 
+#### Full SHiVAi process
+
 Here is an example of a shiva call, using a config .yml file, processing linearly on available GPUs:
 
 ```bash
@@ -342,13 +344,13 @@ Using SLURM to parallelize the processes (use `--run_plugin SLURM` in the argume
 
     Here, the configuration file (`/myHome/myProject/myConfig.yml`) is absolutly necessary as it holds the path to the Apptainer image.
 
-### Partial (re-)run of Shivai
+#### Partial (re-)run of Shivai
 
 The following options are useful when an earlier SHiVAi run completed only part of the workflow, or when you want to recompute a later stage with different parameters. `--preproc_only`, `--use_prev_preproc`, and `--postproc_only` are mutually exclusive.
 
 For the two reuse modes, `--prev_results` must point to the `results` directory from an earlier run, which contains `shiva_preproc`. A parent directory is also accepted when it contains that `results` directory. The subject IDs selected from `--in`, `--sub_list`, or `--sub_names` must all be available in the earlier preprocessing results. Reusing preprocessing is currently supported for NIfTI inputs only, not DICOM inputs.
 
-#### Running the preprocessing only
+##### Running the preprocessing only
 
 Use `--preproc_only` to prepare images, brain masks or parcellations, and preprocessing QC without running the biomarker prediction or post-processing workflows. The preprocessed files are written under `results/shiva_preproc` and can later be supplied with `--prev_results`.
 
@@ -364,7 +366,7 @@ shiva --in /myHome/myProject/MyDataset \
     --preproc_only
 ```
 
-#### Re-running the post-processing
+##### Re-running the post-processing
 
 Use `--postproc_only` to recompute cluster labelling, region-wise metrics, summaries, and reports from the preprocessing and raw prediction maps of an earlier run. No preprocessing and no model inference are performed. This is appropriate after changing post-processing settings such as a biomarker threshold or minimum cluster size.
 
@@ -380,7 +382,7 @@ shiva --in /myHome/myProject/MyDataset \
     --prev_results /myHome/myProject/shiva_previous_run/results
 ```
 
-#### Re-running the prediction and post-processing
+##### Re-running the prediction and post-processing
 
 Use `--use_prev_preproc` to skip preprocessing while running a new prediction and its post-processing. It reuses the earlier `results/shiva_preproc` files, then generates new segmentations, metrics, and reports. This is useful after changing a model, prediction threshold, batch size, or cluster-size setting.
 
@@ -396,7 +398,7 @@ shiva --in /myHome/myProject/MyDataset \
     --prev_results /myHome/myProject/shiva_preproc_run/results
 ```
 
-#### Running the post-processing on custom data
+##### Running the post-processing on custom data
 
 Use the separate `shiva_postproc` command to compute SHiVAi-style cluster and region-wise statistics for a prediction mask produced outside SHiVAi. It corrects the affine headers, resamples the supplied segmentation to the prediction-mask space, labels clusters, and writes the labelled image, census, and metric CSV files under the chosen output directory. It does not run preprocessing, AI inference, or report generation.
 
@@ -428,7 +430,7 @@ shiva_postproc --indir /myHome/myProject/custom_postproc_input \
     --cluster_size_thr 3
 ```
 
-You can also check this command's help by callong `shiva_postproc --help`. 
+You can also check this command's help by calling `shiva_postproc --help`.
 
 ## Results
 
