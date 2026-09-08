@@ -276,14 +276,16 @@ def main():
                 else:
                     subpred_im = nib.Nifti1Image(sub_pred.astype('float32'), affine=affine_dict[sub])
                     tmp_file = Path(f'tmp_{sub}_fold{fold}.nii.gz')
+                    tmp_file.parent.mkdir(parents=True, exist_ok=True)  
                     nib.save(subpred_im, tmp_file)
                     tmp_files[f'{sub}_{fold}'] = tmp_file
     # Taking each fold's results and averaging them
     print('Averaging the results of each model (done for each subject)...')
     for i, sub in enumerate(sub_list):
-        outname = args.foutname.format(sub=sub)
+        outname = Path(args.foutname.format(sub=sub))
         if args.out_dir:
             outname = args.out_dir / outname
+        outname.parent.mkdir(parents=True, exist_ok=True)  
         if target == "MOD":
             pred_list = [tmp_files[f'{sub}_{fold}'] for fold in range(len(model_files))]
             mean_pred = np.mean(pred_list, axis=0)

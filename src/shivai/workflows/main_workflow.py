@@ -189,8 +189,14 @@ def _connect_prediction(main_wf, subject_iterator, joiners, segmentation_wf, **k
                                           output_names=['segmentation'],
                                           function=dict_to_res),
                                  name=f'seg_getter_{lpred}')
+        seg_getters[pred + '_foldwise'] = Node(Function(input_names=['sub_id', 'files_dict'],
+                                                        output_names=['prediction_foldwise'],
+                                                        function=dict_to_res),
+                                               name=f'seg_getter_{lpred}_foldwise')
         main_wf.connect(segmentation_wf, f'predict_{lpred}.segmentations', seg_getters[pred], 'files_dict')
+        main_wf.connect(segmentation_wf, f'predict_{lpred}.prediction_foldwise', seg_getters[pred + '_foldwise'], 'files_dict')
         main_wf.connect(subject_iterator, 'subject_id', seg_getters[pred], 'sub_id')
+        main_wf.connect(subject_iterator, 'subject_id', seg_getters[pred + '_foldwise'], 'sub_id')
     return seg_getters
 
 
@@ -235,7 +241,7 @@ def _connect_postproc(main_wf, seg_getters, subject_iterator, wf_post, preproc_i
                 main_wf.connect(seg_getters[pred], 'segmentation', wf_post, 'seg_to_swi.reference_image')
                 seg_node, seg_field = preproc_images['brain_seg']
                 main_wf.connect(seg_node, seg_field, wf_post, 'seg_to_swi.input_image')
-                
+
                 mask_node, mask_field = preproc_images['brain_mask_noCSF']
                 main_wf.connect(swi2t1_node, swi2t1_field, wf_post, 'maskNoCSF_to_swi.transforms')
                 main_wf.connect(seg_getters[pred], 'segmentation', wf_post, 'maskNoCSF_to_swi.reference_image')
@@ -310,6 +316,7 @@ def _connect_pred_sinks(main_wf, seg_getters, wf_post, sink_node_subjects, sink_
 
         prediction_metrics_all = main_wf.get_node(f'prediction_metrics_{lpred}_all')
         main_wf.connect(seg_getters[pred], 'segmentation', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}')
+        main_wf.connect(seg_getters[pred + '_foldwise'], 'prediction_foldwise', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@foldwise')
         main_wf.connect(wf_post, f'cluster_labelling_{lpred}.labelled_biomarkers', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@labelled')
         main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@metrics')
         main_wf.connect(wf_post, f'prediction_metrics_{lpred}.biomarker_stats_wide_csv', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@metrics_wide')
