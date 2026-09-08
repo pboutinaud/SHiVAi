@@ -2,9 +2,21 @@
 
 All notable changes to the SHiVAi project will be documented in this file.
 
+## [v0.6.1] - 2026-09-08
+
+**Fixed:**
+
+- Debug prediction node when sessions in input structure
+- Finally properly output the raw prediction maps in the correct subject-specific directory
+
+**Added:**
+
+- New `--bcg_ratio` argument to control the ratio of background (CSF) to cluster volume for filtering false-positive clusters
+- New foldwise prediction output containing the raw prediction maps for each fold, saved alongside the mean predictions in NIfTI format
+
 ## [v0.6.0] - 2026-09-03
 
-### Added
+**Added:**
 
 - Post-processing rerun pipeline: ability to re-run post-processing based on previous run results
 - Session/visit management support in input parsing
@@ -15,7 +27,7 @@ All notable changes to the SHiVAi project will be documented in this file.
 - Stacked per-fold prediction maps saved alongside mean predictions in NIfTI format (only in intermediate results for now)
 - Nightly and manually triggered Docker image CI workflows
 
-### Fixed
+**Fixed:**
 
 - Percentile calculation in normalization function to ensure valid range
 - Output processing in prediction functions for modality classification
@@ -24,7 +36,7 @@ All notable changes to the SHiVAi project will be documented in this file.
 - Retention of empty metric groups when generating wide prediction metrics
 - Affine selection in affine checks by prioritizing qform metadata
 
-### Changed
+**Changed:**
 
 - Refactored workflow management for better control of the connections of the modular options
 - Better workflow reuse patterns in `generate_main_wf_grab_preproc`
@@ -42,19 +54,19 @@ All notable changes to the SHiVAi project will be documented in this file.
 
 ## [v0.5.9] - 2026-06-09
 
-### Added
+**Added:**
 
 - Workflow code export system for easier debug (using the `--export_code` argument)
 - `--inverse_t2` option in `run_shiva` for fully containerized SHiVAi calls
 - Additional CLI help usage examples
 
-### Fixed
+**Fixed:**
 
 - Cluster filtering/labeling now supports optional brain segmentation volume and outside-voxel ratio handling
 - `label_clusters` behavior when brain segmentation volume is not provided
 - Input tensor dtype consistency across prediction functions
 
-### Changed
+**Changed:**
 
 - Removed default prediction choice from the CLI
 - Restored the ability to force a specific GPU for prediction
@@ -64,19 +76,19 @@ All notable changes to the SHiVAi project will be documented in this file.
 
 ## [v0.5.8] - 2026-04-13
 
-### Added
+**Added:**
 
 - Full Docker support for containerized and mixed approach SHiVAi workflows
 - New `.dockerignore` and improved Docker images (main + SynthSeg)
 
-### Fixed
+**Fixed:**
 
 - Periventricular voxel handling in deep GM nuclei for WMH analysis
 - Affine consistency fixes (`sform`/`qform`) in preprocessing and registration flow
 - Container interface/debug fixes for mixed Singularity/Apptainer usage
 - Working-directory and argument parsing fixes for Docker execution
 
-### Changed
+**Changed:**
 
 - Default container backend set to `singularity` for retrocompatibility
 - Rewired preprocessing to apply affine correction earlier in workflows
@@ -86,7 +98,7 @@ All notable changes to the SHiVAi project will be documented in this file.
 
 ## [v0.5.7] - 2026-03-25
 
-### Added
+**Added:**
 
 - Basal ganglia + thalamus to deep WM for WMH statistics
 - Initial transform to ANTs registration using center of mass
@@ -95,19 +107,19 @@ All notable changes to the SHiVAi project will be documented in this file.
 - Step-by-step README for the mixed approach
 - Full mixed approach README
 
-### Fixed
+**Fixed:**
 
 - FreeSurfer case handling for priority labels on WMH
 - Sink node for workflow graph
 - Recipes with new SynthSeg file name
 
-### Changed
+**Changed:**
 
 - Workflow graph is now optional (requires graphviz)
 
 ## [v0.5.6a] - 2026-03-09
 
-### Changed
+**Changed:**
 
 - Updated step-by-step README for fs_precomp
 - Updated to use fs_precomp in fully contained mode
@@ -116,19 +128,19 @@ All notable changes to the SHiVAi project will be documented in this file.
 
 ## [v0.5.6] - 2026-02-25
 
-### Added
+**Added:**
 
 - T2 inversion support in SHiVAi
 - New step-by-step README
 - Controllable variable for bad affine threshold
 
-### Fixed
+**Fixed:**
 
 - Improved affine correction to better generalize
 - Affine correction taking into account dimension flips on any axis
 - Debug fixes from Defacer: all possible orientation codes for Conform node, voxel size handling for morphology in threshold
 
-### Changed
+**Changed:**
 
 - Swapped Conform node to simpler CorrectAffine node for 2nd image prior to registration
 - Reduced strictness of threshold for bad affine detection
@@ -136,63 +148,63 @@ All notable changes to the SHiVAi project will be documented in this file.
 
 ## [v0.5.5] - 2026-01-08
 
-### Fixed
+**Fixed:**
 
 - seg_cleaner when island is on the side of the image
 - Interpolation in Conform cancelled when no voxel size change is needed
 - FOV of FLAIR in dual preprocessing during Conform
 - Wide CSV to include empty cells / missing values
 
-### Added
+**Added:**
 
 - Conversion of label 77 to WM for FreeSurfer and SynthSeg
 
 ## [v0.5.4] - 2025-11-12
 
-### Added
+**Added:**
 
 - Support for SavedModel-type models (folders instead of files) in prediction
 - Fix from xu-boyan (GitHub issue) for BIDS support
 - Version info in description
 
-### Fixed
+**Fixed:**
 
 - Corrected pip call in Apptainer recipe
 - Corrected broken link in README
 
 ## [v0.5.3] - 2025-06-04
 
-### Added
+**Added:**
 
 - Voxel tolerance feature
 - fs_precomp support in run_shiva
 - Default "qc.csv" to SWOMed workflow
 - Documentation for fs_precomp in README
 
-### Fixed
+**Fixed:**
 
 - Binding for SynthSeg when using dcm2nii
 - Minor debugging and refactoring
 
 ## [v0.5.2] - 2025-02-10
 
-### Added
+**Added:**
 
 - FreeSurfer support for input segmentation
 - Full Docker support for SynthSeg
 
-### Fixed
+**Fixed:**
 
 - Pre-registered FLAIR by adding Resample_from_to node
 
-### Changed
+**Changed:**
 
 - Replaced SVG with PNG for PDF report compatibility inside containers
 - Swapped os.path with pathlib.Path
 
 ## [v0.5.1] - 2025-02-03
 
-### Added
+**Added:**
 
 - Support for pre-registered FLAIR images (prereg_flair argument)
 - Docker support
@@ -200,7 +212,7 @@ All notable changes to the SHiVAi project will be documented in this file.
 - Documentation for Docker integration
 - Full license text
 
-### Changed
+**Changed:**
 
 - SynthSeg volumes made optional
 - Updated Dockerfile with new TensorFlow version
@@ -208,20 +220,20 @@ All notable changes to the SHiVAi project will be documented in this file.
 
 ## [v0.5.0] - 2025-01-20
 
-### Changed
+**Changed:**
 
 - **Major update**: now uses Keras 3 models
 - Can run on CPU without GPU
 - Updated library versions (TensorFlow and Keras)
 - Updated predict_multi for Keras 3 models using pathlib.Path
 
-### Fixed
+**Fixed:**
 
 - get_clusters_and_filter_image when filter has nothing to do
 - Slurm sbatch_args
 - CPU vs GPU in SHiVA brainmask node
 
-### Added
+**Added:**
 
 - Wired SynthSeg QC
 - Dummies for SingularityCommandLine
@@ -232,35 +244,35 @@ All notable changes to the SHiVAi project will be documented in this file.
 
 ## [v0.4.2] - 2024-11-26
 
-### Added
+**Added:**
 
 - CPU inference with configurable thread count
 - use_cpu option to predict and related methods
 
-### Fixed
+**Fixed:**
 
 - bad_affine check for non-isotropic space
 
-### Changed
+**Changed:**
 
 - Each workflow instance runs in a different subject-specific directory
 - Removed default values of args; args now override config.yml settings
 
 ## [v0.4.1] - 2024-11-05
 
-### Added
+**Added:**
 
 - Option to run SynthSeg using local install even when containerized
 - use_cpu argument to force CPU inference
 - New predict_multi script and command line
 
-### Fixed
+**Fixed:**
 
 - Realpath used in Singularity for path parsing
 - nan_to_num added to intensity normalization
 - predict_multi with Singularity
 
-### Changed
+**Changed:**
 
 - Updated container download link
 - Set numpy version < 2.0
@@ -270,13 +282,13 @@ All notable changes to the SHiVAi project will be documented in this file.
 
 ## [v0.4.0] - 2024-09-17
 
-### Added
+**Added:**
 
 - New batch GPU prediction interface (Predict_Multi)
 - Docker entrypoint and Dockerfile
 - Suffix to output name for resample_from_to interface
 
-### Changed
+**Changed:**
 
 - Updated prediction workflow and main workflow with new prediction interface
 - Removed old directories
@@ -284,7 +296,7 @@ All notable changes to the SHiVAi project will be documented in this file.
 
 ## [v0.3.13] - 2024-09-04
 
-### Added
+**Added:**
 
 - SWOMed SynthSeg workflow (first complete version)
 - Preprocessing-only mode
@@ -293,13 +305,13 @@ All notable changes to the SHiVAi project will be documented in this file.
 - File selector after dcm2nii for SWI (handles 2 generated files)
 - All prediction combinations to SHiVAi node
 
-### Fixed
+**Fixed:**
 
 - Crop when applying previous cdg
 - Circular import issue
 - Bug corrections for SWOMed integration
 
-### Changed
+**Changed:**
 
 - Renamed shivautils to shivai
 - Improved external capsule segmentation
@@ -308,12 +320,12 @@ All notable changes to the SHiVAi project will be documented in this file.
 
 ## [v0.3.11] - 2024-04-26
 
-### Added
+**Added:**
 
 - First version of SWOMed SHiVAi workflow
 - All outputs to SHiVAi interface
 - Conform can now ignore bad affine (e.g. for SHiVA masking)
 
-### Changed
+**Changed:**
 
 - Absent SHiVAi outputs stay undefined
