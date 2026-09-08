@@ -179,6 +179,11 @@ Usage examples:
                         action='store_true',
                         help='If selected, will ignore available GPU(s) and run the segmentations on CPUs. Be aware that some models may not be compatible with this option.')
 
+    parser.add_argument('--bcg_ratio',
+                        default=0.25,
+                        type=float,
+                        help='Background-to-cluster ratio for filtering clusters (default: 0.25 = if 25 percent of the cluster is background, it will be filtered out)')
+
     parser.add_argument('--swomed_parc',  # Hidden option overriding 'brain_seg', used in SWOMed to give the path to the synthseg parcelation
                         required=False,
                         help=argparse.SUPPRESS)

@@ -94,6 +94,7 @@ def genWorkflow(**kwargs) -> Workflow:
                                          name='cluster_labelling_cmb')
             cluster_labelling_cmb.inputs.thr_cluster_val = kwargs['THRESHOLD_CMB']
             cluster_labelling_cmb.inputs.thr_cluster_size = kwargs['MIN_CMB_SIZE'] - 1
+            cluster_labelling_cmb.inputs.bcg_ratio = kwargs['BCG_RATIO']
             cluster_labelling_cmb.inputs.out_name = 'labelled_cmb.nii.gz'
 
             prediction_metrics = Node(Regionwise_Prediction_metrics(),
@@ -186,6 +187,7 @@ def genWorkflow(**kwargs) -> Workflow:
                                      name=f'cluster_labelling_{lpred}')
             cluster_labelling.inputs.thr_cluster_val = kwargs[f'THRESHOLD_{pred}']
             cluster_labelling.inputs.thr_cluster_size = kwargs[f'MIN_{pred}_SIZE'] - 1  # "- 1 because thr removes up to given value"
+            cluster_labelling.inputs.bcg_ratio = kwargs['BCG_RATIO']
             cluster_labelling.inputs.out_name = f'labelled_{lpred}.nii.gz'
             prediction_metrics = Node(Regionwise_Prediction_metrics(),
                                       name=f"prediction_metrics_{lpred}")

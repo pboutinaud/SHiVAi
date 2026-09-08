@@ -1384,6 +1384,11 @@ class Label_clusters_InputSpec(BaseInterfaceInputSpec):
                            mandatory=False,
                            usedefault=True)
 
+    bcg_ratio = traits.Float(0.25,
+                             usedefault=True,
+                             mandatory=False,
+                             desc='Background-to-cluster ratio for filtering clusters (default: 0.25 = if 25 percent of the cluster is background, it will be filtered out)')
+
     out_name = traits.Str('labelled_clusters.nii.gz',
                           mandatory=False,
                           desc='Output name of the file containing the labelled biomarkers')
@@ -1404,6 +1409,7 @@ class Label_clusters(BaseInterface):
         biomarker_raw = self.inputs.biomarker_raw
         thr_cluster_val = self.inputs.thr_cluster_val
         thr_cluster_size = self.inputs.thr_cluster_size
+        bcg_ratio = self.inputs.bcg_ratio
         out_name = self.inputs.out_name
 
         biomarker_im = nib.load(biomarker_raw)
@@ -1414,7 +1420,7 @@ class Label_clusters(BaseInterface):
         else:
             brain_seg_vol = None
 
-        labelled_clusters = label_clusters(biomarker_vol, thr_cluster_val, thr_cluster_size, brain_seg_vol)
+        labelled_clusters = label_clusters(biomarker_vol, thr_cluster_val, thr_cluster_size, brain_seg_vol, bcg_ratio)
         if self.inputs.binerize:
             labelled_clusters = (labelled_clusters > 0).astype('int16')
         labelled_clusters_im = nib.Nifti1Image(labelled_clusters.astype('int16'), affine=biomarker_im.affine)
@@ -1734,7 +1740,8 @@ class Parc_from_Synthseg_OutputSpec(TraitedSpec):
     brain_parc = traits.File(exists=True,
                              desc='Brain parcellation with lobar gm and wm, juxtacortical/deep/perivascular wm, and more')
     brain_mask = traits.File(exists=True,
-                            desc='Brain mask without outer CSF (keeps ventricular CSF in the mask), used for cluster cleaning (FP)')
+                             desc='Brain mask without outer CSF (keeps ventricular CSF in the mask), used for cluster cleaning (FP)')
+
 
 class Parc_from_Synthseg(BaseInterface):
     '''
