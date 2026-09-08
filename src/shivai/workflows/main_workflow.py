@@ -38,11 +38,12 @@ def update_wf_grabber(wf, acquisitions, datatype, kwargs, grabber_name='datagrab
     """
     files = '' if datatype == 'dicom' else '*.nii*'  # no files for dcm, just the whole folder
     datagrabber = wf.get_node(grabber_name)
-    if not datagrabber.inputs.field_template:
-        datagrabber.inputs.field_template = {}
-    if not datagrabber.inputs.template_args:  # Should not happend, as default is {outfield: [[infield]]} (e.g. {'img1': [['subject_id']]})
-        datagrabber.inputs.template_args = {}
     data_struct = kwargs['PREP_SETTINGS']['input_type']
+    if data_struct != 'swomed':
+        if not datagrabber.inputs.field_template:
+            datagrabber.inputs.field_template = {}
+        if not datagrabber.inputs.template_args:  # Should not happend, as default is {outfield: [[infield]]} (e.g. {'img1': [['subject_id']]})
+            datagrabber.inputs.template_args = {}
     if data_struct in ['standard', 'json']:
         # e.g: {'img1': '%s/t1/%s_T1_raw.nii.gz'}
         datagrabber.inputs.field_template.update({acq[0]: os.path.join(datadir, f'%s/{acq[1]}/{files}') for acq in acquisitions})
