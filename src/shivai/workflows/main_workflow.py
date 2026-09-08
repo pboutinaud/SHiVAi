@@ -97,7 +97,15 @@ def res_to_dict(sub_ids, in_files):
 
 
 def dict_to_res(sub_id, files_dict):
-    return files_dict[sub_id]
+    # Copy the file into this node's own (subject-parameterized) working directory.
+    # The source file otherwise lives in the batch prediction node's shared folder
+    # (not per-subject), so the DataSink wouldn't create a subject subfolder for it.
+    import os
+    import shutil
+    src = files_dict[sub_id]
+    dst = os.path.join(os.getcwd(), os.path.basename(src))
+    shutil.copyfile(src, dst)
+    return dst
 
 
 # %% Helper functions for shared prediction/postproc/sink logic
