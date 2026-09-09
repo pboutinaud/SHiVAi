@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    if: ${{ github.repository == 'pboutinaud/SHiVAi' }}
+    if: ${{ github.repository == 'research/shivai' }}
     runs-on: ubuntu-latest
 
     steps:
