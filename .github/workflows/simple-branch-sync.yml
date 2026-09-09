@@ -15,16 +15,8 @@ jobs:
               with:
                   ref: ${{ vars.BRANCH_NAME }}
                   fetch-depth: 0
-                  persist-credentials: false
-            - name: Debug token presence
-              run: echo "Token length is ${#TOKEN}"
-              env:
-                TOKEN: ${{ secrets.TARGET_REPO_TOKEN }}
-            - name: Debug URL vars
-              run: |
-                echo "TARGET_URL=${{ vars.TARGET_URL }}"
-                echo "TARGET_REPO=${{ vars.TARGET_REPO }}"
             - name: Sync ${{ vars.BRANCH_NAME }} branch to ${{ vars.TARGET_REPO }}
               run: |
                 git remote set-url origin https://x-access-token:${{ secrets.TARGET_REPO_TOKEN }}@${{ vars.TARGET_URL }}/${{ vars.TARGET_REPO }}.git
-                git push --mirror origin
+                git push origin HEAD:refs/heads/${{ vars.BRANCH_NAME }} --force
+                git push origin --tags --force
