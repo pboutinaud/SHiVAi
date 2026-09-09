@@ -15,6 +15,7 @@ jobs:
               with:
                   ref: ${{ vars.BRANCH_NAME }}
                   fetch-depth: 0
+                  persist-credentials: false
 
             - name: Sync ${{ vars.BRANCH_NAME }} branch to ${{ vars.TARGET_REPO }}
               run: |
