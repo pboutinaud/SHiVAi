@@ -2,8 +2,6 @@ name: GH / GHE Branch Sync
 
 on:
     push:
-        branches:
-            - $BRANCH_NAME
     workflow_dispatch:
 
 jobs:
@@ -15,10 +13,10 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
               with:
-                  ref: $BRANCH_NAME
+                  ref: ${{ vars.BRANCH_NAME }}
                   fetch-depth: 0
 
-            - name: Sync $BRANCH_NAME branch to $TARGET_REPO
+            - name: Sync ${{ vars.BRANCH_NAME }} branch to ${{ vars.TARGET_REPO }}
               run: |
-                git remote add origin https://${{ secrets.TARGET_REPO_TOKEN }}@${TARGET_URL}/${TARGET_REPO}.git
+                git remote add origin https://${{ secrets.TARGET_REPO_TOKEN }}@${{ vars.TARGET_URL }}/${{ vars.TARGET_REPO }}.git
                 git push --mirror origin
