@@ -4,10 +4,11 @@ on:
     push:
         branches:
             - $BRANCH_NAME
-
 jobs:
     sync:
         runs-on: ubuntu-latest
+        if: ${{ vars.BRANCH_NAME != '' && vars.TARGET_REPO != '' && vars.TARGET_URL != '' }}
+
         steps:
             - name: Checkout
               uses: actions/checkout@v4
