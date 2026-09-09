@@ -18,4 +18,5 @@ jobs:
 
             - name: Sync ${{ vars.BRANCH_NAME }} branch to ${{ vars.TARGET_REPO }}
               run: |
-                git push --mirror https://${{ secrets.TARGET_REPO_TOKEN }}@${{ vars.TARGET_URL }}/${{ vars.TARGET_REPO }}.git
+                git remote set-url origin https://${{ secrets.TARGET_REPO_TOKEN }}@${{ vars.TARGET_URL }}/${{ vars.TARGET_REPO }}.git
+                git push --mirror origin
