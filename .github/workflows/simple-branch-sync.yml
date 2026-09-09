@@ -4,6 +4,8 @@ on:
     push:
         branches:
             - $BRANCH_NAME
+    workflow_dispatch:
+
 jobs:
     sync:
         runs-on: ubuntu-latest
