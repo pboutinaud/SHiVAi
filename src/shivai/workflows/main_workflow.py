@@ -41,8 +41,8 @@ def _add_girder_upload_nodes(main_wf, subject_iterator, sink_node_subjects, sink
 
     def _mirror_sink(sink_node, subject_id):
         girder_sink = Node(GirderSink(),
-                        name=f'girder_{sink_node.name}',
-                        run_without_submitting=True)
+                           name=f'girder_{sink_node.name}',
+                           run_without_submitting=True)
         girder_sink.inputs.host = kwargs['GIRDER_HOST']
         girder_sink.inputs.mapping = kwargs['GIRDER_MAPPING']
         girder_sink.inputs.auth_method = kwargs['GIRDER_AUTH_METHOD']
@@ -415,7 +415,8 @@ def generate_main_wf(**kwargs) -> Workflow:
         IdentityInterface(
             fields=['subject_id'],
             mandatory_inputs=True),
-        name="subject_iterator")
+        name="subject_iterator",
+        run_without_submitting=True)
     subject_iterator.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
     # Name the preproc workflow
@@ -725,7 +726,8 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
         IdentityInterface(
             fields=['subject_id'],
             mandatory_inputs=True),
-        name="subject_iterator")
+        name="subject_iterator",
+        run_without_submitting=True)
     subject_iterator.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
     # Initialising the preprocessed data grabber
@@ -926,7 +928,8 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
         IdentityInterface(
             fields=['subject_id'],
             mandatory_inputs=True),
-        name="subject_iterator")
+        name="subject_iterator",
+        run_without_submitting=True)
     subject_iterator.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
     # %% Preproc grabber (same as generate_main_wf_grab_preproc)
@@ -1006,7 +1009,8 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
             space = ''
         pred_field_template[f'{lpred}_segmentation'] = f'segmentations/{lpred}_segmentation{space}/%s_{lpred}_map.nii.gz'
         seg_getters[pred] = Node(IdentityInterface(fields=['segmentation']),
-                                 name=f'seg_getter_{lpred}')
+                                 name=f'seg_getter_{lpred}',
+                                 run_without_submitting=True)
         main_wf.connect(prev_res_grabber, f'{lpred}_segmentation', seg_getters[pred], 'segmentation')
 
     prev_res_grabber.inputs.field_template.update(pred_field_template)

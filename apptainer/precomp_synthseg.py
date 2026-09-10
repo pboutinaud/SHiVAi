@@ -340,7 +340,8 @@ def main():
         IdentityInterface(
             fields=['subject_id'],
             mandatory_inputs=True),
-        name="subject_iterator")
+        name="subject_iterator",
+        run_without_submitting=True)
     subject_iterator.iterables = ('subject_id', args.sub_list)
 
     # Initialize the datagrabber
