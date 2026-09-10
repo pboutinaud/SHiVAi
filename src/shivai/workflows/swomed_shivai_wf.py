@@ -30,7 +30,8 @@ def genWorkflow(**kwargs) -> Workflow:
     subject_list = Node(IdentityInterface(
         fields=['subject_id'],
         mandatory_inputs=True),
-        name="subject_list")
+        name="subject_list",
+        run_without_submitting=True)
     subject_list.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
     datagrabber = Node(DataGrabber(infields=['subject_id'],
