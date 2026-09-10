@@ -46,6 +46,7 @@ def _add_girder_upload_nodes(main_wf, subject_iterator, sink_node_subjects, sink
         girder_sink.inputs.host = kwargs['GIRDER_HOST']
         girder_sink.inputs.mapping = kwargs['GIRDER_MAPPING']
         girder_sink.inputs.auth_method = kwargs['GIRDER_AUTH_METHOD']
+        girder_sink.inputs.verify_ssl = kwargs.get('GIRDER_VERIFY_SSL', True)
         # Mirror the local sink's path-building inputs too, so GirderSink can reconstruct
         # the exact same relative path (via the inherited _get_dst/_substitute) for the
         # "original_path" metadata attached to each uploaded file.

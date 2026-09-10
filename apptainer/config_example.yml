@@ -20,6 +20,7 @@ synthseg_image: /myHome/myProject/synthseg.sif
 #   # root_folder_id: "5f4b1c2e8d3a4b0012345678"  # or use an existing folder id instead of a collection
 #   overwrite: false  # if a same-name file already exists on Girder, skip it instead of re-uploading it
 #   create_missing_folders: true  # auto-create the collection/folder hierarchy on Girder if needed
+#   # verify_ssl: false  # DEBUG ONLY: disable SSL certificate verification (e.g. self-signed certs)
 #   # Map each shivai output to a path (relative to the collection/root folder). Use
 #   # "$subject_id" in subjectwise_folders paths, it will be substituted for each subject.
 #   # Any key below not relevant to your run (e.g. no CMB prediction) is simply skipped.
@@ -39,7 +40,8 @@ synthseg_image: /myHome/myProject/synthseg.sif
 #     preproc_qc: "qc/preproc_qc"
 #     segmentations.pvs_metrics: "metrics/pvs_metrics"
 #     segmentations.wmh_metrics: "metrics/wmh_metrics"
-#     segmentations.cmb_metrics_swi-space: "metrics/cmb_metrics"
+#     segmentations.cmb_metrics_swi-space: "metrics/cmb_metrics" # When run using SWI+T1 data
+#     segmentations.cmb_metrics: "metrics/cmb_metrics" # When run using SWI data only
 #     segmentations.lac_metrics: "metrics/lac_metrics"
 #     wf_graph: "misc/wf_graph"
 

@@ -618,6 +618,7 @@ def set_args_and_check(inParser):
     args.girder_global_folders = {}
     args.girder_overwrite = False
     args.girder_create_missing_folders = True
+    args.girder_verify_ssl = True
 
     # Parse the config file
     if args.config:
@@ -659,6 +660,7 @@ def set_args_and_check(inParser):
         args.girder_global_folders = girder_cfg.get('global_folders', {}) or {}
         args.girder_overwrite = girder_cfg.get('overwrite', False)
         args.girder_create_missing_folders = girder_cfg.get('create_missing_folders', True)
+        args.girder_verify_ssl = girder_cfg.get('verify_ssl', True)
 
         parameters = yaml_content['parameters']
         for param in config_params:

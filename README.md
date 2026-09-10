@@ -669,6 +669,7 @@ girder:
   # root_folder_id: "5f4b1c2e8d3a4b0012345678"  # or use an existing folder id instead of a collection
   overwrite: false  # if a same-name file already exists on Girder, skip it instead of re-uploading it
   create_missing_folders: true  # auto-create the collection/folder hierarchy on Girder if needed
+  # verify_ssl: false  # DEBUG ONLY: disable SSL certificate verification (e.g. self-signed certs)
   subjectwise_folders:
     report: "reports/$subject_id"
     shiva_preproc.t1_preproc: "preprocessing/$subject_id/t1_preproc"
@@ -697,6 +698,7 @@ girder:
 - `global_folders`: same idea, but for outputs that aren't tied to a single subject (summary/joined results across all subjects, e.g. `preproc_qc`, `wf_graph`, or the joined metrics csvs) - these paths shouldn't use `$subject_id`.
 - `overwrite` (default `false`): if a file with the same name already exists in the destination Girder folder, the upload is skipped (with a warning in the log) rather than duplicated.
 - `create_missing_folders` (default `true`): automatically create the collection/folder hierarchy on Girder as needed.
+- `verify_ssl` (default `true`): whether to verify the Girder server's SSL certificate. Only set this to `false` for quick debugging against a server with a self-signed/invalid certificate (e.g. `SSLCertVerificationError: self-signed certificate in certificate chain`) - it disables all certificate verification and should not be used against a Girder server with sensitive data over an untrusted network.
 
 Not every key above is produced by every SHiVAi run (it depends on which predictions/preprocessing steps are enabled): any key present in the config but missing from a given run is simply skipped (with a warning in the log). Conversely, any output produced by the run whose key isn't listed in `subjectwise_folders`/`global_folders` is also skipped - only list the outputs you actually want uploaded.
 
@@ -713,6 +715,8 @@ The Girder API key / username / password are **never** read from the command lin
 3. Otherwise, prompted interactively (masked input via `pwinput`) when the process starts.
 
 This design keeps the secret out of nipype's node cache and crash files entirely: nipype pickles node *inputs* to disk (in the working-directory cache and in `crash-*.pklz` files on error), so the credential is never stored as a node input - only the *name* of the environment variable is. The actual secret lives only in the current process' environment (inherited by nipype's worker processes on Linux, which use `fork`), and disappears once the process exits; it does not leak back into the invoking shell.
+
+Note: when using `auth_method: api_key`, the underlying `girder_client` library exchanges the API key for a session token via `GET/POST .../api_key/token?key=<api_key>` - the key is sent as a URL query parameter (this is how the Girder API/`girder_client` work, and isn't something SHiVAi can change). It is still protected in transit by TLS (as long as `verify_ssl` is left at its default `true`), but it may end up in the Girder server's own access logs, so treat it with the same care as a password and rotate/revoke it if you suspect it was exposed. If this is a concern, `auth_method: password` avoids it (username/password are sent in the request body instead).
 
 ## Additional info
 

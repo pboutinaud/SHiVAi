@@ -19,6 +19,7 @@ from nipype.utils.misc import str2bool
 from nipype import config, logging
 from nipype.interfaces.base import isdefined, traits, Str
 from nipype.utils.filemanip import copyfile, ensure_list
+from shivai.utils.girder_utils import _disable_girder_ssl_verification, GIRDER_API_KEY_ENV, GIRDER_USERNAME_ENV, GIRDER_PASSWORD_ENV
 import pandas as pd
 from datetime import date
 iflogger = logging.getLogger("nipype.interface")
@@ -193,16 +194,6 @@ class DataSink_CSV_and_PDF_safe(DataSink):
         return outputs
 
 
-# Names of the environment variables read by GirderSink to authenticate. The
-# actual secret values are never passed around as nipype traits (which would
-# get pickled to disk in node caches / crash files): they are only ever read
-# from the current process' environment at execution time (_list_outputs).
-# See shivai.utils.shiva_runner._resolve_girder_credentials for how these
-# variables get populated (via `pwinput`, or programmatically for automated
-# callers).
-GIRDER_API_KEY_ENV = "SHIVAI_GIRDER_API_KEY"
-GIRDER_USERNAME_ENV = "SHIVAI_GIRDER_USERNAME"
-GIRDER_PASSWORD_ENV = "SHIVAI_GIRDER_PASSWORD"
 
 
 class GirderSinkInputSpec(DataSinkInputSpec):
@@ -217,6 +208,16 @@ class GirderSinkInputSpec(DataSinkInputSpec):
     auth_method = traits.Enum(
         "api_key", "password", usedefault=True,
         desc="Which credentials to read from the environment: 'api_key' or 'password' (username+password)"
+    )
+
+    verify_ssl = traits.Bool(
+        True, usedefault=True,
+        desc=(
+            "Whether to verify the Girder server's SSL certificate. Only set to false for quick "
+            "debugging against a server with a self-signed/invalid certificate: this disables all "
+            "certificate verification and should not be used against a Girder server with sensitive "
+            "data over an untrusted network."
+        )
     )
 
     # NOTE: these are only the *names* of environment variables, never the secret
@@ -270,7 +271,7 @@ class GirderSink(DataSink):
     working-directory cache and in crash files, which would otherwise leak the secret).
     Instead, `auth_method`/`api_key_env`/`username_env`/`password_env` only carry the *name*
     of an environment variable; the actual secret is read from `os.environ` at execution
-    time. See `shivai.utils.shiva_runner._resolve_girder_credentials`.
+    time. See `shivai.utils.girder_utils._resolve_girder_credentials`.
     """
 
     input_spec = GirderSinkInputSpec
@@ -386,6 +387,8 @@ class GirderSink(DataSink):
         # environment only (never stored as a trait) - see the module-level
         # note above `GIRDER_API_KEY_ENV` for why.
         gc = girder_client.GirderClient(apiUrl=self.inputs.host)
+        if not self.inputs.verify_ssl:
+            _disable_girder_ssl_verification(gc)
         if self.inputs.auth_method == "api_key":
             api_key = os.environ.get(self.inputs.api_key_env)
             if not api_key:
