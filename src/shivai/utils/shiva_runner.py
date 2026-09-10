@@ -4,10 +4,12 @@ Functions needed by the shiva.py script to run the pipeline
 
 from shivai.workflows.main_workflow import generate_main_wf, generate_main_wf_grab_preproc, generate_main_wf_rerun_postproc
 from shivai.utils.misc import _export_workflow_compat
+from shivai.interfaces.datasink import GIRDER_API_KEY_ENV, GIRDER_USERNAME_ENV, GIRDER_PASSWORD_ENV
 from nipype import config
 import os
 import shutil
 import datetime
+import pwinput
 
 
 def check_input_for_pred(wfargs):
@@ -23,6 +25,44 @@ def check_input_for_pred(wfargs):
             raise ValueError(errormsg)
 
 
+def _resolve_girder_credentials(auth_method, girder_api_key=None, girder_username=None, girder_password=None):
+    """
+    Resolve the Girder credentials needed by the GirderSink nodes, and store them
+    **only** in this process' environment (never as a nipype trait), so that they
+    are never pickled to disk in nipype's working-directory cache or crash files.
+
+    Resolution order (first match wins) for each secret:
+      1. Value passed directly as a function argument (for programmatic/library callers,
+         e.g. an automated process calling `shiva()` directly from Python).
+      2. Value already present in this process' environment (e.g. set by an automated/CI
+         caller before invoking the `shiva` command).
+      3. Interactive prompt: masked input via `pwinput` for secrets, plain input for the
+         (non-secret) username.
+
+    Note: since nipype's MultiProc plugin uses `fork`-based multiprocessing on Linux, the
+    child processes inherit this process' environment, so the env vars set here are visible
+    to the GirderSink node when it runs. This will NOT work for plugins that submit jobs to a
+    separate environment (e.g. SLURM) unless that plugin is configured to forward the
+    SHIVAI_GIRDER_* environment variables to the submitted jobs.
+    """
+    if auth_method == 'api_key':
+        api_key = girder_api_key or os.environ.get(GIRDER_API_KEY_ENV) or os.environ.get('GIRDER_API_KEY')
+        if not api_key:
+            api_key = pwinput.pwinput(prompt='Girder API key: ')
+        os.environ[GIRDER_API_KEY_ENV] = api_key
+    elif auth_method == 'password':
+        username = girder_username or os.environ.get(GIRDER_USERNAME_ENV) or os.environ.get('GIRDER_USERNAME')
+        if not username:
+            username = input('Girder username: ')
+        password = girder_password or os.environ.get(GIRDER_PASSWORD_ENV) or os.environ.get('GIRDER_PASSWORD')
+        if not password:
+            password = pwinput.pwinput(prompt='Girder password: ')
+        os.environ[GIRDER_USERNAME_ENV] = username
+        os.environ[GIRDER_PASSWORD_ENV] = password
+    else:
+        raise ValueError(f"Unknown Girder auth_method '{auth_method}', expected 'api_key' or 'password'")
+
+
 def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, brain_seg, ss_qc, ss_vol, ai_threads, batch_size,
           node_plugin_args, prev_qc, preproc_only, use_prev_preproc, postproc_only, prev_results, replace_t1, inverse_t2, replace_flair, replace_swi, swi_file_num,
           db_name, custom_LUT,  use_cpu, swomed_parc, swomed_ssvol, swomed_ssqc, swomed_t1, swomed_flair,
@@ -32,6 +72,11 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
           threshold_lac, bcg_ratio, min_pvs_size, min_wmh_size, min_cmb_size, min_lac_size, final_dimensions,
           voxels_size, voxels_tolerance, aff_correc_thr, keep_all, debug, remove_intermediates, run_plugin, run_plugin_args,
           brainmask_descriptor, wmh_descriptor, pvs_descriptor, pvs2_descriptor, cmb_descriptor, lac_descriptor, save_graph, export_code,
+          girder_upload=False, girder_host=None, girder_auth_method='api_key',
+          girder_collection=None, girder_root_folder_id=None,
+          girder_subjectwise_folders=None, girder_global_folders=None,
+          girder_overwrite=False, girder_create_missing_folders=True,
+          girder_api_key=None, girder_username=None, girder_password=None,
           **kwargs):
     """
     Function that build and run the SHiVAi workflow using the input argument from the parser.
@@ -164,7 +209,23 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
         'TOLERANCE': tuple(voxels_tolerance),
         'ORIENTATION': 'RAS',
         'AFFINE_CORREC_THRESHOLD': aff_correc_thr,
-        'SAVE_GRAPH': save_graph}
+        'SAVE_GRAPH': save_graph,
+        'GIRDER_ENABLED': girder_upload,
+        'GIRDER_HOST': girder_host,
+        'GIRDER_AUTH_METHOD': girder_auth_method,
+        'GIRDER_MAPPING': {
+            'collection': girder_collection,
+            'root_folder_id': girder_root_folder_id,
+            'subjectwise_folders': girder_subjectwise_folders or {},
+            'global_folders': girder_global_folders or {},
+            'overwrite': girder_overwrite,
+            'create_missing_folders': girder_create_missing_folders,
+        }}
+
+    # Resolve the Girder credentials (interactively, programmatically, or via env vars) and
+    # store them only in this process' environment - never in wfargs / as a node input.
+    if girder_upload:
+        _resolve_girder_credentials(girder_auth_method, girder_api_key, girder_username, girder_password)
 
     # Check if the AI models are available for the predictions
     check_input_for_pred(wfargs)

@@ -7,6 +7,42 @@ synthseg_image: /myHome/myProject/synthseg.sif
 # synthseg_docker_image: synthseg:latest
 # container_runtime: docker  # or apptainer (default)
 
+# Optional: upload the results to a Girder server, in addition to saving them locally.
+# Enabled with --girder_upload on the command line. The API key / username / password
+# are NEVER read from this file: you will be prompted for them interactively when
+# running shiva (or they can be supplied programmatically/via environment variables
+# for automated calls). See the "Uploading results to Girder" section of the README
+# for the full documentation of every field below.
+# girder:
+#   host: "https://girder.example.com/api/v1"
+#   auth_method: api_key  # or 'password' for username/password authentication
+#   collection: "Shivai_results_2026"  # root Girder collection (created if missing)
+#   # root_folder_id: "5f4b1c2e8d3a4b0012345678"  # or use an existing folder id instead of a collection
+#   overwrite: false  # if a same-name file already exists on Girder, skip it instead of re-uploading it
+#   create_missing_folders: true  # auto-create the collection/folder hierarchy on Girder if needed
+#   # Map each shivai output to a path (relative to the collection/root folder). Use
+#   # "$subject_id" in subjectwise_folders paths, it will be substituted for each subject.
+#   # Any key below not relevant to your run (e.g. no CMB prediction) is simply skipped.
+#   subjectwise_folders:
+#     report: "reports/$subject_id"
+#     shiva_preproc.t1_preproc: "preprocessing/$subject_id/t1_preproc"
+#     shiva_preproc.flair_preproc: "preprocessing/$subject_id/flair_preproc"
+#     shiva_preproc.swi_preproc: "preprocessing/$subject_id/swi_preproc"
+#     shiva_preproc.synthseg: "preprocessing/$subject_id/synthseg"
+#     shiva_preproc.freesurfer: "preprocessing/$subject_id/freesurfer"
+#     shiva_preproc.qc_metrics: "preprocessing/$subject_id/qc_metrics"
+#     segmentations.pvs_segmentation: "segmentations/$subject_id/pvs_segmentation"
+#     segmentations.wmh_segmentation: "segmentations/$subject_id/wmh_segmentation"
+#     segmentations.cmb_segmentation_swi-space: "segmentations/$subject_id/cmb_segmentation"
+#     segmentations.lac_segmentation: "segmentations/$subject_id/lac_segmentation"
+#   global_folders:
+#     preproc_qc: "qc/preproc_qc"
+#     segmentations.pvs_metrics: "metrics/pvs_metrics"
+#     segmentations.wmh_metrics: "metrics/wmh_metrics"
+#     segmentations.cmb_metrics_swi-space: "metrics/cmb_metrics"
+#     segmentations.lac_metrics: "metrics/lac_metrics"
+#     wf_graph: "misc/wf_graph"
+
 parameters:
   brainmask_descriptor: "brainmask/V0/model_info.json"
   PVS_descriptor: "T1-PVS/V1/model_info.json"

@@ -1,5 +1,6 @@
 bokeh
 cffi>=1.17.1
+girder_client
 lxml>=5.3.0
 matplotlib
 seaborn
@@ -11,6 +12,7 @@ pandas
 pybids
 pydot
 pydotplus
+pwinput
 pyyaml
 quickshear
 scikit-image

@@ -174,7 +174,6 @@ Usage examples:
                               '- FSL style .xml file\n'
                               '- FreeSurfer style .txt file'))
 
-
     parser.add_argument('--use_cpu',
                         action='store_true',
                         help='If selected, will ignore available GPU(s) and run the segmentations on CPUs. Be aware that some models may not be compatible with this option.')
@@ -266,20 +265,20 @@ Usage examples:
                         help=('CSV file from a previous QC with the metrics computed on other participants '
                               'preprocessing. This data will be used to estimate outliers and thus help detect '
                               'participants that may have a faulty preprocessing'))
-    
+
     sub_workflows = parser.add_mutually_exclusive_group()
     sub_workflows.add_argument('--preproc_only',
-                                action='store_true',
-                                help=('If used, only the preprocessing steps will be run (usefull for training new data for example).\n'
+                               action='store_true',
+                               help=('If used, only the preprocessing steps will be run (usefull for training new data for example).\n'
                                       'This option still needs the "--prediction" argument to know what type of input will be given\n'
                                       'for the preprocessing.'))
     sub_workflows.add_argument('--use_prev_preproc',
-                                action='store_true',
-                                help=('If selected, the preprocessing steps will be skipped and the data from a previous shiva run will be used. '
+                               action='store_true',
+                               help=('If selected, the preprocessing steps will be skipped and the data from a previous shiva run will be used. '
                                       'This requires the --prev_results argument to be provided.'))
     sub_workflows.add_argument('--postproc_only',
-                                action='store_true',
-                                help=('If selected, only the postprocessing steps will be run, using preprocessed data and previous segmentation results. '
+                               action='store_true',
+                               help=('If selected, only the postprocessing steps will be run, using preprocessed data and previous segmentation results. '
                                       'This requires the --prev_results argument to be provided.'))
 
     parser.add_argument('--prev_results',
@@ -307,6 +306,17 @@ Usage examples:
                               'As of now, the exported code is not runnable as is, but it will provide a good view of the workflow '
                               'structure and the different nodes used, as well as the parameters given to those nodes. This can be '
                               'useful for debugging and reproducibility purposes.'))
+
+    parser.add_argument('--girder_upload',
+                        action='store_true',
+                        help=('If selected, the results will also be uploaded to a Girder server, in addition to being saved '
+                              'locally. Requires a "girder" section (host, and a "collection" or "root_folder_id", plus '
+                              '"subjectwise_folders"/"global_folders" path mappings) in the --config file - see the README\'s '
+                              '"Uploading results to Girder" section. The Girder API key/password are never read from the '
+                              'command line or the config file: you will be prompted for them interactively, unless they are '
+                              'supplied programmatically (when manually calling shivai) or via the SHIVAI_GIRDER_API_KEY / '
+                              'SHIVAI_GIRDER_USERNAME / SHIVAI_GIRDER_PASSWORD environment variables (e.g. for automated, '
+                              'non-interactive runs).'))
 
     file_management = parser.add_mutually_exclusive_group()
 
@@ -599,6 +609,16 @@ def set_args_and_check(inParser):
     if args.inverse_t2 and (args.replace_t1 is None):
         inParser.error('The "--inverse_t2" option can only be used when "--replace_t1" is set.')
 
+    # Girder upload settings (non-secret only - the API key/password are never read from the config file)
+    args.girder_host = None
+    args.girder_auth_method = 'api_key'
+    args.girder_collection = None
+    args.girder_root_folder_id = None
+    args.girder_subjectwise_folders = {}
+    args.girder_global_folders = {}
+    args.girder_overwrite = False
+    args.girder_create_missing_folders = True
+
     # Parse the config file
     if args.config:
         config_params = ['percentile', 'threshold', 'threshold_pvs', 'threshold_wmh',
@@ -629,6 +649,17 @@ def set_args_and_check(inParser):
         print(f'Container runtime set to: {args.container_runtime}')
         print(f'Container image set to: {args.container_image}')
         print(f'SynthSeg image set to: {args.synthseg_image}')
+
+        girder_cfg = yaml_content.get('girder', {}) or {}
+        args.girder_host = girder_cfg.get('host')
+        args.girder_auth_method = girder_cfg.get('auth_method', 'api_key')
+        args.girder_collection = girder_cfg.get('collection')
+        args.girder_root_folder_id = girder_cfg.get('root_folder_id')
+        args.girder_subjectwise_folders = girder_cfg.get('subjectwise_folders', {}) or {}
+        args.girder_global_folders = girder_cfg.get('global_folders', {}) or {}
+        args.girder_overwrite = girder_cfg.get('overwrite', False)
+        args.girder_create_missing_folders = girder_cfg.get('create_missing_folders', True)
+
         parameters = yaml_content['parameters']
         for param in config_params:
             if getattr(args, param) is None:  # Giving param as argument to the command line overrides the config.yml params
@@ -742,7 +773,7 @@ def set_args_and_check(inParser):
             raise ValueError(
                 f'The folder containing the results from the previous processing was not found: {args.prev_results}'
             )
-        
+
         if 'shiva_preproc' not in os.listdir(args.prev_results):
             # We expect the shiva_preproc folder to always be in the results folder, it's kind of a defining trait
             # Searching in all the subfolders of the 'shiva_preproc'
@@ -767,6 +798,26 @@ def set_args_and_check(inParser):
             'The "--postproc_only" option was selected but the "--prev_results" argument was not given. '
             'Please provide the path to the results folder of a previous shiva run, containing all the preprocessed data.'
         )
+
+    if args.girder_upload:
+        if args.girder_auth_method not in ('api_key', 'password'):
+            inParser.error(
+                f'Unknown "girder.auth_method" value "{args.girder_auth_method}" in the config file, '
+                'expected "api_key" or "password".'
+            )
+        if not args.girder_host:
+            inParser.error('"--girder_upload" requires a "girder" section with "host" in the --config file.')
+        if not args.girder_collection and not args.girder_root_folder_id:
+            inParser.error(
+                '"--girder_upload" requires either "collection" or "root_folder_id" to be set '
+                'in the "girder" section of the --config file.'
+            )
+        if not args.girder_subjectwise_folders and not args.girder_global_folders:
+            inParser.error(
+                '"--girder_upload" requires at least one of "subjectwise_folders"/"global_folders" '
+                'to be set in the "girder" section of the --config file.'
+            )
+
     return args
 
 
