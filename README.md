@@ -58,6 +58,7 @@ The Shivai pipeline and all the repository content is provided under the GNU Aff
         - [Running the post-processing on custom data](#running-the-post-processing-on-custom-data)
 - [Results](#results)
 - [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai)
+- [Uploading results to Girder](#uploading-results-to-girder)
 - [Additional info](#additional-info)
   - [Running Shivai for AI model training purpose](#running-shivai-for-ai-model-training-purpose)
   - [Create missing json file](#create-missing-json-file)
@@ -651,6 +652,67 @@ Example of `json` structure input:
     }
 }
 ``` -->
+
+## Uploading results to Girder
+
+In addition to saving results locally, SHiVAi can optionally upload them to a [Girder](https://girder.readthedocs.io/) server. This is enabled with the `--girder_upload` command line flag, and configured through a `girder:` section in the `--config` YAML file.
+
+### Configuration
+
+Add a `girder:` section to your config file, for example:
+
+```yaml
+girder:
+  host: "https://girder.example.com/api/v1"
+  auth_method: api_key  # or 'password' for username/password authentication
+  collection: "Shivai_results_2026"  # root Girder collection (created if missing)
+  # root_folder_id: "5f4b1c2e8d3a4b0012345678"  # or use an existing folder id instead of a collection
+  overwrite: false  # if a same-name file already exists on Girder, skip it instead of re-uploading it
+  create_missing_folders: true  # auto-create the collection/folder hierarchy on Girder if needed
+  subjectwise_folders:
+    report: "reports/$subject_id"
+    shiva_preproc.t1_preproc: "preprocessing/$subject_id/t1_preproc"
+    shiva_preproc.flair_preproc: "preprocessing/$subject_id/flair_preproc"
+    shiva_preproc.swi_preproc: "preprocessing/$subject_id/swi_preproc"
+    shiva_preproc.synthseg: "preprocessing/$subject_id/synthseg"
+    shiva_preproc.freesurfer: "preprocessing/$subject_id/freesurfer"
+    shiva_preproc.qc_metrics: "preprocessing/$subject_id/qc_metrics"
+    segmentations.pvs_segmentation: "segmentations/$subject_id/pvs_segmentation"
+    segmentations.wmh_segmentation: "segmentations/$subject_id/wmh_segmentation"
+    segmentations.cmb_segmentation_swi-space: "segmentations/$subject_id/cmb_segmentation"
+    segmentations.lac_segmentation: "segmentations/$subject_id/lac_segmentation"
+  global_folders:
+    preproc_qc: "qc/preproc_qc"
+    segmentations.pvs_metrics: "metrics/pvs_metrics"
+    segmentations.wmh_metrics: "metrics/wmh_metrics"
+    segmentations.cmb_metrics_swi-space: "metrics/cmb_metrics"
+    segmentations.lac_metrics: "metrics/lac_metrics"
+    wf_graph: "misc/wf_graph"
+```
+
+- `host`: the Girder API URL.
+- `auth_method`: `api_key` (default) or `password`.
+- `collection` / `root_folder_id`: the root of the upload tree. Use `collection` to upload under a named Girder collection (created automatically if it doesn't exist yet), or `root_folder_id` to instead target an existing Girder folder directly (useful if you don't have collection-creation rights on your Girder instance). If both are set, `root_folder_id` takes precedence.
+- `subjectwise_folders`: maps a SHiVAi output key to a path (relative to the collection/root folder) where the corresponding files will be uploaded. Use the `$subject_id` placeholder in the path, it gets substituted with the actual subject id for each subject.
+- `global_folders`: same idea, but for outputs that aren't tied to a single subject (summary/joined results across all subjects, e.g. `preproc_qc`, `wf_graph`, or the joined metrics csvs) - these paths shouldn't use `$subject_id`.
+- `overwrite` (default `false`): if a file with the same name already exists in the destination Girder folder, the upload is skipped (with a warning in the log) rather than duplicated.
+- `create_missing_folders` (default `true`): automatically create the collection/folder hierarchy on Girder as needed.
+
+Not every key above is produced by every SHiVAi run (it depends on which predictions/preprocessing steps are enabled): any key present in the config but missing from a given run is simply skipped (with a warning in the log). Conversely, any output produced by the run whose key isn't listed in `subjectwise_folders`/`global_folders` is also skipped - only list the outputs you actually want uploaded.
+
+The `segmentations.cmb_segmentation_swi-space` / `segmentations.cmb_metrics_swi-space` keys (and any other `..._<acquisition>-space` suffixed key) depend on your acquisition naming; check the folder names actually produced in a local `results/<subject_id>/` run once before finalizing your config.
+
+Each file uploaded to Girder gets an `original_path` item metadata entry recording its path relative to the local `results/` output directory, so uploads stay traceable back to the local layout.
+
+### Credentials
+
+The Girder API key / username / password are **never** read from the command line or the config file. When `--girder_upload` is used, SHiVAi resolves the needed credential(s) in this order:
+
+1. Passed directly as an argument, if calling `shiva()` programmatically from Python (e.g. `shiva(..., girder_upload=True, girder_api_key="...")`).
+2. Read from an existing environment variable (`SHIVAI_GIRDER_API_KEY`, or `SHIVAI_GIRDER_USERNAME`/`SHIVAI_GIRDER_PASSWORD`), for automated/non-interactive runs (e.g. CI, batch jobs).
+3. Otherwise, prompted interactively (masked input via `pwinput`) when the process starts.
+
+This design keeps the secret out of nipype's node cache and crash files entirely: nipype pickles node *inputs* to disk (in the working-directory cache and in `crash-*.pklz` files on error), so the credential is never stored as a node input - only the *name* of the environment variable is. The actual secret lives only in the current process' environment (inherited by nipype's worker processes on Linux, which use `fork`), and disappears once the process exits; it does not leak back into the invoking shell.
 
 ## Additional info
 

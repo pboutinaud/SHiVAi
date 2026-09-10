@@ -20,8 +20,55 @@ from shivai.interfaces.post import Join_Prediction_metrics, Join_QC_metrics
 from nipype.pipeline.engine import Workflow, Node, JoinNode
 from nipype.interfaces.utility import IdentityInterface, Function
 from nipype.interfaces.io import DataGrabber
-from shivai.interfaces.datasink import DataSink_CSV_and_PDF_safe
+from shivai.interfaces.datasink import DataSink_CSV_and_PDF_safe, GirderSink
+from nipype.interfaces.base import isdefined
 import os
+
+
+def _add_girder_upload_nodes(main_wf, subject_iterator, sink_node_subjects, sink_node_all, **kwargs):
+    """
+    If Girder upload is enabled (kwargs['GIRDER_ENABLED']), create GirderSink nodes that
+    mirror the local DataSink nodes (sink_node_subjects / sink_node_all), so every file sent
+    to local disk is also offered for upload to Girder.
+
+    Rather than duplicating every single `main_wf.connect(...)` call feeding the local sinks
+    (there are many, spread across several functions), this inspects the workflow graph for
+    the edges already connected to sink_node_subjects/sink_node_all and replicates them onto
+    the new GirderSink nodes. This keeps the local and remote sink wiring from drifting apart.
+    """
+    if not kwargs.get('GIRDER_ENABLED'):
+        return
+
+    def _mirror_sink(sink_node, subject_id):
+        girder_sink = Node(GirderSink(), name=f'girder_{sink_node.name}')
+        girder_sink.inputs.host = kwargs['GIRDER_HOST']
+        girder_sink.inputs.mapping = kwargs['GIRDER_MAPPING']
+        girder_sink.inputs.auth_method = kwargs['GIRDER_AUTH_METHOD']
+        # Mirror the local sink's path-building inputs too, so GirderSink can reconstruct
+        # the exact same relative path (via the inherited _get_dst/_substitute) for the
+        # "original_path" metadata attached to each uploaded file.
+        girder_sink.inputs.base_directory = sink_node.inputs.base_directory
+        if isdefined(sink_node.inputs.container):
+            girder_sink.inputs.container = sink_node.inputs.container
+        if isdefined(sink_node.inputs.substitutions):
+            girder_sink.inputs.substitutions = sink_node.inputs.substitutions
+        if isdefined(sink_node.inputs.regexp_substitutions):
+            girder_sink.inputs.regexp_substitutions = sink_node.inputs.regexp_substitutions
+        girder_sink.inputs.parameterization = sink_node.inputs.parameterization
+        if subject_id is None:
+            main_wf.connect(subject_iterator, 'subject_id', girder_sink, 'subject_id')
+        else:
+            girder_sink.inputs.subject_id = subject_id
+        for u, _, data in list(main_wf._graph.in_edges(sink_node, data=True)):
+            for src_field, dst_field in data['connect']:
+                main_wf.connect(u, src_field, girder_sink, dst_field)
+        return girder_sink
+
+    # Per-subject outputs: subject_id comes from the iterable
+    _mirror_sink(sink_node_subjects, subject_id=None)
+    # Summary/joined outputs (not tied to a single subject): use a fixed pseudo-subject key,
+    # which must be present in the user-supplied mapping file (e.g. "results_summary")
+    _mirror_sink(sink_node_all, subject_id='results_summary')
 
 
 def update_wf_grabber(wf, acquisitions, datatype, kwargs, grabber_name='datagrabber', datadir=''):
@@ -623,10 +670,12 @@ def generate_main_wf(**kwargs) -> Workflow:
         sink_node_all.inputs.wf_graph = wf_graph
 
     if kwargs['PREP_SETTINGS']['preproc_only']:
+        _add_girder_upload_nodes(main_wf, subject_iterator, sink_node_subjects, sink_node_all, **kwargs)
         return main_wf  # ENDPOINT if just running the preprocessing
 
     # Pred and postproc sinks
     _connect_pred_sinks(main_wf, seg_getters, wf_post, sink_node_subjects, sink_node_all, **kwargs)
+    _add_girder_upload_nodes(main_wf, subject_iterator, sink_node_subjects, sink_node_all, **kwargs)
     return main_wf  # ENDPOINT with everything
 
 
@@ -817,6 +866,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
 
     if wf_graph is not None:
         sink_node_all.inputs.wf_graph = wf_graph
+    _add_girder_upload_nodes(main_wf, subject_iterator, sink_node_subjects, sink_node_all, **kwargs)
     return main_wf
 
 
@@ -1017,11 +1067,9 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
     ]
     sink_node_all = Node(DataSink_CSV_and_PDF_safe(
         infields=datasing_fields), name='sink_node_all')
-    sink_node_all.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
-    sink_node_all.inputs.container = 'results_summary'
-
     _connect_pred_sinks(main_wf, seg_getters, wf_post, sink_node_subjects, sink_node_all, **kwargs)
 
     if wf_graph is not None:
         sink_node_all.inputs.wf_graph = wf_graph
+    _add_girder_upload_nodes(main_wf, subject_iterator, sink_node_subjects, sink_node_all, **kwargs)
     return main_wf
