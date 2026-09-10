@@ -31,7 +31,8 @@ def genWorkflow(**kwargs) -> Workflow:
     # Create the datagrabber node that will replace the synthseg node
     synthseg_grabber = Node(DataGrabber(infields=['subject_id'],
                                         outfields=['segmentation', 'qc', 'volumes']),
-                            name='synthseg_grabber')
+                            name='synthseg_grabber',
+                            run_without_submitting=True)
     synthseg_grabber.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results', 'shiva_preproc', 'synthseg')
     synthseg_grabber.inputs.raise_on_empty = True
     synthseg_grabber.inputs.sort_filelist = True

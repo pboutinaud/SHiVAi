@@ -347,7 +347,8 @@ def main():
     datagrabber = Node(DataGrabber(
         infields=['subject_id'],
         outfields=['img1']),
-        name='datagrabber')
+        name='datagrabber',
+        run_without_submitting=True)
     datagrabber.inputs.base_directory = subject_directory
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
@@ -373,7 +374,9 @@ def main():
     synthseg.plugin_args = pred_plugin_args
 
     # Initializing the data sinks
-    sink_node_subjects = Node(DataSink(), name='sink_node_subjects')
+    sink_node_subjects = Node(DataSink(),
+        name='sink_node_subjects',
+        run_without_submitting=True)
     sink_node_subjects.inputs.base_directory = os.path.join(out_dir, 'results')
     sink_node_subjects.inputs.substitutions = [
         ('_subject_id_', ''),

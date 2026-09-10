@@ -40,7 +40,9 @@ def _add_girder_upload_nodes(main_wf, subject_iterator, sink_node_subjects, sink
         return
 
     def _mirror_sink(sink_node, subject_id):
-        girder_sink = Node(GirderSink(), name=f'girder_{sink_node.name}')
+        girder_sink = Node(GirderSink(),
+                        name=f'girder_{sink_node.name}',
+                        run_without_submitting=True)
         girder_sink.inputs.host = kwargs['GIRDER_HOST']
         girder_sink.inputs.mapping = kwargs['GIRDER_MAPPING']
         girder_sink.inputs.auth_method = kwargs['GIRDER_AUTH_METHOD']
@@ -586,7 +588,9 @@ def generate_main_wf(**kwargs) -> Workflow:
 
     # %% Finally the data sinks
     # Initializing the data sinks
-    sink_node_subjects = Node(DataSink_CSV_and_PDF_safe(), name='sink_node_subjects')
+    sink_node_subjects = Node(DataSink_CSV_and_PDF_safe(),
+                              name='sink_node_subjects',
+                              run_without_submitting=True)
     sink_node_subjects.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
     # Name substitutions in the results
     sink_node_subjects.inputs.substitutions = [
@@ -596,7 +600,9 @@ def generate_main_wf(**kwargs) -> Workflow:
         ('flair_to_t1__Warped_defaced_img_normalized', 'flair_to_t1_defaced_cropped_intensity_normed')
     ]
     sink_node_all = Node(DataSink_CSV_and_PDF_safe(
-        infields=datasing_fields), name='sink_node_all')
+        infields=datasing_fields),
+        name='sink_node_all',
+        run_without_submitting=True)
     sink_node_all.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
     sink_node_all.inputs.container = 'results_summary'
 
@@ -740,7 +746,8 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
                    'seg',  # Not used for now, just for compatibily with update_wf_grabber
                    'flair-to-t1'
                    ]),
-        name='preproc_grabber')
+        name='preproc_grabber',
+        run_without_submitting=True)
     preproc_grabber.inputs.base_directory = preproc_res
     preproc_grabber.inputs.template = '*/%s/*.nii.gz'  # unused placeholder (but required)
     preproc_grabber.inputs.raise_on_empty = True
@@ -849,7 +856,9 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
         datasing_fields.append('wf_graph')
 
     # Data sinks
-    sink_node_subjects = Node(DataSink_CSV_and_PDF_safe(), name='sink_node_subjects')
+    sink_node_subjects = Node(DataSink_CSV_and_PDF_safe(),
+                              name='sink_node_subjects',
+                              run_without_submitting=True)
     sink_node_subjects.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
     sink_node_subjects.inputs.substitutions = [
         ('_subject_id_', ''),
@@ -857,8 +866,9 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
         ('_resampled_defaced_cropped_img_normalized', '_defaced_cropped_intensity_normed'),
         ('flair_to_t1__Warped_defaced_img_normalized', 'flair_to_t1_defaced_cropped_intensity_normed')
     ]
-    sink_node_all = Node(DataSink_CSV_and_PDF_safe(
-        infields=datasing_fields), name='sink_node_all')
+    sink_node_all = Node(DataSink_CSV_and_PDF_safe(infields=datasing_fields),
+                         name='sink_node_all',
+                         run_without_submitting=True)
     sink_node_all.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
     sink_node_all.inputs.container = 'results_summary'
 
@@ -939,7 +949,8 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
                    'cmb_segmentation',
                    'lac_segmentation',
                    ]),
-        name='prev_res_grabber')
+        name='prev_res_grabber',
+        run_without_submitting=True)
     prev_res_grabber.inputs.base_directory = prev_res
     prev_res_grabber.inputs.template = '*/%s/*.nii.gz'
     prev_res_grabber.inputs.raise_on_empty = True
@@ -1057,7 +1068,9 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
         datasing_fields.append('wf_graph')
 
     # %% Data sinks
-    sink_node_subjects = Node(DataSink_CSV_and_PDF_safe(), name='sink_node_subjects')
+    sink_node_subjects = Node(DataSink_CSV_and_PDF_safe(),
+                              name='sink_node_subjects',
+                              run_without_submitting=True)
     sink_node_subjects.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
     sink_node_subjects.inputs.substitutions = [
         ('_subject_id_', ''),
@@ -1065,8 +1078,9 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
         ('_resampled_defaced_cropped_img_normalized', '_defaced_cropped_intensity_normed'),
         ('flair_to_t1__Warped_defaced_img_normalized', 'flair_to_t1_defaced_cropped_intensity_normed')
     ]
-    sink_node_all = Node(DataSink_CSV_and_PDF_safe(
-        infields=datasing_fields), name='sink_node_all')
+    sink_node_all = Node(DataSink_CSV_and_PDF_safe(infields=datasing_fields),
+                         name='sink_node_all',
+                         run_without_submitting=True)
     _connect_pred_sinks(main_wf, seg_getters, wf_post, sink_node_subjects, sink_node_all, **kwargs)
 
     if wf_graph is not None:
