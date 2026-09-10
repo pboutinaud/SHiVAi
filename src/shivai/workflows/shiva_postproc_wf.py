@@ -27,9 +27,10 @@ def genWorkflow(**kwargs) -> Workflow:
     subject_iterator.iterables = ('subject_id', kwargs['SUBJECT_LIST'])
 
     datagrabber = Node(DataGrabber(
-        infields=['subject_id'],
-        outfields=['pred', 'seg']),
-        name='datagrabber')
+            infields=['subject_id'],
+            outfields=['pred', 'seg']),
+        name='datagrabber',
+        run_without_submitting=True)
     datagrabber.inputs.base_directory = kwargs['DATA_DIR']
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
@@ -74,7 +75,7 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # workflow.connect(prediction_metrics, 'biomarker_stats_csv', summary_report, f'{lpred}_metrics_csv')
     # workflow.connect(prediction_metrics, 'biomarker_census_csv', summary_report, f'{lpred}_census_csv')
-    sink_node = Node(DataSink_CSV_and_PDF_safe(), name='sink_node')
+    sink_node = Node(DataSink_CSV_and_PDF_safe(), name='sink_node', run_without_submitting=True)
     sink_node.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
     sink_node.inputs.substitutions = [
         ('_subject_id_', ''),

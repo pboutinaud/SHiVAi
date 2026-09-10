@@ -59,9 +59,10 @@ def genWorkflow(**kwargs) -> Workflow:
 
     # file selection
     datagrabber = Node(DataGrabber(
-        infields=['subject_id'],
-        outfields=['img1', 'img2', 'img3', 'seg']),
-        name='datagrabber')
+            infields=['subject_id'],
+            outfields=['img1', 'img2', 'img3', 'seg']),
+        name='datagrabber',
+        run_without_submitting=True)
     datagrabber.inputs.base_directory = kwargs['DATA_DIR']
     datagrabber.inputs.raise_on_empty = True
     datagrabber.inputs.sort_filelist = True
