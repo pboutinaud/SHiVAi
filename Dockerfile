@@ -38,11 +38,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/local/src/shivai
-COPY src ./src
-COPY pyproject.toml requirements.txt ./
-RUN find . -type f -print0 | xargs -0 dos2unix && \
+# Separate layers between installing dependencies and copying source code
+# to avoid unnecessary rebuilds of the dependencies layer.
+COPY requirements.txt ./
+RUN dos2unix requirements.txt && \
     python -m venv --system-site-packages /opt/shivai-venv && \
-    /opt/shivai-venv/bin/python -m pip install --no-cache-dir .
+    /opt/shivai-venv/bin/python -m pip install --no-cache-dir -r requirements.txt
+
+COPY src ./src
+COPY pyproject.toml ./
+RUN find . -type f -print0 | xargs -0 dos2unix && \
+    /opt/shivai-venv/bin/python -m pip install --no-cache-dir --no-deps .
 
 
 FROM tensorflow/tensorflow:2.17.0-gpu
@@ -59,7 +65,7 @@ COPY --from=ants-builder /opt/ants-runtime/ /opt/ants-2.4.3/
 COPY --from=tools-builder /opt/tools/bin/ /usr/local/bin/
 COPY --from=app-builder /opt/shivai-venv/ /opt/shivai-venv/
 
-RUN command -v antsRegistration antsApplyTransforms dcm2niix shiva && \
+RUN command -v antsRegistration antsApplyTransforms dcm2niix shiva quickshear && \
     ! ldd "$(command -v antsRegistration)" | grep -q 'not found' && \
     ! ldd "$(command -v antsApplyTransforms)" | grep -q 'not found' && \
     python -c "import tensorflow, keras; from weasyprint import HTML"

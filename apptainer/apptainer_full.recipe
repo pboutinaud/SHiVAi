@@ -1,0 +1,42 @@
+Bootstrap: docker
+From: tensorflow/tensorflow:2.17.0-gpu
+Stage: build
+
+# Original recipe with all Shivai-specific installs
+
+%files
+    ../../shivai /usr/local/src/shivai
+
+%environment
+    PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/ants-2.4.3/bin
+    export PATH
+
+%post
+    # Installing shivai
+    apt update && apt-get install -y build-essential weasyprint libpangocairo-1.0-0 graphviz wget unzip
+    chmod 755 /usr/local/src/shivai/src/shivai/scripts/*
+    cd /usr/local/src/shivai
+    python -m pip install build
+    python -m pip install .
+    python -m pip cache purge
+    rm -rf /usr/local/src/shivai
+
+    # Installing ANTs
+    cd /opt
+    wget https://github.com/ANTsX/ANTs/releases/download/v2.4.3/ants-2.4.3-ubuntu-20.04-X64-gcc.zip 
+    unzip ants-2.4.3-ubuntu-20.04-X64-gcc.zip
+    rm ants-2.4.3-ubuntu-20.04-X64-gcc.zip
+
+    # Installing niimath
+    cd /usr/local/bin
+    curl -fLO https://github.com/rordenlab/niimath/releases/latest/download/niimath_lnx.zip
+    unzip niimath_lnx.zip
+    rm niimath_lnx.zip
+
+    # Installing dcm2niix
+    curl -fLO https://github.com/rordenlab/dcm2niix/releases/latest/download/dcm2niix_lnx.zip
+    unzip dcm2niix_lnx.zip
+    rm dcm2niix_lnx.zip
+
+    mkdir -p /mnt/model
+
