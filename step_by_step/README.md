@@ -55,7 +55,7 @@ Chose one of the two following paragraphs below (Apptainer vs. Docker)
 
 #### SHiVAi Apptainer image
 
-Download `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/3SUiEVXxQ)
+Download `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/XGNbxNt6W)
 
 #### SHiVAi Docker image
 
