@@ -6,6 +6,7 @@ import yaml
 import json
 import os
 import os.path as op
+import shlex
 
 
 def singParser():
@@ -35,17 +36,17 @@ def singParser():
 
     sub_workflows = parser.add_mutually_exclusive_group()
     sub_workflows.add_argument('--preproc_only',
-                                action='store_true',
-                                help=('If used, only the preprocessing steps will be run (usefull for training new data for example).\n'
+                               action='store_true',
+                               help=('If used, only the preprocessing steps will be run (usefull for training new data for example).\n'
                                       'This option still needs the "--prediction" argument to know what type of input will be given\n'
                                       'for the preprocessing.'))
     sub_workflows.add_argument('--use_prev_preproc',
-                                action='store_true',
-                                help=('If selected, the preprocessing steps will be skipped and the data from a previous shiva run will be used. '
+                               action='store_true',
+                               help=('If selected, the preprocessing steps will be skipped and the data from a previous shiva run will be used. '
                                       'This requires the --prev_results argument to be provided.'))
     sub_workflows.add_argument('--postproc_only',
-                                action='store_true',
-                                help=('If selected, only the postprocessing steps will be run, using preprocessed data and previous segmentation results. '
+                               action='store_true',
+                               help=('If selected, only the postprocessing steps will be run, using preprocessed data and previous segmentation results. '
                                       'This requires the --prev_results argument to be provided.'))
 
     parser.add_argument('--prev_results',
@@ -291,7 +292,7 @@ def main():
         container_image_ss = yaml_content.get('synthseg_docker_image', yaml_content.get('synthseg_image'))
 
     # Minimal input
-    input = "--in /mnt/data/input"
+    input_ = "--in /mnt/data/input"
     output = "--out /mnt/data/output"
     pred = f"--prediction {' '.join(args.prediction)}"
     config = f"--config /mnt/config/{op.basename(args.config)}"  # Only for Shiva
@@ -303,7 +304,8 @@ def main():
     if args.run_plugin_args:
         if os.path.isfile(args.run_plugin_args):
             with open(args.run_plugin_args, 'r') as file:
-                args.run_plugin_args = json.dumps(yaml.safe_load(file))
+                json_str = json.dumps(yaml.safe_load(file))
+                args.run_plugin_args = json_str
 
     # Optional inputs (common Shiva and Synthseg)
     opt_args1_names = ['replace_t1',
@@ -318,7 +320,10 @@ def main():
                             'remove_intermediates',
                             'ss_qc']
 
-    opt_args1 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args1_names if getattr(args, arg_name)]
+    opt_args1 = [
+        f'--{arg_name} {shlex.quote(str(getattr(args, arg_name)))}'
+        for arg_name in opt_args1_names if getattr(args, arg_name)
+    ]
     opt_args1 += [f'--{arg_name}' for arg_name in opt_args1_bool_names if getattr(args, arg_name)]
 
     bind_sublist = None
@@ -347,7 +352,7 @@ def main():
             container_image_ss,
             bind_list_ss,
             gpu_ss,
-            ["precomp_synthseg.py", input, output, pred] + args_ss + opt_args1,
+            ["precomp_synthseg.py", input_, output, pred] + args_ss + opt_args1,
             args.out_dir
         )
         print(command_ss)
@@ -364,7 +369,10 @@ def main():
     opt_args2_names = ['db_name',
                        'replace_flair',
                        'ai_threads']
-    opt_args2 = [f'--{arg_name} {getattr(args, arg_name)}' for arg_name in opt_args2_names if getattr(args, arg_name)]
+    opt_args2 = [
+        f'--{arg_name} {shlex.quote(str(getattr(args, arg_name)))}'
+        for arg_name in opt_args2_names if getattr(args, arg_name)
+    ]
     if args.preproc_only:
         opt_args2.append('--preproc_only')
     if args.use_cpu:
@@ -404,7 +412,7 @@ def main():
     if bind_lut:
         bind_list.append(bind_lut)
 
-    inner_cmd = ["shiva --containerized_all", input, output, pred, config] + opt_args1 + opt_args2
+    inner_cmd = ["shiva --containerized_all", input_, output, pred, config] + opt_args1 + opt_args2
     if args.anonymize:
         inner_cmd.append('--anonymize')
 
