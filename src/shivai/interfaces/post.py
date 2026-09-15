@@ -619,6 +619,10 @@ class Join_Prediction_metrics(BaseInterface):
             sub_df.insert(0, 'sub_id', [sub_id]*sub_df.shape[0])
             csv_list.append(sub_df)
         all_sub_metrics = pd.concat(csv_list)
+        if 'Append date' in all_sub_metrics.columns:
+            # May happen when re-running a failed analysis. Removes all old metrics and the "Append date" column
+            all_sub_metrics.drop(all_sub_metrics.loc[~all_sub_metrics['Append date'].isna()].index, axis=0, inplace=True)
+            all_sub_metrics.drop(columns=['Append date'], inplace=True)
         all_sub_metrics.set_index('sub_id', inplace=True)
         all_sub_metrics.to_csv('prediction_metrics.csv', float_format='%.2f')
 

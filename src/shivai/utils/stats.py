@@ -124,6 +124,10 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
         clust_reg = []
         for clust in clust_labels:
             seg_clust = brain_seg_vol[clusters_vol == clust]
+            seg_clust = seg_clust[seg_clust > 0]
+            if seg_clust.size == 0:
+                clust_reg.append('CSF')
+                continue
             reg_in_clust, reg_count = np.unique(seg_clust, return_counts=True)  # There shouldn't be any 0 here
             max_count = reg_count.max()
             seg_attributed_label = np.random.choice(reg_in_clust[reg_count == max_count])  # takes equalities into account
