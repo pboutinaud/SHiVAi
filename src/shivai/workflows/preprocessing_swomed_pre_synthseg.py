@@ -5,7 +5,7 @@
 """
 import os
 from nipype.pipeline.engine import Node, Workflow
-from shivai.interfaces.shiva import Direct_File_Provider
+from shivai.interfaces.datasource import Direct_File_Provider
 from shivai.workflows.preprocessing_synthseg import genWorkflow as gen_synthseg_wf
 
 
@@ -46,7 +46,7 @@ def genWorkflow(**kwargs) -> Workflow:
     workflow.remove_nodes([datagrabber, synthseg])
 
     # Datagrabber replacement with swomed input
-    files_plug = Node(Direct_File_Provider(), name='datagrabber')
+    files_plug = Node(Direct_File_Provider(), name='datagrabber', run_without_submitting=True)
 
     # Rewiring the workflow with the new nodes
     for grabber_out, connected_node, node_in in reconnections:

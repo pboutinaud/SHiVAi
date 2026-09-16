@@ -1,5 +1,5 @@
 from nipype.pipeline.engine import Node, Workflow
-from shivai.interfaces.shiva import Direct_File_Provider
+from shivai.interfaces.datasource import Direct_File_Provider
 
 
 def graft_swomed_infiles(workflow: Workflow):
@@ -20,7 +20,7 @@ def graft_swomed_infiles(workflow: Workflow):
     workflow.remove_nodes([datagrabber])
 
     # Datagrabber replacement with swomed input
-    files_plug = Node(Direct_File_Provider(), name='datagrabber')
+    files_plug = Node(Direct_File_Provider(), name='datagrabber', run_without_submitting=True)
 
     for grabber_out, connected_node, node_in in reconnections:
         workflow.connect(files_plug, grabber_out,
