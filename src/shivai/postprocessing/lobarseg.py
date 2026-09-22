@@ -194,12 +194,14 @@ def fill_hull(brain_regions):
     Create a convex hull around all the points (ore brain regions) given
     then fill the hull to give one big all-encompassing blob
     '''
+    filled_vol = np.zeros(brain_regions.shape, dtype=bool)
+    if not np.any(brain_regions):
+        return filled_vol
     points = np.argwhere(brain_regions)
     hull = ConvexHull(points)
     deln = Delaunay(points[hull.vertices])
     idx = np.stack(np.indices(brain_regions.shape), axis=-1)
     bg_idx = np.nonzero(deln.find_simplex(idx) + 1)
-    filled_vol = np.zeros(brain_regions.shape, dtype=bool)
     filled_vol[bg_idx] = True
     return filled_vol
 
