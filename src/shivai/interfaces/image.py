@@ -297,7 +297,7 @@ class CorrectAffine(BaseInterface):
                 simplified_affine_centered = img.affine.copy()
             else:
                 raise RuntimeError(f'The affine of the image {fname} is corrupted and cannot be corrected. '
-                                   f'Please check the image or use the --reset_bad_affine option to correct it automatically.')
+                                   f'Please check the image or use the --enable_affine_reset option to correct it automatically.')
         setattr(self, 'corrected_affine', simplified_affine_centered)
         setattr(self, 'original_affine', original_affine if simplified_affine_centered is not None else None)
         _, base, _ = split_filename(fname)
@@ -503,11 +503,14 @@ class Normalization(BaseInterface):
 
         # Save it for later use in _list_outputs
         setattr(self, 'mode', mode)
-        with open('report.html', 'w', encoding='utf-8') as fid:
-            fid.write(report)
+        if report is not None:
+            with open('report.html', 'w', encoding='utf-8') as fid:
+                fid.write(report)
+            setattr(self, 'report', os.path.abspath('report.html'))
+        else:
+            setattr(self, 'report', None)
 
         _, base, _ = split_filename(fname)
-        setattr(self, 'report', os.path.abspath('report.html'))
         if self.inputs.inverse:
             self.outname = base + '_img_normalized_inv.nii.gz'
         else:

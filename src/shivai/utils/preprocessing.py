@@ -114,7 +114,7 @@ def create_anisotropic_ellipsoid(radius_voxels, max_radius=None):
 def normalization(img: nib.Nifti1Image,
                   percentile: int,
                   brain_mask: nib.Nifti1Image = None,
-                  inverse: bool = False) -> nib.Nifti1Image:
+                  inverse: bool = False) -> tuple[nib.Nifti1Image, str, float]:
     """We remove values above the 99th percentile to avoid hot spots,
        set values below 0 to 0, set values above 1.3 to 1.3 and normalize
        the data between 0 and 1.
@@ -127,6 +127,8 @@ def normalization(img: nib.Nifti1Image,
 
        Returns:
         nib.Nifti1Image: normalized image
+        str: report containing histogram information
+        float: mode of the voxel intensities (most frequent value)
     """
     if not isinstance(img, nib.nifti1.Nifti1Image):
         raise TypeError("Only Nifti images are supported")
@@ -136,9 +138,10 @@ def normalization(img: nib.Nifti1Image,
 
     # We suppress values above the 99th percentile to avoid hot spots
     array = np.nan_to_num(img.get_fdata())
-    print(np.max(array))
     array[array < 0] = 0
-
+    if array.max() == 0:
+        warnings.warn('The image has all zero values. Returning the original image.')
+        return img, None, 0.0
     # calculate percentile
     if 0 <= percentile < 1:
         percentile *= 100
