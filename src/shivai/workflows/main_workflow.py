@@ -17,10 +17,10 @@ from shivai.workflows.preprocessing_fs_precomp import genWorkflow as genWorkflow
 from shivai.workflows.predict_wf import genWorkflow as genWorkflow_prediction
 from shivai.workflows.dcm2nii_grafting import graft_dcm2nii
 from shivai.interfaces.post import Join_Prediction_metrics, Join_QC_metrics
+from shivai.interfaces.datasink import DataSink_CSV_and_PDF_safe, GirderSink
 from nipype.pipeline.engine import Workflow, Node, JoinNode
 from nipype.interfaces.utility import IdentityInterface, Function
 from nipype.interfaces.io import DataGrabber
-from shivai.interfaces.datasink import DataSink_CSV_and_PDF_safe, GirderSink
 from nipype.interfaces.base import isdefined
 import os
 
@@ -43,6 +43,7 @@ def _add_girder_upload_nodes(main_wf, subject_iterator, sink_node_subjects, sink
         girder_sink = Node(GirderSink(),
                            name=f'girder_{sink_node.name}',
                            run_without_submitting=True)
+        girder_sink.inputs.metadata_dict = {'Shivai_version': kwargs['SHIVAI_VERSION']}
         girder_sink.inputs.host = kwargs['GIRDER_HOST']
         girder_sink.inputs.mapping = kwargs['GIRDER_MAPPING']
         girder_sink.inputs.auth_method = kwargs['GIRDER_AUTH_METHOD']

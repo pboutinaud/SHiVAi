@@ -14,6 +14,7 @@ of the data may be lost...
 import os
 import shutil
 import string
+import girder_client
 from nipype.interfaces.io import DataSink, DataSinkInputSpec, copytree
 from nipype.utils.misc import str2bool
 from nipype import config, logging
@@ -243,6 +244,11 @@ class GirderSinkInputSpec(DataSinkInputSpec):
         mandatory=True,
         desc="Subject id, substituted for the '$subject_id' placeholder in the mapping's path templates"
     )
+    
+    metadata_dict = traits.Dict(
+        Str, mandatory=False,
+        desc="Dictionary of metadata to attach to the uploaded Girder items"
+    )
 
 
 class GirderSink(DataSink):
@@ -305,7 +311,7 @@ class GirderSink(DataSink):
         dst = self._substitute(dst)
         return os.path.relpath(dst, os.path.abspath(base_directory))
 
-    def _resolve_root(self, gc, mapping, create_missing_folders):
+    def _resolve_root(self, gc: girder_client.GirderClient, mapping, create_missing_folders):
         root_folder_id = mapping.get("root_folder_id")
         if root_folder_id:
             return root_folder_id, "folder"
@@ -325,7 +331,7 @@ class GirderSink(DataSink):
         created = gc.createCollection(collection)
         return created["_id"], "collection"
 
-    def _resolve_folder(self, gc, root_id, root_type, relative_path, create_missing_folders, cache):
+    def _resolve_folder(self, gc: girder_client.GirderClient, root_id, root_type, relative_path, create_missing_folders, cache):
         parent_id, parent_type = root_id, root_type
         for component in [c for c in relative_path.split("/") if c]:
             cache_key = (parent_id, component)
@@ -352,10 +358,10 @@ class GirderSink(DataSink):
             parent_type = "folder"
         return parent_id
 
-    def _item_exists(self, gc, folder_id, filename):
+    def _item_exists(self, gc: girder_client.GirderClient, folder_id, filename):
         return next((i for i in gc.listItem(folder_id, name=filename)), None) is not None
 
-    def _upload_file(self, gc, folder_id, src, relative_original_path, overwrite):
+    def _upload_file(self, gc: girder_client.GirderClient, folder_id, src, relative_original_path, overwrite):
         filename = os.path.basename(src)
         if not overwrite and self._item_exists(gc, folder_id, filename):
             iflogger.warning(
@@ -366,7 +372,7 @@ class GirderSink(DataSink):
         uploaded = gc.uploadFileToFolder(folder_id, src)
         item_id = uploaded.get("itemId", uploaded.get("_id"))
         if item_id:
-            gc.addMetadataToItem(item_id, {"original_path": relative_original_path})
+            gc.addMetadataToItem(item_id, {"original_path": relative_original_path, **(self.inputs.metadata_dict or {})})
         return uploaded
 
     def _list_outputs(self):

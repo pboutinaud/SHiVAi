@@ -5,6 +5,7 @@ Functions needed by the shiva.py script to run the pipeline
 from shivai.workflows.main_workflow import generate_main_wf, generate_main_wf_grab_preproc, generate_main_wf_rerun_postproc
 from shivai.utils.misc import _export_workflow_compat
 from shivai.utils.girder_utils import _resolve_girder_credentials
+from shivai import __version__ as SHIVAI_VERSION
 from nipype import config
 import os
 import shutil
@@ -129,6 +130,7 @@ def shiva(in_dir, out_dir, input_type, file_type, sub_list, prediction, model, b
 
     # wfargs are settings shared between workflows. It's clearer to have them all in one dict and pass it around
     wfargs = {
+        'SHIVAI_VERSION': SHIVAI_VERSION,
         'PREP_SETTINGS': wf_prep,
         'SUB_WF': True,  # Denotes that the workflows are stringed together
         'SUBJECT_LIST': sub_list,

@@ -671,17 +671,17 @@ girder:
   create_missing_folders: true  # auto-create the collection/folder hierarchy on Girder if needed
   # verify_ssl: false  # DEBUG ONLY: disable SSL certificate verification (e.g. self-signed certs)
   subjectwise_folders:
-    report: "reports/$subject_id"
-    shiva_preproc.t1_preproc: "preprocessing/$subject_id/t1_preproc"
-    shiva_preproc.flair_preproc: "preprocessing/$subject_id/flair_preproc"
-    shiva_preproc.swi_preproc: "preprocessing/$subject_id/swi_preproc"
-    shiva_preproc.synthseg: "preprocessing/$subject_id/synthseg"
-    shiva_preproc.freesurfer: "preprocessing/$subject_id/freesurfer"
-    shiva_preproc.qc_metrics: "preprocessing/$subject_id/qc_metrics"
-    segmentations.pvs_segmentation: "segmentations/$subject_id/pvs_segmentation"
-    segmentations.wmh_segmentation: "segmentations/$subject_id/wmh_segmentation"
-    segmentations.cmb_segmentation_swi-space: "segmentations/$subject_id/cmb_segmentation"
-    segmentations.lac_segmentation: "segmentations/$subject_id/lac_segmentation"
+    report: "reports/${subject_id}"
+    shiva_preproc.t1_preproc: "preprocessing/${subject_id}/t1_preproc"
+    shiva_preproc.flair_preproc: "preprocessing/${subject_id}/flair_preproc"
+    shiva_preproc.swi_preproc: "preprocessing/${subject_id}/swi_preproc"
+    shiva_preproc.synthseg: "preprocessing/${subject_id}/synthseg"
+    shiva_preproc.freesurfer: "preprocessing/${subject_id}/freesurfer"
+    shiva_preproc.qc_metrics: "preprocessing/${subject_id}/qc_metrics"
+    segmentations.pvs_segmentation: "segmentations/${subject_id}/pvs_segmentation"
+    segmentations.wmh_segmentation: "segmentations/${subject_id}/wmh_segmentation"
+    segmentations.cmb_segmentation_swi-space: "segmentations/${subject_id}/cmb_segmentation"
+    segmentations.lac_segmentation: "segmentations/${subject_id}/lac_segmentation"
   global_folders:
     preproc_qc: "qc/preproc_qc"
     segmentations.pvs_metrics: "metrics/pvs_metrics"
@@ -694,8 +694,8 @@ girder:
 - `host`: the Girder API URL.
 - `auth_method`: `api_key` (default) or `password`.
 - `collection` / `root_folder_id`: the root of the upload tree. Use `collection` to upload under a named Girder collection (created automatically if it doesn't exist yet), or `root_folder_id` to instead target an existing Girder folder directly (useful if you don't have collection-creation rights on your Girder instance). If both are set, `root_folder_id` takes precedence.
-- `subjectwise_folders`: maps a SHiVAi output key to a path (relative to the collection/root folder) where the corresponding files will be uploaded. Use the `$subject_id` placeholder in the path, it gets substituted with the actual subject id for each subject.
-- `global_folders`: same idea, but for outputs that aren't tied to a single subject (summary/joined results across all subjects, e.g. `preproc_qc`, `wf_graph`, or the joined metrics csvs) - these paths shouldn't use `$subject_id`.
+- `subjectwise_folders`: maps a SHiVAi output key to a path (relative to the collection/root folder) where the corresponding files will be uploaded. Use the `${subject_id}` placeholder in the path, it gets substituted with the actual subject id for each subject.
+- `global_folders`: same idea, but for outputs that aren't tied to a single subject (summary/joined results across all subjects, e.g. `preproc_qc`, `wf_graph`, or the joined metrics csvs) - these paths shouldn't use `${subject_id}`.
 - `overwrite` (default `false`): if a file with the same name already exists in the destination Girder folder, the upload is skipped (with a warning in the log) rather than duplicated.
 - `create_missing_folders` (default `true`): automatically create the collection/folder hierarchy on Girder as needed.
 - `verify_ssl` (default `true`): whether to verify the Girder server's SSL certificate. Only set this to `false` for quick debugging against a server with a self-signed/invalid certificate (e.g. `SSLCertVerificationError: self-signed certificate in certificate chain`) - it disables all certificate verification and should not be used against a Girder server with sensitive data over an untrusted network.
