@@ -486,6 +486,8 @@ Usage examples:
                         type=str,
                         # default='T1.FLAIR-LAC/model_info.json',
                         help='Lacuna descriptor file path')
+    
+    parser.add_argument('--version', action='version', version=__version__)
 
     return parser
 
