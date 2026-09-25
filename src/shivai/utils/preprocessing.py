@@ -369,9 +369,9 @@ def crop(roi_mask: nib.Nifti1Image,
     if not isinstance(apply_to, nib.nifti1.Nifti1Image):
         raise TypeError("apply_to: only Nifti images are supported")
 
-    if roi_mask and not isinstance(roi_mask, nib.nifti1.Nifti1Image):
+    if roi_mask is not None and not isinstance(roi_mask, nib.nifti1.Nifti1Image):
         raise TypeError("roi_mask: only Nifti images are supported")
-    elif not roi_mask and not cdg_ijk:
+    elif roi_mask is None and cdg_ijk is None:
         if default == 'xyz':
             # get cropping center from xyz origin
             cdg_ijk = np.linalg.inv(apply_to.affine) @ np.array([0.0, 0.0, 0.0, 1.0])
@@ -380,7 +380,7 @@ def crop(roi_mask: nib.Nifti1Image,
             cdg_ijk = np.ceil(np.array(apply_to.shape) / 2).astype(int)
         else:
             raise ValueError(f"argument 'default' value {default} not valid")
-    elif roi_mask and not cdg_ijk:
+    elif roi_mask is not None and cdg_ijk is None:
         # get CoG from mask as center
         start_ornt = io_orientation(roi_mask.affine)
         end_ornt = axcodes2ornt("RAS")
@@ -411,7 +411,13 @@ def crop(roi_mask: nib.Nifti1Image,
     # the highest ijk voxel of the bounding box
     bbox2 = halfs + cdg_ijk
 
-    array_out = np.zeros(dimensions, dtype=apply_to.header.get_data_dtype())
+    slope = apply_to.dataobj.slope
+    inter = apply_to.dataobj.inter
+    if slope == 1.0 and inter == 0:
+        in_dtype = apply_to.header.get_data_dtype()
+    else:
+        in_dtype = np.float32
+    array_out = np.zeros(dimensions, dtype=in_dtype)
     print(f"bbox1: {bbox1}")
     print(f"bbox2: {bbox2}")
     print(f"cdg_ijk: {cdg_ijk}")
@@ -428,13 +434,13 @@ def crop(roi_mask: nib.Nifti1Image,
     print(f"span: {span}")
     print(f"offset: {offset_ijk}")
 
-    if roi_mask:
+    if roi_mask is not None:
         vec = np.sum(roi_mask.get_fdata().astype(bool), axis=(0, 1))
         top_mask_slice_index = np.where(np.squeeze(vec != 0))[0].tolist()[-1]
 
         if bbox2_clamped[2] <= top_mask_slice_index:
 
-            # we are too low, we nned to move the crop box up
+            # we are too low, we need to move the crop box up
             # (because brain mask is wrong and includes stuff in the neck and shoulders)
 
             delta = top_mask_slice_index - bbox2_clamped[2] + safety_margin
