@@ -386,6 +386,12 @@ class Resample_from_to(BaseInterface):
         Return: runtime
         """
         in_img = nib.load(self.inputs.moving_image)
+        slope = in_img.dataobj.slope
+        inter = in_img.dataobj.inter
+        if slope == 1.0 and inter == 0:
+            in_dtype = in_img.header.get_data_dtype()
+        else:
+            in_dtype = np.float32
         if isdefined(self.inputs.corrected_affine) and isdefined(self.inputs.original_affine):
             # img1 had a bad (non-orthogonal) affine. Conform/CorrectAffine replaced it with
             # corrected_affine (a clean, COM-centred affine) and outputs the original bad affine.
@@ -417,12 +423,6 @@ class Resample_from_to(BaseInterface):
         resampled = nip.resample_from_to(in_img,
                                          ref_img,
                                          self.inputs.spline_order)
-        slope = in_img.dataobj.slope
-        inter = in_img.dataobj.inter
-        if slope == 1.0 and inter == 0:
-            in_dtype = in_img.header.get_data_dtype()
-        else:
-            in_dtype = np.float32
         resampled.set_data_dtype(in_dtype)
         nib.save(resampled, self.outname)
         return runtime
