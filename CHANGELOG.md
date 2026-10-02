@@ -2,6 +2,17 @@
 
 All notable changes to the SHiVAi project will be documented in this file.
 
+## [v0.6.2] - 2026-09-08
+
+**Fixed:**
+
+- Fixes edge cases that made the pipeline crash
+- Fixes shiva masking scheme bug linked to optimised storing of intermediate results
+
+**Added:**
+
+- A `--version` argument to display the current version of the SHiVAi project
+
 ## [v0.6.1] - 2026-09-08
 
 **Fixed:**
