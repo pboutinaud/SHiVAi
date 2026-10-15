@@ -70,7 +70,7 @@ Chose one of the two following paragraphs below (Apptainer vs. Docker)
 
 #### Apptainer image
 
-Download the `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/XGNbxNt6W) (about 4GB).
+Download the `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/0PaacLHKs) (about 4GB).
 
 Let's assume you saved it as `~/myShivaiProject/shivai.sif`.
 
