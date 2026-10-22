@@ -2,6 +2,16 @@
 
 All notable changes to the SHiVAi project will be documented in this file.
 
+## [v0.6.3] - 2026-10-22
+
+**Added:**
+
+- Full system for specifying ANTs Registration parameters in the configuration file (.yaml)
+
+**Fixed:**
+
+- Corrected default parameters for ANTs registration that were previously causing misalignment issues
+
 ## [v0.6.2] - 2026-09-08
 
 **Fixed:**

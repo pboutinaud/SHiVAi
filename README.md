@@ -14,7 +14,15 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 ![Gif Image](https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/Images/SHIVA_BrainTools_small2.gif)
 
-## Important recent changes
+## ⚠️ Important recent changes ⚠️
+
+### What's New in v0.6.3 (2026-10-22)
+
+- ⚠️ It was discovered that ANTs registration often caused misalignment issues between T1w and FLAIR images since version v0.5.8 ⚠️ This has now been corrected in v0.6.3 and the registration parameters can now be changed in the configuration file (.yaml).
+
+### What's New in v0.6.0 (2026-09-03)
+
+Lots of things, please check the change log for details.
 
 ### What's New in v0.5.9 (2026-06-11)
 
