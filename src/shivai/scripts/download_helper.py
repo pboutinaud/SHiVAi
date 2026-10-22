@@ -7,7 +7,10 @@ from tkinter import filedialog
 import zipfile
 
 LATEST_MODELS = {
-    'PVS': 'https://cloud.efixia.com/fsdownload/Zvbj1CpkM/T1-PVS.zip', # V4
+    'PVS': 'https://cloud.efixia.com/fsdownload/Zvbj1CpkM/T1-PVS.zip',  # V4
+    'WMH': 'https://cloud.efixia.com/fsdownload/Iae0B1old/T1.FLAIR-WMH.zip',  # V2
+    'CMB': 'https://cloud.efixia.com/fsdownload/qWYAqMeGX/SWI-CMB.zip',  # V2
+    'LAC': 'https://cloud.efixia.com/fsdownload/imqU23Nvl/T1.FLAIR-LAC.zip',  # V0
     'brainmask': 'https://cloud.efixia.com/fsdownload/SXtROgtI7/brainmask.zip'
 }
 
@@ -20,7 +23,7 @@ def main():
         required=True,
         help="Name of the model to download"
     )
-        
+
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -28,7 +31,7 @@ def main():
         required=False
     )
     args = parser.parse_args()
-    
+
     if args.output_dir is None:
         root = tk.Tk()
         root.withdraw()
