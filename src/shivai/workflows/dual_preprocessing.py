@@ -116,7 +116,9 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
         flair_to_t1.inputs.verbose = True
         flair_to_t1.inputs.winsorize_lower_quantile = kwargs['ANTS']['winsorize_lower_quantile']  # 0.005
         flair_to_t1.inputs.winsorize_upper_quantile = kwargs['ANTS']['winsorize_upper_quantile']  # 0.995
-        flair_to_t1.inputs.initial_moving_transform_com = kwargs['ANTS']['initial_moving_transform_com']  # 1
+        init_move =  kwargs['ANTS']['initial_moving_transform_com']  # 1
+        if init_move is not None:
+            flair_to_t1.inputs.initial_moving_transform_com = init_move
         flair_to_t1.inputs.use_histogram_matching = False
 
         workflow.connect(correct_affine_flair, 'corrected_img',
