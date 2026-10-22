@@ -7,7 +7,7 @@ seaborn
 networkx>=2.8.7
 nibabel>=4.0.2
 nipype>=1.7.0
-numpy
+numpy<2
 pandas
 pybids
 pydot
