@@ -624,9 +624,23 @@ def set_args_and_check(inParser):
 
     # Parse the config file
     if args.config:
-        config_params = ['percentile', 'threshold', 'threshold_pvs', 'threshold_wmh',
-                         'threshold_cmb', 'threshold_lac', 'min_pvs_size', 'min_wmh_size',
-                         'min_cmb_size', 'min_lac_size']
+        config_params = {
+            'percentile': 99.0, 
+            'threshold': 0.5, 
+            'threshold_pvs': 0.5, 
+            'threshold_wmh': 0.2,
+            'threshold_cmb': 0.5, 
+            'threshold_lac': 0.2, 
+            'min_pvs_size': 5, 
+            'min_wmh_size': 1,
+            'min_cmb_size': 1, 
+            'min_lac_size': 3,
+            'final_dimensions': [160, 214, 176],
+            'batch_size': 20,
+            'voxels_size': [1.0, 1.0, 1.0],
+            'voxels_tolerance': [0.0, 0.0, 0.0],
+            'aff_correc_thr': 0.005
+        }
         args.config = os.path.abspath(args.config)
         with open(args.config, 'r') as file:
             yaml_content = yaml.safe_load(file)
@@ -665,31 +679,11 @@ def set_args_and_check(inParser):
         args.girder_verify_ssl = girder_cfg.get('verify_ssl', True)
 
         parameters = yaml_content['parameters']
-        for param in config_params:
+        for param, default_value in config_params.items():
             if getattr(args, param) is None:  # Giving param as argument to the command line overrides the config.yml params
-                setattr(args, param, parameters[param])
+                setattr(args, param, parameters.get(param, default_value))
         if args.model is None and 'model_path' in yaml_content.keys():
             args.model = yaml_content['model_path']  # only used when not with container, otherwise set to '/mnt/model' (see below)
-
-        if args.final_dimensions is None:
-            args.final_dimensions = tuple(parameters['final_dimensions'])
-        if args.batch_size is None:
-            if 'batch_size' in parameters:
-                args.batch_size = parameters['batch_size']
-            else:
-                args.batch_size = 20
-        if args.voxels_size is None:
-            args.voxels_size = tuple(parameters['voxels_size'])
-        if args.voxels_tolerance is None:
-            if 'voxels_tolerance' in parameters:
-                args.voxels_tolerance = tuple(parameters['voxels_tolerance'])
-            else:
-                args.voxels_tolerance = (0.0, 0.0, 0.0)
-        if args.aff_correc_thr is None:
-            if 'aff_correc_thr' in parameters:
-                args.aff_correc_thr = parameters['aff_correc_thr']
-            else:
-                args.aff_correc_thr = 0.005
 
         args.ants = {}
         if len(parameters.get('ants', {})) > 0:

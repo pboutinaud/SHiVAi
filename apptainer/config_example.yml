@@ -1,11 +1,17 @@
+## Minimal configuration example for Shiva AI 
+## Update the paths as needed and uncomment the relevant sections for specific tuning
+
 model_path: /myHome/myProject/Shiva_AI_models
+
+ ## When using a container runtime, specify it here
+container_runtime: apptainer  # docker or apptainer (default)
+
 apptainer_image: /myHome/myProject/shiva.sif
 synthseg_image: /myHome/myProject/synthseg.sif
 
-# Docker images (used with --containerized_nodes_docker)
+## Docker images (used with "container_runtime: docker")
 # docker_image: shivai:latest
 # synthseg_docker_image: synthseg:latest
-# container_runtime: docker  # or apptainer (default)
 
 parameters:
   brainmask_descriptor: "brainmask/V0/model_info.json"
@@ -15,30 +21,26 @@ parameters:
   CMB_descriptor: "SWI-CMB/V1/model_info.json"
   LAC_descriptor: "T1.FLAIR-LAC/model_info.json"
   swi_echo: 1
-  percentile: 99.0
-  threshold: 0.5
-  threshold_pvs: 0.5
-  threshold_wmh: 0.2
-  threshold_cmb: 0.5
-  threshold_lac: 0.2
-  min_pvs_size: 5
-  min_wmh_size: 1
-  min_cmb_size: 1
-  min_lac_size: 3
-  final_dimensions: [160, 214, 176]
-  voxels_size: [1.0, 1.0, 1.0]
-  voxels_tolerance: [0, 0, 0]
-  ants:
-    mask_fixed_image: true
-    interpolation: 'WelchWindowedSinc'
-    metric: ['MI']
-    radius_or_number_of_bins: [32]
-    smoothing_sigmas: [[4, 2, 1, 0]]
-    sigma_units: ['mm']
-    shrink_factors: [[4, 2, 1, 1]]
-    number_of_iterations: [[1000, 500, 250, 125]]
-    sampling_strategy: ['Regular']
-    sampling_percentage: [0.25]
-    winsorize_lower_quantile: 0.005
-    winsorize_upper_quantile: 0.995
-    initial_moving_transform_com: 1
+  # threshold_pvs: 0.5
+  # threshold_wmh: 0.2
+  # threshold_cmb: 0.5
+  # threshold_lac: 0.2
+  # min_pvs_size: 5
+  # min_wmh_size: 1
+  # min_cmb_size: 1
+  # min_lac_size: 3
+  # voxels_tolerance: [0, 0, 0]
+  # ants:
+  #   mask_fixed_image: false
+  #   interpolation: 'WelchWindowedSinc'
+  #   metric: ['MI']
+  #   radius_or_number_of_bins: [32]
+  #   smoothing_sigmas: [[4, 2, 1, 0]]
+  #   sigma_units: ['mm']
+  #   shrink_factors: [[4, 2, 1, 1]]
+  #   number_of_iterations: [[1000, 500, 250, 125]]
+  #   sampling_strategy: ['Regular']
+  #   sampling_percentage: [0.25]
+  #   winsorize_lower_quantile: 0.005
+  #   winsorize_upper_quantile: 0.995
+  #   initial_moving_transform_com: 1
