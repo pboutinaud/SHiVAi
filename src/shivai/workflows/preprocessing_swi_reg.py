@@ -68,23 +68,22 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     swi_to_t1.plugin_args = kwargs['REG_PLUGIN_ARGS']
     swi_to_t1.inputs.transforms = ['Rigid']
     swi_to_t1.inputs.transform_parameters = [(0.1,)]
-    swi_to_t1.inputs.metric = ['MI']
-    swi_to_t1.inputs.radius_or_number_of_bins = [64]
-    swi_to_t1.inputs.interpolation = 'WelchWindowedSinc'
-    swi_to_t1.inputs.shrink_factors = [[4, 2, 1, 1]]
     swi_to_t1.inputs.output_warped_image = True
-    swi_to_t1.inputs.smoothing_sigmas = [[4, 2, 1, 0]]
-    swi_to_t1.inputs.sigma_units = ['mm']
     swi_to_t1.inputs.num_threads = 8
     swi_to_t1.inputs.number_of_iterations = [[1000, 500, 250, 125]]
-    swi_to_t1.inputs.sampling_strategy = ['Regular']
-    swi_to_t1.inputs.sampling_percentage = [0.25]
-    swi_to_t1.inputs.output_transform_prefix = "swi_to_t1_"
-    swi_to_t1.inputs.verbose = True
-    swi_to_t1.inputs.winsorize_lower_quantile = 0.005
-    swi_to_t1.inputs.winsorize_upper_quantile = 0.995
-    swi_to_t1.inputs.initial_moving_transform_com = 1
     swi_to_t1.inputs.use_histogram_matching = False
+    swi_to_t1.inputs.metric = kwargs['ANTS']['metric']  # ['MI']
+    swi_to_t1.inputs.radius_or_number_of_bins = kwargs['ANTS']['radius_or_number_of_bins']  # [32]
+    swi_to_t1.inputs.interpolation = kwargs['ANTS']['interpolation']
+    swi_to_t1.inputs.shrink_factors = kwargs['ANTS']['shrink_factors']  # [[4, 2, 1, 1]]
+    swi_to_t1.inputs.smoothing_sigmas = kwargs['ANTS']['smoothing_sigmas']  # [[4, 2, 1, 0]]
+    swi_to_t1.inputs.sigma_units = kwargs['ANTS']['sigma_units']  # ['mm']
+    swi_to_t1.inputs.number_of_iterations = kwargs['ANTS']['number_of_iterations']  # [[1000, 500, 250, 125]]
+    swi_to_t1.inputs.sampling_strategy = kwargs['ANTS']['sampling_strategy']  # ['Regular']
+    swi_to_t1.inputs.sampling_percentage = kwargs['ANTS']['sampling_percentage']  # [0.25]
+    swi_to_t1.inputs.winsorize_lower_quantile = kwargs['ANTS']['winsorize_lower_quantile']  # 0.005
+    swi_to_t1.inputs.winsorize_upper_quantile = kwargs['ANTS']['winsorize_upper_quantile']  # 0.995
+    swi_to_t1.inputs.initial_moving_transform_com = kwargs['ANTS']['initial_moving_transform_com']  # 1
 
     workflow.connect(conform_swi, 'resampled', swi_to_t1, 'moving_image')
 
