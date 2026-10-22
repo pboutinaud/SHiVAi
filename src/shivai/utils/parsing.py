@@ -340,7 +340,7 @@ Usage examples:
                               'AI model (as well as the path to the AppTainer container when used).\n'
                               'Using a configuration file is incompatible with the arguments listed below '
                               '(i.e. --model --swi_file_num --percentile --threshold --threshold_clusters '
-                              '--final_dimensions --voxels_size --voxels_tolerance --interpolation --brainmask_descriptor --pvs_descriptor '
+                              '--final_dimensions --voxels_size --voxels_tolerance --brainmask_descriptor --pvs_descriptor '
                               '--pvs2_descriptor --wmh_descriptor --cmb_descriptor, --lac_descriptor).'),
                         default=None)
 
@@ -455,7 +455,7 @@ Usage examples:
     parser.add_argument('--interpolation',
                         type=str,
                         # default='WelchWindowedSinc',
-                        help='final interpolation apply to the t1 image')
+                        help='Interpolation applied by ANTs during registration (deprecated, use the "ants" field in the configuration file)')
 
     parser.add_argument('--brainmask_descriptor',
                         type=str,
@@ -626,7 +626,7 @@ def set_args_and_check(inParser):
     if args.config:
         config_params = ['percentile', 'threshold', 'threshold_pvs', 'threshold_wmh',
                          'threshold_cmb', 'threshold_lac', 'min_pvs_size', 'min_wmh_size',
-                         'min_cmb_size', 'min_lac_size', 'interpolation']
+                         'min_cmb_size', 'min_lac_size']
         args.config = os.path.abspath(args.config)
         with open(args.config, 'r') as file:
             yaml_content = yaml.safe_load(file)
@@ -690,6 +690,32 @@ def set_args_and_check(inParser):
                 args.aff_correc_thr = parameters['aff_correc_thr']
             else:
                 args.aff_correc_thr = 0.005
+
+        args.ants = {}
+        if len(parameters.get('ants', {})) > 0:
+            args.ants = parameters['ants']
+        
+        default_ants = {
+            'mask_fixed_image': False,
+            'interpolation': 'WelchWindowedSinc',
+            'metric': ['MI'],
+            'radius_or_number_of_bins': [32],
+            'smoothing_sigmas': [[4, 2, 1, 0]],
+            'sigma_units': ['mm'],
+            'shrink_factors': [[4, 2, 1, 1]],
+            'number_of_iterations': [[1000, 500, 250, 125]],
+            'sampling_strategy': ['Regular'],
+            'sampling_percentage': [0.25],
+            'winsorize_lower_quantile': 0.005,
+            'winsorize_upper_quantile': 0.995,
+            'initial_moving_transform_com': 1
+        }
+            
+        if args.interpolation is not None and len(args.ants) == 0:
+            default_ants['interpolation'] = args.interpolation
+        
+        # Merge default_ants with args.ants, giving precedence to args.ants
+        args.ants = {**default_ants, **args.ants}
 
         # Checking and setting the model descriptors (not checking md5 yet though)
         if args.brainmask_descriptor is None:  # otherwise override the config file when manually inputing the descriptor file

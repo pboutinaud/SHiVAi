@@ -102,21 +102,21 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
         flair_to_t1.plugin_args = kwargs['REG_PLUGIN_ARGS']
         flair_to_t1.inputs.transforms = ['Rigid']
         flair_to_t1.inputs.transform_parameters = [(0.1,)]
-        flair_to_t1.inputs.metric = ['MI']
-        flair_to_t1.inputs.radius_or_number_of_bins = [64]
-        flair_to_t1.inputs.interpolation = kwargs['INTERPOLATION']
-        flair_to_t1.inputs.shrink_factors = [[4, 2, 1, 1]]
+        flair_to_t1.inputs.metric = kwargs['ANTS']['metric']  # ['MI']
+        flair_to_t1.inputs.radius_or_number_of_bins = kwargs['ANTS']['radius_or_number_of_bins']  # [32]
+        flair_to_t1.inputs.interpolation = kwargs['ANTS']['interpolation']
+        flair_to_t1.inputs.shrink_factors = kwargs['ANTS']['shrink_factors']  # [[4, 2, 1, 1]]
         flair_to_t1.inputs.output_warped_image = True
-        flair_to_t1.inputs.smoothing_sigmas = [[4, 2, 1, 0]]
-        flair_to_t1.inputs.sigma_units = ['mm']
+        flair_to_t1.inputs.smoothing_sigmas = kwargs['ANTS']['smoothing_sigmas']  # [[4, 2, 1, 0]]
+        flair_to_t1.inputs.sigma_units = kwargs['ANTS']['sigma_units']  # ['mm']
         flair_to_t1.inputs.num_threads = 8
-        flair_to_t1.inputs.number_of_iterations = [[1000, 500, 250, 125]]
-        flair_to_t1.inputs.sampling_strategy = ['Regular']
-        flair_to_t1.inputs.sampling_percentage = [0.25]
+        flair_to_t1.inputs.number_of_iterations = kwargs['ANTS']['number_of_iterations']  # [[1000, 500, 250, 125]]
+        flair_to_t1.inputs.sampling_strategy = kwargs['ANTS']['sampling_strategy']  # ['Regular']
+        flair_to_t1.inputs.sampling_percentage = kwargs['ANTS']['sampling_percentage']  # [0.25]
         flair_to_t1.inputs.verbose = True
-        flair_to_t1.inputs.winsorize_lower_quantile = 0.005
-        flair_to_t1.inputs.winsorize_upper_quantile = 0.995
-        flair_to_t1.inputs.initial_moving_transform_com = 1
+        flair_to_t1.inputs.winsorize_lower_quantile = kwargs['ANTS']['winsorize_lower_quantile']  # 0.005
+        flair_to_t1.inputs.winsorize_upper_quantile = kwargs['ANTS']['winsorize_upper_quantile']  # 0.995
+        flair_to_t1.inputs.initial_moving_transform_com = kwargs['ANTS']['initial_moving_transform_com']  # [0.0, 0.0, 0.0]
         flair_to_t1.inputs.use_histogram_matching = False
 
         workflow.connect(correct_affine_flair, 'corrected_img',
@@ -125,8 +125,9 @@ def graft_img2_preproc(workflow: Workflow, **kwargs):
         workflow.connect(crop, 'cropped',
                          flair_to_t1, 'fixed_image')
 
-        workflow.connect(mask_to_crop, ('resampled_image', as_list),
-                         flair_to_t1, 'fixed_image_masks')
+        if kwargs['ANTS']['mask_fixed_image']:
+            workflow.connect(mask_to_crop, ('resampled_image', as_list),
+                             flair_to_t1, 'fixed_image_masks')
 
         workflow.connect(flair_to_t1, 'warped_image', defacing_flair, 'in_file')
 

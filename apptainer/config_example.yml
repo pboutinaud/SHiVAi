@@ -28,4 +28,17 @@ parameters:
   final_dimensions: [160, 214, 176]
   voxels_size: [1.0, 1.0, 1.0]
   voxels_tolerance: [0, 0, 0]
-  interpolation: 'WelchWindowedSinc'
+  ants:
+    mask_fixed_image: true
+    interpolation: 'WelchWindowedSinc'
+    metric: ['MI']
+    radius_or_number_of_bins: [32]
+    smoothing_sigmas: [[4, 2, 1, 0]]
+    sigma_units: ['mm']
+    shrink_factors: [[4, 2, 1, 1]]
+    number_of_iterations: [[1000, 500, 250, 125]]
+    sampling_strategy: ['Regular']
+    sampling_percentage: [0.25]
+    winsorize_lower_quantile: 0.005
+    winsorize_upper_quantile: 0.995
+    initial_moving_transform_com: 1
