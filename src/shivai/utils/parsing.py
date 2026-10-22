@@ -690,7 +690,7 @@ def set_args_and_check(inParser):
             args.ants = parameters['ants']
         
         default_ants = {
-            'mask_fixed_image': False,
+            'mask_fixed_image': True,
             'interpolation': 'WelchWindowedSinc',
             'metric': ['MI'],
             'radius_or_number_of_bins': [32],
@@ -702,7 +702,7 @@ def set_args_and_check(inParser):
             'sampling_percentage': [0.25],
             'winsorize_lower_quantile': 0.005,
             'winsorize_upper_quantile': 0.995,
-            'initial_moving_transform_com': 1
+            'initial_moving_transform_com': None
         }
             
         if args.interpolation is not None and len(args.ants) == 0:

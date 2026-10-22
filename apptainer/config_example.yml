@@ -31,7 +31,7 @@ parameters:
   # min_lac_size: 3
   # voxels_tolerance: [0, 0, 0]
   # ants:
-  #   mask_fixed_image: false
+  #   mask_fixed_image: true
   #   interpolation: 'WelchWindowedSinc'
   #   metric: ['MI']
   #   radius_or_number_of_bins: [32]
@@ -43,4 +43,4 @@ parameters:
   #   sampling_percentage: [0.25]
   #   winsorize_lower_quantile: 0.005
   #   winsorize_upper_quantile: 0.995
-  #   initial_moving_transform_com: 1
+  #   initial_moving_transform_com: null

@@ -83,7 +83,9 @@ def graft_workflow_swi(preproc_wf: Workflow, **kwargs):
     swi_to_t1.inputs.sampling_percentage = kwargs['ANTS']['sampling_percentage']  # [0.25]
     swi_to_t1.inputs.winsorize_lower_quantile = kwargs['ANTS']['winsorize_lower_quantile']  # 0.005
     swi_to_t1.inputs.winsorize_upper_quantile = kwargs['ANTS']['winsorize_upper_quantile']  # 0.995
-    swi_to_t1.inputs.initial_moving_transform_com = kwargs['ANTS']['initial_moving_transform_com']  # 1
+    init_move = kwargs['ANTS']['initial_moving_transform_com']  # None
+    if init_move is not None:
+        swi_to_t1.inputs.initial_moving_transform_com = init_move
 
     workflow.connect(conform_swi, 'resampled', swi_to_t1, 'moving_image')
 
