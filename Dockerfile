@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends wget unzip ca-c
     cp -a /opt/ants-2.4.3/bin/antsRegistration /opt/ants-runtime/bin/ && \
     cp -a /opt/ants-2.4.3/bin/antsApplyTransforms /opt/ants-runtime/bin/ && \
     if [ -d /opt/ants-2.4.3/lib ]; then cp -a /opt/ants-2.4.3/lib /opt/ants-runtime/lib; fi && \
+    rm -rf /opt/ants-2.4.3 && \
     ! ldd /opt/ants-runtime/bin/antsRegistration | grep -q 'not found' && \
     ! ldd /opt/ants-runtime/bin/antsApplyTransforms | grep -q 'not found' && \
     rm -rf /var/lib/apt/lists/*
