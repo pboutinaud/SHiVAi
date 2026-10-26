@@ -141,7 +141,8 @@ Usage examples:
                               '- "premasked" is to be used if the input images are already masked/brain-extracted\n'
                               '- "custom" considers that you provide a custom brain segmentation. If the said segmentation is '
                               'a full brain parcellation for region-wise analysis, a LUT must be provided with the "--custom_LUT"'
-                              'argument. Otherwise, the segmentation is considered simply as a brain mask.\n'
+                              'argument. Otherwise, the segmentation is considered simply as a brain mask. In any case, the provided segmentation '
+                              'must cover the entire brain as it is used to normalize voxel intensities accross the whole brain.\n'
                               '- "fs_precomp" considers that, in the input folder, you provide brain segmentations created by FreeSurfer. '
                               'It can be .nii(.gz) or .mgz files, but the filename must be "aparc+aseg" (e.g. "aparc+aseg.mgz")'),
                         default='shiva')

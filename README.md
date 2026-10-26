@@ -75,6 +75,7 @@ The Shivai pipeline and all the repository content is provided under the GNU Aff
   - [Running Shivai for AI model training purpose](#running-shivai-for-ai-model-training-purpose)
   - [Create missing json file](#create-missing-json-file)
   - [More info on the .yml configuration file](#more-info-on-the-yml-configuration-file)
+- [Frequently Asked Questions and Troubleshooting](#frequently-asked-questions-and-troubleshooting)
 
 ## Dependencies and hardware requirements
 
@@ -240,6 +241,8 @@ By default, SHiVAi uses `shiva`, which computes a brain mask using an AI model. 
 
 However, SHiVAi also accepts brain parcellations and will then associate each biomarker with a region and provide more details about their distribution across the brain.
 To do this we recommend using the `synthseg` argument (that will let the pipeline compute the parcellation, see next paragraph) or the `fs_precomp` (that uses the **Freesurfer** "aparc+aseg" parcellation). It can also be achieved with the `custom` argument by filling the `custom_LUT` argument with the path to a look-up table stored in a file (see the accepted format in the command line help). To use `fs_precomp` and `custom`, you will need to put the parcellation files (nifti or optionnaly .mgz for `fs_precomp`) in a `seg` folder in the input folder (see the [standard data structure paragraphe](#data-structures-accepted-by-shivai)).
+
+> ⚠️ When using a `custom` brain segmentation, make sure that the provided segmentation covers the entire brain. If it does not, the voxel intensity normalization and subsequent biomarker computations will be inaccurate.
 
 In our implementation, we mainly worked with the [Synthseg parcellation](https://surfer.nmr.mgh.harvard.edu/fswiki/SynthSeg) to generate custom parcellation for each type of biomarker (hemispheres are always differenciated in the labels):
 
@@ -784,7 +787,75 @@ shiva_prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 - **final_dimensions** (list) : Image array size in i, j, k input to the model. Should be [160, 214, 176].
 - **voxels_size** (list) : Voxel size used for the resampling before entering the model.
 - **voxels_tolerance** (list) : Tolerance to the voxel size used for the resampling, keeping the original voxel size if its withing the tolerance.
-- **interpolation** (str): image resampling method, default interpolation : 'WelchWindowedSinc', others ANTS interpolation possibilities : 'Linear', 'NearestNeighbor', 'CosineWindowedSinc', 'HammingWindowedSinc', 'LanczosWindowedSinc', 'BSpline', 'MultiLabel', 'Gaussian', 'GenericLabel'
+- **ants** (dict): Dictionary containing ANTS registration parameters.
+
+## Frequently Asked Questions and Troubleshooting
+
+### Registration issues between modalities
+
+If your processing encounters registration issues between modalities (typically between T1w and FLAIR images), this can be due to the ANTs Registration parameters we use and/or the alignment of the images themselves. First, check your version of Shivai: if it's between v0.5.8 and v0.6.2, there was a know issue that has been patched in v0.6.3.
+
+Otherwise check the aligment of your images. If they are not properly aligned, you can change some of the registration parameters from within [the configuration .yaml file](apptainer/config_example.yml). You can enable a pre-registration step that aligns the center of mass of each image before running the full ANTs registration. It can be activated with the ants/initial_moving_transform_com set to 1. If both images share the same field of view, you may also want to disable the masking applied to the fixed image by setting ants/mask_fixed_image to false.
+
+This would give something like:
+
+```yaml
+...
+parameters:
+    ...
+    ants:
+        initial_moving_transform_com: 1
+        mask_fixed_image: false
+```
+
+If you want to fine-tune the registration further, you can explore other ANTs parameters within the configuration file [apptainer/config_example.yml](apptainer/config_example.yml) and uncomment and modify them as needed.
+
+### Bad affine error
+
+If you encounter a "corrupted affine" error like:
+
+```text
+The affine of the image *image* is corrupted and cannot be corrected. 
+Please check the image or use the --enable_affine_reset option to correct it automatically. 
+```
+
+it means that the affine transformation matrix in the Nifti image header is corrupted (no proper origin or non orthogonal axes)and cannot be used to correctly interpret the image orientation (or may break the registration). You can either check and correct the image manually or use the `--enable_affine_reset` option to let the software attempt an automatic correction. However beware, this automatic correction will remove any rotation or translation information present in the original affine, and may distort the image geometry. It will also lose the origin as set in the original image header, so iamges that were previously aligned with the "corrupted" image will no longer be correctly aligned.
+
+When correcting the affine using the `--enable_affine_reset` option, we recommend also enabling the [pre-registration step mentioned above](#registration-issues-between-modalities) to improve the registration accuracy.
+
+### What is the "brain volume" metric mentionned in the PDF report?
+
+It is a estimation of the intracranial brain volume. It is derived from the brain segmentation and is actually the volume of the brain mask, so it may not be 100% accurate. For the `shiva` brain segmentation, it corresponds to the volume of the mask generated by the inhouse AI model. for the `synthseg` brain segmentation, it corresponds to the volume of all the non-zero regions (so it includes the CSF). However, when using a typical FreeSurfer (with `fs_precomp`) brain segmentation, since it does not include the CSF, the brain volume will be underestimated compared to the other methods (closer to a brain-only volume than a full intracranial volume).
+
+### Can I run the preprocessing steps only?
+
+Yes, you can run the preprocessing steps only by using the `--preproc_only` option when executing the command.
+
+### Can I reuse the preprocessing results?
+
+Yes, you can reuse the preprocessing results if you want to rerun the prediction and post-processing steps without having to redo the preprocessing. You will need a valid result folder containing the previously generated preprocessing outputs. Then use the `--use_prev_preproc` option and `--prev_results` to specify the path to that folder.
+
+It would then should give something like this:
+
+```bash
+shivai --in ... --use_prev_preproc --prev_results /path/to/previous/results
+```
+
+### Can I rerun the post-processing steps only?
+
+Yes. For example, if you changed the filtering/thresholding parameters and want to rerun only the post-processing steps (fitlering, clustering, statistics, etc.), you can use the `--postproc_only` option when executing the command and the `--prev_results` option to specify the path to the previous results folder.
+
+It would then should give something like this:
+
+```bash
+shivai --in ... --postproc_only --prev_results /path/to/previous/results
+```
+
+### Can I use Shivai's post-processing on other predictions?
+
+Yes, if you have data produced by another prediction method and want to use Shivai's post-processing on it, you can do so by using the Shiva post-processing workflow, called with `shiva_postproc` if you installed Shivai locally.
+
+Check the documentation using `shiva_postproc --help` for more details on how to use the post-processing workflow.
 
 ## Acknowledgements
 
