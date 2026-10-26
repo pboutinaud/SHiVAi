@@ -4,7 +4,7 @@
 
 Apptainer is a container solution, meaning that you can run SHiVAi using an Apptainer image (a file with the *.sif* extension) containing all the software and environment necessary. You can get the SHiVAi image from us [https://cloud.efixia.com/sharing/0PaacLHKs](https://cloud.efixia.com/sharing/0PaacLHKs) or build it yourself.
 
-To build the Apptainer image, you need a machine on which you are *root* user. Then, from the **shivai/apptainer** directory, run the following command to build the SHIVA Apptainer container image :
+To build the Apptainer image, you need a machine on which you are *root* user. Then, from the **shivai/apptainer** directory (or wherever you saved the [apptainer.recipe](apptainer.recipe) file if you only downloaded it), run the following command to build the SHIVA Apptainer container image :
 
 ```bash
 apptainer build shivai.sif apptainer.recipe

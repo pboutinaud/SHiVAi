@@ -1,6 +1,6 @@
 ﻿# SHiVAi: SHiVA preprocessing and deep learning segmentation workflow
 
-<img src="src/shivai/postprocessing/logo_shiva.png" align="right" width="100px"/>
+<img src="src/shivai/postprocessing/logo_shiva.png" align="right" width="100px" alt="SHiVAi logo"/>
 
 The shivai package includes a set of image analysis tools for the study of covert cerebral small vessel diseases (cCSVD) with structural Magnetic Resonance Imaging. More specifically, it installs **SHiVAi**, the full pipeline for preprocessing, AI-based segmentation, and reporting of cCVSD biomarkers.
 
@@ -19,6 +19,10 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 ### What's New in v0.6.3 (2026-10-22)
 
 - ⚠️ It was discovered that ANTs registration often caused misalignment issues between T1w and FLAIR images since version v0.5.8 ⚠️ This has now been corrected in v0.6.3 and the registration parameters can now be changed in the configuration file (.yaml).
+
+## What's New in v0.6.1 (2026-09-08)
+
+- ⚠️ The raw prediction maps are now saved in the participant-specific output folder in the results, instead of putting all these maps in the folder containing the said participant-specific output folders. As it should have been all along. So if you automated the recovery of these files, you may need to update your scripts accordingly.
 
 ### What's New in v0.6.0 (2026-09-03)
 
@@ -41,7 +45,7 @@ Lots of things, please check the change log for details.
 All the content, code, and ressources of this repository, has been registered at the french 'Association de Protection des Programmes' under the number:  [IDDN.FR.001.410014.000.S.P.2024.000.21000](https://secure2.iddn.org/app.server/certificate/?sn=2024410014000&key=25dae5f5f3fc7b77d5018285173dc2b184d9358e091bbd1fe3e0be955306d7ee&lang=fr)
 
 The Shivai pipeline and all the repository content is provided under the GNU Affero General Public License version 3 (Affero GPLv3) or more recent.
-<img src="https://www.gnu.org/graphics/agplv3-155x51.png" align="right" width="100px"/>
+<img src="https://www.gnu.org/graphics/agplv3-155x51.png" align="right" width="100px" alt="AGPLv3 logo"/>
 
 ## Index
 
@@ -60,10 +64,10 @@ The Shivai pipeline and all the repository content is provided under the GNU Aff
   - [Running SHIVAI from direct package commands (recommended)](#running-shivai-from-direct-package-commands-recommended)
     - [Full SHiVAi process](#full-shivai-process)
     - [Partial (re-)run of Shivai](#partial-re-run-of-shivai)
-        - [Running the preprocessing only](#running-the-preprocessing-only)
-        - [Re-running the post-processing](#re-running-the-post-processing)
-        - [Re-running the prediction and post-processing](#re-running-the-prediction-and-post-processing)
-        - [Running the post-processing on custom data](#running-the-post-processing-on-custom-data)
+      - [Running the preprocessing only](#running-the-preprocessing-only)
+      - [Re-running the post-processing](#re-running-the-post-processing)
+      - [Re-running the prediction and post-processing](#re-running-the-prediction-and-post-processing)
+      - [Running the post-processing on custom data](#running-the-post-processing-on-custom-data)
 - [Results](#results)
 - [Data structures accepted by SHiVAi](#data-structures-accepted-by-shivai)
 - [Uploading results to Girder](#uploading-results-to-girder)
@@ -144,11 +148,12 @@ Shivai was mostly developped to run with Apptainer, but we also provide Dockerfi
     ```bash
     docker build --rm -t myId/shivai:latest -t myId/shivai:x.x.x .
     ```
+
     > Replace `myId` by your username or something equivalent, and `x.x.x` by the actual version of Shivai.
 
-1. If you want to use the Synthseg parcelation system, you will also need a separate Docker image for Synthseg. To build it, follow the [related section](./apptainer/README.md#synthseg-docker-image) in the container-related readme.
+3. If you want to use the Synthseg parcelation system, you will also need a separate Docker image for Synthseg. To build it, follow the [related section](./apptainer/README.md#synthseg-docker-image) in the container-related readme.
 
-2. To run Shivai from Docker, check the [Docker section](#running-shivai-from-a-docker-container) of the guide.
+4. To run Shivai from Docker, check the [Docker section](#running-shivai-from-a-docker-container) of the guide.
 
 ### Traditional python install
 
@@ -256,7 +261,7 @@ To run the shiva process, you will need:
 - The trained AI model (that we provide and you should have downloaded)
 - A configuration file (.yml) that will contain all the options and various paths needed for the workflow
 
-#### Command line arguments (with `run_shiva.py`)
+**Command line arguments (with `run_shiva.py`):**
 
 ```bash
     --in: Path of the input dataset
@@ -269,7 +274,7 @@ To run the shiva process, you will need:
 
 These are the most useful argument you will want to set. However, there are more arguments available to further control the pipeline. To see them and their description, run `python run_shiva.py --help`.
 
-#### Command line example
+**Command line example:**
 
 Running the processing (from the directory where you stored `run_shiva.py`):
 
@@ -285,7 +290,7 @@ SHiVAi now supports Docker through the same `run_shiva.py` script (or `shiva_con
 
 > To run Docker, you need root privileges or must be part of the `docker` group on the machine. Check with your system administrator if you have doubts.
 
-#### Configuration
+**Configuration:**
 
 In your `.yml` config file, replace (or complement) the Apptainer image path with Docker image names:
 
@@ -300,7 +305,7 @@ container_runtime: docker
 
 You can also add `container_runtime: docker` directly in the config file to avoid having to pass `--container_runtime docker` on every command line.
 
-#### Command line example
+**Command line example:**
 
 Running the processing with Docker (from the directory where you stored `run_shiva.py`):
 
@@ -548,6 +553,7 @@ Example of `BIDS` structure folders:
         │       ├── sub-51_T1_raw.nii.gz
         ·       └── sub-21_seg.nii.gz
 ```
+
 Or, with different sessions per subjects:
 
 ```txt
@@ -588,6 +594,7 @@ Example of `standard` structure folders (the important parts are the name of the
 ```
 
 Or, with different sessions per subjects:
+
 ```txt
     .
     ├── sub-21
@@ -665,7 +672,7 @@ Example of `json` structure input:
 
 In addition to saving results locally, SHiVAi can optionally upload them to a [Girder](https://girder.readthedocs.io/) server. This is enabled with the `--girder_upload` command line flag, and configured through a `girder:` section in the `--config` YAML file.
 
-### Configuration
+### Girder configuration
 
 Add a `girder:` section to your config file, for example:
 
@@ -783,5 +790,5 @@ shiva_prep_json --folder /myHome/myProject/Shiva_AI_models/T1-PVS
 
 This work has been done in collaboration between the [Fealinx](http://www.fealinx-biomedical.com/en/) company and the [GIN](https://www.gin.cnrs.fr/en/) laboratory (Groupe d'Imagerie Neurofonctionelle, UMR5293, IMN, Univ. Bordeaux, CEA , CNRS) with grants from the Agence Nationale de la Recherche (ANR) with the projects [GinesisLab](http://www.ginesislab.fr/) (ANR 16-LCV2-0006-01) and [SHIVA](https://rhu-shiva.com/en/) (ANR-18-RHUS-0002)
 
-|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/shiva_blue.png" width="100" height="100" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/fealinx.jpg" height="200" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/Logo-Gin.png" height="200" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/logo_ginesis-1.jpeg" height="100" />|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/logo_anr.png" height="50" />|
+|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/shiva_blue.png" width="100" height="100" alt="SHiVAi logo"/>|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/fealinx.jpg" height="200" alt="Fealinx logo"/>|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/Logo-Gin.png" height="200" alt="GIN logo"/>|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/logo_ginesis-1.jpeg" height="100" alt="GinesisLab logo"/>|<img src="https://github.com/pboutinaud/SHIVA_PVS/blob/main/docs/logos/logo_anr.png" height="50" alt="ANR logo"/>|
 |---|---|---|---|---|
