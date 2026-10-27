@@ -76,6 +76,14 @@ The Shivai pipeline and all the repository content is provided under the GNU Aff
   - [Create missing json file](#create-missing-json-file)
   - [More info on the .yml configuration file](#more-info-on-the-yml-configuration-file)
 - [Frequently Asked Questions and Troubleshooting](#frequently-asked-questions-and-troubleshooting)
+  - [Registration issues between modalities](#registration-issues-between-modalities)
+  - [Bad affine error](#bad-affine-error)
+  - [What is the "brain volume" metric mentionned in the PDF report?](#what-is-the-brain-volume-metric-mentionned-in-the-pdf-report)
+  - [Can I run the preprocessing steps only?](#can-i-run-the-preprocessing-steps-only)
+  - [Can I reuse the preprocessing results?](#can-i-reuse-the-preprocessing-results)
+  - [Can I rerun the post-processing steps only?](#can-i-rerun-the-post-processing-steps-only)
+  - [Can I use Shivai's post-processing on other data?](#can-i-use-shivais-post-processing-on-other-data)
+
 
 ## Dependencies and hardware requirements
 
@@ -810,6 +818,12 @@ parameters:
 
 If you want to fine-tune the registration further, you can explore other ANTs parameters within the configuration file [apptainer/config_example.yml](apptainer/config_example.yml) and uncomment and modify them as needed.
 
+> Tip: you can check if the registration tuning is effective by only running the preprocessing steps and inspecting the alignment of the images before proceeding with the full pipeline. See [below](#can-i-run-the-preprocessing-steps-only) on how to do it.
+
+**What if fine tuning the registration parameters does not solve the issue? (or it's too much hassle):**
+
+If you have the possibility to register the images before running Shivai (or if they are already aligned), you can use the `--prereg_flair` option to indicate that the FLAIR image has been pre-registered. This will skip the FLAIR to T1w image registration. The FLAIR image will still be resampled to match the T1w image but no world-coordinate transformation will be applied.
+
 ### Bad affine error
 
 If you encounter a "corrupted affine" error like:
@@ -829,7 +843,7 @@ It is a estimation of the intracranial brain volume. It is derived from the brai
 
 ### Can I run the preprocessing steps only?
 
-Yes, you can run the preprocessing steps only by using the `--preproc_only` option when executing the command.
+Yes, you can run the preprocessing steps only by using the `--preproc_only` option when executing the command. You will still need to give the whole set of arguments to the Shivai command line, but only the preprocessing steps will be executed.
 
 ### Can I reuse the preprocessing results?
 
@@ -851,7 +865,7 @@ It would then should give something like this:
 shivai --in ... --postproc_only --prev_results /path/to/previous/results
 ```
 
-### Can I use Shivai's post-processing on other predictions?
+### Can I use Shivai's post-processing on other data?
 
 Yes, if you have data produced by another prediction method and want to use Shivai's post-processing on it, you can do so by using the Shiva post-processing workflow, called with `shiva_postproc` if you installed Shivai locally.
 
