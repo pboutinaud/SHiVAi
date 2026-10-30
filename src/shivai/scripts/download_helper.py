@@ -5,6 +5,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog 
 import zipfile
+from tqdm import tqdm
 
 LATEST_MODELS = {
     'PVS': 'https://cloud.efixia.com/fsdownload/Zvbj1CpkM/T1-PVS.zip',  # V4
@@ -58,9 +59,18 @@ def main():
                         raise RuntimeError(
                             f"Received an HTML sharing page instead of the ZIP for {model_name}"
                         )
-                    with open(output_path, "wb") as f:
+                    total_size = int(response.headers.get('Content-Length', 0)) or None
+                    with open(output_path, "wb") as f, tqdm(
+                        total=total_size,
+                        desc=filename,
+                        unit='B',
+                        unit_scale=True,
+                        unit_divisor=1024,
+                    ) as progress:
                         for chunk in response.iter_content(chunk_size=10 * 1024):
-                            f.write(chunk)
+                            if chunk:
+                                f.write(chunk)
+                                progress.update(len(chunk))
             print(f"Downloaded {model_name} to {output_path}")
             with zipfile.ZipFile(output_path, 'r') as zip_ref:
                 zip_ref.extractall(args.output_dir)
