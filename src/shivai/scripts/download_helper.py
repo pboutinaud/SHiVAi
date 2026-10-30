@@ -71,7 +71,8 @@ def main():
                             if chunk:
                                 f.write(chunk)
                                 progress.update(len(chunk))
-            print(f"Downloaded {model_name} to {output_path}")
+            print(f"Finished downloading {model_name} to {output_path}")
+            print(f"Extracting {model_name}...")
             with zipfile.ZipFile(output_path, 'r') as zip_ref:
                 zip_ref.extractall(args.output_dir)
             print(f"Extracted {model_name} to {args.output_dir}")
