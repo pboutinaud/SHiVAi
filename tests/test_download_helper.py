@@ -11,6 +11,46 @@ from tqdm import tqdm
 from shivai.scripts import download_helper
 
 
+class DirectoryPickerTests(unittest.TestCase):
+    def test_cancelled_picker_uses_readable_colors_only_on_x11(self):
+        for windowing_system in ('x11', 'win32', 'aqua'):
+            with self.subTest(windowing_system=windowing_system), \
+                    patch('sys.argv', ['download_helper', '--models', 'PVS']), \
+                    patch.object(download_helper.tk, 'Tk') as tk_factory, \
+                    patch.object(download_helper.filedialog, 'askdirectory', return_value='') as picker, \
+                    patch.object(download_helper.requests, 'Session') as session_factory:
+                root = tk_factory.return_value
+                root.tk.call.return_value = windowing_system
+
+                download_helper.main()
+
+                root.withdraw.assert_called_once_with()
+                root.tk.call.assert_called_once_with('tk', 'windowingsystem')
+                if windowing_system == 'x11':
+                    root.option_add.assert_any_call(
+                        '*foreground', '#202020', 80)
+                    root.option_add.assert_any_call(
+                        '*background', '#eeeeee', 80)
+                    root.option_add.assert_any_call(
+                        '*selectForeground', '#ffffff', 80)
+                    root.option_add.assert_any_call(
+                        '*selectBackground', '#315a86', 80)
+                else:
+                    root.option_add.assert_not_called()
+                picker.assert_called_once_with(parent=root)
+                root.destroy.assert_called_once_with()
+                session_factory.assert_not_called()
+
+    def test_picker_error_destroys_hidden_window(self):
+        with patch('sys.argv', ['download_helper', '--models', 'PVS']), \
+                patch.object(download_helper.tk, 'Tk') as tk_factory, \
+                patch.object(download_helper.filedialog, 'askdirectory', side_effect=RuntimeError('picker failed')):
+            with self.assertRaisesRegex(RuntimeError, 'picker failed'):
+                download_helper.main()
+
+            tk_factory.return_value.destroy.assert_called_once_with()
+
+
 class DownloadProgressTests(unittest.TestCase):
     def setUp(self):
         self.output_dir = Path(self.enterContext(tempfile.TemporaryDirectory()))
