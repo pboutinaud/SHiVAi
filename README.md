@@ -103,24 +103,32 @@ Depending on your situation you may want to deploy SHiVAi in different ways:
 
 ### Trained AI model
 
-In all the mentioned situations, **you will also need** to obtain the trained deep-learning models you want to use (for PVS, WMH, CMB, and Lacuna segmentation).
-They are available at [https://github.com/pboutinaud](https://github.com/pboutinaud)
+In all the mentioned situations, **you will also need** the trained models for your chosen segmentations. After [installing the Python package](#traditional-python-install), download them with:
 
-All the models must be stored in a common folder whose path must also be filled in the `model_path` variable of the config file (see point 4 of [Fully contained process](#fully-contained-process-apptainer)).
-Let's consider that you stored them in `/myHome/myProject/Shiva_AI_models` for the following parts.
+```bash
+shiva_download -m PVS PVS2 WMH CMB LAC -o /myHome/myProject/Shiva_AI_models
+```
 
-Each model must also be paired with a `model_info.json` file. These json files should be available on the same repository as their corresponding model.
-Note that json these files are where the pipeline will look for the models path, so you may have to manually edit the path to the models. By default, the paths to the models are the relative path starting from the folder storing the specific model it is paired with (e.g. `brainmask/detailed-name-of-the-model.keras` for the brain mask models used [below](#brain-masking), stored in a `brainmask` folder).
+If you only use a container, download the standalone [download_models.py](apptainer/download_models.py) script and run one of these commands after retrieving your SHiVAi image:
 
-This way, if you simply extract the downloaded models in the common model folder, the `model_info.json` file *should* already be good.
+```bash
+python download_models.py --apptainer /myHome/myProject/shivai.sif -m all -o /myHome/myProject/Shiva_AI_models
+python download_models.py --docker vnozais/shivai:latest -m all -o /myHome/myProject/Shiva_AI_models
+```
 
-Once you have your models and json files properly stored and setup, update the config file with the correct path for each "descriptor" file (i.e. the json files).
+The wrapper needs no third-party Python packages on the host. It handles the output mount and Docker user mapping; see [container download details](apptainer/README.md#download-models-using-a-container).
+
+Both helpers download and extract the models, retrieve their JSON descriptors, and generate `auto_config.yml` in the output folder with the model and descriptor paths filled in. Copy it to your project as `myConfig.yml` and configure your runtime and image paths as described below. The runtime and Apptainer/Synthseg image settings are initially commented out.
+
+Use `-m` to select only the models you need (`PVS` is T1-only; `PVS2` uses T1 + FLAIR), or `-m all` to include every model, including brain masking. The latest versions are selected automatically. If `-o` is omitted, a folder picker opens on the host (requires tkinter and a graphical session).
+
+Manual downloads remain available from the [model repositories](https://github.com/pboutinaud). Store the extracted models in a common folder and pair each with its JSON descriptor, then set `model_path` and the descriptor paths in your configuration.
 
 > ⚠️If the `model_info.json` is not available for some reason, refer to the [Create missing json file](#create-missing-json-file) section, and don't forget to update the config file  if you use one.
 
 ### Brain masking
 
-SHiVAi relies on the access to brain masks in order to crop the input volumes to the proper dimension for the aI models. More details are available [below](#brain-parcellation-and-region-wise-statistics), but if you do not have such masks on hand, SHiVAi can create them automatically using a dedicated AI model. To use this option, you will have to download it and store (after extracting/unzipping) in the same folder as the other AI models. The brain masking model can be found following the link: [https://cloud.efixia.com/sharing/SXtROgtI7](https://cloud.efixia.com/sharing/SXtROgtI7)
+SHiVAi relies on brain masks to crop the input volumes to the proper dimensions for the AI models. More details are available [below](#brain-parcellation-and-region-wise-statistics). If you do not have masks on hand, SHiVAi can create them using a dedicated AI model. Download it with `shiva_download -m brainmask -o /myHome/myProject/Shiva_AI_models`, or add `brainmask` to the wrapper's `-m` list. It is already included with `-m all`. This does not download the separate Synthseg models.
 
 ### Fully contained process (Apptainer)
 
@@ -130,9 +138,9 @@ SHiVAi relies on the access to brain masks in order to crop the input volumes to
 2. Download the Apptainer image (.sif file) from [https://cloud.efixia.com/sharing/Z404gQ04h](https://cloud.efixia.com/sharing/Z404gQ04h) (it may take a while, the image weighs about 4GB).
     Let's assume you saved it in `/myHome/myProject/shivai.sif`
 
-3. From the Shivai repository (where you are reading this), navigate to the [apptainer folder](apptainer/) and download [run_shiva.py](apptainer/run_shiva.py) and [config_example.yml](apptainer/config_example.yml)
+3. Download [run_shiva.py](apptainer/run_shiva.py) and use [download_models.py](apptainer/download_models.py) to download your models as [shown above](#trained-ai-model). Copy the generated `auto_config.yml` to `/myHome/myProject/myConfig.yml`. Alternatively, start with [config_example.yml](apptainer/config_example.yml) if you downloaded the models manually.
 
-4. You now need to prepare this `config_example.yml`, it will hold diverse parameters as well as the path to the AI model and to the apptainer image. There, you should change the placeholder paths for `model_path` and `apptainer_image` with your own paths (e.g. `/myHome/myProject/Shiva_AI_models` and `/myHome/myProject/shivai.sif`). You will also have to set the model descriptors (like `PVS_descriptor` or `WMH_descriptor`) with the path to the `model_info_*.json` file [mentioned above](#trained-ai-model).
+4. Edit `myConfig.yml`: uncomment `container_runtime` and set it to `apptainer`, then uncomment `apptainer_image` and set it to `/myHome/myProject/shivai.sif`. The generated config already contains the model and descriptor paths. With a manually prepared config, set those paths yourself.
 
 > Other than the "descriptor" paths, you shouldn't have to modify any other setting in the `parameters` part.
 
@@ -194,7 +202,7 @@ You will also need a few software locally installed:
 
 The scripts should then be available from the command line prompt.
 
-Optionally, you can download and prepare the `config_example.yml` like explained in the [Fully contained process](#fully-contained-process-apptainer) section. This will ease the command call as a lot of arguments will be given through the yaml file (instead of manually entered with the command).
+You can use the `auto_config.yml` generated by `shiva_download` as your configuration, or prepare [config_example.yml](apptainer/config_example.yml) manually. This simplifies the command call by keeping model paths and parameters in the YAML file.
 
 Next, see [Running SHiVAi from direct package commands (recommended)](#running-shivai-from-direct-package-commands-recommended)
 

@@ -1,9 +1,7 @@
 """Download model ZIPs after establishing a Synology sharing session."""
 import argparse
-import yaml
 import requests
 from pathlib import Path
-import tkinter as tk
 from tkinter import filedialog
 import zipfile
 from tqdm import tqdm
@@ -77,6 +75,7 @@ def main():
     args = parser.parse_args()
 
     if args.output_dir is None:
+        import tkinter as tk
         root = tk.Tk()
         root.withdraw()
         try:
@@ -106,9 +105,9 @@ def main():
     if args.version and len(args.models) == 1:
         version = args.version
     else:
-        args.version = -1
+        args.version = ''
     for model_name in args.models:
-        if args.version < 0:
+        if not args.version:
             version = list(MODELS[model_name].keys())[-1]
         else:
             if version not in MODELS[model_name]:
