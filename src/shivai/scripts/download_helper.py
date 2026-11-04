@@ -4,7 +4,7 @@ import yaml
 import requests
 from pathlib import Path
 import tkinter as tk
-from tkinter import filedialog 
+from tkinter import filedialog
 import zipfile
 from tqdm import tqdm
 
@@ -12,24 +12,44 @@ MODELS = {
     'PVS': {'V4':
                 {'model': 'https://cloud.efixia.com/fsdownload/Zvbj1CpkM/T1-PVS.zip',
                  'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_PVS/refs/heads/main/model_info_t1-pvs-v4.json',
-                 'alias': 'T1-PVS'}},
+                 'alias': 'T1-PVS'},
+            'V5': 
+                {'model': 'https://cloud.efixia.com/fsdownload/TDbSoPRmm/T1-PVS.zip',
+                 'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_PVS/refs/heads/main/model_info_t1-pvs-v5.json',
+                 'alias': 'T1-PVS'}
+            },
+    'PVS2': {'V4':
+                {'model': 'https://cloud.efixia.com/fsdownload/7r5t1hLTt/T1.FLAIR-PVS.zip',
+                'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_PVS/refs/heads/main/model_info_t1-flair-pvs-v4.json',
+                'alias': 'T1.FLAIR-PVS'}},
     'WMH': {'V2':
-            {'model': 'https://cloud.efixia.com/fsdownload/Iae0B1old/T1.FLAIR-WMH.zip',
-             'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_WMH/refs/heads/main/model_info_t1-flair-wmh-v2.json',
-             'alias': 'T1.FLAIR-WMH'}},
+                {'model': 'https://cloud.efixia.com/fsdownload/Iae0B1old/T1.FLAIR-WMH.zip',
+                'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_WMH/refs/heads/main/model_info_t1-flair-wmh-v2.json',
+                'alias': 'T1.FLAIR-WMH'},
+            'V5': 
+                {'model': 'https://cloud.efixia.com/fsdownload/RiRbjLTam/T1.FLAIR-WMH.zip',
+                 'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_WMH/refs/heads/main/model_info_t1-flair-wmh-v5.json',
+                 'alias': 'T1.FLAIR-WMH'}
+            },
     'CMB': {'V2':
-            {'model': 'https://cloud.efixia.com/fsdownload/qWYAqMeGX/SWI-CMB.zip',
-             'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_CMB/refs/heads/main/model_info_swi-cmb-v2.json',
-             'alias': 'SWI-CMB'}},
+                {'model': 'https://cloud.efixia.com/fsdownload/qWYAqMeGX/SWI-CMB.zip',
+                'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_CMB/refs/heads/main/model_info_swi-cmb-v2.json',
+                'alias': 'SWI-CMB'},
+            'V5': 
+                {'model': 'https://cloud.efixia.com/fsdownload/0A63lc9bQ/SWI-CMB.zip',
+                 'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_CMB/refs/heads/main/model_info_swi-cmb-v5.json',
+                 'alias': 'SWI-CMB'}
+            },
     'LAC': {'V0':
-            {'model': 'https://cloud.efixia.com/fsdownload/imqU23Nvl/T1.FLAIR-LAC.zip',
-             'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_LAC/refs/heads/main/model_info_t1-flair-lac-v0.json',
-             'alias': 'T1.FLAIR-LAC'}},
+                {'model': 'https://cloud.efixia.com/fsdownload/imqU23Nvl/T1.FLAIR-LAC.zip',
+                'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_LAC/refs/heads/main/model_info_t1-flair-lac-v0.json',
+                'alias': 'T1.FLAIR-LAC'}},
     'brainmask': {'V0': {'model': 'https://cloud.efixia.com/fsdownload/SXtROgtI7/brainmask.zip',
-                          'alias': 'brainmask'}}
+                         'alias': 'brainmask'}}
 }
 
 YAML_EX_URL = "https://raw.githubusercontent.com/pboutinaud/SHiVAi/refs/heads/master/apptainer/config_example.yml"
+
 
 def main():
     parser = argparse.ArgumentParser(description="Download models for Shivai")
@@ -50,7 +70,7 @@ def main():
 
     parser.add_argument(
         "--version", "-v",
-        choices=['V0', 'V2', 'V4'],
+        choices=['V0', 'V2', 'V4', 'V5'],
         help=("Version of the model to download. Only applicable when downloading models one at a time. "
               "Downloading multiple models will ignore this option and download the latest versions.")
     )
@@ -90,16 +110,21 @@ def main():
     for model_name in args.models:
         if args.version < 0:
             version = list(MODELS[model_name].keys())[-1]
-        print(f"Downloading model: {model_name} ({version})")
+        else:
+            if version not in MODELS[model_name]:
+                raise ValueError(f"Version {version} not available for model {model_name}. Available versions: {list(MODELS[model_name].keys())}")
         if model_name in MODELS:
             alias = MODELS[model_name][version].get('alias', model_name)
-            print(f"Model alias: {alias}")
             url = MODELS[model_name][version]['model']
             filename = url.split('/')[-1]
             model_outdir = args.output_dir / alias / version
             zip_path = model_outdir / filename
             if not model_outdir.exists():
                 model_outdir.mkdir(parents=True)
+            if any(model_outdir.iterdir()):
+                print(f"Model output directory {model_outdir} is not empty. Skipping download.")
+                continue
+            print(f"Downloading model: {model_name} ({version})")
             sharing_url = url.rsplit('/', 1)[0].replace('/fsdownload/', '/sharing/')
             with requests.Session() as session:
                 with session.get(sharing_url, timeout=(10, 60)) as page:
@@ -134,8 +159,8 @@ def main():
                     item.rename(model_outdir / item.name)
                 extracted_items[0].rmdir()
             print(f"Extracted {model_name} model to {model_outdir}")
-            if 'descriptor' in MODELS[model_name]:
-                descriptor_url = MODELS[model_name]['descriptor']
+            if 'descriptor' in MODELS[model_name][version]:
+                descriptor_url = MODELS[model_name][version]['descriptor']
                 descriptor_filename = descriptor_url.split("/")[-1]
                 with requests.get(descriptor_url) as response:
                     response.raise_for_status()
@@ -146,18 +171,19 @@ def main():
                     f"Downloaded descriptor for {model_name} to {descriptor_path}")
         else:
             print(f"Model {model_name} not found in MODELS")
+    prep_yaml(args.output_dir)
 
 
 def prep_yaml(output_dir: Path):
     descriptors = find_latest_descriptors(output_dir)
     mapping = {f"{model}_descriptor": descriptors.get(model, ("", None))[1] for model in MODELS}
-    mapping["model_path"]= str(output_dir.absolute())
+    mapping["model_path"] = str(output_dir.absolute())
     TO_COMMENT = [
         "container_runtime",
         "apptainer_image",
         "synthseg_image"
     ]
-    yaml_path = output_dir / "config_example.yml"
+    yaml_path = output_dir / "auto_config.yml"
     if not yaml_path.exists():
         print("Generating a minimal configuration file")
         with requests.get(YAML_EX_URL) as response:
@@ -172,9 +198,9 @@ def prep_yaml(output_dir: Path):
             for line in lines:
                 for keyname, value in mapping.items():
                     if keyname in line:
-                        startIndex = line.find(keyname) + len(keyname)
+                        startIndex = line.find(":") + 1
                         # Overwrite example placeholder with actual value if available, and delete the placeholder if no value is provided
-                        line = line[:startIndex] + (f' "{value}"' if value else '')
+                        line = line[:startIndex] + (f' "{value}"' if value else '') + "\n"
                 if any(to_comment in line for to_comment in TO_COMMENT) and not line.strip().startswith("#"):
                     line = f"# {line}"
                 f.write(line)
@@ -186,9 +212,9 @@ def prep_yaml(output_dir: Path):
             for line in lines:
                 for keyname, value in mapping.items():
                     if keyname in line:
-                        startIndex = line.find(keyname) + len(keyname)
-                        if value and len(line[:startIndex].strip()) == 0:
-                            line = line[:startIndex] + f' "{value}"'
+                        startIndex = line.find(":") + 1
+                        if value and len(line[startIndex:].strip()) == 0:
+                            line = line[:startIndex] + f' "{value}"\n'
                 f.write(line)
 
 
@@ -198,9 +224,11 @@ def find_latest_descriptors(output_dir: Path) -> dict[str, tuple[str, str]]:
     descriptors = {}
     for model_name in MODELS:
         for version in MODELS[model_name]:
-            model_outdir = output_dir / model_name / version
+            alias = MODELS[model_name][version].get('alias', model_name)
+            model_outdir = output_dir / alias / version
             descriptor_url = MODELS[model_name][version].get('descriptor')
             if not descriptor_url and model_name == "brainmask":
+                # The descriptor file is in the ziped folder so it's always the same name for brainmask
                 descriptor_filename = "model_info.json"
             elif descriptor_url:
                 descriptor_filename = MODELS[model_name][version]['descriptor'].split("/")[-1]
@@ -211,6 +239,7 @@ def find_latest_descriptors(output_dir: Path) -> dict[str, tuple[str, str]]:
                 # Overwrite if this version is newer than the currently stored one
                 descriptors[model_name] = (version, str(descriptor_path.absolute()))
     return descriptors
+
 
 if __name__ == "__main__":
     main()
