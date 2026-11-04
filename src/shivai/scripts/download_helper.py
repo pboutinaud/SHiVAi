@@ -11,17 +11,22 @@ from tqdm import tqdm
 MODELS = {
     'PVS': {'V4':
                 {'model': 'https://cloud.efixia.com/fsdownload/Zvbj1CpkM/T1-PVS.zip',
-                 'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_PVS/refs/heads/main/model_info_t1-pvs-v4.json'}},
+                 'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_PVS/refs/heads/main/model_info_t1-pvs-v4.json',
+                 'alias': 'T1-PVS'}},
     'WMH': {'V2':
             {'model': 'https://cloud.efixia.com/fsdownload/Iae0B1old/T1.FLAIR-WMH.zip',
-             'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_WMH/refs/heads/main/model_info_t1-flair-wmh-v2.json'}},
+             'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_WMH/refs/heads/main/model_info_t1-flair-wmh-v2.json',
+             'alias': 'T1.FLAIR-WMH'}},
     'CMB': {'V2':
             {'model': 'https://cloud.efixia.com/fsdownload/qWYAqMeGX/SWI-CMB.zip',
-             'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_CMB/refs/heads/main/model_info_swi-cmb-v2.json'}},
+             'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_CMB/refs/heads/main/model_info_swi-cmb-v2.json',
+             'alias': 'SWI-CMB'}},
     'LAC': {'V0':
             {'model': 'https://cloud.efixia.com/fsdownload/imqU23Nvl/T1.FLAIR-LAC.zip',
-             'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_LAC/refs/heads/main/model_info_t1-flair-lac-v0.json'}},
-    'brainmask': {'V0': {'model': 'https://cloud.efixia.com/fsdownload/SXtROgtI7/brainmask.zip'}}
+             'descriptor': 'https://raw.githubusercontent.com/pboutinaud/SHIVA_LAC/refs/heads/main/model_info_t1-flair-lac-v0.json',
+             'alias': 'T1.FLAIR-LAC'}},
+    'brainmask': {'V0': {'model': 'https://cloud.efixia.com/fsdownload/SXtROgtI7/brainmask.zip',
+                          'alias': 'brainmask'}}
 }
 
 YAML_EX_URL = "https://raw.githubusercontent.com/pboutinaud/SHiVAi/refs/heads/master/apptainer/config_example.yml"
@@ -87,10 +92,12 @@ def main():
             version = list(MODELS[model_name].keys())[-1]
         print(f"Downloading model: {model_name} ({version})")
         if model_name in MODELS:
+            alias = MODELS[model_name][version].get('alias', model_name)
+            print(f"Model alias: {alias}")
             url = MODELS[model_name][version]['model']
             filename = url.split('/')[-1]
-            model_outdir = args.output_dir / model_name / version
-            output_path = model_outdir / filename
+            model_outdir = args.output_dir / alias / version
+            zip_path = model_outdir / filename
             if not model_outdir.exists():
                 model_outdir.mkdir(parents=True)
             sharing_url = url.rsplit('/', 1)[0].replace('/fsdownload/', '/sharing/')
@@ -104,7 +111,7 @@ def main():
                             f"Received an HTML sharing page instead of the ZIP for {model_name}"
                         )
                     total_size = int(response.headers.get('Content-Length', 0)) or None
-                    with open(output_path, "wb") as f, tqdm(
+                    with open(zip_path, "wb") as f, tqdm(
                         total=total_size,
                         desc=filename,
                         unit='B',
@@ -115,11 +122,17 @@ def main():
                             if chunk:
                                 f.write(chunk)
                                 progress.update(len(chunk))
-            print(f"Finished downloading {model_name} model to {output_path}")
+            print(f"Finished downloading {model_name} model to {zip_path}")
             print(f"Extracting {model_name} model...")
-            with zipfile.ZipFile(output_path, 'r') as zip_ref:
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(model_outdir)
-            output_path.unlink()  # Remove the ZIP file after extraction
+            zip_path.unlink()  # Remove the ZIP file after extraction
+            # If the zip contained a single folder, move its contents up one level
+            extracted_items = list(model_outdir.iterdir())
+            if len(extracted_items) == 1 and extracted_items[0].is_dir():
+                for item in extracted_items[0].iterdir():
+                    item.rename(model_outdir / item.name)
+                extracted_items[0].rmdir()
             print(f"Extracted {model_name} model to {model_outdir}")
             if 'descriptor' in MODELS[model_name]:
                 descriptor_url = MODELS[model_name]['descriptor']
