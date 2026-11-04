@@ -81,49 +81,51 @@ You can now simply pull it from Docker Hub:
 ```bash
 docker pull vnozais/shivai
 ```
+
 (or with a tag to the available version you are intersted in).
 
 1. Download the whole [SHiVAi source code, including the Dockerfile file](..). Let's assume it is saved in `~/myShivaiProject/Shivai_source/`.
+
 2. Open a terminal, navigate to `~/myShivaiProject/Shivai_source/` and run:
+
   ```bash
   docker build --rm -t myId/shivai:latest -t myId/shivai:x.x.x .
   ```
+
   > Replace `myId` by your name or another recognizable ID, and the `x.x.x` tag to the current SHiVAi version.
+
 3. To check if the image is properly installed, run `docker images` and check the displayed list of images.
 
-### Trained AI models
+### Install the SHiVAi Python Package
 
-Download AI models from [pboutinaud GitHub](https://github.com/pboutinaud) as well as their JSON companion files.
+Create a Python 3.11+ virtual environment, clone (if you are familiar with `git`) or download the SHiVAi project, and *from the project directory* (containing `pyproject.toml`) run:
 
-- PVS:
-  - `v1/T1-FLAIR.PVS`
-  - `model_info_t1-flair-pvs-v3.json`
-- WMH:
-  - `v1/T1-FLAIR.WMH`
-  - `model_info_t1-flair-wmh-v2.json`
-
-> Notes:\
-> Here we only mention the PVS and WMH models as an example; feel free to download all the models you need.
-
-Place the model archives in a single folder (let's call it `shivai_models`). Extract the models from the downloaded archives and place each JSON file in its corresponding model folder (e.g. `model_info_t1-flair-wmh-v2.json` in `T1-FLAIR.WMH`).
-
-You should then have something like this:
-
-```txt
-~/myShivaiProject/shivai_models/
-                    ├── T1-FLAIR.PVS/
-                    │   ├── model_info_t1-flair-pvs-v3.json
-                    │   ├── ...
-                    │   ...
-                    ├── T1-FLAIR.WMH/
-                    │   ├── model_info_t1-flair-wmh-v2.json
-                    │   ├── ...
-                    │   ...
-                    ...
+```bash
+python3 -m venv ~/shivai_env
+source ~/shivai_env/bin/activate
+pip install .
 ```
 
 > Notes:\
-> The exact name of the json files does not matter. It must just match the one that will be specified in the configuration file ([as described in the relevent section](#prepare-the-configuration-file)).
+> You don't need to create an new environment with `python3 -m venv ~/shivai_env` if you already have one ready, just activate it to install SHiVAi in it.\
+> You can check your Python version by running `python --version`.\
+> As mentioned before, feel free to use any Python environment manager (e.g. `conda`).
+
+The `shiva` and `shiva_download` command line tools will then be available from
+within the activated environment.
+
+### Trained AI models
+
+After [installing the SHiVAi Python package](#install-the-shivai-python-package),
+run this in the activated environment:
+
+```bash
+shiva_download -m PVS2 WMH -o ~/myShivaiProject/shivai_models
+```
+
+This downloads and extracts the latest models and their JSON descriptors, and
+creates `shivai_models/auto_config.yml`. Add other models to `-m` as needed, or
+use `-m all`. The separate Synthseg models still require the steps below.
 
 ### Synthseg container image (optional)
 
@@ -182,14 +184,28 @@ This will locally install the Docker image to the machine.
 
 > We will assume here that we are using the Apptainer container solution. See below for the Docker implementation.
 
-Download [`config_example.yml`](../apptainer/config_example.yml) to your project directory and optionally rename it (e.g. `config.yml`). Edit it with a text editor:
+After installing the package and downloading the models, copy the generated config:
 
-- Set `model_path` to your models folder (e.g. `~/myShivaiProject/shivai_models`)
-- Set `apptainer_image` to the SHiVAi `.sif` file (e.g. `~/myShivaiProject/shivai.sif`)
-- (Opt.) Set `synthseg_image` to the Synthseg `.sif` file (e.g. `~/myShivaiProject/synthseg/synthseg.sif`)
-- Set descriptor paths for AI model `.json` files relative to the models folder
+```bash
+cp ~/myShivaiProject/shivai_models/auto_config.yml ~/myShivaiProject/config.yml
+```
 
-In our case, the file should look something like this:
+The model and descriptor paths are already filled in. Leave those and the
+`parameters` section unchanged. In `config.yml`, uncomment and set:
+
+- `container_runtime: apptainer`
+- `apptainer_image`: the **absolute path** to `~/myShivaiProject/shivai.sif`
+- (Opt.) `synthseg_image`: the **absolute path** to `~/myShivaiProject/synthseg/synthseg.sif`
+
+For Docker, set `container_runtime: docker` instead and add
+`docker_image: vnozais/shivai:latest`, plus
+`synthseg_docker_image: myId/synthseg_shivai:latest` if using Synthseg.
+Use your own image names if you built them locally.
+
+The SHiVAi image setting is **required**: the mixed approach runs AI inference
+and other container-dependent tools using this image.
+
+In the end, you should have something like:
 
 ```yml
 model_path: ~/myShivaiProject/shivai_models
@@ -206,53 +222,7 @@ parameters:
   CMB_descriptor:
   LAC_descriptor:
   swi_echo: 1
-  percentile: 99.0
-  threshold: 0.5
-  threshold_pvs: 0.5
-  threshold_wmh: 0.2
-  threshold_cmb: 0.5
-  threshold_lac: 0.2
-  min_pvs_size: 5
-  min_wmh_size: 1
-  min_cmb_size: 1
-  min_lac_size: 3
-  final_dimensions: [160, 214, 176]
-  voxels_size: [1.0, 1.0, 1.0]
-  voxels_tolerance: [0, 0, 0]
-  interpolation: 'WelchWindowedSinc'
 ```
-
-> The `apptainer_image` (or `docker_image`, see below) entry is **required** for the mixed approach because SHiVAi will delegate the TensorFlow-based steps (AI inference, and optionally brain masking) to the container, as well as some other processes that require specific tools (like defacing), while running everything else using the local environment.
-
-If you are using the Docker implementation, replace the first lines to look something like this, referencing the Docker images:
-
-```yaml
-docker_image: myId/shivai:latest
-synthseg_docker_image: myId/synthseg_shivai:latest
-container_runtime: docker 
-
-parameters:
-  ...
-```
-
-> You can change the `latest` tags to more specific tags if you set them up.
-
-### Install the SHiVAi Python Package
-
-Create a Python 3.11 virtual environment, clone (if you are familiar with `git`) or download the SHiVAi project, and *from the project directory* (containing `pyproject.toml`) run:
-
-```bash
-python3 -m venv ~/shivai_env
-source ~/shivai_env/bin/activate
-pip install .
-```
-
-> Notes:\
-> You don't need to create an new environment with `python3 -m venv ~/shivai_env` if you already have one ready, just activate it to install SHiVAi in it.\
-> You can check your Python version by running `python --version`.\
-> As mentioned before, feel free to use any Python environment manager (e.g. `conda`).
-
-The `shiva` command line tool will then be available from within the activated environment.
 
 ---
 

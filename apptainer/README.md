@@ -15,7 +15,7 @@ Then you can move the Apptainer image on any computer with Apptainer installed a
 Note that if you are on a **Windows** computer, you can use WSL (Windows Subsystem for Linux) to run Apptainer and build the image. You can find more info here [https://learn.microsoft.com/windows/wsl/install](https://learn.microsoft.com/windows/wsl/install). With WSL installed, open a command prompt, type `wsl` and you will have access to a Linux terminal where you can install and run Apptainer.
 There are also similar options for **Mac** users (check the dedicated section from [https://apptainer.org/docs/admin/main/installation.html](https://apptainer.org/docs/admin/main/installation.html)).
 
-1. Download the model weights
+1. Download the model weights using the [container download wrapper](#download-models-using-a-container) once you have the runtime and SHiVAi image.
 
 2. Install Apptainer (formerly Singularity)
 
@@ -40,6 +40,46 @@ There are also similar options for **Mac** users (check the dedicated section fr
 Docker images can now be pulled from Docker Hub. Visit [https://hub.docker.com/u/vnozais](https://hub.docker.com/u/vnozais) to see them.
 
 To install them locally, you can simply do a `docker pull vnozais/shivai` (or with a tag to the available version you are intersted in).
+
+## Download models using a container
+
+Download the standalone [download_models.py](download_models.py) script and run it
+with Python and your already-retrieved SHiVAi image. No SHiVAi installation or
+third-party Python packages are needed on the host. The image must contain
+`shiva_download`, and the container needs internet access. No GPU is needed.
+
+Choose exactly one runtime:
+
+```bash
+python download_models.py --apptainer /path/to/shivai.sif -m PVS -o /path/to/models
+python download_models.py --docker vnozais/shivai:latest -m PVS WMH -o /path/to/models
+```
+
+The script accepts the helper's `--models`/`-m`, `--output-dir`/`-o`, and
+`--version`/`-v` arguments. For example, `-m PVS -v V4` selects a specific version;
+multiple models use the latest versions, and `-m all` downloads all models.
+If `-o` is omitted, a folder picker opens **on the host**; this requires tkinter
+and a graphical session. Cancelling the picker does not start a container.
+Use `-o` on headless machines.
+
+The output folder is created and mounted read-write automatically. Docker runs
+with the host UID/GID on Linux/WSL to avoid root-owned downloads, and its working
+directory and HOME are set to the mounted output folder. Container failures return
+their exit status to the caller.
+
+On Linux/WSL, the output folder is mounted at the same absolute path inside the
+container, so the paths generated in `auto_config.yml` remain valid on the host.
+On native Windows with Docker Desktop, the folder is mounted at `/mnt/model`,
+and Unix user mapping is omitted:
+
+```powershell
+python .\download_models.py --docker vnozais/shivai:latest -m PVS -o C:\models
+```
+
+The generated config then contains `/mnt/model` paths. Reuse that mount target
+when running directly in Docker, or adjust the model and descriptor paths before
+using the config on the host. Apptainer users on Windows should run the script
+in WSL.
 
 ## Synthseg Apptainer image
 

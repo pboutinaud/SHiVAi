@@ -55,7 +55,7 @@ Chose one of the two following paragraphs below (Apptainer vs. Docker)
 
 #### SHiVAi Apptainer image
 
-Download `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/Z404gQ04h)
+Download the `.sif` file from [cloud.efixia.com](https://cloud.efixia.com/sharing/Z404gQ04h) and save it as `~/myShivaiProject/shivai.sif`.
 
 #### SHiVAi Docker image
 
@@ -76,34 +76,22 @@ Download the [run_shiva.py script](../apptainer/run_shiva.py).
 
 ### Trained AI models
 
-Download AI models from [pboutinaud GitHub](https://github.com/pboutinaud) as well as the JSON companion file.
+Download [download_models.py](../apptainer/download_models.py) to `~/myShivaiProject/`.
+From that directory, run **one** command for your chosen runtime:
 
-- PVS:
-  - v1/T1-FLAIR.PVS
-  - model_info_t1-flair-pvs-v3.json
-- WMH
-  - v1/T1-FLAIR.WMH
-  - model_info_t1-flair-wmh-v2.json
-
-> Notes:\
-> Here we only talk about the PVS and WMH models as an example for the current read-me, but feel free to download all the models you need
-
-Place the model file archive in a single folder (let's call it `shivai_models`). Extract the models from the downloaded archives. Place the json file in their corresponding model folder (i.e. "model_info_t1-flair-wmh-v2.json" in "T1-FLAIR.PVS").
-
-You should then have something like this:
-
-```txt
-~/myShivaiProject/shivai_models/
-                    ├── T1-FLAIR.PVS/
-                    │   ├── model_info_t1-flair-pvs-v3.json
-                    │   ├── ...
-                    │   ...
-                    ├── T1-FLAIR.WMH/
-                    │   ├── model_info_t1-flair-wmh-v2.json
-                    │   ├── ...
-                    │   ...
-                    ...
+```bash
+python download_models.py --apptainer ~/myShivaiProject/shivai.sif -m PVS2 WMH -o ~/myShivaiProject/shivai_models
 ```
+
+Or, with the Docker image built above:
+
+```bash
+python download_models.py --docker myId/shivai:latest -m PVS2 WMH -o ~/myShivaiProject/shivai_models
+```
+
+The script downloads and extracts the latest models and their JSON descriptors,
+and creates `shivai_models/auto_config.yml`. No SHiVAi Python installation is
+needed on the host. Add other models to `-m` as needed, or use `-m all`.
 
 ### Synthseg container image (optional)
 
@@ -165,58 +153,23 @@ This will locally install the Docker image to the machine.
 
 > We will assume here that we are using the Apptainer container solution. See below for the Docker implementation.
 
-- Download [`config_example.yml`](../apptainer/config_example.yml) to your project directory and optionally remane it (e.g. `config.yml`):
-- Edit `config.yml` with a text editor:
-  - Set `model_path` to your models folder (e.g., `~/myShivaiProject/shivai_models`)
-  - Set `apptainer_image` to your pipeline `.sif` file (e.g., `~/myShivaiProject/shivai.sif`)
-  - (Opt.) Set `synthseg_image` to the Synthseg `.sif` file (e.g.  `~/myShivaiProject/containers/synthseg.sif`)
-  - Set descriptor paths for AI models `.json` files relative to the models folder (e.g. `"T1.FLAIR-PVS/model_info_t1-flair-pvs-v3.json"` for PVS2_descriptor)
+Copy the generated configuration to your project:
 
-In our case, the file should look something like this:
-
-```yml
-model_path: ~/myShivaiProject/shivai_models
-apptainer_image: ~/myShivaiProject/shivai.sif
-synthseg_image: ~/myShivaiProject/containers/synthseg.sif
-
-container_runtime: apptainer
-
-parameters:
-  brainmask_descriptor:
-  PVS_descriptor:
-  PVS2_descriptor: "T1.FLAIR-PVS/model_info_t1-flair-pvs-v3.json"
-  WMH_descriptor: "T1.FLAIR-WMH/model_info_t1-flair-wmh-v2.json"
-  CMB_descriptor:
-  LAC_descriptor:
-  swi_echo: 1
-  percentile: 99.0
-  threshold: 0.5
-  threshold_pvs: 0.5
-  threshold_wmh: 0.2
-  threshold_cmb: 0.5
-  threshold_lac: 0.2
-  min_pvs_size: 5
-  min_wmh_size: 1
-  min_cmb_size: 1
-  min_lac_size: 3
-  final_dimensions: [160, 214, 176]
-  voxels_size: [1.0, 1.0, 1.0]
-  voxels_tolerance: [0, 0, 0]
-  interpolation: 'WelchWindowedSinc'
+```bash
+cp ~/myShivaiProject/shivai_models/auto_config.yml ~/myShivaiProject/config.yml
 ```
 
-If you are using the Docker implementation, replace the first lines to look something like this, referencing the Docker images:
+The model and descriptor paths are already filled in. Leave those and the
+`parameters` section unchanged. In `config.yml`, uncomment and set:
 
-```yaml
-docker_image: myId/shivai:latest
-synthseg_docker_image: myId/synthseg_shivai:latest
-container_runtime: docker 
+- `container_runtime: apptainer`
+- `apptainer_image`: the **absolute path** to `~/myShivaiProject/shivai.sif`
+- (Opt.) `synthseg_image`: the **absolute path** to `~/myShivaiProject/containers/synthseg.sif`
 
-parameters:
-  ...
-```
-
-> You can change the `latest` tags to more specific tags if you set them up.
+For Docker, set `container_runtime: docker` instead and add
+`docker_image: myId/shivai:latest`, plus
+`synthseg_docker_image: myId/synthseg_shivai:latest` if using Synthseg.
+Replace `myId` and the tags with your image names.
 
 ## Set Up Python Environment
 
