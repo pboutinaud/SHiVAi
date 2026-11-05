@@ -1570,7 +1570,8 @@ class Regionwise_Prediction_metrics(BaseInterface):
             prio_labels = []
 
         cluster_measures, cluster_stats = prediction_metrics(
-            clusters_vol, brain_seg_vol, region_dict, prio_labels)
+            clusters_vol, brain_seg_vol, region_dict, prio_labels,
+            voxel_dim=clusters_im.header.get_zooms()[:3])
 
         cluster_measures.to_csv(f'{biomarker}_census.csv', index=False)
         cluster_stats.to_csv(f'{biomarker}_stats.csv', index=False)
