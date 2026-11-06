@@ -66,7 +66,7 @@ def set_percentile(list_node: list,
 def prediction_metrics(clusters_vol, brain_seg_vol,
                        region_dict={'Whole brain': -1},
                        prio_labels=[],
-                       voxel_dim=(1, 1, 1)):
+                       voxel_dim=(1, 1, 1), output_raw_load=False):
     """Get metrics on segmented biomarkers by brain region
 
     Args:
@@ -114,6 +114,8 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
     biom_min = []
     biom_max = []
     raw_load = []
+    if not output_raw_load:
+        raw_load = None
     # Default case: get whole brain metrics
     if 'Whole brain' in region_dict.keys():
         del region_dict['Whole brain']
@@ -125,7 +127,9 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
         biom_std.append(cluster_measures['Cluster size'].std())
         biom_min.append(cluster_measures['Cluster size'].min())
         biom_max.append(cluster_measures['Cluster size'].max())
-        raw_load.append(np.count_nonzero(biomarker_mask & (brain_seg_vol > 0)))
+        if output_raw_load:
+            raw_load.append(np.count_nonzero(biomarker_mask & (
+                brain_seg_vol > 0)) * np.prod(voxel_dim))
 
     # Attribution of one region per cluster (i.e. the most represented region in each cluster = winner-takes-all)
     if len(region_dict):
@@ -169,7 +173,9 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
             biom_std.append(clusts_in_reg['Cluster size'].std())
             biom_min.append(clusts_in_reg['Cluster size'].min())
             biom_max.append(clusts_in_reg['Cluster size'].max())
-            raw_load.append(np.count_nonzero(biomarker_mask & (brain_seg_vol == region_dict[reg])))
+            if output_raw_load:
+                raw_load.append(np.count_nonzero(biomarker_mask & (
+                    brain_seg_vol == region_dict[reg])) * np.prod(voxel_dim))
 
     cluster_stats = pd.DataFrame(
         {'Region': regions,
@@ -179,8 +185,11 @@ def prediction_metrics(clusters_vol, brain_seg_vol,
          'Median Biomarker volume': biom_med,
          'StD Biomarker volume': biom_std,
          'Min Biomarker volume': biom_min,
-         'Max Biomarker volume': biom_max,
-         'Raw Biomarker Load': raw_load})
+         'Max Biomarker volume': biom_max}
+    )
+
+    if output_raw_load:
+        cluster_stats['Raw Biomarker Load'] = raw_load
 
     return cluster_measures, cluster_stats
 
