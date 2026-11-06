@@ -652,7 +652,8 @@ def generate_main_wf(**kwargs) -> Workflow:
     main_wf.connect(wf_preproc, 'crop.cdg_ijk_file', sink_node_subjects, f'shiva_preproc.{img1}_preproc.@cdg')
     if with_flair:
         main_wf.connect(wf_preproc, 'img2_final_intensity_normalization.intensity_normalized', sink_node_subjects, 'shiva_preproc.flair_preproc')
-        main_wf.connect(wf_preproc, 'flair_to_t1.forward_transforms', sink_node_subjects, 'shiva_preproc.flair_preproc.@reg_to_t1_transf')
+        if not kwargs['PREP_SETTINGS']['prereg_flair']:
+            main_wf.connect(wf_preproc, 'flair_to_t1.forward_transforms', sink_node_subjects, 'shiva_preproc.flair_preproc.@reg_to_t1_transf')
         if file_type == 'dicom':
             main_wf.connect(wf_preproc, 'dicom2nifti_img2.converted_files', sink_node_subjects, f'shiva_preproc.flair_preproc.@converted')
             main_wf.connect(wf_preproc, 'dicom2nifti_img2.bids', sink_node_subjects, f'shiva_preproc.flair_preproc.@converted_bids')
@@ -768,8 +769,9 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
         if with_flair:
             field_template['flair_intensity_normalized'] = 'flair_preproc/%s/*_cropped_intensity_normed.nii.gz'
             template_args['flair_intensity_normalized'] = [['subject_id']]
-            field_template['flair-to-t1'] = 'flair_preproc/%s/*_0GenericAffine.mat'
-            template_args['flair-to-t1'] = [['subject_id']]
+            if not kwargs['PREP_SETTINGS']['prereg_flair']:
+                field_template['flair-to-t1'] = 'flair_preproc/%s/*_0GenericAffine.mat'
+                template_args['flair-to-t1'] = [['subject_id']]
     if with_swi:
         field_template['swi_intensity_normalized'] = 'swi_preproc/%s/*_cropped_intensity_normed.nii.gz'
         template_args['swi_intensity_normalized'] = [['subject_id']]
@@ -821,7 +823,8 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
     if with_flair:
         preproc_images['flair'] = (preproc_grabber, 'flair_intensity_normalized')
         preproc_images['flair-native'] = (preproc_grabber, 'img2')
-        preproc_images['flair-to-t1'] = (preproc_grabber, 'flair-to-t1')
+        if not kwargs['PREP_SETTINGS']['prereg_flair']:
+            preproc_images['flair-to-t1'] = (preproc_grabber, 'flair-to-t1')
     if with_swi:
         if with_t1:
             preproc_images['swi-native'] = (preproc_grabber, 'img3')
@@ -967,7 +970,8 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
         field_template['brain_mask'] = 'shiva_preproc/t1_preproc/%s/brainmask_cropped.nii.gz'
         if with_flair:
             field_template['flair_intensity_normalized'] = 'shiva_preproc/flair_preproc/%s/*_cropped_intensity_normed.nii.gz'
-            field_template['flair-to-t1'] = 'shiva_preproc/flair_preproc/%s/*_0GenericAffine.mat'
+            if not kwargs['PREP_SETTINGS']['prereg_flair']:
+                field_template['flair-to-t1'] = 'shiva_preproc/flair_preproc/%s/*_0GenericAffine.mat'
     if with_swi:
         field_template['swi_intensity_normalized'] = 'shiva_preproc/swi_preproc/%s/*_cropped_intensity_normed.nii.gz'
         if not with_t1:
@@ -1029,12 +1033,6 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
     preproc_images = {
         'brain_mask': (prev_res_grabber, 'brain_mask'),
     }
-    if with_t1:
-        preproc_images['t1'] = (prev_res_grabber, 't1_intensity_normalized')
-    if with_flair:
-        preproc_images['flair'] = (prev_res_grabber, 'flair_intensity_normalized')
-    if with_swi:
-        preproc_images['swi'] = (prev_res_grabber, 'swi_intensity_normalized')
 
     if with_t1:
         preproc_images['t1'] = (prev_res_grabber, 't1_intensity_normalized')
@@ -1042,7 +1040,8 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
     if with_flair:
         preproc_images['flair'] = (prev_res_grabber, 'flair_intensity_normalized')
         preproc_images['flair-native'] = (prev_res_grabber, 'img2')
-        preproc_images['flair-to-t1'] = (prev_res_grabber, 'flair-to-t1')
+        if not kwargs['PREP_SETTINGS']['prereg_flair']:
+            preproc_images['flair-to-t1'] = (prev_res_grabber, 'flair-to-t1')
     if with_swi:
         if with_t1:
             preproc_images['swi-native'] = (prev_res_grabber, 'img3')
