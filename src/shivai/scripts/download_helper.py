@@ -1,6 +1,7 @@
 """Download model ZIPs after establishing a Synology sharing session."""
 import argparse
 import requests
+import json
 from pathlib import Path
 from tkinter import filedialog
 import zipfile
@@ -159,18 +160,25 @@ def main():
                 extracted_items[0].rmdir()
             print(f"Extracted {model_name} model to {model_outdir}")
             if 'descriptor' in MODELS[model_name][version]:
-                descriptor_url = MODELS[model_name][version]['descriptor']
-                descriptor_filename = descriptor_url.split("/")[-1]
-                with requests.get(descriptor_url) as response:
-                    response.raise_for_status()
-                    descriptor_path = model_outdir / descriptor_filename
-                    with open(descriptor_path, "wb") as f:
-                        f.write(response.content)
-                print(
-                    f"Downloaded descriptor for {model_name} to {descriptor_path}")
+                download_descriptor(model_outdir, model_name, version)
         else:
             print(f"Model {model_name} not found in MODELS")
     prep_yaml(args.output_dir)
+
+
+def download_descriptor(model_outdir: Path, model_name: str, version: str):
+    descriptor_url = MODELS[model_name][version]['descriptor']
+    alias = MODELS[model_name][version].get('alias', model_name)
+    descriptor_filename = descriptor_url.split("/")[-1]
+    with requests.get(descriptor_url) as response:
+        response.raise_for_status()
+        descriptor_path = model_outdir / descriptor_filename
+        descriptor_dict = json.loads(response.content)
+        descriptor_dict = update_descriptor(descriptor_dict, version, alias)
+        with open(descriptor_path, "w") as f:
+            json.dump(descriptor_dict, f, indent=2)
+    print(
+        f"Downloaded descriptor for {model_name} to {descriptor_path}")
 
 
 def prep_yaml(output_dir: Path):
@@ -239,6 +247,23 @@ def find_latest_descriptors(output_dir: Path) -> dict[str, tuple[str, str]]:
                 descriptors[model_name] = (version, str(descriptor_path.absolute()))
     return descriptors
 
+
+def update_descriptor(descriptor_dict: dict, version: str, alias: str):
+    files_info: list[dict[str, str]] = descriptor_dict.get("files")
+    if not files_info:
+        raise ValueError(f"No 'files' information found in descriptor for {alias} version {version}")
+    for file_info in files_info:
+        pathname = Path(file_info["name"])
+        expected_root_path0 = Path(alias)
+        expected_root_path1 = expected_root_path0 / version
+        if not pathname.is_relative_to(expected_root_path0):
+            print(f"File {pathname} is not relative to expected root path {expected_root_path0}. Skipping")
+            continue
+        if not pathname.is_relative_to(expected_root_path1):
+            new_path = expected_root_path1 / pathname.relative_to(expected_root_path0)
+            file_info["name"] = str(new_path)
+    return descriptor_dict
+        
 
 if __name__ == "__main__":
     main()
