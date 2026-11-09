@@ -1377,15 +1377,17 @@ class Label_clusters_InputSpec(BaseInterfaceInputSpec):
                                 desc='Nifti file of the biomarker segmentation directly from the AI model',
                                 mandatory=True)
 
-    thr_cluster_val = traits.Float(desc='Value to threshold segmentation image',
+    thr_cluster_val = traits.Float(desc='Value to threshold segmentation image by intensity',
                                    mandatory=True)
 
-    thr_cluster_size = traits.Int(desc='Value to threshold segmentation image',
+    thr_cluster_size = traits.Int(desc='Value to filter cluster by size',
                                   )
 
     brain_seg = traits.File(exists=True,
                             desc=('Brain mask or brain segmentation delimiting the parts '
-                                  'of the biomarker segmentation ("img" argument) to explore'),
+                                  'of the brain vs the background/csf, and can split clusters '
+                                  'if multiple labels are present in the brain segmentation '
+                                  '(typically for left/right hemispheres)'),
                             mandatory=False)
 
     binerize = traits.Bool(False,
@@ -1766,8 +1768,14 @@ class Parc_from_Synthseg(BaseInterface):
         custom_parc = lobar_and_wm_segmentation(seg_vol)
         custom_parc_im = nib.Nifti1Image(custom_parc, seg_im.affine)
         brainmask_no_csf = seg_vol.copy()
-        brainmask_no_csf[brainmask_no_csf == 24] = 0
-        brainmask_no_csf[brainmask_no_csf > 0] = 1
+        L_labels = np.arange(1, 18) + np.arange(40, 48) + np.arange(78, 81)
+        R_labels = np.arange(21, 38) + np.arange(50, 58) + np.arange(88, 91)
+        csf_label = 24
+        other_labels = set(np.unique(seg_vol)) - set(L_labels) - set(R_labels) - {csf_label} - {0}
+        brainmask_no_csf[brainmask_no_csf == csf_label] = 0
+        brainmask_no_csf[fisin(seg_vol, list(L_labels))] = 1
+        brainmask_no_csf[fisin(seg_vol, list(R_labels))] = 2
+        brainmask_no_csf[fisin(seg_vol, list(other_labels))] = 3  # Should only be the cerebellum
         brainmask_no_csf_im = nib.Nifti1Image(brainmask_no_csf.astype(np.uint8), seg_im.affine)
         nib.save(brainmask_no_csf_im, 'brainmask_no_csf.nii.gz')
         nib.save(custom_parc_im, 'derived_parc.nii.gz')

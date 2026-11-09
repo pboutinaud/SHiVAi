@@ -6,6 +6,7 @@ import hashlib
 import os
 from pathlib import Path
 import json
+from typing import Iterable
 
 
 import numpy as np
@@ -218,14 +219,14 @@ def histogram(array, percentile, bins):
 
 
 
-def fisin(arr, vals):
+def fisin(arr:np.ndarray, vals:Iterable):
     '''
     Fast np.isin function using reccursive bitwise_or function 
     (here represented with the lambda function, because slightly faster(?))
     '''
-    try:
+    if isinstance(vals, Iterable):
         arrl = [arr == val for val in vals]
-    except TypeError:  # Typically if there is only 1 value
+    else:  # Typically if there is only 1 value
         arrl = [arr == vals]
     return reduce(lambda x, y: x | y, arrl)
 

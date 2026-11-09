@@ -17,8 +17,16 @@ def get_clusters_and_filter_image(image, cluster_filter=0, brain=None, outside_r
     if a brain segmentation mask is provided (>25% of cluster voxels outside brain).
 
     """
-
-    clusters, num_clusters = measure.label(image, return_num=True)
+    segs = []
+    if brain is not None:
+        segs = np.unique(brain).tolist()
+        if 0 in segs:
+            segs.remove(0)
+    if segs:
+        clusters, num_clusters = label_region_aware(image, brain, segs)
+        
+    else:
+        clusters, num_clusters = measure.label(image, return_num=True)
     if num_clusters == 0:
         return image, clusters, num_clusters, clusters, num_clusters
 
@@ -56,6 +64,36 @@ def get_clusters_and_filter_image(image, cluster_filter=0, brain=None, outside_r
     else:  # filtered clusters are the same
         image_f, clusters_f, num_clusters_f = image, clusters, num_clusters
     return image_f, clusters, num_clusters, clusters_f, num_clusters_f
+
+
+def label_region_aware(pred_vol, brain_seg_vol, seg_vals):
+    # Labels each cluster but split them if they are shared between multiple brain regions
+    # Then relabel the clusters to ensure unique and consecutive labels across regions
+    label_start = 0
+    labeled_clusters = np.zeros_like(pred_vol, dtype=int)
+    for seg in seg_vals:
+        # We take everything but the other regions from the current 'seg'
+        currmask = (brain_seg_vol == seg) | (brain_seg_vol == 0)
+        curr_pred = pred_vol * currmask.astype(pred_vol.dtype)
+        # Get all the clusters then remove those fully outside of the region
+        curr_labels, curr_num = measure.label(curr_pred, return_num=True)
+        for clus_i in range(1, curr_num + 1):
+            if all(currmask[curr_labels == clus_i] == 0):
+                curr_labels[curr_labels == clus_i] = 0
+            else:
+                curr_labels[curr_labels == clus_i] += label_start
+        label_start += curr_num
+        labeled_clusters[curr_labels > 0] = curr_labels[curr_labels > 0]
+    # Relabel using a map to order by cluster size
+    unique_labels, counts = np.unique(labeled_clusters, return_counts=True)
+    unique_labels = unique_labels[unique_labels != 0]
+    counts = counts[unique_labels != 0]
+    sorted_labels = unique_labels[np.argsort(-counts)]
+    relabel_map = {old: new for new, old in enumerate(sorted_labels, start=1)}
+    for old, new in relabel_map.items():
+        labeled_clusters[labeled_clusters == old] = new
+    num_clusters = len(sorted_labels)
+    return labeled_clusters, num_clusters
 
 
 def label_clusters(pred_vol, threshold, cluster_filter, brain_seg_vol=None, outside_ratio=0.25):
