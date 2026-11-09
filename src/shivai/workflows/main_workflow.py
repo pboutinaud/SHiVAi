@@ -586,7 +586,8 @@ def generate_main_wf(**kwargs) -> Workflow:
     wf_graph = None
     datasing_fields = []
     if kwargs['SAVE_GRAPH']:
-        wf_graph = main_wf.write_graph(graph2use='colored', dotfilename='graph.svg', format='svg')
+        wf_graph = main_wf.write_graph(
+            graph2use='colored', dotfilename='graph.dot', format='svg')
         datasing_fields.append('wf_graph')
 
     # %% Finally the data sinks
