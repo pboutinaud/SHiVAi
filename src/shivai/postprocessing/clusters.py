@@ -2,6 +2,7 @@ import logging
 import numpy as np
 import nibabel as nib
 from skimage import measure
+from skimage.segmentation import watershed
 from concurrent.futures import ThreadPoolExecutor
 from shivai.utils.misc import fisin
 import nibabel.processing as nip
@@ -19,16 +20,20 @@ def get_clusters_and_filter_image(image, cluster_filter=0, brain=None, outside_r
     """
     segs = []
     if brain is not None:
+        brain = np.asarray(brain)
+        if brain.shape != image.shape:
+            raise ValueError(
+                f'Brain mask shape ({brain.shape}) does not match image shape ({image.shape}).'
+            )
         segs = np.unique(brain).tolist()
         if 0 in segs:
             segs.remove(0)
     if segs:
         clusters, num_clusters = label_region_aware(image, brain, segs)
-        
     else:
         clusters, num_clusters = measure.label(image, return_num=True)
     if num_clusters == 0:
-        return image, clusters, num_clusters, clusters, num_clusters
+        return np.zeros_like(image), clusters, num_clusters, clusters, num_clusters
 
     apply_filter = bool(cluster_filter) or brain is not None
     if apply_filter:
@@ -37,10 +42,6 @@ def get_clusters_and_filter_image(image, cluster_filter=0, brain=None, outside_r
 
         if brain is not None:
             brain_mask = np.asarray(brain).astype(bool)
-            if brain_mask.shape != image.shape:
-                raise ValueError(
-                    f'Brain mask shape ({brain_mask.shape}) does not match image shape ({image.shape}).'
-                )
             for clus_i in clusnum:
                 clus_mask = (clusters == clus_i)
                 clus_size = np.count_nonzero(clus_mask)
@@ -51,6 +52,7 @@ def get_clusters_and_filter_image(image, cluster_filter=0, brain=None, outside_r
         nums_left = [i for i in clusnum if i not in to_remove]
 
         image_f = image.copy()
+        image_f[clusters == 0] = 0
         clusters_f = clusters.copy()
         if to_remove:
             to_remove_arr = np.array(sorted(to_remove), dtype=clusters.dtype)
@@ -66,34 +68,34 @@ def get_clusters_and_filter_image(image, cluster_filter=0, brain=None, outside_r
     return image_f, clusters, num_clusters, clusters_f, num_clusters_f
 
 
-def label_region_aware(pred_vol, brain_seg_vol, seg_vals):
-    # Labels each cluster but split them if they are shared between multiple brain regions
-    # Then relabel the clusters to ensure unique and consecutive labels across regions
-    label_start = 0
-    labeled_clusters = np.zeros_like(pred_vol, dtype=int)
-    for seg in seg_vals:
-        # We take everything but the other regions from the current 'seg'
-        currmask = (brain_seg_vol == seg) | (brain_seg_vol == 0)
-        curr_pred = pred_vol * currmask.astype(pred_vol.dtype)
-        # Get all the clusters then remove those fully outside of the region
-        curr_labels, curr_num = measure.label(curr_pred, return_num=True)
-        for clus_i in range(1, curr_num + 1):
-            if all(currmask[curr_labels == clus_i] == 0):
-                curr_labels[curr_labels == clus_i] = 0
-            else:
-                curr_labels[curr_labels == clus_i] += label_start
-        label_start += curr_num
-        labeled_clusters[curr_labels > 0] = curr_labels[curr_labels > 0]
-    # Relabel using a map to order by cluster size
-    unique_labels, counts = np.unique(labeled_clusters, return_counts=True)
-    counts = counts[unique_labels != 0]
-    unique_labels = unique_labels[unique_labels != 0]
-    sorted_labels = unique_labels[np.argsort(-counts)]
-    relabel_map = {old: new for new, old in enumerate(sorted_labels, start=1)}
-    relabeled_clusters = np.vectorize(lambda x: relabel_map.get(x, 0))(labeled_clusters)
-    labeled_clusters = relabeled_clusters
-    num_clusters = len(sorted_labels)
-    return labeled_clusters, num_clusters
+def label_region_aware(pred_vol, brain_seg_vol, seg_vals: list):
+    """Split predictions by region, assigning shared background by masked growth.
+
+    Region voxels within the prediction seed a flat watershed. Growth is confined
+    to predicted voxels and uses full connectivity, matching ``measure.label``.
+    Background is assigned by geodesic voxel-step distance, with equal-distance
+    ties resolved deterministically by the watershed queue. Components without
+    any region seed are discarded. Connected pieces receive consecutive labels,
+    largest first, independently of the order of ``seg_vals``.
+    """
+    foreground = pred_vol != 0
+    markers = np.zeros(pred_vol.shape, dtype=np.int32)
+    for marker, seg in enumerate(seg_vals, start=1):
+        if seg != 0:
+            markers[foreground & (brain_seg_vol == seg)] = marker
+    connectivity = ndimage.generate_binary_structure(pred_vol.ndim, pred_vol.ndim)
+    assigned_regions = watershed(
+        np.zeros(pred_vol.shape, dtype=np.uint8),
+        markers=markers,
+        connectivity=connectivity,
+        mask=foreground & ((brain_seg_vol == 0) | (markers > 0)),
+    )
+    labeled_clusters, num_clusters = measure.label(assigned_regions, return_num=True)
+    counts = np.bincount(labeled_clusters.ravel())[1:]
+    sorted_labels = np.argsort(-counts, kind='stable') + 1
+    relabel_map = np.zeros(num_clusters + 1, dtype=int)
+    relabel_map[sorted_labels] = np.arange(1, num_clusters + 1)
+    return relabel_map[labeled_clusters], num_clusters
 
 
 def label_clusters(pred_vol, threshold, cluster_filter, brain_seg_vol=None, outside_ratio=0.25):
@@ -103,7 +105,8 @@ def label_clusters(pred_vol, threshold, cluster_filter, brain_seg_vol=None, outs
 
     Args:
         pred_vol (np.ndarray): Prediction map from the AI model
-        brain_seg_vol (np.ndarray): Brain seg delimiting the brain
+        brain_seg_vol (np.ndarray): Brain regions (0 for background). Clusters
+            spanning multiple regions are split, including shared background.
         threshold (float): Value to threshold the prediction map
         cluster_filter (int): size up to which (including) small clusters are removed
         outside_ratio (float): ratio of voxels outside the brain seg mask above which a cluster is removed (default: 0.25)
@@ -115,12 +118,11 @@ def label_clusters(pred_vol, threshold, cluster_filter, brain_seg_vol=None, outs
         pred_vol = pred_vol.squeeze()
     if brain_seg_vol is not None and len(brain_seg_vol.shape) > 3:
         brain_seg_vol = brain_seg_vol.squeeze()
-    brain_mask = (brain_seg_vol > 0) if brain_seg_vol is not None else None
     thresholded_img = (pred_vol > threshold).astype(int)
     _, _, _, labelled_clusters, _ = get_clusters_and_filter_image(
         thresholded_img,
         cluster_filter=cluster_filter,
-        brain=brain_mask,
+        brain=brain_seg_vol,
         outside_ratio=outside_ratio
     )
     return labelled_clusters
