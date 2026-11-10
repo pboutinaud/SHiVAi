@@ -1768,8 +1768,8 @@ class Parc_from_Synthseg(BaseInterface):
         custom_parc = lobar_and_wm_segmentation(seg_vol)
         custom_parc_im = nib.Nifti1Image(custom_parc, seg_im.affine)
         brainmask_no_csf = seg_vol.copy()
-        L_labels = np.arange(1, 18) + np.arange(40, 48) + np.arange(78, 81)
-        R_labels = np.arange(21, 38) + np.arange(50, 58) + np.arange(88, 91)
+        L_labels = list(range(1, 18)) + list(range(40, 48)) + list(range(78, 81))
+        R_labels = list(range(21, 38)) + list(range(50, 58)) + list(range(88, 91))
         csf_label = 24
         other_labels = set(np.unique(seg_vol)) - set(L_labels) - set(R_labels) - {csf_label} - {0}
         brainmask_no_csf[brainmask_no_csf == csf_label] = 0

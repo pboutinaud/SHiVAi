@@ -86,12 +86,12 @@ def label_region_aware(pred_vol, brain_seg_vol, seg_vals):
         labeled_clusters[curr_labels > 0] = curr_labels[curr_labels > 0]
     # Relabel using a map to order by cluster size
     unique_labels, counts = np.unique(labeled_clusters, return_counts=True)
-    unique_labels = unique_labels[unique_labels != 0]
     counts = counts[unique_labels != 0]
+    unique_labels = unique_labels[unique_labels != 0]
     sorted_labels = unique_labels[np.argsort(-counts)]
     relabel_map = {old: new for new, old in enumerate(sorted_labels, start=1)}
-    for old, new in relabel_map.items():
-        labeled_clusters[labeled_clusters == old] = new
+    relabeled_clusters = np.vectorize(lambda x: relabel_map.get(x, 0))(labeled_clusters)
+    labeled_clusters = relabeled_clusters
     num_clusters = len(sorted_labels)
     return labeled_clusters, num_clusters
 
