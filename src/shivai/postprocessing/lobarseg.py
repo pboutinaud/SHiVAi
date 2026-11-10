@@ -68,15 +68,15 @@ def _close(mask, r):
 
 
 # %%  Values in the original Freesurfer/Synthseg parcellation for the new labels
-lobar_vals_L = {
+LOBAR_VALS_L = {
     'Frontal': [1002, 1003, 1012, 1014, 1017, 1018, 1019, 1020, 1027, 1028, 1032, 1024, 1026],
     'Pariental': [1008, 1010, 1025, 1029, 1031, 1022, 1023],
     'Temporal': [1001, 1006, 1007, 1009, 1015, 1016, 1030, 1033, 1034],
     'Occipital': [1005, 1011, 1013, 1021],
 }
-lobar_vals_R = {k: [v+1000 for v in val] for k, val in lobar_vals_L.items()}
+LOBAR_VALS_R = {k: [v+1000 for v in val] for k, val in LOBAR_VALS_L.items()}
 
-other_vals_L = {
+OTHER_VALS_L = {
     'Insula': [1035],
     'Basal Ganglia': [11, 12, 13, 26],  # incuding N.Acc
     'Thalamus': [10],
@@ -84,7 +84,7 @@ other_vals_L = {
     'Hippocampus': [17, 18],  # including amygdala
     'Cerebellum': [7, 8]
 }
-other_vals_R = {
+OTHER_VALS_R = {
     'Insula': [2035],
     'Basal Ganglia': [50, 51, 52, 58],  # incuding N.Acc
     'Thalamus': [49],
@@ -92,24 +92,32 @@ other_vals_R = {
     'Hippocampus': [53, 54],  # including amygdala
     'Cerebellum': [46, 47]
 }
-brainstem_val = 16
+BRAINSTEM_VAL = 16
 
 # Excluding cortical areas for lobe parcellation to avoid a "jigsaw puzzle" effect
-to_excluded_L = [1002, 1017, 1026, 1010, 1023]
-to_excluded_R = [val+1000 for val in to_excluded_L]
+TO_EXCLUDE_L = [1002, 1017, 1026, 1010, 1023]
+TO_EXCLUDE_R = [val+1000 for val in TO_EXCLUDE_L]
 
-cingulate_vals_L = [1002, 1010, 1023, 1026]
-cingulate_vals_R = [2002, 2010, 2023, 2026]
+CINGULATE_VALS_L = [1002, 1010, 1023, 1026]
+CINGULATE_VALS_R = [2002, 2010, 2023, 2026]
+
+LAT_VENT_VALS_L = [4, 5, 31]  # with choroid plexus
+LAT_VENT_VALS_R = [43, 44, 63]
+
+WM_VAL_L = 2
+WM_VAL_R = 41
 
 # %% Labels for the final parcellation
 
-lobar_labels_L = {
+LOBAR_GM_LABELS_L = {
     'Frontal': 1,  # 2, 3, 4 for wm (jxtc/deep/prvc)
     'Pariental': 5,  # 6, 7, 8
     'Temporal': 9,  # 10, 11, 12
     'Occipital': 13,  # 14, 15, 16
 }
-other_labels_L = {
+LOBAR_WM_LABELS_L = {lobe: [val+i for i in range(1, 4)] for lobe, val in LOBAR_GM_LABELS_L.items()}
+
+OTHER_LABELS_L = {
     'Insula': 17,
     'Basal Ganglia': 40,
     'Thalamus': 41,
@@ -124,10 +132,13 @@ other_labels_L = {
     'In. cap. prvc': 80
 }
 
-lobar_labels_R = {k: val+20 for k, val in lobar_labels_L.items()}
-other_labels_R = {k: val+10 for k, val in other_labels_L.items()}
-other_labels_R['Insula'] = other_labels_L['Insula'] + 20
-brainstem_label = 60
+LOBAR_GM_LABELS_R = {k: val+20 for k, val in LOBAR_GM_LABELS_L.items()}
+LOBAR_WM_LABELS_R = {k: [v+20 for v in val] for k, val in LOBAR_WM_LABELS_L.items()}
+
+OTHER_LABELS_R = {k: val+10 for k, val in OTHER_LABELS_L.items()}
+OTHER_LABELS_R['Insula'] = OTHER_LABELS_L['Insula'] + 20
+
+BRAINSTEM_LABEL = 60
 
 # %%
 
@@ -153,36 +164,36 @@ def lobar_seg(seg):
     '''
     First rough re-segmentation, with "lobar_labels" voxels and "other_labels" voxels
     '''
-    wm_L = (seg == 2)
-    wm_R = (seg == 41)
+    wm_L = (seg == WM_VAL_L)
+    wm_R = (seg == WM_VAL_R)
 
     # Also fill excluded cortical areas
-    wm_L = wm_L | fisin(seg, to_excluded_L)
-    wm_R = wm_R | fisin(seg, to_excluded_R)
+    wm_L = wm_L | fisin(seg, TO_EXCLUDE_L)
+    wm_R = wm_R | fisin(seg, TO_EXCLUDE_R)
 
     # Divide cortex in lobes
     vol_lobar_L = np.zeros(seg.shape, dtype='int16')
     vol_lobar_R = np.zeros(seg.shape, dtype='int16')
-    for lob in lobar_vals_L.keys():
-        vals_L = list(set(lobar_vals_L[lob]) - set(to_excluded_L))
-        vals_R = list(set(lobar_vals_R[lob]) - set(to_excluded_R))
-        vol_lobar_L[fisin(seg, vals_L)] = lobar_labels_L[lob]
-        vol_lobar_R[fisin(seg, vals_R)] = lobar_labels_R[lob]
+    for lob in LOBAR_VALS_L.keys():
+        vals_L = list(set(LOBAR_VALS_L[lob]) - set(TO_EXCLUDE_L))
+        vals_R = list(set(LOBAR_VALS_R[lob]) - set(TO_EXCLUDE_R))
+        vol_lobar_L[fisin(seg, vals_L)] = LOBAR_GM_LABELS_L[lob]
+        vol_lobar_R[fisin(seg, vals_R)] = LOBAR_GM_LABELS_R[lob]
 
     # Associate WM to lobes (and add the cortical parts)
     vol_lobar_L_exp = expand_label_masked(vol_lobar_L, wm_L) + vol_lobar_L
     vol_lobar_R_exp = expand_label_masked(vol_lobar_R, wm_R) + vol_lobar_R
 
     # Add the other labels
-    for parc in other_vals_L:
-        parc_vox = fisin(seg, other_vals_L[parc])
-        vol_lobar_L_exp[parc_vox] = other_labels_L[parc]
-    for parc in other_vals_R:
-        parc_vox = fisin(seg, other_vals_R[parc])
-        vol_lobar_R_exp[parc_vox] = other_labels_R[parc]
+    for parc in OTHER_VALS_L:
+        parc_vox = fisin(seg, OTHER_VALS_L[parc])
+        vol_lobar_L_exp[parc_vox] = OTHER_LABELS_L[parc]
+    for parc in OTHER_VALS_R:
+        parc_vox = fisin(seg, OTHER_VALS_R[parc])
+        vol_lobar_R_exp[parc_vox] = OTHER_LABELS_R[parc]
 
     vol_lobar_exp = vol_lobar_L_exp + vol_lobar_R_exp
-    vol_lobar_exp[seg == brainstem_val] = brainstem_label
+    vol_lobar_exp[seg == BRAINSTEM_VAL] = BRAINSTEM_LABEL
     return vol_lobar_exp
 
 
@@ -215,8 +226,8 @@ def internal_caps(seg) -> tuple[np.ndarray[tuple[int, int, int], np.dtype[np.boo
     bg_labels_L = [10, 11, 12, 13]  # With thalamus
     bg_labels_R = [49, 50, 51, 52]
 
-    wm_L = (seg == 2)
-    wm_R = (seg == 41)
+    wm_L = (seg == WM_VAL_L)
+    wm_R = (seg == WM_VAL_R)
 
     bg_L = fisin(seg, bg_labels_L)
     bg_R = fisin(seg, bg_labels_R)
@@ -232,8 +243,8 @@ def ex_capsule(seg, exclusion_wm):
     External and extreme capsule, roughly between insula and putamen
     exclusion_wm should be the juxta-cortical WM and the internal capsule
     '''
-    wm_L = (seg == 2)
-    wm_R = (seg == 41)
+    wm_L = (seg == WM_VAL_L)
+    wm_R = (seg == WM_VAL_R)
 
     hipp_vdc = fisin(seg, [17, 53, 28, 60])  # hippocampus and ventral DC
     hipp_vdc_dil = _dilate(hipp_vdc, 5)  # To prevent the ec from growing too low
@@ -295,14 +306,14 @@ def juxtacortical_wm(seg, thickness=3):
     '''
     Juxtacortical white matter, excluding the insula
     '''
-    wm_L = (seg == 2)
-    wm_R = (seg == 41)
+    wm_L = (seg == WM_VAL_L)
+    wm_R = (seg == WM_VAL_R)
 
     cortex_vals_L = []
-    for _, vals in lobar_vals_L.items():
+    for _, vals in LOBAR_VALS_L.items():
         cortex_vals_L += vals
     cortex_vals_R = []
-    for _, vals in lobar_vals_R.items():
+    for _, vals in LOBAR_VALS_R.items():
         cortex_vals_R += vals
     cortex_vals = cortex_vals_L + cortex_vals_R
     cortex = fisin(seg, cortex_vals)
@@ -313,18 +324,18 @@ def juxtacortical_wm(seg, thickness=3):
 
 
 def periventricular(seg, thickness=2):
-    vent = fisin(seg, [4, 5, 43, 44, 31, 63])  # we ignore the third ventricle for now (label 14)
+    vent = fisin(seg, LAT_VENT_VALS_L + LAT_VENT_VALS_R)  # we ignore the third ventricle for now (label 14)
     vent_dil = binary_dilation(vent, iterations=thickness).astype(bool)
     pv = vent_dil & ~vent
     return pv
 
 
 def periventricular_wm(seg, thickness=2):
-    wm_L = (seg == 2)
-    wm_R = (seg == 41)
+    wm_L = (seg == WM_VAL_L)
+    wm_R = (seg == WM_VAL_R)
 
-    vent_L = fisin(seg, [4, 5, 31])
-    vent_R = fisin(seg, [43, 44, 63])
+    vent_L = fisin(seg, LAT_VENT_VALS_L)
+    vent_R = fisin(seg, LAT_VENT_VALS_R)
 
     pvwm_L = binary_dilation(vent_L, iterations=thickness) * wm_L
     pvwm_R = binary_dilation(vent_R, iterations=thickness) * wm_R
@@ -351,8 +362,8 @@ def convert_hyp_to_wm(seg: np.ndarray) -> np.ndarray:
     if num_clusters == 0:
         return seg
 
-    wm_L = (seg == 2)
-    wm_R = (seg == 41)
+    wm_L = (seg == WM_VAL_L)
+    wm_R = (seg == WM_VAL_R)
 
     # Dilate each WM region by 1 voxel to ensure contact detection
     wm_L_dilated = binary_dilation(wm_L, iterations=1)
@@ -368,16 +379,16 @@ def convert_hyp_to_wm(seg: np.ndarray) -> np.ndarray:
 
         # Assign entire cluster to the WM region it touches most
         if touches_L > touches_R:
-            seg[cluster_mask] = 2
+            seg[cluster_mask] = WM_VAL_L
         elif touches_R > touches_L:
-            seg[cluster_mask] = 41
+            seg[cluster_mask] = WM_VAL_R
         else:
             # If equal contact (rare), check which WM region is larger overall
             # or default to left
             if np.sum(wm_L) >= np.sum(wm_R):
-                seg[cluster_mask] = 2
+                seg[cluster_mask] = WM_VAL_L
             else:
-                seg[cluster_mask] = 41
+                seg[cluster_mask] = WM_VAL_R
 
     return seg
 
@@ -389,15 +400,15 @@ def corpus_cal(seg):
         cc_mask = binary_dilation(cc)
         # Assign each CC voxel to the nearest WM half (2=left, 41=right) via EDT
         seed = np.zeros(seg.shape, dtype='int16')
-        wm_in_mask = cc_mask & fisin(seg, [2, 41])
+        wm_in_mask = cc_mask & fisin(seg, [WM_VAL_L, WM_VAL_R])
         seed[wm_in_mask] = seg[wm_in_mask]
         assigned = expand_label_masked(seed, cc_mask)
-        cc_L = (assigned == 2) & cc_mask
-        cc_R = (assigned == 41) & cc_mask
+        cc_L = (assigned == WM_VAL_L) & cc_mask
+        cc_R = (assigned == WM_VAL_R) & cc_mask
         return cc_L, cc_R
     else:
-        wm_L = (seg == 2)
-        wm_R = (seg == 41)
+        wm_L = (seg == WM_VAL_L)
+        wm_R = (seg == WM_VAL_R)
 
         wm = wm_L + wm_R
 
@@ -408,8 +419,8 @@ def corpus_cal(seg):
         vent_123_raw = vent_1_2 | vent_3_dil6
         vent_123 = _close(vent_123_raw, 6)
         #   Cingulum
-        cing_L = _close(fisin(seg, cingulate_vals_L), 5)
-        cing_R = _close(fisin(seg, cingulate_vals_R), 5)
+        cing_L = _close(fisin(seg, CINGULATE_VALS_L), 5)
+        cing_R = _close(fisin(seg, CINGULATE_VALS_R), 5)
         cing = cing_L | cing_R
         #   Total
         exclusion_area = vent_123 | cing
@@ -499,8 +510,8 @@ def lobar_and_wm_segmentation(seg):
     # t = time.time()
     pv_voxels = periventricular(seg, 2)
     # print(f"Time for periventricular: {time.time() - t:.2f} seconds")
-    prvc_L = pv_voxels & (seg == 2)
-    prvc_R = pv_voxels & (seg == 41)
+    prvc_L = pv_voxels & (seg == WM_VAL_L)
+    prvc_R = pv_voxels & (seg == WM_VAL_R)
 
     bgpv_L = pv_voxels & (seg_lobar == 40)
     thalpv_L = pv_voxels & (seg_lobar == 41)
@@ -517,38 +528,58 @@ def lobar_and_wm_segmentation(seg):
     # t = time.time()
     cc_L, cc_R = corpus_cal(seg)
 
-    wm_L = (seg == 2)
-    wm_R = (seg == 41)
+    wm_L = (seg == WM_VAL_L)
+    wm_R = (seg == WM_VAL_R)
 
-    for _, vals in lobar_labels_L.items():
+    for lobe, vals in LOBAR_GM_LABELS_L.items():
         lobar = (seg_lobar == vals) & wm_L
         jxtc = lobar & jxtc_L
         prvc = lobar & prvc_L
-        seg_lobar[lobar] = vals + 2  # deep wm, set first to all wm as default
-        seg_lobar[jxtc] = vals + 1  # juxtacortical wm
-        seg_lobar[prvc] = vals + 3  # periventricular wm
+        seg_lobar[lobar] = LOBAR_WM_LABELS_L[lobe][1]  # deep wm, set first to all wm as default
+        seg_lobar[jxtc] = LOBAR_WM_LABELS_L[lobe][0]  # juxtacortical wm
+        seg_lobar[prvc] = LOBAR_WM_LABELS_L[lobe][2]  # periventricular wm
 
-    for _, vals in lobar_labels_R.items():
+    for _, vals in LOBAR_GM_LABELS_R.items():
         lobar = (seg_lobar == vals) & wm_R
         jxtc = lobar & jxtc_R
         prvc = lobar & prvc_R
-        seg_lobar[lobar] = vals + 2  # deep wm, set first to all wm as default
-        seg_lobar[jxtc] = vals + 1  # juxtacortical wm
-        seg_lobar[prvc] = vals + 3  # periventricular wm
+        seg_lobar[lobar] = LOBAR_WM_LABELS_R[lobe][1]  # deep wm, set first to all wm as default
+        seg_lobar[jxtc] = LOBAR_WM_LABELS_R[lobe][0]  # juxtacortical wm
+        seg_lobar[prvc] = LOBAR_WM_LABELS_R[lobe][2]  # periventricular wm
 
-    seg_lobar[ic_L] = other_labels_L['Internal capsule']
-    seg_lobar[ic_R] = other_labels_R['Internal capsule']
-    seg_lobar[ec_L] = other_labels_L['Ext. capsule']
-    seg_lobar[ec_R] = other_labels_R['Ext. capsule']
-    seg_lobar[cc_L] = other_labels_L['Corpus callosum']
-    seg_lobar[cc_R] = other_labels_R['Corpus callosum']
-    seg_lobar[bgpv_L] = other_labels_L['BG prvc']
-    seg_lobar[bgpv_R] = other_labels_R['BG prvc']
-    seg_lobar[icpv_L] = other_labels_L['In. cap. prvc']
-    seg_lobar[icpv_R] = other_labels_R['In. cap. prvc']
-    seg_lobar[thalpv_L] = other_labels_L['Thal. prvc']
-    seg_lobar[thalpv_R] = other_labels_R['Thal. prvc']
+    seg_lobar[ic_L] = OTHER_LABELS_L['Internal capsule']
+    seg_lobar[ic_R] = OTHER_LABELS_R['Internal capsule']
+    seg_lobar[ec_L] = OTHER_LABELS_L['Ext. capsule']
+    seg_lobar[ec_R] = OTHER_LABELS_R['Ext. capsule']
+    seg_lobar[cc_L] = OTHER_LABELS_L['Corpus callosum']
+    seg_lobar[cc_R] = OTHER_LABELS_R['Corpus callosum']
+    seg_lobar[bgpv_L] = OTHER_LABELS_L['BG prvc']
+    seg_lobar[bgpv_R] = OTHER_LABELS_R['BG prvc']
+    seg_lobar[icpv_L] = OTHER_LABELS_L['In. cap. prvc']
+    seg_lobar[icpv_R] = OTHER_LABELS_R['In. cap. prvc']
+    seg_lobar[thalpv_L] = OTHER_LABELS_L['Thal. prvc']
+    seg_lobar[thalpv_R] = OTHER_LABELS_R['Thal. prvc']
 
     return seg_lobar
 
 # %%
+
+def hemispheric_seg(fs_seg, lobar_seg):
+    """Return masks for left and right hemispheres (with lateral ventricles), left and right cerebellum, and brainstem."""
+    new_seg = np.zeros_like(fs_seg)
+    
+    left_hemi_labels = [v for v in LOBAR_GM_LABELS_L.values()] + [v for k, v in OTHER_LABELS_L.items() if k != 'Cerebellum'] + [v for vals in LOBAR_WM_LABELS_L.values() for v in vals]
+    right_hemi_labels = [v for v in LOBAR_GM_LABELS_R.values()] + [v for k, v in OTHER_LABELS_R.items() if k != 'Cerebellum'] + [v for vals in LOBAR_WM_LABELS_R.values() for v in vals]
+    cereb_L = OTHER_LABELS_L['Cerebellum']
+    cereb_R = OTHER_LABELS_R['Cerebellum']
+    
+    new_seg[fisin(lobar_seg, left_hemi_labels)] = 1
+    new_seg[fisin(fs_seg, LAT_VENT_VALS_L)] = 1
+    new_seg[fisin(lobar_seg, right_hemi_labels)] = 2
+    new_seg[fisin(fs_seg, LAT_VENT_VALS_R)] = 2
+    new_seg[fisin(lobar_seg, cereb_L)] = 3
+    new_seg[fisin(lobar_seg, cereb_R)] = 4
+    new_seg[lobar_seg == BRAINSTEM_LABEL] = 5
+    return new_seg
+
+#%%

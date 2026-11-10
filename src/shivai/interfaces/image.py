@@ -1,7 +1,7 @@
 """Custom nipype interfaces for image resampling/cropping and
 other preliminary tasks"""
 import os.path as op
-from shivai.postprocessing.lobarseg import lobar_and_wm_segmentation
+from shivai.postprocessing.lobarseg import lobar_and_wm_segmentation, hemispheric_seg
 from shivai.postprocessing.custom_parc import seg_for_pvs, seg_for_wmh, seg_from_mars
 from shivai.postprocessing.pvs import quantify_clusters
 from shivai.postprocessing.basalganglia import create_basalganglia_slice_mask
@@ -1767,15 +1767,7 @@ class Parc_from_Synthseg(BaseInterface):
         seg_vol = seg_im.get_fdata().astype(int)
         custom_parc = lobar_and_wm_segmentation(seg_vol)
         custom_parc_im = nib.Nifti1Image(custom_parc, seg_im.affine)
-        brainmask_no_csf = seg_vol.copy()
-        L_labels = list(range(1, 18)) + list(range(40, 48)) + list(range(78, 81))
-        R_labels = list(range(21, 38)) + list(range(50, 58)) + list(range(88, 91))
-        csf_label = 24
-        other_labels = set(np.unique(seg_vol)) - set(L_labels) - set(R_labels) - {csf_label} - {0}
-        brainmask_no_csf[brainmask_no_csf == csf_label] = 0
-        brainmask_no_csf[fisin(seg_vol, list(L_labels))] = 1
-        brainmask_no_csf[fisin(seg_vol, list(R_labels))] = 2
-        brainmask_no_csf[fisin(seg_vol, list(other_labels))] = 3  # Should only be the cerebellum
+        brainmask_no_csf = hemispheric_seg(seg_vol, custom_parc)
         brainmask_no_csf_im = nib.Nifti1Image(brainmask_no_csf.astype(np.uint8), seg_im.affine)
         nib.save(brainmask_no_csf_im, 'brainmask_no_csf.nii.gz')
         nib.save(custom_parc_im, 'derived_parc.nii.gz')
