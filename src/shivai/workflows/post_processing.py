@@ -34,8 +34,8 @@
         (cmb_to_native_t1, 'target_image')
         (cmb_to_native_t1, 'transform_affine')
     if with_flair:
-        ({lpred}_to_flair-native, 'target_image')
-        ({lpred}_to_flair-native, 'transform_affine')
+        ({lpred}_to_flair_native, 'target_image')
+        ({lpred}_to_flair_native, 'transform_affine')
    """
 import os
 
@@ -217,7 +217,7 @@ def genWorkflow(**kwargs) -> Workflow:
             clust_to_native.inputs.out_name = f'labelled_{lpred}_{main_img}-native-space.nii.gz'
             workflow.connect(cluster_labelling, 'labelled_biomarkers', clust_to_native, 'input_image')
             if with_flair and not kwargs['PREP_SETTINGS']['prereg_flair']:
-                clust_to_flair_native = Node(Labelled_Clusters_Registration(), name=f'{lpred}_to_flair-native')
+                clust_to_flair_native = Node(Labelled_Clusters_Registration(), name=f'{lpred}_to_flair_native')
                 clust_to_flair_native.inputs.out_name = f'labelled_{lpred}_{flair_acq}-native-space.nii.gz'
                 clust_to_flair_native.inputs.inverse_affine = True  # We only have the flair-to-t1 transform readily available
                 workflow.connect(cluster_labelling, 'labelled_biomarkers', clust_to_flair_native, 'input_image')

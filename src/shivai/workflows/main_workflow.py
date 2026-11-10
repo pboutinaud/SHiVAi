@@ -343,8 +343,8 @@ def _connect_postproc(main_wf, seg_getters, subject_iterator, wf_post, preproc_i
             if with_flair and not kwargs['PREP_SETTINGS']['prereg_flair']:
                 ref_node_flair, ref_field_flair = preproc_images['flair-native']
                 ref_node_trans, ref_field_trans = preproc_images['flair-to-t1']
-                main_wf.connect(ref_node_flair, ref_field_flair, wf_post, f'{lpred}_to_flair-native.target_image')
-                main_wf.connect(ref_node_trans, (ref_field_trans, get_first_item), wf_post, f'{lpred}_to_flair-native.transform_affine')
+                main_wf.connect(ref_node_flair, ref_field_flair, wf_post, f'{lpred}_to_flair_native.target_image')
+                main_wf.connect(ref_node_trans, (ref_field_trans, get_first_item), wf_post, f'{lpred}_to_flair_native.transform_affine')
 
         # Merge all csv files
         prediction_metrics_all = JoinNode(Join_Prediction_metrics(),
@@ -388,7 +388,7 @@ def _connect_pred_sinks(main_wf, seg_getters, wf_post, sink_node_subjects, sink_
         else:
             main_wf.connect(wf_post, f'{lpred}_to_native.output_image', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@native')
             if with_flair and not kwargs['PREP_SETTINGS']['prereg_flair']:
-                main_wf.connect(wf_post, f'{lpred}_to_flair-native.output_image', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@native_flair')
+                main_wf.connect(wf_post, f'{lpred}_to_flair_native.output_image', sink_node_subjects, f'segmentations.{lpred}_segmentation{space}.@native_flair')
         main_wf.connect(prediction_metrics_all, 'prediction_metrics_csv', sink_node_all, f'segmentations.{lpred}_metrics{space}')
         main_wf.connect(prediction_metrics_all, 'prediction_metrics_wide_csv', sink_node_all, f'segmentations.{lpred}_metrics{space}.@wide')
         if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
