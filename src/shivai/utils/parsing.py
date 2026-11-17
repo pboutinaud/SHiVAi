@@ -867,7 +867,14 @@ def parse_sub_list_file(filename):
 
 def parse_sub_list(inParser, args):
 
+    if not hasattr(args, 'input_type'):  # in case parse_sub_list is called for another parser
+        args.input_type = 'standard'
     subject_list = os.listdir(args.in_dir)
+    if args.input_type == 'BIDS':
+        subject_list = sorted(
+            sub for sub in subject_list
+            if sub.startswith('sub-') and (Path(args.in_dir) / sub).is_dir()
+        )
     if args.sub_list is None and args.sub_names is None:
         if args.exclusion_list:
             args.exclusion_list = parse_sub_list_file(args.exclusion_list)
@@ -889,9 +896,9 @@ def parse_sub_list(inParser, args):
 
     # Checks and parsing of subjects, detetion of potential "session" depth
     has_session = False
-    if not hasattr(args, 'input_type'):  # in case parse_sub_list is called for another parser
-        args.input_type = 'standard'
     if args.input_type != 'swomed':
+        if not args.sub_list:
+            inParser.error('No participants were selected in the input directory. Please check the input directory and participant filters.')
         if args.input_type == 'BIDS':
             expected_folders = ['anat']
         elif args.input_type == 'standard':

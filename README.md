@@ -592,6 +592,31 @@ Or, with different sessions per subjects:
         │           └── sub-21_ses-02_seg.nii.gz
 ```
 
+For BIDS input, `--in` must point to the folder directly containing the `sub-*` directories
+(`rawdata` in these examples). Dataset metadata and non-participant directories are ignored.
+Session folder names are preserved, including names such as `ses-ABC123` and `ses-ABC123_foo`;
+no numeric session ID is required. Select a single session with, for example,
+`--sub_names sub-21/ses-AB123`, or select `sub-21` to process all its sessions.
+Images are matched by modality within the selected subject/session's `anat` directory.
+
+The same subject/session identity is retained in outputs, independently of Nipype's
+working-directory naming. For example:
+
+```text
+results/
+  shiva_preproc/t1_preproc/sub-21/ses-AB123/...
+  segmentations/pvs_segmentation/sub-21/ses-AB123/...
+  report/sub-21/ses-AB123/Shiva_report.pdf
+  results_summary/...
+```
+
+Subjects without sessions keep their existing single-level layout. Summary CSVs retain
+the full `sub-21/ses-AB123` ID, and preprocessing reuse and postprocessing-only runs read
+the nested session directories. Girder uploads retain that ID for routing and record the
+same local relative paths in their metadata. Existing results using Nipype's escaped
+`sub-21..ses-AB123` directory names are not automatically migrated; reorganize them into
+the nested layout before reusing them.
+
 Example of `standard` structure folders (the important parts are the name of the subject folder, e.g. "sub-21", and the name of the sub folders, e.g. "flair" or "t1", with only one nifti file per folder):
 
 ```txt

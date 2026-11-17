@@ -4,6 +4,9 @@ Also add an "Append date" column for the lines appended to the csv.
 For PDF files already existing, it saves the new file with a number added at the end of the
 filename (e.g. "report_2.pdf" if "report.pdf" already exists)
 
+An optional subject_path places per-subject outputs in subject/session directories
+without relying on Nipype's working-directory parameterization.
+
 All copy-pasted from _list_outputs of DataSink. The modified part can be found under the
 two "# NOTE: OVERLOADED" tags
 
@@ -26,7 +29,24 @@ from datetime import date
 iflogger = logging.getLogger("nipype.interface")
 
 
-class DataSink_CSV_and_PDF_safe(DataSink):
+class SubjectDataSinkInputSpec(DataSinkInputSpec):
+    subject_path = Str(desc="Explicit subject/session path within each output category")
+
+
+class SubjectDataSink(DataSink):
+    input_spec = SubjectDataSinkInputSpec
+
+    def _get_dst(self, src):
+        if self.inputs.parameterization and isdefined(self.inputs.subject_path):
+            # Do not infer session identity from Nipype's escaped working directories.
+            return os.path.join(
+                *self.inputs.subject_path.split('/'),
+                os.path.basename(src.rstrip(os.path.sep)),
+            )
+        return super()._get_dst(src)
+
+
+class DataSink_CSV_and_PDF_safe(SubjectDataSink):
     # List outputs, main run routine
     def _list_outputs(self):
         """Execute this module."""
@@ -197,11 +217,12 @@ class DataSink_CSV_and_PDF_safe(DataSink):
 
 
 
-class GirderSinkInputSpec(DataSinkInputSpec):
+class GirderSinkInputSpec(SubjectDataSinkInputSpec):
     """Input spec for GirderSink. Extends nipype's DataSinkInputSpec (base_directory,
     container, substitutions, parameterization, etc.) so that GirderSink can reconstruct
     the exact same relative path the local DataSink would use (see `_get_dst`/`_substitute`),
     on top of which we add the Girder-specific connection/routing traits below.
+    subject_path controls local-path metadata; subject_id controls remote routing.
     """
 
     host = Str(mandatory=True, desc="Girder API URL (e.g. https://girder.example.com/api/v1)")
@@ -251,7 +272,7 @@ class GirderSinkInputSpec(DataSinkInputSpec):
     )
 
 
-class GirderSink(DataSink):
+class GirderSink(SubjectDataSink):
     """Sink that uploads workflow outputs to a Girder server.
 
     Similar in spirit to nipype's XNATSink, but instead of a fixed

@@ -109,12 +109,12 @@ def update_wf_grabber(wf, acquisitions, datatype, kwargs, grabber_name='datagrab
     if data_struct == 'BIDS':
         if datatype == 'dicom':
             raise ValueError('BIDS data structure not compatible with DICOM input')
-        # e.g: {'img1': '%s/anat/%s_T1_raw.nii.gz}
-        datagrabber.inputs.field_template.update({acq[0]: os.path.join(datadir, f'%s/anat/%s_{acq[1].upper()}*.nii*') for acq in acquisitions})
-        datagrabber.inputs.template_args.update({acq[0]: [['subject_id', 'subject_id']] for acq in acquisitions})
+        # subject_id may contain a session path, not a filename prefix.
+        datagrabber.inputs.field_template.update({acq[0]: os.path.join(datadir, f'%s/anat/*_{acq[1].upper()}*.nii*') for acq in acquisitions})
+        datagrabber.inputs.template_args.update({acq[0]: [['subject_id']] for acq in acquisitions})
         if kwargs['BRAIN_SEG'] == 'custom':  # TODO: Correct this for proper bids format. It should actually be in the "derived" folder...
-            datagrabber.inputs.field_template['seg'] = os.path.join(datadir, '%s/anat/%s_*seg*.nii*')
-            datagrabber.inputs.template_args['seg'] = [['subject_id', 'subject_id']]
+            datagrabber.inputs.field_template['seg'] = os.path.join(datadir, '%s/anat/*_*seg*.nii*')
+            datagrabber.inputs.template_args['seg'] = [['subject_id']]
         if kwargs['BRAIN_SEG'] == 'fs_precomp':
             datagrabber.inputs.field_template['seg'] = os.path.join(datadir, '%s/anat/*aparc+aseg.*')
             datagrabber.inputs.template_args['seg'] = [['subject_id']]
@@ -596,6 +596,7 @@ def generate_main_wf(**kwargs) -> Workflow:
                               name='sink_node_subjects',
                               run_without_submitting=True)
     sink_node_subjects.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
+    main_wf.connect(subject_iterator, 'subject_id', sink_node_subjects, 'subject_path')
     # Name substitutions in the results
     sink_node_subjects.inputs.substitutions = [
         ('_subject_id_', ''),
@@ -699,8 +700,10 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
     preproc_res = kwargs['PREP_SETTINGS']['preproc_res']
 
     # First, compare the subjects from the input folder/subject list and the ones in the input results folder
-    available_preproc = os.listdir(os.path.join(preproc_res, 'qc_metrics'))  # There should always be a 'qc_metrics' folder in the results
-    missing_subj = sorted(list(set(kwargs['SUBJECT_LIST']) - set(available_preproc)))
+    missing_subj = sorted(
+        sub for sub in kwargs['SUBJECT_LIST']
+        if not os.path.isdir(os.path.join(preproc_res, 'qc_metrics', sub))
+    )
     if missing_subj:
         miss_subj_file = os.path.join(kwargs['BASE_DIR'], 'missing_datasets.txt')
         with open(miss_subj_file, 'w') as file:
@@ -709,7 +712,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
                 file.write(f"{subID}\n")
         error_msg = (
             '\nSome of the datasets from the input folder did not have corresponding preprocessed data in the input results folder '
-            f'({len(missing_subj)} out of {len(available_preproc)}). The IDs of the culprits have been written in a text file:'
+            f'({len(missing_subj)} out of {len(kwargs["SUBJECT_LIST"])}). The IDs of the culprits have been written in a text file:'
             f'\n{miss_subj_file}\n'
             'To continue, you can:\n'
             '   - Process the datasets which lack preprocessed data the normal way with the full shiva pipeline (to complete the preprocessed folder)\n'
@@ -792,9 +795,9 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
         field_template['brain_mask_noCSF'] = 'synthseg/%s/brainmask_no_csf.nii.gz'
         template_args['brain_mask_noCSF'] = [['subject_id']]
     elif kwargs['BRAIN_SEG'] == 'fs_precomp':
-        field_template['brain_seg'] = 'shiva_preproc/freesurfer/%s/derived_parc.nii.gz'
+        field_template['brain_seg'] = 'freesurfer/%s/derived_parc.nii.gz'
         template_args['brain_seg'] = [['subject_id']]
-        field_template['brain_mask_noCSF'] = 'shiva_preproc/freesurfer/%s/brainmask_no_csf.nii.gz'
+        field_template['brain_mask_noCSF'] = 'freesurfer/%s/brainmask_no_csf.nii.gz'
         template_args['brain_mask_noCSF'] = [['subject_id']]
     elif kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None:
         if with_t1:
@@ -837,9 +840,9 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
         preproc_images['swi'] = (preproc_grabber, 'swi_intensity_normalized')
 
     # Brain seg image
-    if 'synthseg' in kwargs['BRAIN_SEG'] or (kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None):
+    if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp' or (kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None):
         preproc_images['brain_seg'] = (preproc_grabber, 'brain_seg')
-        if 'synthseg' in kwargs['BRAIN_SEG']:
+        if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
             preproc_images['brain_mask_noCSF'] = (preproc_grabber, 'brain_mask_noCSF')
 
     # Build joiners, postproc, prediction, and connect everything
@@ -868,6 +871,7 @@ def generate_main_wf_grab_preproc(**kwargs) -> Workflow:
                               name='sink_node_subjects',
                               run_without_submitting=True)
     sink_node_subjects.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
+    main_wf.connect(subject_iterator, 'subject_id', sink_node_subjects, 'subject_path')
     sink_node_subjects.inputs.substitutions = [
         ('_subject_id_', ''),
         ('_resampled_cropped_img_normalized', '_cropped_intensity_normed'),
@@ -900,8 +904,10 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
 
     # %% Validate available subjects
     available_seg = [seg[:seg.index('_segmentation')].upper() for seg in os.listdir(os.path.join(prev_res, 'segmentations'))]
-    available_subs = os.listdir(os.path.join(prev_res, 'shiva_preproc', 'qc_metrics'))
-    missing_subj = sorted(list(set(kwargs['SUBJECT_LIST']) - set(available_subs)))
+    missing_subj = sorted(
+        sub for sub in kwargs['SUBJECT_LIST']
+        if not os.path.isdir(os.path.join(prev_res, 'shiva_preproc', 'qc_metrics', sub))
+    )
     if missing_subj:
         error_msg = (
             '\nSome of the datasets from the input folder did not have corresponding preprocessed data in the input results folder '
@@ -953,10 +959,15 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
                    'swi-to-t1',
                    'flair-to-t1',
                    'brain_mask_swi',
+                   'seg',
                    'pvs_segmentation',
+                   'pvs_prediction_foldwise',
                    'wmh_segmentation',
+                   'wmh_prediction_foldwise',
                    'cmb_segmentation',
+                   'cmb_prediction_foldwise',
                    'lac_segmentation',
+                   'lac_prediction_foldwise',
                    ]),
         name='prev_res_grabber',
         run_without_submitting=True)
@@ -1014,13 +1025,19 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
             space = f'_{swi_acq}-space'
         else:
             space = ''
-        pred_field_template[f'{lpred}_segmentation'] = f'segmentations/{lpred}_segmentation{space}/%s_{lpred}_map.nii.gz'
+        pred_field_template[f'{lpred}_segmentation'] = f'segmentations/{lpred}_segmentation{space}/%s/*_{lpred}_map.nii.gz'
+        pred_field_template[f'{lpred}_prediction_foldwise'] = f'segmentations/{lpred}_segmentation{space}/%s/*_{lpred}_map_by_fold.nii.gz'
         seg_getters[pred] = Node(IdentityInterface(fields=['segmentation']),
                                  name=f'seg_getter_{lpred}',
                                  run_without_submitting=True)
+        seg_getters[pred + '_foldwise'] = Node(IdentityInterface(fields=['prediction_foldwise']),
+                                               name=f'seg_getter_{lpred}_foldwise',
+                                               run_without_submitting=True)
         main_wf.connect(prev_res_grabber, f'{lpred}_segmentation', seg_getters[pred], 'segmentation')
+        main_wf.connect(prev_res_grabber, f'{lpred}_prediction_foldwise', seg_getters[pred + '_foldwise'], 'prediction_foldwise')
 
     prev_res_grabber.inputs.field_template.update(pred_field_template)
+    prev_res_grabber.inputs.template_args = {field: [['subject_id']] for field in prev_res_grabber.inputs.field_template}
 
     main_wf.connect(subject_iterator, 'subject_id', prev_res_grabber, 'subject_id')
 
@@ -1053,9 +1070,9 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
             preproc_images['swi-native'] = (prev_res_grabber, 'img1')
         preproc_images['swi'] = (prev_res_grabber, 'swi_intensity_normalized')
 
-    if 'synthseg' in kwargs['BRAIN_SEG'] or (kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None):
+    if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp' or (kwargs['BRAIN_SEG'] == 'custom' and kwargs['CUSTOM_LUT'] is not None):
         preproc_images['brain_seg'] = (prev_res_grabber, 'brain_seg')
-        if 'synthseg' in kwargs['BRAIN_SEG']:
+        if 'synthseg' in kwargs['BRAIN_SEG'] or kwargs['BRAIN_SEG'] == 'fs_precomp':
             preproc_images['brain_mask_noCSF'] = (prev_res_grabber, 'brain_mask_noCSF')
 
     # %% Postprocessing workflow and connections
@@ -1078,6 +1095,7 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
                               name='sink_node_subjects',
                               run_without_submitting=True)
     sink_node_subjects.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
+    main_wf.connect(subject_iterator, 'subject_id', sink_node_subjects, 'subject_path')
     sink_node_subjects.inputs.substitutions = [
         ('_subject_id_', ''),
         ('_resampled_cropped_img_normalized', '_cropped_intensity_normed'),
@@ -1087,6 +1105,8 @@ def generate_main_wf_rerun_postproc(**kwargs) -> Workflow:
     sink_node_all = Node(DataSink_CSV_and_PDF_safe(infields=datasing_fields),
                          name='sink_node_all',
                          run_without_submitting=True)
+    sink_node_all.inputs.base_directory = os.path.join(kwargs['BASE_DIR'], 'results')
+    sink_node_all.inputs.container = 'results_summary'
     _connect_pred_sinks(main_wf, seg_getters, wf_post, sink_node_subjects, sink_node_all, **kwargs)
 
     if wf_graph is not None:
