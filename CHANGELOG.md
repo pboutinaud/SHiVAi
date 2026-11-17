@@ -2,6 +2,25 @@
 
 All notable changes to the SHiVAi project will be documented in this file.
 
+## [v0.6.4] - 2026-11-17
+
+**Added:**
+
+- `shiva_download` CLI and Apptainer/Docker wrapper for downloading model versions, with download progress and automatic model descriptor/configuration setup
+- Region-aware cluster labeling that splits clusters across brain regions, including the hemispheres, cerebellum, and brainstem
+
+**Fixed:**
+
+- Subject/session handling across BIDS input discovery, workflow outputs, and reuse of preprocessed results
+- Workflow connections for preregistered FLAIR inputs
+- Region assignment for clusters spanning multiple brain regions or extending beyond the brain mask
+- Workflow graph generation issues caused by node names and SVG creation
+
+**Changed:**
+
+- Prediction cluster and regional biomarker volumes now use image voxel dimensions instead of voxel counts
+- Reduced Docker build disk usage by removing ANTs in the same build step
+
 ## [v0.6.3] - 2026-10-22
 
 **Added:**

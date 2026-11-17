@@ -16,6 +16,11 @@ The tools cover preprocessing (image resampling and cropping to match the requir
 
 ## ⚠️ Important recent changes ⚠️
 
+### What's New in v0.6.4 (2026-11-17)
+
+- Added `shiva_download` CLI and Apptainer/Docker wrapper for downloading model versions, with download progress and automatic model descriptor/configuration setup.
+- Region-aware cluster labeling that splits clusters across brain regions, including the hemispheres, cerebellum, and brainstem. ⚠️ This may change the cluster assignments compared to previous versions. Especially for clusters spanning multiple regions like large WMH. This new feature allow for the comparison of WMH load between hemispheres when the mail WMH cluster span from one hemisphere to the other through the corpus callosum.
+
 ### What's New in v0.6.3 (2026-10-22)
 
 - ⚠️ It was discovered that ANTs registration often caused misalignment issues between T1w and FLAIR images since version v0.5.8 ⚠️ This has now been corrected in v0.6.3 and the registration parameters can now be changed in the configuration file (.yaml).
