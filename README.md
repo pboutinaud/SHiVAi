@@ -140,7 +140,7 @@ SHiVAi relies on brain masks to crop the input volumes to the proper dimensions 
 1. You will need to have **Apptainer** installed (previously known as **Singularity**):
 <https://apptainer.org/docs/user/main/quick_start.html>
 
-2. Download the Apptainer image (.sif file) from [https://cloud.efixia.com/sharing/Z404gQ04h](https://cloud.efixia.com/sharing/Z404gQ04h) (it may take a while, the image weighs about 4GB).
+2. Download the Apptainer image (.sif file) from [https://cloud.efixia.com/sharing/zReR9cKYU](https://cloud.efixia.com/sharing/zReR9cKYU) (it may take a while, the image weighs about 4GB).
     Let's assume you saved it in `/myHome/myProject/shivai.sif`
 
 3. Download [run_shiva.py](apptainer/run_shiva.py) and use [download_models.py](apptainer/download_models.py) to download your models as [shown above](#trained-ai-model). Copy the generated `auto_config.yml` to `/myHome/myProject/myConfig.yml`. Alternatively, start with [config_example.yml](apptainer/config_example.yml) if you downloaded the models manually.
